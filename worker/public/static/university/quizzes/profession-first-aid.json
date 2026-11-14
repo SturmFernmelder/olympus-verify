@@ -1,0 +1,154 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "profession-first-aid",
+ "questions": [
+  {
+   "id": "profession-first-aid.major-manual",
+   "scope": "profession:first-aid",
+   "tier": 101,
+   "chapter": "first-aid-101-changes",
+   "type": "mcq",
+   "stem": "What First Aid skill does the Major Healing Potion manual need?",
+   "choices": [
+    "275",
+    "215"
+   ],
+   "answer": 0,
+   "explanation": "The Superior Healing Potion manual needs First Aid 215 and the Major Healing Potion manual 275.",
+   "facts": [
+    "profession-first-aid.healing-potions"
+   ]
+  },
+  {
+   "id": "profession-first-aid.toxin-study",
+   "scope": "profession:first-aid",
+   "tier": 101,
+   "chapter": "first-aid-101-camp",
+   "type": "mcq",
+   "stem": "Which First Aid camp object unlocks at skill 140?",
+   "choices": [
+    "Toxin Study",
+    "First Aid Kit",
+    "Plague Doctor's Laboratory"
+   ],
+   "answer": 0,
+   "explanation": "The First Aid Kit comes at skill 20, the Toxin Study at 140 and the Plague Doctor's Laboratory at 300.",
+   "facts": [
+    "profession-first-aid.camp-objects"
+   ]
+  },
+  {
+   "id": "profession-first-aid.field-medicine",
+   "scope": "profession:first-aid",
+   "tier": 101,
+   "chapter": "first-aid-101-leveling",
+   "type": "mcq",
+   "stem": "What does the Field Medicine Legacy perk do?",
+   "choices": [
+    "shortens the Recently Bandaged debuff",
+    "shortens the camp-feature cooldown",
+    "makes food buffs last longer"
+   ],
+   "answer": 0,
+   "explanation": "Field Medicine shortens the Recently Bandaged debuff. The Field Guide perk shortens the camp-feature cooldown, and Gourmand makes food buffs last longer.",
+   "facts": [
+    "profession-first-aid.field-medicine"
+   ],
+   "distractorFacts": [
+    "profession-cooking.legacy-perks"
+   ]
+  },
+  {
+   "id": "profession-first-aid.triage",
+   "scope": "profession:first-aid",
+   "tier": 101,
+   "chapter": "first-aid-101-leveling",
+   "type": "mcq",
+   "stem": "What First Aid skill does the Triage quest for Artisan need?",
+   "choices": [
+    "225",
+    "300"
+   ],
+   "answer": 0,
+   "explanation": "The Triage quest needs level 35 and First Aid 225. 300 is the cap.",
+   "facts": [
+    "profession-first-aid.expert-and-artisan"
+   ]
+  },
+  {
+   "id": "profession-first-aid.bandage-heal",
+   "scope": "profession:first-aid",
+   "tier": 201,
+   "chapter": "first-aid-201-raid",
+   "type": "mcq",
+   "stem": "How much does a Heavy Runecloth Bandage heal?",
+   "choices": [
+    "2000 over 8 s",
+    "1050 to 1750"
+   ],
+   "answer": 0,
+   "explanation": "A Heavy Runecloth Bandage heals 2000 over 8 s. 1050 to 1750 is what a Major Healing Potion heals.",
+   "facts": [
+    "profession-first-aid.heavy-runecloth-bandage"
+   ],
+   "distractorFacts": [
+    "profession-first-aid.self-made-healing-potions"
+   ]
+  },
+  {
+   "id": "profession-first-aid.potion-cooldown",
+   "scope": "profession:first-aid",
+   "tier": 201,
+   "chapter": "first-aid-201-raid",
+   "type": "mcq",
+   "stem": "What cooldown does the Major Healing Potion have?",
+   "choices": [
+    "2-minute cooldown",
+    "1-minute cooldown"
+   ],
+   "answer": 0,
+   "explanation": "The Major Healing Potion has a 2-minute cooldown. The 1-minute cooldown is the one all First Aid remedies share.",
+   "facts": [
+    "profession-first-aid.self-made-healing-potions",
+    "profession-first-aid.new-remedies"
+   ]
+  },
+  {
+   "id": "profession-first-aid.bandage-use",
+   "scope": "profession:first-aid",
+   "tier": 201,
+   "chapter": "first-aid-201-raid",
+   "type": "scenario",
+   "stem": "A raider packs Heavy Runecloth Bandages for a long night. What First Aid skill do they need to use them?",
+   "choices": [
+    "225",
+    "290"
+   ],
+   "answer": 0,
+   "explanation": "Using a Heavy Runecloth Bandage needs First Aid 225. Icy Veins says making one needs 290.",
+   "facts": [
+    "profession-first-aid.heavy-runecloth-bandage"
+   ]
+  },
+  {
+   "id": "profession-first-aid.potion-herbs",
+   "scope": "profession:first-aid",
+   "tier": 201,
+   "chapter": "first-aid-201-gold",
+   "type": "mcq",
+   "stem": "Which herbs go into First Aid healing potions?",
+   "choices": [
+    "Sungrass or Golden Sansam",
+    "Frilled Lichen, Rosecap and Stranglevine"
+   ],
+   "answer": 0,
+   "explanation": "Healing potions use a Crystal Vial, Soothing Spices and Sungrass or Golden Sansam. Frilled Lichen, Rosecap and Stranglevine are the scarce herbs alchemists turn into dyes.",
+   "facts": [
+    "profession-first-aid.healing-potions"
+   ],
+   "distractorFacts": [
+    "profession-herbalism.scarce-herbs"
+   ]
+  }
+ ]
+}

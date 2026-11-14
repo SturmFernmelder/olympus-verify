@@ -71,7 +71,7 @@ const source196=String.raw`
    res196=await index.fetch(new Request('https://guild.example'+route,{method}),publicOnly196,ctx);await settle();const text=await res196.text();
    check(method+' '+route+' remains public script-free and database-free after adding the media bit',res196.status===200&&publicDB196===0&&!res196.headers.has('Set-Cookie')&&/script-src 'none'/.test(res196.headers.get('Content-Security-Policy'))&&(method!=='HEAD'||text===''));
  }
- for(const route of ['/static/wow/login/dark-portal.webm','/static/wow/login/dark-portal-poster.jpg','/static/wow/login/olympus-dark-portal-wide.png','/static/wow/login/olympus-dark-portal-portrait.png']){
+ for(const route of ['/static/wow/login/dark-portal.webm','/static/wow/login/dark-portal-poster.jpg','/static/wow/login/olympus-dark-portal-wide.png','/static/wow/login/olympus-dark-portal-portrait.png','/static/wow/login/olympus-dark-portal-wide.webp','/static/wow/login/olympus-dark-portal-portrait.webp']){
    const before=assetReads196;res196=await index.fetch(new Request('https://guild.example'+route),publicOnly196,ctx);await settle();
    check('exact public media '+route+' bypasses the branding setting and every account read',res196.status===200&&publicDB196===0&&assetReads196===before+1&&/no-store/.test(res196.headers.get('Cache-Control'))&&!res196.headers.has('Set-Cookie'));
  }

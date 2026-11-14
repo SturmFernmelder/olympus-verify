@@ -11,7 +11,7 @@ import { guildStaffNow219, guildActorBatch219, type GuildActor219 } from './guil
 import { DB_NOW, communityFeatures } from './community-context';
 import { readCalendar219, createCalendar219, calendarRoster219, attendanceCalendar219, rsvpCalendar219, eventId219, type CalendarEvent219 } from './guild-calendar219';
 import { consentCalendarReminder219 } from './guild-reminder219';
-import { safeDiscordText219, type GuildEmbed219 } from './guild-utilities219';
+import { safeDiscordText219, plainDiscordLabel280, type GuildEmbed219 } from './guild-utilities219';
 import { siteMemberLink } from './site-return';
 
 type Button222={type:2;style:number;label:string;custom_id?:string;url?:string};
@@ -60,7 +60,7 @@ export async function raidAutocomplete222(env:Env,a:GuildActor219,i:Interaction)
  const term=focused.value.toLowerCase().slice(0,80);
  const out=await guildActorBatch219(env,a,[env.DB.prepare('SELECT id,title,starts_at FROM community_events WHERE retain_until>'+DB_NOW+" AND status='scheduled' AND starts_at>"+DB_NOW+' AND (id=?1 OR instr(lower(title),?1)>0) ORDER BY starts_at,id LIMIT 25').bind(term)]);
  const events=out[0]!.results as unknown as Pick<CalendarEvent219,'id'|'title'|'starts_at'>[];
- return {type:8,data:{choices:events.filter(e=>(e.title+' '+e.id).toLowerCase().includes(term)).slice(0,5).map(e=>({name:safeDiscordText219(e.title,75)+' · '+new Date(e.starts_at*1000).toISOString().slice(0,16)+'Z',value:e.id}))}};
+ return {type:8,data:{choices:events.filter(e=>(e.title+' '+e.id).toLowerCase().includes(term)).slice(0,5).map(e=>({name:plainDiscordLabel280(e.title,75)+' · '+new Date(e.starts_at*1000).toISOString().slice(0,16)+'Z',value:e.id}))}};
 }
 export async function raidHub222(env:Env,a:GuildActor219,i:Interaction):Promise<HubAnswer222>{
  const find=i.type===2?option<unknown>(i,'find'):undefined;
@@ -97,7 +97,7 @@ export async function raidHub222(env:Env,a:GuildActor219,i:Interaction):Promise<
   components.push(row(button('View roster',cid(a,'roster',event)),button('All upcoming events',cid(a,'hub')), {type:2,style:5,label:'Open calendar',url:calendarLink}));
   if(staff)components.push(row(button('One reminder…',cid(a,'remind',event)),button('Record attendance',cid(a,'attend',event)),button('Lock attendance…',cid(a,'lock',event))));
  }else{
-  if(events.length)components.push(row({type:3,custom_id:cid(a,'choose',undefined,p.page),placeholder:'Choose a raid or guild event',min_values:1,max_values:1,options:events.slice(0,5).map(e=>({label:safeDiscordText219(e.title,80),value:e.id,description:new Date(e.starts_at*1000).toISOString().slice(0,16)+'Z · '+e.duration_min+' minutes'}))}));
+  if(events.length)components.push(row({type:3,custom_id:cid(a,'choose',undefined,p.page),placeholder:'Choose a raid or guild event',min_values:1,max_values:1,options:events.slice(0,5).map(e=>({label:plainDiscordLabel280(e.title,80),value:e.id,description:new Date(e.starts_at*1000).toISOString().slice(0,16)+'Z · '+e.duration_min+' minutes'}))}));
   const nav:Button222[]=[button('Open event by ID…',cid(a,'find'))];if(p.page>1)nav.push(button('Previous events',cid(a,'hub',undefined,p.page-1)));if(events.length>5&&p.page<100)nav.push(button('More events',cid(a,'hub',undefined,p.page+1)));if(staff)nav.push(button('Schedule an event…',cid(a,'create'),1));components.push(row(...nav));
   components.push(row({type:2,style:5,label:'Guild calendar',url:calendarLink},{type:2,style:5,label:'Raid preparation',url:siteMemberLink(host,'resources')}));
  }

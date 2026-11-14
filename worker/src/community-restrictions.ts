@@ -1,3 +1,4 @@
+import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 /**
  * .69 (1 Oct 2026): restriction cases, their watch-list and the return review, consolidation batch 4b (first half) of
  * Codex's adapter map, ported from Olympus Forever's src/restrictions.ts and src/return-review.ts (frozen candidate
@@ -220,7 +221,8 @@ export async function restrictionAction(request: Request, env: Env, ctx: Communi
   if (!ctx.features.has("restrictions")) return featureOff();
   const reload = needPage(request);
   if (reload) return reload;
-  if (rateLimited(`rs:${admin.discord_id}`, 60, 60)) return apiJson({ error: "slow_down" }, 429);
+  const rateLimitAt223280=consumeRateLimit280(`rs:${admin.discord_id}`,60,60);
+  if (rateLimitAt223280.limited) return apiJson({ error: "slow_down" }, 429,rateLimitHeaders280(rateLimitAt223280));
   try {
     const { action, caseId } = body;
     if (!text(caseId) || !ID.test(caseId)) throw new Bad("invalid_request");

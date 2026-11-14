@@ -1,3 +1,4 @@
+import {consumeRateLimitPair280,rateLimitHeaders280} from './soft-rate-limit280';
 /** Ephemeral preview of unsigned observations. No storage, membership inference or provider work. */
 import type { Env } from "./env";
 import { apiJson, PAGE_VERSION, rateLimited, sameOrigin } from "./site-core";
@@ -156,7 +157,11 @@ export async function censusPreview(request: Request, env: Env, ctx: CommunityCo
     const beforeBody = await admittedReadAs(env, capture.subject, "confirmedGuildData", []);
     check();
     if (beforeBody === FENCE_REFUSED) return apiJson({ error: "guild_access_changed" }, 403);
-    if (rateLimited("census:preview", 12, 60)) return apiJson({ error: "slow_down" }, 429, { "Retry-After": "60" });
+    // Share the existing twelve-preview isolate ceiling: one account may use
+    // at most half of it, so it cannot consume every other member's allowance.
+    // Either refusal leaves the other allowance untouched and reads no body.
+    const previewLimit=consumeRateLimitPair280("census:preview:account:" + capture.subject.discordId,6,"census:preview",12,60);
+    if (previewLimit.limited) return apiJson({ error: "slow_down" }, 429, rateLimitHeaders280(previewLimit));
 
     check();
     const raw = await readRaw(request, check);

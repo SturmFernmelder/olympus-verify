@@ -1,0 +1,1836 @@
+{
+ "note": "Codex discovery235 runtime pages (officer-operations-v235), copied unchanged as data from the named evidence files of CONTRACT-01 (13 Nov 2026). Synthetic local fixtures; no real member.",
+ "contract": {
+  "file": "stage2/launch-discovery235-prototype280/CONTRACT-01.json",
+  "sha256": "02900b86d5a7b07e198c9897d5bee1da702c32e0f4676a085348015fefde47b0"
+ },
+ "sources": {
+  "rankheld": {
+   "file": "stage2/launch-discovery235-prototype280/runtime-09-final/rankheld-page.json",
+   "sha256": "be605e0025d56fa91701ac8e13ce3fa14d0483b5fc751da89b2b340165301e36"
+  },
+  "qualified": {
+   "file": "stage2/launch-discovery235-prototype280/runtime-09-final/qualified-page.json",
+   "sha256": "2f48160758e7d2732597f3f435b4f7b48c00a9a41cd5cdd83adba5c8e7bf687d"
+  },
+  "policyoff": {
+   "file": "stage2/launch-discovery235-prototype280/runtime-09-final/policyoff-page.json",
+   "sha256": "1682d69a0e00da8fa03c2e9096845a96716403e1f47d1d24a9cbdb36c532b4fa"
+  },
+  "invalid-policy": {
+   "file": "stage2/launch-discovery235-prototype280/runtime-09-final/invalid-policy-page.json",
+   "sha256": "f74d8c19c4d7bd82b8150735d19e5f678cc828befcde15f850028ba1365b4438"
+  },
+  "v1-member": {
+   "file": "stage2/launch-discovery235-prototype280/runtime-09-final/v1-member-page.json",
+   "sha256": "a2597d9a813c72a893f90e9b6609e47f253a1aa86168f3ab332b5ca5f2136ebd"
+  },
+  "cap3": {
+   "file": "stage2/launch-discovery235-prototype280/runtime-09-final/cap3-page.json",
+   "sha256": "7f9609733f412dd057bacf2e860ac8d88906eb74e991b060587bc78e4767c727"
+  },
+  "generation": {
+   "file": "stage2/launch-discovery235-prototype280/runtime-09-final/generation-page.json",
+   "sha256": "d7432f9c45bd132d9992365560a43eccd3ca04e8641fc7030371c98f99a1dee5"
+  },
+  "privacy": {
+   "file": "stage2/launch-discovery235-prototype280/runtime-09-final/privacy-page.json",
+   "sha256": "fadb8da29513bd660540173d2f764bf3f065b1f124d8a3dd4d80839967b29b3a"
+  },
+  "standing": {
+   "file": "stage2/launch-discovery235-prototype280/runtime-09-final/standing-page.json",
+   "sha256": "6bf53635c3b1e5c21fbb08b1b982b92737a7c7ecda018f9cac254744373d4e9e"
+  },
+  "expired": {
+   "file": "stage2/launch-discovery235-prototype280/runtime-09-final/expired-page.json",
+   "sha256": "a73f46b5267f6765f501640a24ced370ae0d20a00da83ca30d184a7fb260762d"
+  },
+  "late429": {
+   "file": "stage2/launch-discovery235-prototype280/runtime-09-final/late429-page.json",
+   "sha256": "82ad47016ce77f83f4f71190478b149117f2668d85777a9b41f75581248fbe96"
+  },
+  "qualified1000-first": {
+   "file": "stage2/launch-discovery235-prototype280/runtime-06/pagination1000-page.json",
+   "sha256": "4d48d5b2509e79b208ae0382b5405736e860efe6c9fd09b34ff9fcf91aed70b3"
+  },
+  "qualified1000-offset20": {
+   "file": "stage2/launch-discovery235-prototype280/runtime-06/pagination-01.json",
+   "sha256": "acce9b3dc899c6115927987e7de3a4ee52722b2dbc4f826a201e4299bb74b311"
+  },
+  "held1000-first": {
+   "file": "stage2/launch-discovery235-prototype280/runtime-10-held1000/held1000-page.json",
+   "sha256": "3c4327c349f1ab940b37adf7e6e7aef65e294ceeffb9843c9a9d6e32a61e0636"
+  },
+  "held1000-offset20": {
+   "file": "stage2/launch-discovery235-prototype280/runtime-10-held1000/held1000-pagination-01.json",
+   "sha256": "dbf1c8b7c60822cc5c2f0c570a43cf3e0d7d4a0212124a200376018a14bdd8c5"
+  }
+ },
+ "pages": {
+  "rankheld": {
+   "protocol": "officer-operations-v235",
+   "fetchedAt": 1794562080,
+   "expiresAt": 1794562140,
+   "status": "partial",
+   "snapshotId": 2,
+   "snapshotAt": 1794562079,
+   "memberCount": 2,
+   "guild": "OLYMPUS PRIME",
+   "canonicalGuild": "OLYMPUS PRIME",
+   "realm": "Fixture Live Realm",
+   "scopeHash": "40864bdbf6f1cf7d",
+   "rankProfile": null,
+   "rankSchemeDigest": null,
+   "rankNames": null,
+   "entitlements": {
+    "offset": 0,
+    "pageSize": 20,
+    "scanned": 2,
+    "total": 2,
+    "unscanned": 0,
+    "retryAfterSeconds": null
+   },
+   "scan": {
+    "id": "0847edf4e759d6eeabf8adee8f6514da",
+    "startedAt": 1794562080,
+    "expiresAt": 1794562679
+   },
+   "pageCursor": "eyJ2ZXJzaW9uIjo2LCJwdXJwb3NlIjoib2ZmaWNlci1kaXNjb3ZlcnktdjIzNSIsInNuYXBzaG90SWQiOjIsInNuYXBzaG90QXQiOjE3OTQ1NjIwNzksInNjb3BlSGFzaCI6IjQwODY0YmRiZjZmMWNmN2QiLCJuYXRpdmVEaWdlc3QiOiIyZjk0M2FmMzg4NjJmOTU1NWQzOTQxMjdhMzg5YzRkY2RiMWI5NjA5MDQyYTVlOTdmN2FhMDY1NmFlNGEyMzc0IiwiaXNzdWVkQXQiOjE3OTQ1NjIwODAsImV4cGlyZXNBdCI6MTc5NDU2MjY3OSwiY3V0b2ZmIjowLCJyYW5rTW9kZSI6ImhlbGQiLCJyb2xlU2NvcGUiOiIzMWZmZmIzYThjN2E3MTc3MTczMWRlNTNjYTVhMjQ4N2YzMDdiOGI1YjM3ZGU3MjEyMWY4NjViMjgwMTBjMjcwIiwib2Zmc2V0IjowLCJpbm5lckN1cnNvciI6bnVsbH0.952e43e69ac383a6e4a5200318df6d2eb5060c38d7b3bcf94ebd0dd194156833",
+   "nextCursor": null,
+   "invites": [
+    {
+     "queueId": 1,
+     "proofId": "152cf122676b329d6d806847801c96ea",
+     "name": "Fresh Candidate",
+     "guid": "Player-4613-ABCDEF12",
+     "fullName": "Fresh Candidate",
+     "scopeHash": "40864bdbf6f1cf7d",
+     "observedAt": 1794562080,
+     "expiresAt": 1794562140,
+     "reason": "knight-unguilded",
+     "source": "native-who-whisper-v242"
+    }
+   ],
+   "promotions": [],
+   "riskBuffer": [],
+   "held": [
+    {
+     "guid": "Player-4613-12345678",
+     "name": "Fern Melder",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-12345679",
+     "name": "Synthetic Initiate",
+     "reason": "native-rank-scheme-unconfirmed"
+    }
+   ],
+   "heldReasons": [
+    "native-rank-scheme-unconfirmed"
+   ],
+   "motd": {
+    "short": "olympus.roachcouncil.com: link Discord, then use /verify-status in Discord. Ask an officer about guild ranks.",
+    "bulletin": "OLYMPUS PRIME is the flagship; OLYMPUS and Olympus I are its aliases.\n\nLink Discord on olympus.roachcouncil.com or ask an Olympus officer. Current Knight-or-higher entitlement is checked from the exact Discord role ladder.\n\nA Knight invite requires a fresh native observation that the same whispering GUID is actually unguilded. Missing or ambiguous guild information is unknown and stays held.\n\nLinked Knights below Veteran are recommended for Veteran. Other verified Initiates are recommended for Member through Alt. Each rank step needs a separate confirmed in-game button press. The full current guild rank list, character, guild, realm and your permission are checked again for each step.\n\nUnverified Initiates are shown separately for human space review, longest offline and then lowest level first. Pending and unknown verification stay held. No automatic purge, role grant or rank change is performed.",
+    "characters": 109,
+    "bytes": 109,
+    "maxBytes": 128
+   },
+   "actions": {
+    "automatic": false,
+    "roleGrants": false,
+    "removals": false,
+    "requiresNativeRecheck": true
+   }
+  },
+  "qualified": {
+   "protocol": "officer-operations-v235",
+   "fetchedAt": 1794562082,
+   "expiresAt": 1794562141,
+   "status": "ready",
+   "snapshotId": 2,
+   "snapshotAt": 1794562081,
+   "memberCount": 2,
+   "guild": "OLYMPUS PRIME",
+   "canonicalGuild": "OLYMPUS PRIME",
+   "realm": "Fixture Live Realm",
+   "scopeHash": "40864bdbf6f1cf7d",
+   "rankProfile": "olympus-prime-directive-20261112-v1",
+   "rankSchemeDigest": "84be4203598ba7bf6c506547c681ba6b7338414ae00add5d64055eeeea98bd29",
+   "rankNames": [
+    "Guild Master",
+    "High Council",
+    "Officer",
+    "Officer Alt",
+    "Raid Leader",
+    "Veteran",
+    "Raider",
+    "Member",
+    "Alt",
+    "Initiate"
+   ],
+   "entitlements": {
+    "offset": 0,
+    "pageSize": 20,
+    "scanned": 2,
+    "total": 2,
+    "unscanned": 0,
+    "retryAfterSeconds": null
+   },
+   "scan": {
+    "id": "aa068b4f6696dba896e7703be695c678",
+    "startedAt": 1794562081,
+    "expiresAt": 1794562681
+   },
+   "pageCursor": "eyJ2ZXJzaW9uIjo2LCJwdXJwb3NlIjoib2ZmaWNlci1kaXNjb3ZlcnktdjIzNSIsInNuYXBzaG90SWQiOjIsInNuYXBzaG90QXQiOjE3OTQ1NjIwODEsInNjb3BlSGFzaCI6IjQwODY0YmRiZjZmMWNmN2QiLCJuYXRpdmVEaWdlc3QiOiJjN2IyYmE0NDljOWQ4ODNkODNmZmVjMDcyMTlmYzhmZjZmNGRmMGRkYmI3Y2Y0ZGM2NDA1Mjg5NmJlZjRjNjA5IiwiaXNzdWVkQXQiOjE3OTQ1NjIwODEsImV4cGlyZXNBdCI6MTc5NDU2MjY4MSwiY3V0b2ZmIjowLCJyYW5rTW9kZSI6InF1YWxpZmllZCIsInJvbGVTY29wZSI6ImZmOGMyZmU5MGY3Mjk4OWM1ZWQ2ZjMwMDRlMTQyMTY1ZGJkYTQ1MzBkZWUyNTIzMzgwMzI4M2EyMTk2ZTRkMjQiLCJvZmZzZXQiOjAsImlubmVyQ3Vyc29yIjoiZXlKMlpYSnphVzl1SWpvekxDSnpibUZ3YzJodmRFbGtJam95TENKemJtRndjMmh2ZEVGMElqb3hOemswTlRZeU1EZ3hMQ0p6WTI5d1pVaGhjMmdpT2lJME1EZzJOR0prWW1ZMlpqRmpaamRrSWl3aWNtOTNjMFJwWjJWemRDSTZJbU0zWWpKaVlUUTBPV001WkRnNE0yUTRNMlptWldNd056SXhPV1pqT0dabU5tWTBaR1l3WkdSaVlqZGpaalJrWXpZME1EVXlPRGsyWW1WbU5HTTJNRGtpTENKcGMzTjFaV1JCZENJNk1UYzVORFUyTWpBNE1Td2laWGh3YVhKbGMwRjBJam94TnprME5UWXlOamd4TENKeWIyeGxVMk52Y0dVaU9pSm1aamhqTW1abE9UQm1Oekk1T0Rsak5XVmtObVl6TURBMFpURTBNakUyTldSaVpHRTBOVE13WkdWbE1qVXlNek00TURNeU9ETmhNakU1Tm1VMFpESTBJaXdpY205c1pWSmxZV1J6SWpwYlhTd2liMlptYzJWMElqb3dmUS42OTc2NDYyYWQ0NDFiMjZlMzMwNDYzNTgxNmIxYTg4OGFhNjNhMGYxMjc4NWY5NzU1ZjJmMmJkZDRhMTRlMmEwIn0.e81a7df0e147bd7e5dd382e80489b8b787bd71b9227e7739fb99b42cd1aaa4dd",
+   "nextCursor": null,
+   "invites": [
+    {
+     "queueId": 1,
+     "proofId": "331445e06f98ff1a611051494ab56f89",
+     "name": "Fresh Candidate",
+     "guid": "Player-4613-ABCDEF12",
+     "fullName": "Fresh Candidate",
+     "scopeHash": "40864bdbf6f1cf7d",
+     "observedAt": 1794562082,
+     "expiresAt": 1794562142,
+     "reason": "knight-unguilded",
+     "source": "native-who-whisper-v242"
+    }
+   ],
+   "promotions": [
+    {
+     "name": "Synthetic Initiate",
+     "guid": "Player-4613-12345679",
+     "currentSlot": 9,
+     "targetSlot": 7,
+     "targetName": "Member",
+     "reason": "verified-initiate"
+    }
+   ],
+   "riskBuffer": [],
+   "held": [],
+   "heldReasons": [],
+   "motd": {
+    "short": "olympus.roachcouncil.com: link Discord, then use /verify-status in Discord. Ask an officer about guild ranks.",
+    "bulletin": "OLYMPUS PRIME is the flagship; OLYMPUS and Olympus I are its aliases.\n\nLink Discord on olympus.roachcouncil.com or ask an Olympus officer. Current Knight-or-higher entitlement is checked from the exact Discord role ladder.\n\nA Knight invite requires a fresh native observation that the same whispering GUID is actually unguilded. Missing or ambiguous guild information is unknown and stays held.\n\nLinked Knights below Veteran are recommended for Veteran. Other verified Initiates are recommended for Member through Alt. Each rank step needs a separate confirmed in-game button press. The full current guild rank list, character, guild, realm and your permission are checked again for each step.\n\nUnverified Initiates are shown separately for human space review, longest offline and then lowest level first. Pending and unknown verification stay held. No automatic purge, role grant or rank change is performed.",
+    "characters": 109,
+    "bytes": 109,
+    "maxBytes": 128
+   },
+   "actions": {
+    "automatic": false,
+    "roleGrants": false,
+    "removals": false,
+    "requiresNativeRecheck": true
+   }
+  },
+  "policyoff": {
+   "protocol": "officer-operations-v235",
+   "fetchedAt": 1794562083,
+   "expiresAt": 1794562143,
+   "status": "partial",
+   "snapshotId": 2,
+   "snapshotAt": 1794562082,
+   "memberCount": 2,
+   "guild": "OLYMPUS PRIME",
+   "canonicalGuild": "OLYMPUS PRIME",
+   "realm": "Fixture Live Realm",
+   "scopeHash": "40864bdbf6f1cf7d",
+   "rankProfile": null,
+   "rankSchemeDigest": null,
+   "rankNames": null,
+   "entitlements": {
+    "offset": 0,
+    "pageSize": 20,
+    "scanned": 2,
+    "total": 2,
+    "unscanned": 0,
+    "retryAfterSeconds": null
+   },
+   "scan": {
+    "id": "50410e39ef792e389ffbfbf59f5adccc",
+    "startedAt": 1794562083,
+    "expiresAt": 1794562682
+   },
+   "pageCursor": "eyJ2ZXJzaW9uIjo2LCJwdXJwb3NlIjoib2ZmaWNlci1kaXNjb3ZlcnktdjIzNSIsInNuYXBzaG90SWQiOjIsInNuYXBzaG90QXQiOjE3OTQ1NjIwODIsInNjb3BlSGFzaCI6IjQwODY0YmRiZjZmMWNmN2QiLCJuYXRpdmVEaWdlc3QiOiJlYjFkOTUxODc3MzBhYjFhZTYxODQwOWE1YjFkYmQyNWVjOWQwOWRjNzNkYjgwMGRkMzRhMDAxZGEzMzkxN2VhIiwiaXNzdWVkQXQiOjE3OTQ1NjIwODMsImV4cGlyZXNBdCI6MTc5NDU2MjY4MiwiY3V0b2ZmIjowLCJyYW5rTW9kZSI6ImhlbGQiLCJyb2xlU2NvcGUiOiI1ZDM0MTQ1ZTc0YzE4NGFjNjZhMjRkZjc1ODU3OGM3YjFiZjZkNzU3Yjg4NzQwMzIxODBhYjUyZTJkZTFiZDQyIiwib2Zmc2V0IjowLCJpbm5lckN1cnNvciI6bnVsbH0.58b3ba9cb23a733557d428f46e00489fcd714dff87322c343cc3e389ef201669",
+   "nextCursor": null,
+   "invites": [
+    {
+     "queueId": 1,
+     "proofId": "fbea6002db5cb2bcaa5b16e815fc17a0",
+     "name": "Fresh Candidate",
+     "guid": "Player-4613-ABCDEF12",
+     "fullName": "Fresh Candidate",
+     "scopeHash": "40864bdbf6f1cf7d",
+     "observedAt": 1794562083,
+     "expiresAt": 1794562143,
+     "reason": "knight-unguilded",
+     "source": "native-who-whisper-v242"
+    }
+   ],
+   "promotions": [],
+   "riskBuffer": [],
+   "held": [
+    {
+     "guid": "Player-4613-12345678",
+     "name": "Fern Melder",
+     "reason": "directive-rank-policy-held"
+    },
+    {
+     "guid": "Player-4613-12345679",
+     "name": "Synthetic Initiate",
+     "reason": "directive-rank-policy-held"
+    }
+   ],
+   "heldReasons": [
+    "directive-rank-policy-held"
+   ],
+   "motd": {
+    "short": "olympus.roachcouncil.com: link Discord, then use /verify-status in Discord. Ask an officer about guild ranks.",
+    "bulletin": "OLYMPUS PRIME is the flagship; OLYMPUS and Olympus I are its aliases.\n\nLink Discord on olympus.roachcouncil.com or ask an Olympus officer. Current Knight-or-higher entitlement is checked from the exact Discord role ladder.\n\nA Knight invite requires a fresh native observation that the same whispering GUID is actually unguilded. Missing or ambiguous guild information is unknown and stays held.\n\nLinked Knights below Veteran are recommended for Veteran. Other verified Initiates are recommended for Member through Alt. Each rank step needs a separate confirmed in-game button press. The full current guild rank list, character, guild, realm and your permission are checked again for each step.\n\nUnverified Initiates are shown separately for human space review, longest offline and then lowest level first. Pending and unknown verification stay held. No automatic purge, role grant or rank change is performed.",
+    "characters": 109,
+    "bytes": 109,
+    "maxBytes": 128
+   },
+   "actions": {
+    "automatic": false,
+    "roleGrants": false,
+    "removals": false,
+    "requiresNativeRecheck": true
+   }
+  },
+  "invalid-policy": {
+   "protocol": "officer-operations-v235",
+   "fetchedAt": 1794562084,
+   "expiresAt": 1794562144,
+   "status": "partial",
+   "snapshotId": 2,
+   "snapshotAt": 1794562084,
+   "memberCount": 2,
+   "guild": "OLYMPUS PRIME",
+   "canonicalGuild": "OLYMPUS PRIME",
+   "realm": "Fixture Live Realm",
+   "scopeHash": "40864bdbf6f1cf7d",
+   "rankProfile": null,
+   "rankSchemeDigest": null,
+   "rankNames": null,
+   "entitlements": {
+    "offset": 0,
+    "pageSize": 20,
+    "scanned": 2,
+    "total": 2,
+    "unscanned": 0,
+    "retryAfterSeconds": null
+   },
+   "scan": {
+    "id": "3d167bf402cb532ae17acfe508d803db",
+    "startedAt": 1794562084,
+    "expiresAt": 1794562684
+   },
+   "pageCursor": "eyJ2ZXJzaW9uIjo2LCJwdXJwb3NlIjoib2ZmaWNlci1kaXNjb3ZlcnktdjIzNSIsInNuYXBzaG90SWQiOjIsInNuYXBzaG90QXQiOjE3OTQ1NjIwODQsInNjb3BlSGFzaCI6IjQwODY0YmRiZjZmMWNmN2QiLCJuYXRpdmVEaWdlc3QiOiIxMjJlZjA4M2M1ZmEwOWVkMGZhMjg0NmVkNjgzNzA5NDgxZGY0MjY0ZGRjNWM3YzQyNDRjZWNjNzg2M2I2YzUyIiwiaXNzdWVkQXQiOjE3OTQ1NjIwODQsImV4cGlyZXNBdCI6MTc5NDU2MjY4NCwiY3V0b2ZmIjowLCJyYW5rTW9kZSI6ImhlbGQiLCJyb2xlU2NvcGUiOiJlZDcxYmVjNWFlY2I5ZjI2MTM4ZTYyZDYyYTg4NmY4OGJjMjY1ODQ4YzlkNjc5ZDY3Mjg1OWQ5NjM1NzY4YjVjIiwib2Zmc2V0IjowLCJpbm5lckN1cnNvciI6bnVsbH0.35ccbbbbccfe119a6448cec621eff825d8f5c3dbf07822797e37aed7cb8a858c",
+   "nextCursor": null,
+   "invites": [
+    {
+     "queueId": 1,
+     "proofId": "d28bd5b80fbd269dddcacef45b57add0",
+     "name": "Fresh Candidate",
+     "guid": "Player-4613-ABCDEF12",
+     "fullName": "Fresh Candidate",
+     "scopeHash": "40864bdbf6f1cf7d",
+     "observedAt": 1794562085,
+     "expiresAt": 1794562145,
+     "reason": "knight-unguilded",
+     "source": "native-who-whisper-v242"
+    }
+   ],
+   "promotions": [],
+   "riskBuffer": [],
+   "held": [
+    {
+     "guid": "Player-4613-12345678",
+     "name": "Fern Melder",
+     "reason": "directive-rank-policy-held"
+    },
+    {
+     "guid": "Player-4613-12345679",
+     "name": "Synthetic Initiate",
+     "reason": "directive-rank-policy-held"
+    }
+   ],
+   "heldReasons": [
+    "directive-rank-policy-held"
+   ],
+   "motd": {
+    "short": "olympus.roachcouncil.com: link Discord, then use /verify-status in Discord. Ask an officer about guild ranks.",
+    "bulletin": "OLYMPUS PRIME is the flagship; OLYMPUS and Olympus I are its aliases.\n\nLink Discord on olympus.roachcouncil.com or ask an Olympus officer. Current Knight-or-higher entitlement is checked from the exact Discord role ladder.\n\nA Knight invite requires a fresh native observation that the same whispering GUID is actually unguilded. Missing or ambiguous guild information is unknown and stays held.\n\nLinked Knights below Veteran are recommended for Veteran. Other verified Initiates are recommended for Member through Alt. Each rank step needs a separate confirmed in-game button press. The full current guild rank list, character, guild, realm and your permission are checked again for each step.\n\nUnverified Initiates are shown separately for human space review, longest offline and then lowest level first. Pending and unknown verification stay held. No automatic purge, role grant or rank change is performed.",
+    "characters": 109,
+    "bytes": 109,
+    "maxBytes": 128
+   },
+   "actions": {
+    "automatic": false,
+    "roleGrants": false,
+    "removals": false,
+    "requiresNativeRecheck": true
+   }
+  },
+  "v1-member": {
+   "protocol": "officer-operations-v235",
+   "fetchedAt": 1794562085,
+   "expiresAt": 1794562145,
+   "status": "partial",
+   "snapshotId": 2,
+   "snapshotAt": 1794562085,
+   "memberCount": 2,
+   "guild": "OLYMPUS PRIME",
+   "canonicalGuild": "OLYMPUS PRIME",
+   "realm": "Fixture Live Realm",
+   "scopeHash": "40864bdbf6f1cf7d",
+   "rankProfile": null,
+   "rankSchemeDigest": null,
+   "rankNames": null,
+   "entitlements": {
+    "offset": 0,
+    "pageSize": 20,
+    "scanned": 2,
+    "total": 2,
+    "unscanned": 0,
+    "retryAfterSeconds": null
+   },
+   "scan": {
+    "id": "0bbdde6930cce96822a9ada574b0d3ff",
+    "startedAt": 1794562085,
+    "expiresAt": 1794562685
+   },
+   "pageCursor": "eyJ2ZXJzaW9uIjo2LCJwdXJwb3NlIjoib2ZmaWNlci1kaXNjb3ZlcnktdjIzNSIsInNuYXBzaG90SWQiOjIsInNuYXBzaG90QXQiOjE3OTQ1NjIwODUsInNjb3BlSGFzaCI6IjQwODY0YmRiZjZmMWNmN2QiLCJuYXRpdmVEaWdlc3QiOiJlMTQ0NmRlMjEwMDExNmU2NTRjYzhiZjUwMTRlMmQ1M2E3MDlhODI1OGQwMGRhNGQ1YzhjOTc2YWJjNWJlMjEyIiwiaXNzdWVkQXQiOjE3OTQ1NjIwODUsImV4cGlyZXNBdCI6MTc5NDU2MjY4NSwiY3V0b2ZmIjowLCJyYW5rTW9kZSI6ImhlbGQiLCJyb2xlU2NvcGUiOiI2NzIyOTU3N2YzMzljODA5OTg2MzM1ZGIxZjZjYjAzOGU0NTA4MmNhYzllNjE2Mjc2YTFhYjliOTkwNmQzNDJhIiwib2Zmc2V0IjowLCJpbm5lckN1cnNvciI6bnVsbH0.240bee57f4c29f7d1dcceb79a5ee49f275ae932ece41fb8379fae221a782c3ae",
+   "nextCursor": null,
+   "invites": [
+    {
+     "queueId": 1,
+     "proofId": "8ebb5de893c345dcd0319135bfd17f0f",
+     "name": "Fresh Candidate",
+     "guid": "Player-4613-ABCDEF12",
+     "fullName": "Fresh Candidate",
+     "scopeHash": "40864bdbf6f1cf7d",
+     "observedAt": 1794562086,
+     "expiresAt": 1794562146,
+     "reason": "knight-unguilded",
+     "source": "native-who-whisper-v242"
+    }
+   ],
+   "promotions": [],
+   "riskBuffer": [],
+   "held": [
+    {
+     "guid": "Player-4613-12345678",
+     "name": "Fern Melder",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-12345679",
+     "name": "Synthetic Initiate",
+     "reason": "native-rank-scheme-unconfirmed"
+    }
+   ],
+   "heldReasons": [
+    "native-rank-scheme-unconfirmed"
+   ],
+   "motd": {
+    "short": "olympus.roachcouncil.com: link Discord, then use /verify-status in Discord. Ask an officer about guild ranks.",
+    "bulletin": "OLYMPUS PRIME is the flagship; OLYMPUS and Olympus I are its aliases.\n\nLink Discord on olympus.roachcouncil.com or ask an Olympus officer. Current Knight-or-higher entitlement is checked from the exact Discord role ladder.\n\nA Knight invite requires a fresh native observation that the same whispering GUID is actually unguilded. Missing or ambiguous guild information is unknown and stays held.\n\nLinked Knights below Veteran are recommended for Veteran. Other verified Initiates are recommended for Member through Alt. Each rank step needs a separate confirmed in-game button press. The full current guild rank list, character, guild, realm and your permission are checked again for each step.\n\nUnverified Initiates are shown separately for human space review, longest offline and then lowest level first. Pending and unknown verification stay held. No automatic purge, role grant or rank change is performed.",
+    "characters": 109,
+    "bytes": 109,
+    "maxBytes": 128
+   },
+   "actions": {
+    "automatic": false,
+    "roleGrants": false,
+    "removals": false,
+    "requiresNativeRecheck": true
+   }
+  },
+  "cap3": {
+   "protocol": "officer-operations-v235",
+   "fetchedAt": 1794562087,
+   "expiresAt": 1794562147,
+   "status": "partial",
+   "snapshotId": 2,
+   "snapshotAt": 1794562086,
+   "memberCount": 2,
+   "guild": "OLYMPUS PRIME",
+   "canonicalGuild": "OLYMPUS PRIME",
+   "realm": "Fixture Live Realm",
+   "scopeHash": "40864bdbf6f1cf7d",
+   "rankProfile": null,
+   "rankSchemeDigest": null,
+   "rankNames": null,
+   "entitlements": {
+    "offset": 0,
+    "pageSize": 20,
+    "scanned": 2,
+    "total": 2,
+    "unscanned": 0,
+    "retryAfterSeconds": null
+   },
+   "scan": {
+    "id": "c1445cf4da2fe7d6e7a1bef138dc3b62",
+    "startedAt": 1794562087,
+    "expiresAt": 1794562686
+   },
+   "pageCursor": "eyJ2ZXJzaW9uIjo2LCJwdXJwb3NlIjoib2ZmaWNlci1kaXNjb3ZlcnktdjIzNSIsInNuYXBzaG90SWQiOjIsInNuYXBzaG90QXQiOjE3OTQ1NjIwODYsInNjb3BlSGFzaCI6IjQwODY0YmRiZjZmMWNmN2QiLCJuYXRpdmVEaWdlc3QiOiI2ZGJmNDFmNWJiMWM1ZWE1YjBlMTIyNjQwNmJiNWRlNjMxOTkxM2UxOTYxZWNjYjk1YzJhYWNiMzlkMjI3NTljIiwiaXNzdWVkQXQiOjE3OTQ1NjIwODcsImV4cGlyZXNBdCI6MTc5NDU2MjY4NiwiY3V0b2ZmIjowLCJyYW5rTW9kZSI6ImhlbGQiLCJyb2xlU2NvcGUiOiJiNDRjZjE2MWZjYWNmMGUyYzk1NzZhNTNlOWRiNmJkY2UzMGU3YmE4N2ZmMDcxODZkOGVjM2JlOTAzZGMxY2NiIiwib2Zmc2V0IjowLCJpbm5lckN1cnNvciI6bnVsbH0.1d8ece676900855c0adf0555770e20f9b78d542e4aaa9f8902719cb8a88913de",
+   "nextCursor": null,
+   "invites": [
+    {
+     "queueId": 1,
+     "proofId": "8ba40feefc98b675e209a676d5efd5b8",
+     "name": "Fresh Candidate",
+     "guid": "Player-4613-ABCDEF12",
+     "fullName": "Fresh Candidate",
+     "scopeHash": "40864bdbf6f1cf7d",
+     "observedAt": 1794562087,
+     "expiresAt": 1794562147,
+     "reason": "knight-unguilded",
+     "source": "native-who-whisper-v242"
+    },
+    {
+     "queueId": 2,
+     "proofId": "22222222222222222222222222222222",
+     "name": "Synthetic Extra 2",
+     "guid": "Player-4613-ABCD0002",
+     "fullName": "Synthetic Extra 2",
+     "scopeHash": "40864bdbf6f1cf7d",
+     "observedAt": 1794562087,
+     "expiresAt": 1794562147,
+     "reason": "knight-unguilded",
+     "source": "native-who-whisper-v242"
+    },
+    {
+     "queueId": 3,
+     "proofId": "33333333333333333333333333333333",
+     "name": "Synthetic Extra 3",
+     "guid": "Player-4613-ABCD0003",
+     "fullName": "Synthetic Extra 3",
+     "scopeHash": "40864bdbf6f1cf7d",
+     "observedAt": 1794562087,
+     "expiresAt": 1794562147,
+     "reason": "knight-unguilded",
+     "source": "native-who-whisper-v242"
+    }
+   ],
+   "promotions": [],
+   "riskBuffer": [],
+   "held": [
+    {
+     "guid": "Player-4613-12345678",
+     "name": "Fern Melder",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-12345679",
+     "name": "Synthetic Initiate",
+     "reason": "native-rank-scheme-unconfirmed"
+    }
+   ],
+   "heldReasons": [
+    "native-rank-scheme-unconfirmed"
+   ],
+   "motd": {
+    "short": "olympus.roachcouncil.com: link Discord, then use /verify-status in Discord. Ask an officer about guild ranks.",
+    "bulletin": "OLYMPUS PRIME is the flagship; OLYMPUS and Olympus I are its aliases.\n\nLink Discord on olympus.roachcouncil.com or ask an Olympus officer. Current Knight-or-higher entitlement is checked from the exact Discord role ladder.\n\nA Knight invite requires a fresh native observation that the same whispering GUID is actually unguilded. Missing or ambiguous guild information is unknown and stays held.\n\nLinked Knights below Veteran are recommended for Veteran. Other verified Initiates are recommended for Member through Alt. Each rank step needs a separate confirmed in-game button press. The full current guild rank list, character, guild, realm and your permission are checked again for each step.\n\nUnverified Initiates are shown separately for human space review, longest offline and then lowest level first. Pending and unknown verification stay held. No automatic purge, role grant or rank change is performed.",
+    "characters": 109,
+    "bytes": 109,
+    "maxBytes": 128
+   },
+   "actions": {
+    "automatic": false,
+    "roleGrants": false,
+    "removals": false,
+    "requiresNativeRecheck": true
+   }
+  },
+  "generation": {
+   "protocol": "officer-operations-v235",
+   "fetchedAt": 1794562088,
+   "expiresAt": 1794562148,
+   "status": "partial",
+   "snapshotId": 2,
+   "snapshotAt": 1794562088,
+   "memberCount": 2,
+   "guild": "OLYMPUS PRIME",
+   "canonicalGuild": "OLYMPUS PRIME",
+   "realm": "Fixture Live Realm",
+   "scopeHash": "40864bdbf6f1cf7d",
+   "rankProfile": null,
+   "rankSchemeDigest": null,
+   "rankNames": null,
+   "entitlements": {
+    "offset": 0,
+    "pageSize": 20,
+    "scanned": 2,
+    "total": 2,
+    "unscanned": 0,
+    "retryAfterSeconds": null
+   },
+   "scan": {
+    "id": "f5325d64ebeafc10c4bef42ee0565043",
+    "startedAt": 1794562088,
+    "expiresAt": 1794562688
+   },
+   "pageCursor": "eyJ2ZXJzaW9uIjo2LCJwdXJwb3NlIjoib2ZmaWNlci1kaXNjb3ZlcnktdjIzNSIsInNuYXBzaG90SWQiOjIsInNuYXBzaG90QXQiOjE3OTQ1NjIwODgsInNjb3BlSGFzaCI6IjQwODY0YmRiZjZmMWNmN2QiLCJuYXRpdmVEaWdlc3QiOiJhM2E2OWQ4NzI1YzA1ODJhZDJjNDIzNWM2YzkzN2MyMDJkNzEzNWEzZTFlNTgyNjZhMWYzYjY1Mjg5ZWU2YmFkIiwiaXNzdWVkQXQiOjE3OTQ1NjIwODgsImV4cGlyZXNBdCI6MTc5NDU2MjY4OCwiY3V0b2ZmIjowLCJyYW5rTW9kZSI6ImhlbGQiLCJyb2xlU2NvcGUiOiI4ZDY1Y2UyZmUwN2VmNDAwZjg4OTMyYjI4NzAzNmNkMjZmNDBkNzMxYWViNThlNDI0ZThjZTNjNmVmNTgwYTI2Iiwib2Zmc2V0IjowLCJpbm5lckN1cnNvciI6bnVsbH0.effe8ccef30e3f7f06e2536059784d5b9d874c3fb350564525963d2a94295071",
+   "nextCursor": null,
+   "invites": [],
+   "promotions": [],
+   "riskBuffer": [],
+   "held": [
+    {
+     "guid": "Player-4613-12345678",
+     "name": "Fern Melder",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-12345679",
+     "name": "Synthetic Initiate",
+     "reason": "native-rank-scheme-unconfirmed"
+    }
+   ],
+   "heldReasons": [
+    "native-rank-scheme-unconfirmed",
+    "native-unguilded-proof-required",
+    "officer-invite-source-held"
+   ],
+   "motd": {
+    "short": "olympus.roachcouncil.com: link Discord, then use /verify-status in Discord. Ask an officer about guild ranks.",
+    "bulletin": "OLYMPUS PRIME is the flagship; OLYMPUS and Olympus I are its aliases.\n\nLink Discord on olympus.roachcouncil.com or ask an Olympus officer. Current Knight-or-higher entitlement is checked from the exact Discord role ladder.\n\nA Knight invite requires a fresh native observation that the same whispering GUID is actually unguilded. Missing or ambiguous guild information is unknown and stays held.\n\nLinked Knights below Veteran are recommended for Veteran. Other verified Initiates are recommended for Member through Alt. Each rank step needs a separate confirmed in-game button press. The full current guild rank list, character, guild, realm and your permission are checked again for each step.\n\nUnverified Initiates are shown separately for human space review, longest offline and then lowest level first. Pending and unknown verification stay held. No automatic purge, role grant or rank change is performed.",
+    "characters": 109,
+    "bytes": 109,
+    "maxBytes": 128
+   },
+   "actions": {
+    "automatic": false,
+    "roleGrants": false,
+    "removals": false,
+    "requiresNativeRecheck": true
+   }
+  },
+  "privacy": {
+   "protocol": "officer-operations-v235",
+   "fetchedAt": 1794562091,
+   "expiresAt": 1794562151,
+   "status": "partial",
+   "snapshotId": 2,
+   "snapshotAt": 1794562090,
+   "memberCount": 2,
+   "guild": "OLYMPUS PRIME",
+   "canonicalGuild": "OLYMPUS PRIME",
+   "realm": "Fixture Live Realm",
+   "scopeHash": "40864bdbf6f1cf7d",
+   "rankProfile": null,
+   "rankSchemeDigest": null,
+   "rankNames": null,
+   "entitlements": {
+    "offset": 0,
+    "pageSize": 20,
+    "scanned": 2,
+    "total": 2,
+    "unscanned": 0,
+    "retryAfterSeconds": null
+   },
+   "scan": {
+    "id": "348902a7bfde194522a828c03255ca14",
+    "startedAt": 1794562091,
+    "expiresAt": 1794562690
+   },
+   "pageCursor": "eyJ2ZXJzaW9uIjo2LCJwdXJwb3NlIjoib2ZmaWNlci1kaXNjb3ZlcnktdjIzNSIsInNuYXBzaG90SWQiOjIsInNuYXBzaG90QXQiOjE3OTQ1NjIwOTAsInNjb3BlSGFzaCI6IjQwODY0YmRiZjZmMWNmN2QiLCJuYXRpdmVEaWdlc3QiOiI0MzhmNGRhMDkxMWNhNjE4YmFlZmZlOWIzMjgzNmUzNWJjN2I2YWQyMTQzODg5OTk5ZTljYmNkMWE0NTYyYWQyIiwiaXNzdWVkQXQiOjE3OTQ1NjIwOTEsImV4cGlyZXNBdCI6MTc5NDU2MjY5MCwiY3V0b2ZmIjowLCJyYW5rTW9kZSI6ImhlbGQiLCJyb2xlU2NvcGUiOiI3Y2ZlYzAzZTk3NzlmN2U4ZWVmYzIzMjI1YmQ4M2MwMjM0YzY1ZGIyMjNhM2NkM2Q2Yzk2OTczYjQ3YmVjYjBiIiwib2Zmc2V0IjowLCJpbm5lckN1cnNvciI6bnVsbH0.ba882d44d2babd22834b7b9525d43dce3b0b3f966fa565cd50be4cb1ea4d485c",
+   "nextCursor": null,
+   "invites": [],
+   "promotions": [],
+   "riskBuffer": [],
+   "held": [
+    {
+     "guid": "Player-4613-12345678",
+     "name": "Fern Melder",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-12345679",
+     "name": "Synthetic Initiate",
+     "reason": "native-rank-scheme-unconfirmed"
+    }
+   ],
+   "heldReasons": [
+    "native-rank-scheme-unconfirmed",
+    "native-unguilded-proof-required",
+    "officer-invite-source-held"
+   ],
+   "motd": {
+    "short": "olympus.roachcouncil.com: link Discord, then use /verify-status in Discord. Ask an officer about guild ranks.",
+    "bulletin": "OLYMPUS PRIME is the flagship; OLYMPUS and Olympus I are its aliases.\n\nLink Discord on olympus.roachcouncil.com or ask an Olympus officer. Current Knight-or-higher entitlement is checked from the exact Discord role ladder.\n\nA Knight invite requires a fresh native observation that the same whispering GUID is actually unguilded. Missing or ambiguous guild information is unknown and stays held.\n\nLinked Knights below Veteran are recommended for Veteran. Other verified Initiates are recommended for Member through Alt. Each rank step needs a separate confirmed in-game button press. The full current guild rank list, character, guild, realm and your permission are checked again for each step.\n\nUnverified Initiates are shown separately for human space review, longest offline and then lowest level first. Pending and unknown verification stay held. No automatic purge, role grant or rank change is performed.",
+    "characters": 109,
+    "bytes": 109,
+    "maxBytes": 128
+   },
+   "actions": {
+    "automatic": false,
+    "roleGrants": false,
+    "removals": false,
+    "requiresNativeRecheck": true
+   }
+  },
+  "standing": {
+   "protocol": "officer-operations-v235",
+   "fetchedAt": 1794562089,
+   "expiresAt": 1794562149,
+   "status": "partial",
+   "snapshotId": 2,
+   "snapshotAt": 1794562089,
+   "memberCount": 2,
+   "guild": "OLYMPUS PRIME",
+   "canonicalGuild": "OLYMPUS PRIME",
+   "realm": "Fixture Live Realm",
+   "scopeHash": "40864bdbf6f1cf7d",
+   "rankProfile": null,
+   "rankSchemeDigest": null,
+   "rankNames": null,
+   "entitlements": {
+    "offset": 0,
+    "pageSize": 20,
+    "scanned": 2,
+    "total": 2,
+    "unscanned": 0,
+    "retryAfterSeconds": null
+   },
+   "scan": {
+    "id": "349ed9b23c5beb4fa6a4ac1a967d78fc",
+    "startedAt": 1794562089,
+    "expiresAt": 1794562689
+   },
+   "pageCursor": "eyJ2ZXJzaW9uIjo2LCJwdXJwb3NlIjoib2ZmaWNlci1kaXNjb3ZlcnktdjIzNSIsInNuYXBzaG90SWQiOjIsInNuYXBzaG90QXQiOjE3OTQ1NjIwODksInNjb3BlSGFzaCI6IjQwODY0YmRiZjZmMWNmN2QiLCJuYXRpdmVEaWdlc3QiOiIxNjZjODA0ZmZiYjExZDYxN2YwZGI5ZWQ5ZDAwNGE4ZDhiYTlmZDJlY2QxOGVkYjQ5NWExNTdlZjg5NmIyNGRhIiwiaXNzdWVkQXQiOjE3OTQ1NjIwODksImV4cGlyZXNBdCI6MTc5NDU2MjY4OSwiY3V0b2ZmIjowLCJyYW5rTW9kZSI6ImhlbGQiLCJyb2xlU2NvcGUiOiI1NTQ5MmUxNGQwNWYwNzUzYTIzN2RiZDhjY2RkZWU0YmNlYmI1ZTFjNWNlMDc2N2NiZWJlYzYxM2RlNDZhYTAyIiwib2Zmc2V0IjowLCJpbm5lckN1cnNvciI6bnVsbH0.0d4912fffae1ee530f7d7779b54c1d097e1f1feb7d56c6a0fc850dfc8fef1ac6",
+   "nextCursor": null,
+   "invites": [],
+   "promotions": [],
+   "riskBuffer": [],
+   "held": [
+    {
+     "guid": "Player-4613-12345678",
+     "name": "Fern Melder",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-12345679",
+     "name": "Synthetic Initiate",
+     "reason": "native-rank-scheme-unconfirmed"
+    }
+   ],
+   "heldReasons": [
+    "native-rank-scheme-unconfirmed",
+    "native-unguilded-proof-required",
+    "officer-invite-standing-held"
+   ],
+   "motd": {
+    "short": "olympus.roachcouncil.com: link Discord, then use /verify-status in Discord. Ask an officer about guild ranks.",
+    "bulletin": "OLYMPUS PRIME is the flagship; OLYMPUS and Olympus I are its aliases.\n\nLink Discord on olympus.roachcouncil.com or ask an Olympus officer. Current Knight-or-higher entitlement is checked from the exact Discord role ladder.\n\nA Knight invite requires a fresh native observation that the same whispering GUID is actually unguilded. Missing or ambiguous guild information is unknown and stays held.\n\nLinked Knights below Veteran are recommended for Veteran. Other verified Initiates are recommended for Member through Alt. Each rank step needs a separate confirmed in-game button press. The full current guild rank list, character, guild, realm and your permission are checked again for each step.\n\nUnverified Initiates are shown separately for human space review, longest offline and then lowest level first. Pending and unknown verification stay held. No automatic purge, role grant or rank change is performed.",
+    "characters": 109,
+    "bytes": 109,
+    "maxBytes": 128
+   },
+   "actions": {
+    "automatic": false,
+    "roleGrants": false,
+    "removals": false,
+    "requiresNativeRecheck": true
+   }
+  },
+  "expired": {
+   "protocol": "officer-operations-v235",
+   "fetchedAt": 1794562092,
+   "expiresAt": 1794562152,
+   "status": "partial",
+   "snapshotId": 2,
+   "snapshotAt": 1794562091,
+   "memberCount": 2,
+   "guild": "OLYMPUS PRIME",
+   "canonicalGuild": "OLYMPUS PRIME",
+   "realm": "Fixture Live Realm",
+   "scopeHash": "40864bdbf6f1cf7d",
+   "rankProfile": null,
+   "rankSchemeDigest": null,
+   "rankNames": null,
+   "entitlements": {
+    "offset": 0,
+    "pageSize": 20,
+    "scanned": 2,
+    "total": 2,
+    "unscanned": 0,
+    "retryAfterSeconds": null
+   },
+   "scan": {
+    "id": "3da0d55577d386eed68154b5a3525e50",
+    "startedAt": 1794562092,
+    "expiresAt": 1794562691
+   },
+   "pageCursor": "eyJ2ZXJzaW9uIjo2LCJwdXJwb3NlIjoib2ZmaWNlci1kaXNjb3ZlcnktdjIzNSIsInNuYXBzaG90SWQiOjIsInNuYXBzaG90QXQiOjE3OTQ1NjIwOTEsInNjb3BlSGFzaCI6IjQwODY0YmRiZjZmMWNmN2QiLCJuYXRpdmVEaWdlc3QiOiJhYWIwNDY2N2RiM2NhOWQ2MTIxNTc4MGQ0MGZmMjE3NzBiODkwMTk2NDEwNGYwNWU2ZDM1ZGM3NjQ2M2JkMmY1IiwiaXNzdWVkQXQiOjE3OTQ1NjIwOTIsImV4cGlyZXNBdCI6MTc5NDU2MjY5MSwiY3V0b2ZmIjowLCJyYW5rTW9kZSI6ImhlbGQiLCJyb2xlU2NvcGUiOiIzNjM0ZjVhYTQ0YzFmZjY3YmIyZjljZWIyNDE5YWQ1YmEzZWJjOWE2ODg5ZGQyODk3NDc2NGExYmU3MDFhOTcyIiwib2Zmc2V0IjowLCJpbm5lckN1cnNvciI6bnVsbH0.71b02ebfe6e63e2f4fb03facdaa40eb3b9c01d83e7ed3db973c2e931f13ec98f",
+   "nextCursor": null,
+   "invites": [],
+   "promotions": [],
+   "riskBuffer": [],
+   "held": [
+    {
+     "guid": "Player-4613-12345678",
+     "name": "Fern Melder",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-12345679",
+     "name": "Synthetic Initiate",
+     "reason": "native-rank-scheme-unconfirmed"
+    }
+   ],
+   "heldReasons": [
+    "native-rank-scheme-unconfirmed",
+    "native-unguilded-proof-required"
+   ],
+   "motd": {
+    "short": "olympus.roachcouncil.com: link Discord, then use /verify-status in Discord. Ask an officer about guild ranks.",
+    "bulletin": "OLYMPUS PRIME is the flagship; OLYMPUS and Olympus I are its aliases.\n\nLink Discord on olympus.roachcouncil.com or ask an Olympus officer. Current Knight-or-higher entitlement is checked from the exact Discord role ladder.\n\nA Knight invite requires a fresh native observation that the same whispering GUID is actually unguilded. Missing or ambiguous guild information is unknown and stays held.\n\nLinked Knights below Veteran are recommended for Veteran. Other verified Initiates are recommended for Member through Alt. Each rank step needs a separate confirmed in-game button press. The full current guild rank list, character, guild, realm and your permission are checked again for each step.\n\nUnverified Initiates are shown separately for human space review, longest offline and then lowest level first. Pending and unknown verification stay held. No automatic purge, role grant or rank change is performed.",
+    "characters": 109,
+    "bytes": 109,
+    "maxBytes": 128
+   },
+   "actions": {
+    "automatic": false,
+    "roleGrants": false,
+    "removals": false,
+    "requiresNativeRecheck": true
+   }
+  },
+  "late429": {
+   "protocol": "officer-operations-v235",
+   "fetchedAt": 1794562100,
+   "expiresAt": 1794562160,
+   "status": "partial",
+   "snapshotId": 2,
+   "snapshotAt": 1794562099,
+   "memberCount": 1000,
+   "guild": "OLYMPUS PRIME",
+   "canonicalGuild": "OLYMPUS PRIME",
+   "realm": "Fixture Live Realm",
+   "scopeHash": "40864bdbf6f1cf7d",
+   "rankProfile": "olympus-prime-directive-20261112-v1",
+   "rankSchemeDigest": "84be4203598ba7bf6c506547c681ba6b7338414ae00add5d64055eeeea98bd29",
+   "rankNames": [
+    "Guild Master",
+    "High Council",
+    "Officer",
+    "Officer Alt",
+    "Raid Leader",
+    "Veteran",
+    "Raider",
+    "Member",
+    "Alt",
+    "Initiate"
+   ],
+   "entitlements": {
+    "offset": 0,
+    "pageSize": 20,
+    "scanned": 20,
+    "total": 1000,
+    "unscanned": 980,
+    "retryAfterSeconds": 1
+   },
+   "scan": {
+    "id": "c437c0507398b1e8160d677ee21e8610",
+    "startedAt": 1794562100,
+    "expiresAt": 1794562699
+   },
+   "pageCursor": "eyJ2ZXJzaW9uIjo2LCJwdXJwb3NlIjoib2ZmaWNlci1kaXNjb3ZlcnktdjIzNSIsInNuYXBzaG90SWQiOjIsInNuYXBzaG90QXQiOjE3OTQ1NjIwOTksInNjb3BlSGFzaCI6IjQwODY0YmRiZjZmMWNmN2QiLCJuYXRpdmVEaWdlc3QiOiJjMjNkNjYyNTkzMzZlZmYzZWQzMjk1NWRjNWMyYzllMjRmZmM4YzUwNjdjYjkxNWU5Y2ZjNGJjYmJjYWFlYTI2IiwiaXNzdWVkQXQiOjE3OTQ1NjIxMDAsImV4cGlyZXNBdCI6MTc5NDU2MjY5OSwiY3V0b2ZmIjowLCJyYW5rTW9kZSI6InF1YWxpZmllZCIsInJvbGVTY29wZSI6IjE4OTQwMjllZjc5YmQzYjBiZTc1MTU2MTcwYzJlMGJlZDhhOWVjNzQzMTMyOTdmNzY3Njc0OTgyY2U3MGE3MzciLCJvZmZzZXQiOjAsImlubmVyQ3Vyc29yIjoiZXlKMlpYSnphVzl1SWpvekxDSnpibUZ3YzJodmRFbGtJam95TENKemJtRndjMmh2ZEVGMElqb3hOemswTlRZeU1EazVMQ0p6WTI5d1pVaGhjMmdpT2lJME1EZzJOR0prWW1ZMlpqRmpaamRrSWl3aWNtOTNjMFJwWjJWemRDSTZJbU15TTJRMk5qSTFPVE16Tm1WbVpqTmxaRE15T1RVMVpHTTFZekpqT1dVeU5HWm1ZemhqTlRBMk4yTmlPVEUxWlRsalptTTBZbU5pWW1OaFlXVmhNallpTENKcGMzTjFaV1JCZENJNk1UYzVORFUyTWpFd01Dd2laWGh3YVhKbGMwRjBJam94TnprME5UWXlOams1TENKeWIyeGxVMk52Y0dVaU9pSXhPRGswTURJNVpXWTNPV0prTTJJd1ltVTNOVEUxTmpFM01HTXlaVEJpWldRNFlUbGxZemMwTXpFek1qazNaamMyTnpZM05EazRNbU5sTnpCaE56TTNJaXdpY205c1pWSmxZV1J6SWpwYld5SlFiR0Y1WlhJdE9UazVPVGs1TFVaR1JrWkdSa1pHUmtaR1JqQXdNREVpTENKdWIyNHRhMjVwWjJoMElpd3hOemswTlRZeU1UQXdMQ0k1TWpVek56azVNbUV4WWpoa1ptSmpaR00xTmpZM05HTmpOV05pTmpsa05tUmpaR1F6TVdGa1pURTBObUprWldNME56QmlNRE5rWW1JeFptTXpNalJsSWwwc1d5SlFiR0Y1WlhJdE9UazVPVGs1TFVaR1JrWkdSa1pHUmtaR1JqQXdNRElpTENKdWIyNHRhMjVwWjJoMElpd3hOemswTlRZeU1UQXdMQ0pqTW1Rd09HWmpNV05oWXpVeU1XVTJZemxsTXpOaU5qVm1ZMlJqWXpoa04ySTBOVGN3TTJZMU1HSTRZMk16TjJSbFlUWXpabVZsWTJGbE1UazJZVFV5SWwwc1d5SlFiR0Y1WlhJdE9UazVPVGs1TFVaR1JrWkdSa1pHUmtaR1JqQXdNRE1pTENKdWIyNHRhMjVwWjJoMElpd3hOemswTlRZeU1UQXdMQ0l4TkRobVptRTNabUpqT0dNeU1qRmhZakk1TkRZMU5qQTFOR0U1WldNMk1HRmlaR1U1WlRGallqSTRObVZtTVRNMFlUSTFabU0xTVRjMk1XWm1ZV0U1SWwwc1d5SlFiR0Y1WlhJdE9UazVPVGs1TFVaR1JrWkdSa1pHUmtaR1JqQXdNRFFpTENKdWIyNHRhMjVwWjJoMElpd3hOemswTlRZeU1UQXdMQ0k1WW1Wa05tWXdPR1ZqTUdGaE1qZGtPVFEzT0RnM1l6Rm1OVGszTUdRMVpHUmpNemN4WkRVMlkyWmtZbUV6WWpJd01USXhZMk5tWXpFd1l6bGxOVFE0SWwwc1d5SlFiR0Y1WlhJdE9UazVPVGs1TFVaR1JrWkdSa1pHUmtaR1JqQXdNRFVpTENKdWIyNHRhMjVwWjJoMElpd3hOemswTlRZeU1UQXdMQ0kzT0dFNFptUTBNRE5qWW1WaU0yTXpOalEwT1dSa016RTBOVGN6T0RWaU1HRXdNbUZtT0dOak1tSTVZamsxTmprNE4yUXpObUk0T1RnM00yVXhNRFptSWwwc1d5SlFiR0Y1WlhJdE9UazVPVGs1TFVaR1JrWkdSa1pHUmtaR1JqQXdNRFlpTENKdWIyNHRhMjVwWjJoMElpd3hOemswTlRZeU1UQXdMQ0l6TkRoaE5UaGhZamRtWlRaaE9HSmhZakV4T0RnM00ySTBaRGhoTldReFlqbG1NbUUxT0dZM01ESXlPREV5TlRkaU1URTVNR1JtWldKbE16QTBZekk1SWwwc1d5SlFiR0Y1WlhJdE9UazVPVGs1TFVaR1JrWkdSa1pHUmtaR1JqQXdNRGNpTENKdWIyNHRhMjVwWjJoMElpd3hOemswTlRZeU1UQXdMQ0psT1RZeE16UXpaR0l6TVRjM1ltSmpPVEJoTnpka1pESTRNV00wT0dZeVpHRmhOamN3WmpOaE5tRmlNVEEyTnpSalptSmhaR1JoWTJSbFkyVXpZakJtSWwwc1d5SlFiR0Y1WlhJdE9UazVPVGs1TFVaR1JrWkdSa1pHUmtaR1JqQXdNRGdpTENKdWIyNHRhMjVwWjJoMElpd3hOemswTlRZeU1UQXdMQ0l3WVdKbU1EWTRZMlpqTldZNE9UVXdabVl4WldFMU16bG1OVFF4TnpCaFltRXpNRFJpTlRBNE5XSTVOVEl4T0RGbU5HUm1aVGcxTXpBeU5HWTNNekptSWwwc1d5SlFiR0Y1WlhJdE9UazVPVGs1TFVaR1JrWkdSa1pHUmtaR1JqQXdNRGtpTENKdWIyNHRhMjVwWjJoMElpd3hOemswTlRZeU1UQXdMQ0k1TmpRek5tRmhNVGt4WTJVek5XTmpPR1kwWkROaE5qVmxaV05oT0dFNVpHSmlZVGhrTmpkalpqa3lZamhtWW1GaE5UazFOekl3WlRreFl6UXhabVJrSWwwc1d5SlFiR0Y1WlhJdE9UazVPVGs1TFVaR1JrWkdSa1pHUmtaR1JqQXdNRUVpTENKdWIyNHRhMjVwWjJoMElpd3hOemswTlRZeU1UQXdMQ0l6WWpnNVpXRXlNemxtTkRNM01URmtOR1ZqTkRrM056YzNObU16WldNeE9XUXdOekl4TXpkaFpqUTJaalpqWmpreE1UUTBNVEV5Wm1KaFpXTmxOVFk1SWwwc1d5SlFiR0Y1WlhJdE9UazVPVGs1TFVaR1JrWkdSa1pHUmtaR1JqQXdNRUlpTENKdWIyNHRhMjVwWjJoMElpd3hOemswTlRZeU1UQXdMQ0l3TmpZek56azJNR1ZrWXpRek1HVmpPV016WXprelpEaGhaVEppWkdFeE5EVmxZemRsTldZd1pqSTFOakZrTWpJMk5UazJZV1prTlRJd09XVTRNVGd6SWwwc1d5SlFiR0Y1WlhJdE9UazVPVGs1TFVaR1JrWkdSa1pHUmtaR1JqQXdNRU1pTENKdWIyNHRhMjVwWjJoMElpd3hOemswTlRZeU1UQXdMQ0k1WldFeVpUWXdObUl6TVRSbE16bGtNVFkxTm1Nd1ptWTBPR1kyTnpWaVpUTmtPR0ZrWXpaallqY3hNRFE1WWpFeVltTXlOREEyWkdWak0yVTJPVFkwSWwwc1d5SlFiR0Y1WlhJdE9UazVPVGs1TFVaR1JrWkdSa1pHUmtaR1JqQXdNRVFpTENKdWIyNHRhMjVwWjJoMElpd3hOemswTlRZeU1UQXdMQ0l3WXpFek16Z3pPR00xWmpJd04ySTRNRGd5TlRobFlUUmpPVGRtTkRFek5XWTBZV0ptWW1KaE9ERXhORGxsTmpCbVlXRXpOemt3WVdJMFlUaGtaR1psSWwwc1d5SlFiR0Y1WlhJdE9UazVPVGs1TFVaR1JrWkdSa1pHUmtaR1JqQXdNRVVpTENKdWIyNHRhMjVwWjJoMElpd3hOemswTlRZeU1UQXdMQ0ppWXpKa04yRTRaRFptTkRrek1qQXdNVGRoTXprNU5qWTJNR05pT1RSaVlUWTFOamcxWmpkaU1XUTVNV1E1TldZME4yVmhaVEV6T0dKaE1qYzVZbVl5SWwwc1d5SlFiR0Y1WlhJdE9UazVPVGs1TFVaR1JrWkdSa1pHUmtaR1JqQXdNRVlpTENKdWIyNHRhMjVwWjJoMElpd3hOemswTlRZeU1UQXdMQ0l3TTJaaU5tVXlaakU0TnprNU56UmtPVEZsTkRjd05EVTFOak5sWVdSaVpEQmpNVGhsTkRObVpqZGhNMk13TmpReU1EbGhPVEUzTWpVM01qZ3hZVE15SWwwc1d5SlFiR0Y1WlhJdE9UazVPVGs1TFVaR1JrWkdSa1pHUmtaR1JqQXdNVEFpTENKdWIyNHRhMjVwWjJoMElpd3hOemswTlRZeU1UQXdMQ0kxTkRRNU1UY3laamRtTWpabFpEVTRNVFpoTW1JMVlqa3hNak5sTlRKbU9HUTBOVGN6TURBNE16YzBORFpsTldOaE16QmpOVFV5WlRGbU16ZzRPR1V3SWwwc1d5SlFiR0Y1WlhJdE9UazVPVGs1TFVaR1JrWkdSa1pHUmtaR1JqQXdNVEVpTENKdWIyNHRhMjVwWjJoMElpd3hOemswTlRZeU1UQXdMQ0pqTVRJM05qSmxNVGxqTVdRME5qRTFZV0k0TTJFMllUazBOREZtWVdRM1ltWTRNekUzWW1RMU5URmlNbUkzTkRVNFpqZG1aVGRqTmpJeVptSmxNelkySWwwc1d5SlFiR0Y1WlhJdE9UazVPVGs1TFVaR1JrWkdSa1pHUmtaR1JqQXdNVElpTENKdWIyNHRhMjVwWjJoMElpd3hOemswTlRZeU1UQXdMQ0ppTjJFd01tRXdZV0V5TXpnNFlXUTBOVEF3TlRZNU0yWXpPRGt3TkRRd04yVTJaalV5TXpOaE9EZG1aR1ppT0dNeE5ERTVNVFZqT1RnME9XUXdNbUZoSWwwc1d5SlFiR0Y1WlhJdE9UazVPVGs1TFVaR1JrWkdSa1pHUmtaR1JqQXdNVE1pTENKdWIyNHRhMjVwWjJoMElpd3hOemswTlRZeU1UQXdMQ0kwTmpWaU4ySm1OV0U1TmpFeU9EZGhPRFF4TVdOa01tSTVZakF6WWpkak1UWXhZbUUyTUdNMVl6azJPRFpoWXpSaFpXTXdNVFl6WlRsbE9UTTFOekZrSWwxZExDSnZabVp6WlhRaU9qQjkuM2U2M2I2YjRmMjRmN2M0Y2QyNjZiYjNkOTkyYjE1NWY1NGYxNWM0NzNhZTQzNGYzZDA5NTMyZjM4ZDJlMzhlZCJ9.8b56ebace8c6ef8e48bcdc2ed126c7048abd3c870da22ab84014f3873da5cae4",
+   "nextCursor": null,
+   "invites": [],
+   "promotions": [
+    {
+     "name": "A0001",
+     "guid": "Player-999999-FFFFFFFFFFFF0001",
+     "currentSlot": 9,
+     "targetSlot": 7,
+     "targetName": "Member",
+     "reason": "verified-initiate"
+    },
+    {
+     "name": "A0002",
+     "guid": "Player-999999-FFFFFFFFFFFF0002",
+     "currentSlot": 9,
+     "targetSlot": 7,
+     "targetName": "Member",
+     "reason": "verified-initiate"
+    },
+    {
+     "name": "A0003",
+     "guid": "Player-999999-FFFFFFFFFFFF0003",
+     "currentSlot": 9,
+     "targetSlot": 7,
+     "targetName": "Member",
+     "reason": "verified-initiate"
+    },
+    {
+     "name": "A0004",
+     "guid": "Player-999999-FFFFFFFFFFFF0004",
+     "currentSlot": 9,
+     "targetSlot": 7,
+     "targetName": "Member",
+     "reason": "verified-initiate"
+    },
+    {
+     "name": "A0005",
+     "guid": "Player-999999-FFFFFFFFFFFF0005",
+     "currentSlot": 9,
+     "targetSlot": 7,
+     "targetName": "Member",
+     "reason": "verified-initiate"
+    },
+    {
+     "name": "A0006",
+     "guid": "Player-999999-FFFFFFFFFFFF0006",
+     "currentSlot": 9,
+     "targetSlot": 7,
+     "targetName": "Member",
+     "reason": "verified-initiate"
+    },
+    {
+     "name": "A0007",
+     "guid": "Player-999999-FFFFFFFFFFFF0007",
+     "currentSlot": 9,
+     "targetSlot": 7,
+     "targetName": "Member",
+     "reason": "verified-initiate"
+    },
+    {
+     "name": "A0008",
+     "guid": "Player-999999-FFFFFFFFFFFF0008",
+     "currentSlot": 9,
+     "targetSlot": 7,
+     "targetName": "Member",
+     "reason": "verified-initiate"
+    },
+    {
+     "name": "A0009",
+     "guid": "Player-999999-FFFFFFFFFFFF0009",
+     "currentSlot": 9,
+     "targetSlot": 7,
+     "targetName": "Member",
+     "reason": "verified-initiate"
+    },
+    {
+     "name": "A0010",
+     "guid": "Player-999999-FFFFFFFFFFFF000A",
+     "currentSlot": 9,
+     "targetSlot": 7,
+     "targetName": "Member",
+     "reason": "verified-initiate"
+    },
+    {
+     "name": "A0011",
+     "guid": "Player-999999-FFFFFFFFFFFF000B",
+     "currentSlot": 9,
+     "targetSlot": 7,
+     "targetName": "Member",
+     "reason": "verified-initiate"
+    },
+    {
+     "name": "A0012",
+     "guid": "Player-999999-FFFFFFFFFFFF000C",
+     "currentSlot": 9,
+     "targetSlot": 7,
+     "targetName": "Member",
+     "reason": "verified-initiate"
+    },
+    {
+     "name": "A0013",
+     "guid": "Player-999999-FFFFFFFFFFFF000D",
+     "currentSlot": 9,
+     "targetSlot": 7,
+     "targetName": "Member",
+     "reason": "verified-initiate"
+    },
+    {
+     "name": "A0014",
+     "guid": "Player-999999-FFFFFFFFFFFF000E",
+     "currentSlot": 9,
+     "targetSlot": 7,
+     "targetName": "Member",
+     "reason": "verified-initiate"
+    },
+    {
+     "name": "A0015",
+     "guid": "Player-999999-FFFFFFFFFFFF000F",
+     "currentSlot": 9,
+     "targetSlot": 7,
+     "targetName": "Member",
+     "reason": "verified-initiate"
+    },
+    {
+     "name": "A0016",
+     "guid": "Player-999999-FFFFFFFFFFFF0010",
+     "currentSlot": 9,
+     "targetSlot": 7,
+     "targetName": "Member",
+     "reason": "verified-initiate"
+    },
+    {
+     "name": "A0017",
+     "guid": "Player-999999-FFFFFFFFFFFF0011",
+     "currentSlot": 9,
+     "targetSlot": 7,
+     "targetName": "Member",
+     "reason": "verified-initiate"
+    },
+    {
+     "name": "A0018",
+     "guid": "Player-999999-FFFFFFFFFFFF0012",
+     "currentSlot": 9,
+     "targetSlot": 7,
+     "targetName": "Member",
+     "reason": "verified-initiate"
+    },
+    {
+     "name": "A0019",
+     "guid": "Player-999999-FFFFFFFFFFFF0013",
+     "currentSlot": 9,
+     "targetSlot": 7,
+     "targetName": "Member",
+     "reason": "verified-initiate"
+    }
+   ],
+   "riskBuffer": [],
+   "held": [
+    {
+     "name": "A0020",
+     "guid": "Player-999999-FFFFFFFFFFFF0014",
+     "reason": "discord-entitlement-unknown"
+    }
+   ],
+   "heldReasons": [
+    "native-unguilded-proof-required",
+    "officer-invite-read-deferred",
+    "discord-rate-limited"
+   ],
+   "motd": {
+    "short": "olympus.roachcouncil.com: link Discord, then use /verify-status in Discord. Ask an officer about guild ranks.",
+    "bulletin": "OLYMPUS PRIME is the flagship; OLYMPUS and Olympus I are its aliases.\n\nLink Discord on olympus.roachcouncil.com or ask an Olympus officer. Current Knight-or-higher entitlement is checked from the exact Discord role ladder.\n\nA Knight invite requires a fresh native observation that the same whispering GUID is actually unguilded. Missing or ambiguous guild information is unknown and stays held.\n\nLinked Knights below Veteran are recommended for Veteran. Other verified Initiates are recommended for Member through Alt. Each rank step needs a separate confirmed in-game button press. The full current guild rank list, character, guild, realm and your permission are checked again for each step.\n\nUnverified Initiates are shown separately for human space review, longest offline and then lowest level first. Pending and unknown verification stay held. No automatic purge, role grant or rank change is performed.",
+    "characters": 109,
+    "bytes": 109,
+    "maxBytes": 128
+   },
+   "actions": {
+    "automatic": false,
+    "roleGrants": false,
+    "removals": false,
+    "requiresNativeRecheck": true
+   }
+  },
+  "qualified1000-first": {
+   "protocol": "officer-operations-v235",
+   "fetchedAt": 1794561801,
+   "expiresAt": 1794561861,
+   "status": "partial",
+   "snapshotId": 2,
+   "snapshotAt": 1794561799,
+   "memberCount": 1000,
+   "guild": "OLYMPUS PRIME",
+   "canonicalGuild": "OLYMPUS PRIME",
+   "realm": "Fixture Live Realm",
+   "scopeHash": "40864bdbf6f1cf7d",
+   "rankProfile": "olympus-prime-directive-20261112-v1",
+   "rankSchemeDigest": "84be4203598ba7bf6c506547c681ba6b7338414ae00add5d64055eeeea98bd29",
+   "rankNames": [
+    "Guild Master",
+    "High Council",
+    "Officer",
+    "Officer Alt",
+    "Raid Leader",
+    "Veteran",
+    "Raider",
+    "Member",
+    "Alt",
+    "Initiate"
+   ],
+   "entitlements": {
+    "offset": 0,
+    "pageSize": 20,
+    "scanned": 20,
+    "total": 1000,
+    "unscanned": 980,
+    "retryAfterSeconds": null
+   },
+   "scan": {
+    "id": "71c26e5c7de5ad0273563e5f6014bcc9",
+    "startedAt": 1794561801,
+    "expiresAt": 1794562399
+   },
+   "pageCursor": "eyJ2ZXJzaW9uIjo2LCJwdXJwb3NlIjoib2ZmaWNlci1kaXNjb3ZlcnktdjIzNSIsInNuYXBzaG90SWQiOjIsInNuYXBzaG90QXQiOjE3OTQ1NjE3OTksInNjb3BlSGFzaCI6IjQwODY0YmRiZjZmMWNmN2QiLCJuYXRpdmVEaWdlc3QiOiJlMTU1ODZkZTYyYzA3MzkxYjllY2IxNWY5ZWM4N2UyZGZmYjRkZDViMDM5ODk0ZmQyMTIyYWQ5OGMyODk5M2U5IiwiaXNzdWVkQXQiOjE3OTQ1NjE4MDEsImV4cGlyZXNBdCI6MTc5NDU2MjM5OSwiY3V0b2ZmIjowLCJyYW5rTW9kZSI6InF1YWxpZmllZCIsInJvbGVTY29wZSI6IjY5YWNlYTI3YjEzOTU2ZmZkY2UwNTBlOWYyYWRmZjBlOTc4ZjUwNTc0NjUxYzdjN2RhNzYxYmYwMWRjMTY2NzciLCJvZmZzZXQiOjAsImlubmVyQ3Vyc29yIjoiZXlKMlpYSnphVzl1SWpvekxDSnpibUZ3YzJodmRFbGtJam95TENKemJtRndjMmh2ZEVGMElqb3hOemswTlRZeE56azVMQ0p6WTI5d1pVaGhjMmdpT2lJME1EZzJOR0prWW1ZMlpqRmpaamRrSWl3aWNtOTNjMFJwWjJWemRDSTZJbVV4TlRVNE5tUmxOakpqTURjek9URmlPV1ZqWWpFMVpqbGxZemczWlRKa1ptWmlOR1JrTldJd016azRPVFJtWkRJeE1qSmhaRGs0WXpJNE9Ua3paVGtpTENKcGMzTjFaV1JCZENJNk1UYzVORFUyTVRnd01Td2laWGh3YVhKbGMwRjBJam94TnprME5UWXlNems1TENKeWIyeGxVMk52Y0dVaU9pSTJPV0ZqWldFeU4ySXhNemsxTm1abVpHTmxNRFV3WlRsbU1tRmtabVl3WlRrM09HWTFNRFUzTkRZMU1XTTNZemRrWVRjMk1XSm1NREZrWXpFMk5qYzNJaXdpY205c1pWSmxZV1J6SWpwYlhTd2liMlptYzJWMElqb3dmUS5hZTdlZDFiM2EwZDQxMzkyOTJiMWNiMjBlMjVmOGEzZDgyMWYzNDMyN2NkMWFiOTIxNjM0YTA3ZDYyMjk4ZGFkIn0.0cbc78a50a008c0117c7c7a03127b55048ca23fdda60e1fa5dd45c6e6e444997",
+   "nextCursor": "eyJ2ZXJzaW9uIjo2LCJwdXJwb3NlIjoib2ZmaWNlci1kaXNjb3ZlcnktdjIzNSIsInNuYXBzaG90SWQiOjIsInNuYXBzaG90QXQiOjE3OTQ1NjE3OTksInNjb3BlSGFzaCI6IjQwODY0YmRiZjZmMWNmN2QiLCJuYXRpdmVEaWdlc3QiOiJlMTU1ODZkZTYyYzA3MzkxYjllY2IxNWY5ZWM4N2UyZGZmYjRkZDViMDM5ODk0ZmQyMTIyYWQ5OGMyODk5M2U5IiwiaXNzdWVkQXQiOjE3OTQ1NjE4MDEsImV4cGlyZXNBdCI6MTc5NDU2MjM5OSwiY3V0b2ZmIjowLCJyYW5rTW9kZSI6InF1YWxpZmllZCIsInJvbGVTY29wZSI6IjY5YWNlYTI3YjEzOTU2ZmZkY2UwNTBlOWYyYWRmZjBlOTc4ZjUwNTc0NjUxYzdjN2RhNzYxYmYwMWRjMTY2NzciLCJvZmZzZXQiOjIwLCJpbm5lckN1cnNvciI6ImV5SjJaWEp6YVc5dUlqb3pMQ0p6Ym1Gd2MyaHZkRWxrSWpveUxDSnpibUZ3YzJodmRFRjBJam94TnprME5UWXhOems1TENKelkyOXdaVWhoYzJnaU9pSTBNRGcyTkdKa1ltWTJaakZqWmpka0lpd2ljbTkzYzBScFoyVnpkQ0k2SW1VeE5UVTRObVJsTmpKak1EY3pPVEZpT1dWallqRTFaamxsWXpnM1pUSmtabVppTkdSa05XSXdNems0T1RSbVpESXhNakpoWkRrNFl6STRPVGt6WlRraUxDSnBjM04xWldSQmRDSTZNVGM1TkRVMk1UZ3dNU3dpWlhod2FYSmxjMEYwSWpveE56azBOVFl5TXprNUxDSnliMnhsVTJOdmNHVWlPaUkyT1dGalpXRXlOMkl4TXprMU5tWm1aR05sTURVd1pUbG1NbUZrWm1Zd1pUazNPR1kxTURVM05EWTFNV00zWXpka1lUYzJNV0ptTURGa1l6RTJOamMzSWl3aWNtOXNaVkpsWVdSeklqcGJYU3dpYjJabWMyVjBJam95TUgwLjA1ZTU2NjY0NDdhZTg2OGFiMzFjYmMxM2IzYzhiNzM0NDM2MjUzNzhhZjA4MGUyNTA0MDFmYmZkZWYxYWU4MzYifQ.e6292dccee909f096f127ff5a6502ae6c2422ccf5934e6fe3d74e526aa1a95fd",
+   "invites": [
+    {
+     "queueId": 1,
+     "proofId": "dc6e92d2f4b6decf0f768583f1890014",
+     "name": "Fresh Candidate",
+     "guid": "Player-4613-ABCDEF12",
+     "fullName": "Fresh Candidate",
+     "scopeHash": "40864bdbf6f1cf7d",
+     "observedAt": 1794561800,
+     "expiresAt": 1794561860,
+     "reason": "knight-unguilded",
+     "source": "native-who-whisper-v242"
+    }
+   ],
+   "promotions": [],
+   "riskBuffer": [
+    {
+     "name": "Synthetic 10",
+     "guid": "Player-4613-12345682",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 100",
+     "guid": "Player-4613-123456DC",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 101",
+     "guid": "Player-4613-123456DD",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 102",
+     "guid": "Player-4613-123456DE",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 103",
+     "guid": "Player-4613-123456DF",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 104",
+     "guid": "Player-4613-123456E0",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 105",
+     "guid": "Player-4613-123456E1",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 106",
+     "guid": "Player-4613-123456E2",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 107",
+     "guid": "Player-4613-123456E3",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 108",
+     "guid": "Player-4613-123456E4",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 109",
+     "guid": "Player-4613-123456E5",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 11",
+     "guid": "Player-4613-12345683",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 110",
+     "guid": "Player-4613-123456E6",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 111",
+     "guid": "Player-4613-123456E7",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 112",
+     "guid": "Player-4613-123456E8",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 113",
+     "guid": "Player-4613-123456E9",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 114",
+     "guid": "Player-4613-123456EA",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 115",
+     "guid": "Player-4613-123456EB",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 116",
+     "guid": "Player-4613-123456EC",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    }
+   ],
+   "held": [],
+   "heldReasons": [],
+   "motd": {
+    "short": "olympus.roachcouncil.com: link Discord, then use /verify-status in Discord. Ask an officer about guild ranks.",
+    "bulletin": "OLYMPUS PRIME is the flagship; OLYMPUS and Olympus I are its aliases.\n\nLink Discord on olympus.roachcouncil.com or ask an Olympus officer. Current Knight-or-higher entitlement is checked from the exact Discord role ladder.\n\nA Knight invite requires a fresh native observation that the same whispering GUID is actually unguilded. Missing or ambiguous guild information is unknown and stays held.\n\nLinked Knights below Veteran are recommended for Veteran. Other verified Initiates are recommended for Member through Alt. Each rank step needs a separate confirmed in-game button press. The full current guild rank list, character, guild, realm and your permission are checked again for each step.\n\nUnverified Initiates are shown separately for human space review, longest offline and then lowest level first. Pending and unknown verification stay held. No automatic purge, role grant or rank change is performed.",
+    "characters": 109,
+    "bytes": 109,
+    "maxBytes": 128
+   },
+   "actions": {
+    "automatic": false,
+    "roleGrants": false,
+    "removals": false,
+    "requiresNativeRecheck": true
+   }
+  },
+  "qualified1000-offset20": {
+   "protocol": "officer-operations-v235",
+   "fetchedAt": 1794561802,
+   "expiresAt": 1794561862,
+   "status": "partial",
+   "snapshotId": 2,
+   "snapshotAt": 1794561799,
+   "memberCount": 1000,
+   "guild": "OLYMPUS PRIME",
+   "canonicalGuild": "OLYMPUS PRIME",
+   "realm": "Fixture Live Realm",
+   "scopeHash": "40864bdbf6f1cf7d",
+   "rankProfile": "olympus-prime-directive-20261112-v1",
+   "rankSchemeDigest": "84be4203598ba7bf6c506547c681ba6b7338414ae00add5d64055eeeea98bd29",
+   "rankNames": [
+    "Guild Master",
+    "High Council",
+    "Officer",
+    "Officer Alt",
+    "Raid Leader",
+    "Veteran",
+    "Raider",
+    "Member",
+    "Alt",
+    "Initiate"
+   ],
+   "entitlements": {
+    "offset": 20,
+    "pageSize": 20,
+    "scanned": 20,
+    "total": 1000,
+    "unscanned": 960,
+    "retryAfterSeconds": null
+   },
+   "scan": {
+    "id": "71c26e5c7de5ad0273563e5f6014bcc9",
+    "startedAt": 1794561801,
+    "expiresAt": 1794562399
+   },
+   "pageCursor": "eyJ2ZXJzaW9uIjo2LCJwdXJwb3NlIjoib2ZmaWNlci1kaXNjb3ZlcnktdjIzNSIsInNuYXBzaG90SWQiOjIsInNuYXBzaG90QXQiOjE3OTQ1NjE3OTksInNjb3BlSGFzaCI6IjQwODY0YmRiZjZmMWNmN2QiLCJuYXRpdmVEaWdlc3QiOiJlMTU1ODZkZTYyYzA3MzkxYjllY2IxNWY5ZWM4N2UyZGZmYjRkZDViMDM5ODk0ZmQyMTIyYWQ5OGMyODk5M2U5IiwiaXNzdWVkQXQiOjE3OTQ1NjE4MDEsImV4cGlyZXNBdCI6MTc5NDU2MjM5OSwiY3V0b2ZmIjowLCJyYW5rTW9kZSI6InF1YWxpZmllZCIsInJvbGVTY29wZSI6IjY5YWNlYTI3YjEzOTU2ZmZkY2UwNTBlOWYyYWRmZjBlOTc4ZjUwNTc0NjUxYzdjN2RhNzYxYmYwMWRjMTY2NzciLCJvZmZzZXQiOjIwLCJpbm5lckN1cnNvciI6ImV5SjJaWEp6YVc5dUlqb3pMQ0p6Ym1Gd2MyaHZkRWxrSWpveUxDSnpibUZ3YzJodmRFRjBJam94TnprME5UWXhOems1TENKelkyOXdaVWhoYzJnaU9pSTBNRGcyTkdKa1ltWTJaakZqWmpka0lpd2ljbTkzYzBScFoyVnpkQ0k2SW1VeE5UVTRObVJsTmpKak1EY3pPVEZpT1dWallqRTFaamxsWXpnM1pUSmtabVppTkdSa05XSXdNems0T1RSbVpESXhNakpoWkRrNFl6STRPVGt6WlRraUxDSnBjM04xWldSQmRDSTZNVGM1TkRVMk1UZ3dNU3dpWlhod2FYSmxjMEYwSWpveE56azBOVFl5TXprNUxDSnliMnhsVTJOdmNHVWlPaUkyT1dGalpXRXlOMkl4TXprMU5tWm1aR05sTURVd1pUbG1NbUZrWm1Zd1pUazNPR1kxTURVM05EWTFNV00zWXpka1lUYzJNV0ptTURGa1l6RTJOamMzSWl3aWNtOXNaVkpsWVdSeklqcGJYU3dpYjJabWMyVjBJam95TUgwLjA1ZTU2NjY0NDdhZTg2OGFiMzFjYmMxM2IzYzhiNzM0NDM2MjUzNzhhZjA4MGUyNTA0MDFmYmZkZWYxYWU4MzYifQ.e6292dccee909f096f127ff5a6502ae6c2422ccf5934e6fe3d74e526aa1a95fd",
+   "nextCursor": "eyJ2ZXJzaW9uIjo2LCJwdXJwb3NlIjoib2ZmaWNlci1kaXNjb3ZlcnktdjIzNSIsInNuYXBzaG90SWQiOjIsInNuYXBzaG90QXQiOjE3OTQ1NjE3OTksInNjb3BlSGFzaCI6IjQwODY0YmRiZjZmMWNmN2QiLCJuYXRpdmVEaWdlc3QiOiJlMTU1ODZkZTYyYzA3MzkxYjllY2IxNWY5ZWM4N2UyZGZmYjRkZDViMDM5ODk0ZmQyMTIyYWQ5OGMyODk5M2U5IiwiaXNzdWVkQXQiOjE3OTQ1NjE4MDEsImV4cGlyZXNBdCI6MTc5NDU2MjM5OSwiY3V0b2ZmIjowLCJyYW5rTW9kZSI6InF1YWxpZmllZCIsInJvbGVTY29wZSI6IjY5YWNlYTI3YjEzOTU2ZmZkY2UwNTBlOWYyYWRmZjBlOTc4ZjUwNTc0NjUxYzdjN2RhNzYxYmYwMWRjMTY2NzciLCJvZmZzZXQiOjQwLCJpbm5lckN1cnNvciI6ImV5SjJaWEp6YVc5dUlqb3pMQ0p6Ym1Gd2MyaHZkRWxrSWpveUxDSnpibUZ3YzJodmRFRjBJam94TnprME5UWXhOems1TENKelkyOXdaVWhoYzJnaU9pSTBNRGcyTkdKa1ltWTJaakZqWmpka0lpd2ljbTkzYzBScFoyVnpkQ0k2SW1VeE5UVTRObVJsTmpKak1EY3pPVEZpT1dWallqRTFaamxsWXpnM1pUSmtabVppTkdSa05XSXdNems0T1RSbVpESXhNakpoWkRrNFl6STRPVGt6WlRraUxDSnBjM04xWldSQmRDSTZNVGM1TkRVMk1UZ3dNU3dpWlhod2FYSmxjMEYwSWpveE56azBOVFl5TXprNUxDSnliMnhsVTJOdmNHVWlPaUkyT1dGalpXRXlOMkl4TXprMU5tWm1aR05sTURVd1pUbG1NbUZrWm1Zd1pUazNPR1kxTURVM05EWTFNV00zWXpka1lUYzJNV0ptTURGa1l6RTJOamMzSWl3aWNtOXNaVkpsWVdSeklqcGJYU3dpYjJabWMyVjBJam8wTUgwLmE3OTRiYmU3M2Q2ZjdkNDBjOTM2MWM5NTdhOWE0NTgxMWE4YjBmNWQ5MDI4Nzc4MzQ0MTY5NjM4YzNjNjdkZTIifQ.8bdbe2288f12e28675b7563dd5622e63507ce0ca72873774452a1e43fc887f42",
+   "invites": [],
+   "promotions": [],
+   "riskBuffer": [
+    {
+     "name": "Synthetic 117",
+     "guid": "Player-4613-123456ED",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 118",
+     "guid": "Player-4613-123456EE",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 119",
+     "guid": "Player-4613-123456EF",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 12",
+     "guid": "Player-4613-12345684",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 120",
+     "guid": "Player-4613-123456F0",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 121",
+     "guid": "Player-4613-123456F1",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 122",
+     "guid": "Player-4613-123456F2",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 123",
+     "guid": "Player-4613-123456F3",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 124",
+     "guid": "Player-4613-123456F4",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 125",
+     "guid": "Player-4613-123456F5",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 126",
+     "guid": "Player-4613-123456F6",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 127",
+     "guid": "Player-4613-123456F7",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 128",
+     "guid": "Player-4613-123456F8",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 129",
+     "guid": "Player-4613-123456F9",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 13",
+     "guid": "Player-4613-12345685",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 130",
+     "guid": "Player-4613-123456FA",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 131",
+     "guid": "Player-4613-123456FB",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 132",
+     "guid": "Player-4613-123456FC",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 133",
+     "guid": "Player-4613-123456FD",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    },
+    {
+     "name": "Synthetic 134",
+     "guid": "Player-4613-123456FE",
+     "currentSlot": 9,
+     "level": 60,
+     "lastOnlineDays": 0.000011574074074074073,
+     "reason": "unverified-initiate",
+     "reviewOnly": true
+    }
+   ],
+   "held": [],
+   "heldReasons": [
+    "native-unguilded-proof-required"
+   ],
+   "motd": {
+    "short": "olympus.roachcouncil.com: link Discord, then use /verify-status in Discord. Ask an officer about guild ranks.",
+    "bulletin": "OLYMPUS PRIME is the flagship; OLYMPUS and Olympus I are its aliases.\n\nLink Discord on olympus.roachcouncil.com or ask an Olympus officer. Current Knight-or-higher entitlement is checked from the exact Discord role ladder.\n\nA Knight invite requires a fresh native observation that the same whispering GUID is actually unguilded. Missing or ambiguous guild information is unknown and stays held.\n\nLinked Knights below Veteran are recommended for Veteran. Other verified Initiates are recommended for Member through Alt. Each rank step needs a separate confirmed in-game button press. The full current guild rank list, character, guild, realm and your permission are checked again for each step.\n\nUnverified Initiates are shown separately for human space review, longest offline and then lowest level first. Pending and unknown verification stay held. No automatic purge, role grant or rank change is performed.",
+    "characters": 109,
+    "bytes": 109,
+    "maxBytes": 128
+   },
+   "actions": {
+    "automatic": false,
+    "roleGrants": false,
+    "removals": false,
+    "requiresNativeRecheck": true
+   }
+  },
+  "held1000-first": {
+   "protocol": "officer-operations-v235",
+   "fetchedAt": 1794562565,
+   "expiresAt": 1794562625,
+   "status": "partial",
+   "snapshotId": 2,
+   "snapshotAt": 1794562564,
+   "memberCount": 1000,
+   "guild": "OLYMPUS PRIME",
+   "canonicalGuild": "OLYMPUS PRIME",
+   "realm": "Fixture Live Realm",
+   "scopeHash": "40864bdbf6f1cf7d",
+   "rankProfile": null,
+   "rankSchemeDigest": null,
+   "rankNames": null,
+   "entitlements": {
+    "offset": 0,
+    "pageSize": 20,
+    "scanned": 20,
+    "total": 1000,
+    "unscanned": 980,
+    "retryAfterSeconds": null
+   },
+   "scan": {
+    "id": "7c00483ca9f3b1aa08edd7f5f30b567a",
+    "startedAt": 1794562565,
+    "expiresAt": 1794563164
+   },
+   "pageCursor": "eyJ2ZXJzaW9uIjo2LCJwdXJwb3NlIjoib2ZmaWNlci1kaXNjb3ZlcnktdjIzNSIsInNuYXBzaG90SWQiOjIsInNuYXBzaG90QXQiOjE3OTQ1NjI1NjQsInNjb3BlSGFzaCI6IjQwODY0YmRiZjZmMWNmN2QiLCJuYXRpdmVEaWdlc3QiOiIwODIzZjZiMzE3MzA2MDhkNGY3NWY0MDU4ZWU1MDgzMGI0MzY0ZDVkNGY3M2U3NGY1OTNjN2IyZGEyY2Y2NzdmIiwiaXNzdWVkQXQiOjE3OTQ1NjI1NjUsImV4cGlyZXNBdCI6MTc5NDU2MzE2NCwiY3V0b2ZmIjowLCJyYW5rTW9kZSI6ImhlbGQiLCJyb2xlU2NvcGUiOiI0MWI4NzNjMjYyYjdjZjkwNjhmMzM5MjcwYTY4NGNiMTk4MDBhZWQzYTA4NzVmNTViZTNiZjQwNGEyYmMyNmVkIiwib2Zmc2V0IjowLCJpbm5lckN1cnNvciI6bnVsbH0.35b65533514047e86a76ef06341649cb86a46aaee96a1c41084b46bb6bca26a8",
+   "nextCursor": "eyJ2ZXJzaW9uIjo2LCJwdXJwb3NlIjoib2ZmaWNlci1kaXNjb3ZlcnktdjIzNSIsInNuYXBzaG90SWQiOjIsInNuYXBzaG90QXQiOjE3OTQ1NjI1NjQsInNjb3BlSGFzaCI6IjQwODY0YmRiZjZmMWNmN2QiLCJuYXRpdmVEaWdlc3QiOiIwODIzZjZiMzE3MzA2MDhkNGY3NWY0MDU4ZWU1MDgzMGI0MzY0ZDVkNGY3M2U3NGY1OTNjN2IyZGEyY2Y2NzdmIiwiaXNzdWVkQXQiOjE3OTQ1NjI1NjUsImV4cGlyZXNBdCI6MTc5NDU2MzE2NCwiY3V0b2ZmIjowLCJyYW5rTW9kZSI6ImhlbGQiLCJyb2xlU2NvcGUiOiI0MWI4NzNjMjYyYjdjZjkwNjhmMzM5MjcwYTY4NGNiMTk4MDBhZWQzYTA4NzVmNTViZTNiZjQwNGEyYmMyNmVkIiwib2Zmc2V0IjoyMCwiaW5uZXJDdXJzb3IiOm51bGx9.b462604ef852b6cd01dc89b050c2079ed86c4b480d49525d444981c4f2b14391",
+   "invites": [
+    {
+     "queueId": 1,
+     "proofId": "700e4bd672904fb095e8d28d3c37d453",
+     "name": "Fresh Candidate",
+     "guid": "Player-4613-ABCDEF12",
+     "fullName": "Fresh Candidate",
+     "scopeHash": "40864bdbf6f1cf7d",
+     "observedAt": 1794562564,
+     "expiresAt": 1794562624,
+     "reason": "knight-unguilded",
+     "source": "native-who-whisper-v242"
+    }
+   ],
+   "promotions": [],
+   "riskBuffer": [],
+   "held": [
+    {
+     "guid": "Player-4613-12345678",
+     "name": "Fern Melder",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-12345682",
+     "name": "Synthetic 10",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456DC",
+     "name": "Synthetic 100",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456DD",
+     "name": "Synthetic 101",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456DE",
+     "name": "Synthetic 102",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456DF",
+     "name": "Synthetic 103",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456E0",
+     "name": "Synthetic 104",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456E1",
+     "name": "Synthetic 105",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456E2",
+     "name": "Synthetic 106",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456E3",
+     "name": "Synthetic 107",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456E4",
+     "name": "Synthetic 108",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456E5",
+     "name": "Synthetic 109",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-12345683",
+     "name": "Synthetic 11",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456E6",
+     "name": "Synthetic 110",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456E7",
+     "name": "Synthetic 111",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456E8",
+     "name": "Synthetic 112",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456E9",
+     "name": "Synthetic 113",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456EA",
+     "name": "Synthetic 114",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456EB",
+     "name": "Synthetic 115",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456EC",
+     "name": "Synthetic 116",
+     "reason": "native-rank-scheme-unconfirmed"
+    }
+   ],
+   "heldReasons": [
+    "native-rank-scheme-unconfirmed"
+   ],
+   "motd": {
+    "short": "olympus.roachcouncil.com: link Discord, then use /verify-status in Discord. Ask an officer about guild ranks.",
+    "bulletin": "OLYMPUS PRIME is the flagship; OLYMPUS and Olympus I are its aliases.\n\nLink Discord on olympus.roachcouncil.com or ask an Olympus officer. Current Knight-or-higher entitlement is checked from the exact Discord role ladder.\n\nA Knight invite requires a fresh native observation that the same whispering GUID is actually unguilded. Missing or ambiguous guild information is unknown and stays held.\n\nLinked Knights below Veteran are recommended for Veteran. Other verified Initiates are recommended for Member through Alt. Each rank step needs a separate confirmed in-game button press. The full current guild rank list, character, guild, realm and your permission are checked again for each step.\n\nUnverified Initiates are shown separately for human space review, longest offline and then lowest level first. Pending and unknown verification stay held. No automatic purge, role grant or rank change is performed.",
+    "characters": 109,
+    "bytes": 109,
+    "maxBytes": 128
+   },
+   "actions": {
+    "automatic": false,
+    "roleGrants": false,
+    "removals": false,
+    "requiresNativeRecheck": true
+   }
+  },
+  "held1000-offset20": {
+   "protocol": "officer-operations-v235",
+   "fetchedAt": 1794562565,
+   "expiresAt": 1794562625,
+   "status": "partial",
+   "snapshotId": 2,
+   "snapshotAt": 1794562564,
+   "memberCount": 1000,
+   "guild": "OLYMPUS PRIME",
+   "canonicalGuild": "OLYMPUS PRIME",
+   "realm": "Fixture Live Realm",
+   "scopeHash": "40864bdbf6f1cf7d",
+   "rankProfile": null,
+   "rankSchemeDigest": null,
+   "rankNames": null,
+   "entitlements": {
+    "offset": 20,
+    "pageSize": 20,
+    "scanned": 20,
+    "total": 1000,
+    "unscanned": 960,
+    "retryAfterSeconds": null
+   },
+   "scan": {
+    "id": "7c00483ca9f3b1aa08edd7f5f30b567a",
+    "startedAt": 1794562565,
+    "expiresAt": 1794563164
+   },
+   "pageCursor": "eyJ2ZXJzaW9uIjo2LCJwdXJwb3NlIjoib2ZmaWNlci1kaXNjb3ZlcnktdjIzNSIsInNuYXBzaG90SWQiOjIsInNuYXBzaG90QXQiOjE3OTQ1NjI1NjQsInNjb3BlSGFzaCI6IjQwODY0YmRiZjZmMWNmN2QiLCJuYXRpdmVEaWdlc3QiOiIwODIzZjZiMzE3MzA2MDhkNGY3NWY0MDU4ZWU1MDgzMGI0MzY0ZDVkNGY3M2U3NGY1OTNjN2IyZGEyY2Y2NzdmIiwiaXNzdWVkQXQiOjE3OTQ1NjI1NjUsImV4cGlyZXNBdCI6MTc5NDU2MzE2NCwiY3V0b2ZmIjowLCJyYW5rTW9kZSI6ImhlbGQiLCJyb2xlU2NvcGUiOiI0MWI4NzNjMjYyYjdjZjkwNjhmMzM5MjcwYTY4NGNiMTk4MDBhZWQzYTA4NzVmNTViZTNiZjQwNGEyYmMyNmVkIiwib2Zmc2V0IjoyMCwiaW5uZXJDdXJzb3IiOm51bGx9.b462604ef852b6cd01dc89b050c2079ed86c4b480d49525d444981c4f2b14391",
+   "nextCursor": "eyJ2ZXJzaW9uIjo2LCJwdXJwb3NlIjoib2ZmaWNlci1kaXNjb3ZlcnktdjIzNSIsInNuYXBzaG90SWQiOjIsInNuYXBzaG90QXQiOjE3OTQ1NjI1NjQsInNjb3BlSGFzaCI6IjQwODY0YmRiZjZmMWNmN2QiLCJuYXRpdmVEaWdlc3QiOiIwODIzZjZiMzE3MzA2MDhkNGY3NWY0MDU4ZWU1MDgzMGI0MzY0ZDVkNGY3M2U3NGY1OTNjN2IyZGEyY2Y2NzdmIiwiaXNzdWVkQXQiOjE3OTQ1NjI1NjUsImV4cGlyZXNBdCI6MTc5NDU2MzE2NCwiY3V0b2ZmIjowLCJyYW5rTW9kZSI6ImhlbGQiLCJyb2xlU2NvcGUiOiI0MWI4NzNjMjYyYjdjZjkwNjhmMzM5MjcwYTY4NGNiMTk4MDBhZWQzYTA4NzVmNTViZTNiZjQwNGEyYmMyNmVkIiwib2Zmc2V0Ijo0MCwiaW5uZXJDdXJzb3IiOm51bGx9.12571585b70c4af08d9a6c2562de69a83a9945ee88fa4bd65e1f8362b8980596",
+   "invites": [],
+   "promotions": [],
+   "riskBuffer": [],
+   "held": [
+    {
+     "guid": "Player-4613-123456ED",
+     "name": "Synthetic 117",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456EE",
+     "name": "Synthetic 118",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456EF",
+     "name": "Synthetic 119",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-12345684",
+     "name": "Synthetic 12",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456F0",
+     "name": "Synthetic 120",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456F1",
+     "name": "Synthetic 121",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456F2",
+     "name": "Synthetic 122",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456F3",
+     "name": "Synthetic 123",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456F4",
+     "name": "Synthetic 124",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456F5",
+     "name": "Synthetic 125",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456F6",
+     "name": "Synthetic 126",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456F7",
+     "name": "Synthetic 127",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456F8",
+     "name": "Synthetic 128",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456F9",
+     "name": "Synthetic 129",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-12345685",
+     "name": "Synthetic 13",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456FA",
+     "name": "Synthetic 130",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456FB",
+     "name": "Synthetic 131",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456FC",
+     "name": "Synthetic 132",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456FD",
+     "name": "Synthetic 133",
+     "reason": "native-rank-scheme-unconfirmed"
+    },
+    {
+     "guid": "Player-4613-123456FE",
+     "name": "Synthetic 134",
+     "reason": "native-rank-scheme-unconfirmed"
+    }
+   ],
+   "heldReasons": [
+    "native-rank-scheme-unconfirmed",
+    "native-unguilded-proof-required"
+   ],
+   "motd": {
+    "short": "olympus.roachcouncil.com: link Discord, then use /verify-status in Discord. Ask an officer about guild ranks.",
+    "bulletin": "OLYMPUS PRIME is the flagship; OLYMPUS and Olympus I are its aliases.\n\nLink Discord on olympus.roachcouncil.com or ask an Olympus officer. Current Knight-or-higher entitlement is checked from the exact Discord role ladder.\n\nA Knight invite requires a fresh native observation that the same whispering GUID is actually unguilded. Missing or ambiguous guild information is unknown and stays held.\n\nLinked Knights below Veteran are recommended for Veteran. Other verified Initiates are recommended for Member through Alt. Each rank step needs a separate confirmed in-game button press. The full current guild rank list, character, guild, realm and your permission are checked again for each step.\n\nUnverified Initiates are shown separately for human space review, longest offline and then lowest level first. Pending and unknown verification stay held. No automatic purge, role grant or rank change is performed.",
+    "characters": 109,
+    "bytes": 109,
+    "maxBytes": 128
+   },
+   "actions": {
+    "automatic": false,
+    "roleGrants": false,
+    "removals": false,
+    "requiresNativeRecheck": true
+   }
+  }
+ }
+}

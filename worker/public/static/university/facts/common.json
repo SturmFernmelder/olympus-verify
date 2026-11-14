@@ -1,0 +1,157 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "common",
+ "note": "Facts that more than one guide cites. Each restates one claim the .218 guides already held, one statement per fact.",
+ "facts": [
+  {
+   "id": "common.racial-dwarf-artisans-precision",
+   "scope": {
+    "race": "dwarf"
+   },
+   "topic": "racial-bonus",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Dwarf racial: Artisan's Precision",
+   "value": "Dwarf Artisan's Precision: +1% hit with spells and attacks.",
+   "sources": [
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (Blizzard notes of 26 Oct 2026)"
+  },
+  {
+   "id": "common.racial-gnome-eureka",
+   "scope": {
+    "race": "gnome"
+   },
+   "topic": "racial-bonus",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Gnome racial: Eureka!",
+   "value": "Gnome Eureka!: an 8 sec buff that makes non-periodic abilities 10% cheaper and stronger.",
+   "sources": [
+    "g218-50",
+    "g218-49",
+    "g218-70"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (Blizzard notes of 26 Oct 2026)"
+  },
+  {
+   "id": "common.racial-gnome-eureka-shield",
+   "scope": {
+    "race": "gnome"
+   },
+   "topic": "racial-rule",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Gnome racial: Eureka! and Power Word: Shield",
+   "value": "Since the 16 Oct notes, Eureka! also benefits Power Word: Shield.",
+   "sources": [
+    "g218-49"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (Blizzard notes of 16 Oct 2026)"
+  },
+  {
+   "id": "common.racial-human-ruthless",
+   "scope": {
+    "race": "human"
+   },
+   "topic": "racial-bonus",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Human racial: Ruthless",
+   "value": "Human Ruthless: +1% crit (cut from 2% on 26 Oct).",
+   "sources": [
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (Blizzard notes of 26 Oct 2026)"
+  },
+  {
+   "id": "common.racial-human-spirit",
+   "scope": {
+    "race": "human"
+   },
+   "topic": "racial-bonus",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Human racial: Spirit",
+   "value": "Human: +10% Spirit in the 26 Oct notes.",
+   "sources": [
+    "g218-50"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (Blizzard notes of 26 Oct 2026)"
+  },
+  {
+   "id": "common.racial-skyborne-wind-blessed",
+   "scope": {
+    "race": "skyborne"
+   },
+   "topic": "racial-bonus",
+   "kind": "theory",
+   "grade": "B",
+   "label": "High Order Skyborne racial: Wind-Blessed",
+   "value": "High Order Skyborne Wind-Blessed: +2% haste.",
+   "sources": [
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (Blizzard notes of 26 Oct 2026)"
+  },
+  {
+   "id": "common.racial-skyborne-attuned",
+   "scope": {
+    "race": "skyborne"
+   },
+   "topic": "racial-rule",
+   "kind": "theory",
+   "grade": "B",
+   "label": "High Order Skyborne racial: Attuned",
+   "value": "Skyborne's Attuned bonus is removed when you enter a raid.",
+   "sources": [
+    "g218-50",
+    "g218-49",
+    "g218-70"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (Blizzard notes of 26 Oct 2026)"
+  },
+  {
+   "id": "common.racial-weapon-skill",
+   "scope": {},
+   "topic": "racial-rule",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Racial weapon skill",
+   "value": "No racial grants weapon skill in Forever.",
+   "sources": [
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (Blizzard notes of 26 Oct 2026)"
+  },
+  {
+   "id": "common.alliance-new-race-class-combos",
+   "scope": {},
+   "topic": "race-class",
+   "kind": "theory",
+   "grade": "B",
+   "label": "New Alliance race and class combinations",
+   "value": "Alliance gains Human Hunter, Dwarf Shaman and Gnome Priest, so Alliance raids can now plan around Shaman totems.",
+   "note": "Restated from the What Changed compendium entry 'Races and classes' in guides218.json, with its sources.",
+   "sources": [
+    "g218-62",
+    "g218-46",
+    "g218-140",
+    "g218-126",
+    "g218-116",
+    "g218-71"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (Blizzard announcements to 29 Oct 2026)"
+  }
+ ]
+}

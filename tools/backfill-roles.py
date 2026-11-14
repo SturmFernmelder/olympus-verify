@@ -58,9 +58,9 @@ def call(base: str, token: str, after: str, apply: bool) -> dict[str, Any]:
     if apply:
         q["apply"] = "1"
     url = origin + "/admin/backfill-roles?" + urllib.parse.urlencode(q)
-    req = urllib.request.Request(url, method="GET")
+    req = urllib.request.Request(url, method="POST" if apply else "GET")
     req.add_header("Authorization", f"Bearer {token}")
-    req.add_header("User-Agent", "olympus-backfill-roles/1.0")
+    req.add_header("User-Agent", "olympus-backfill-roles/1.1")
     try:
         with urllib.request.build_opener(NoRedirect()).open(req, timeout=90) as res:
             result = json.loads(res.read().decode("utf-8"))
@@ -82,7 +82,7 @@ def call(base: str, token: str, after: str, apply: bool) -> dict[str, Any]:
     except (UnicodeDecodeError, ValueError):
         sys.exit("Worker returned an invalid JSON response.")
     except (TimeoutError, OSError, http.client.HTTPException):
-        sys.exit("Could not read the Worker response; check the connection and retry.")
+        sys.exit("Could not confirm the Worker response. Inspect the current roles before an attended retry; no automatic retry was made.")
 
 
 def valid_account_id(value: Any) -> bool:

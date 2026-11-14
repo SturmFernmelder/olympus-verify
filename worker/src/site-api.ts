@@ -1,3 +1,4 @@
+import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 import { APPLICATION_SPECS_219 } from './application-specs219';
 import {captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy';
 import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
@@ -38,7 +39,6 @@ import {
   LIMITS,
   loadSettings,
   loadSiteState,
-  meta,
   parseCharacterName,
   parseLink,
   parsePick,
@@ -51,21 +51,23 @@ import {
   ROLE_KEYS,
   roleKeyOf,
   roleLabel,
+  SITE_STATE_SQL,
+  siteStateFrom,
   VOICE_KEYS,
   type Pick,
   type SiteSettings,
 } from "./site-data";
+import { NAME_ENTRY_CLOSED_AT } from "./site-data";
 import { releaseReserved } from "./site-queue";
 import { handleAttendedBetaWindow } from "./site-beta-window";
 import { handleAdmin } from "./site-admin";
 async function handleSiteVerification242(...args:Parameters<typeof import('./verification242').handleSiteVerification242>){return (await import('./verification242')).handleSiteVerification242(...args);}
-import {membershipDecisionOrigin,authenticateMembershipDecision,assertMembershipDecisionOrigin,MembershipDecisionHeld} from "./privacy-rejection-decision";
+import {membershipDecisionOrigin,authenticateMembershipDecision,assertMembershipDecisionOrigin,MembershipDecisionHeld,MembershipDecisionForbidden} from "./privacy-rejection-decision";
 import { handleCommunity } from "./community-routes";
 import { exportMyData } from "./site-export";
 import { handlePrivacyIntake } from "./community-privacy-intake";
 import { admittedRead, admittedReadAs, admittedCommunityRead, communityReadRefusal, communityContext, FENCE_REFUSED, refusal } from "./community-context";
 import { qualifiedLeadershipPage } from "./site-leadership";
-import { openRenameHold } from "./rename-review";
 import { newsPage, handleTownCrierEditor } from "./site-news";
 import { handleTownCrierWebhook } from "./site-news-webhook";
 import { loadResourceUpdates, resourcePublicCache } from "./site-resources";
@@ -97,7 +99,8 @@ export function generalSettingsDto(settings: SiteSettings): SiteSettings {
  * no character, guild notice, leadership or member payload is read here. */
 export async function resourceUpdatesPage(request: Request, env: Env): Promise<Response> {
   const first = await readSession(env, request);
-  if (first && rateLimited(`resources:${first.u}`, 20, 60)) return apiJson({ error: "slow_down" }, 429);
+  const rateLimitAt100280=(first)?consumeRateLimit280(`resources:${first.u}`,20,60):null;
+  if (rateLimitAt100280?.limited) return apiJson({ error: "slow_down" }, 429,rateLimitHeaders280(rateLimitAt100280));
   const admit = async (): Promise<Response | null> => {
     const session = await readSession(env, request);
     if (!session) return apiJson({ error: "signed_out", message: "You are signed out. Sign in with Discord again." }, 401);
@@ -128,7 +131,9 @@ export async function handleApi(request: Request, env: Env, path: string, waitUn
   const m = request.method;
   if (path === '/api/admin/qr/beta-window') return handleAttendedBetaWindow(request, env);
   if (path.startsWith('/api/qr/')) return (await import('./qr-phase1-route')).handleQrApi(request, env,roleDispatch);
-  if (m === "GET" && path === "/api/public") { const state = await loadSiteState(env); return apiJson({ settings: generalSettingsDto(state.settings), meta: meta(state.ruleset), now: now() }); }
+  // Evergreen 12 Nov 2026 (CL2-072/CL2-249): the settings only. The page reads its catalogue from the boot, so repeating
+  // about 570 KB of it here made a settings refresh after a write-in conflict download the whole catalogue again.
+  if (m === "GET" && path === "/api/public") { const state = await loadSiteState(env); return apiJson({ settings: generalSettingsDto(state.settings), now: now() }); }
   // .82: the private request intake needs no session: the requester holds a case id and code (community-privacy-intake.ts)
   if (path === "/api/privacy/config" || path === "/api/privacy/requests" || path.startsWith("/api/privacy/requests/")) return handlePrivacyIntake(request, env, path);
   if(m==='POST' && path==='/api/me/erasure'){
@@ -140,7 +145,7 @@ export async function handleApi(request: Request, env: Env, path: string, waitUn
   if(m==='POST' && path==='/api/me/erasure/status'){if(!sameOrigin(request)||request.headers.get('X-Olympus')!==PAGE_VERSION)return apiJson({error:'bad_origin'},403);const body=await readJson(request);const status=await erasureRequestStatus(env,request,typeof body?.operationId==='string'?body.operationId:'',typeof body?.statusToken==='string'?body.statusToken:undefined);return status?apiJson(status):apiJson({error:'not_found'},404);}
   const decisionOrigin=membershipDecisionOrigin(request);
   let decisionAuth:Awaited<ReturnType<typeof authenticateMembershipDecision>>=null;
-  try{if(decisionOrigin)decisionAuth=await authenticateMembershipDecision(decisionOrigin,env);}catch(e){if(e instanceof MembershipDecisionHeld)return apiJson({error:e.code},409);throw e;}
+  try{if(decisionOrigin)decisionAuth=await authenticateMembershipDecision(decisionOrigin,env);}catch(e){if(e instanceof MembershipDecisionForbidden)return apiJson({error:'forbidden',message:'This action requires a site administrator.'},403);if(e instanceof MembershipDecisionHeld)return apiJson({error:e.code},409);throw e;}
   const user = decisionOrigin?decisionAuth?.user??null:await currentUser(env, request);
   if (!user) return apiJson({ error: "signed_out", message: "You are signed out. Sign in with Discord again." }, 401);
   if (m !== "GET" && m !== "HEAD" && !sameOrigin(request)) return apiJson({ error: "bad_origin", message: "Refused: that request did not come from this page." }, 403);
@@ -151,7 +156,24 @@ export async function handleApi(request: Request, env: Env, path: string, waitUn
   const admin = isSiteAdmin(env, user.discord_id);
   if (path === "/api/me/verification") {
     if (m !== "GET" && request.headers.get("X-Olympus") !== PAGE_VERSION) return apiJson({error:"page_outdated",message:"Reload this page before verifying."},409);
-    return handleSiteVerification242(request, env, {id:user.discord_id}, (_label, work) => waitUntil(work));
+    const subject=Object.freeze({discordId:originalSession.u,sessionVersion:originalSession.v,expiresAt:originalSession.e,
+      privacyGeneration:originalSession.g,accountIncarnation:originalSession.n,originalSession});
+    const admitWrite=async():Promise<Response|null>=>{
+      // Own-account admission deliberately requires no linked character, guild
+      // role or addon. Keep this original session/birth/generation across awaits.
+      const facts=await admittedReadAs(env,subject,'authenticatedIdentity',[
+        env.DB.prepare('SELECT denied,in_server,checked_at FROM site_users WHERE discord_id=?1').bind(subject.discordId),
+      ]);
+      if(facts===FENCE_REFUSED)return apiJson({error:'signed_out',message:'Your sign-in changed. Sign in with Discord again.'},401);
+      const rows=facts[0]?.results as {denied:number;in_server:number;checked_at:number|null}[]|undefined;
+      if(!rows||rows.length!==1)return apiJson({error:'account_changed',message:'Your account state changed. Reload before verifying.'},409);
+      const standing=rows[0]!;
+      if(standing.denied!==0)return apiJson({error:'denied',message:DENIED_TEXT},403);
+      const gone=await stillMember(env,{...user,...standing});if(gone)return gone;
+      const current=await admittedReadAs(env,subject,'applicantWrite',[]);
+      return current===FENCE_REFUSED?apiJson({error:'account_changed',message:'Your account state changed. Reload before verifying.'},409):null;
+    };
+    return handleSiteVerification242(request, env, {id:user.discord_id}, (_label, work) => waitUntil(work),admitWrite);
   }
   if (path.startsWith("/api/admin/")) {
     if (!admin) return apiJson({ error: "forbidden" }, 403);
@@ -173,7 +195,8 @@ export async function handleApi(request: Request, env: Env, path: string, waitUn
     // The board shows other members' applications, so it is for members in good standing only: not denied, still in
     // Asmongold's server (checked with Discord at most hourly, as for a save), and not read by a script at speed.
     if (user.denied) return apiJson({ error: "denied", message: DENIED_TEXT }, 403);
-    if (rateLimited(`r:${user.discord_id}`, 90, 60)) return apiJson({ error: "slow_down", message: "Too many pages in one minute. Wait a moment, then carry on." }, 429);
+    const rateLimitAt193280=consumeRateLimit280(`r:${user.discord_id}`,90,60);
+    if (rateLimitAt193280.limited) return apiJson({ error: "slow_down", message: "Too many pages in one minute. Wait a moment, then carry on." }, 429,rateLimitHeaders280(rateLimitAt193280));
     const gone = await stillMember(env, user);
     if (gone) return gone;
     let role = "";
@@ -203,8 +226,9 @@ export async function handleApi(request: Request, env: Env, path: string, waitUn
   }
   // Board votes come one click at a time, so they get a roomier limit of their own.
   const vote = m === "PUT" && path === "/api/board/vote";
-  if (rateLimited(`${vote ? "b" : "w"}:${user.discord_id}`, vote ? 120 : 30, 60)) {
-    return apiJson({ error: "slow_down", message: vote ? "Too many votes in one minute. Wait a moment, then carry on." : "Too many saves in one minute. Wait a moment, then try again." }, 429);
+  const rateLimitAt223280=consumeRateLimit280(`${vote ? "b" : "w"}:${user.discord_id}`,vote ? 120 : 30,60);
+  if (rateLimitAt223280.limited) {
+    return apiJson({ error: "slow_down", message: vote ? "Too many votes in one minute. Wait a moment, then carry on." : "Too many saves in one minute. Wait a moment, then try again." }, 429,rateLimitHeaders280(rateLimitAt223280));
   }
   const body = await readJson(request);
   if (body === null) return apiJson({ error: "bad_request", message: "That request could not be read." }, 400);
@@ -252,14 +276,14 @@ export function shownReserved(status: string, queueStatus: string | null): "save
   return queueStatus === "joined" ? "in_guild" : "ended";
 }
 type ReservedRow = { id: number; name: string; name_key: string; status: string; queueStatus: string | null };
-const myReserved = (env: Env, id: string) =>
+const myReservedStatement = (env: Env, id: string) =>
   env.DB.prepare(
     `SELECT r.id, r.name, r.name_key, r.status, q.status AS queueStatus
        FROM site_reserved r LEFT JOIN invite_queue q ON q.id = r.queue_id
       WHERE r.owner_id = ?1 AND r.status <> 'released' ORDER BY r.id`,
   )
-    .bind(id)
-    .all<ReservedRow>();
+    .bind(id);
+const myReserved = (env: Env, id: string) => myReservedStatement(env, id).all<ReservedRow>();
 const reservedOut = (rows: ReservedRow[]) => rows.map((r) => ({ id: r.id, name: r.name, status: shownReserved(r.status, r.queueStatus) }));
 
 /** A role members vote on and write people in for: neither appointed nor chosen without a public vote. */
@@ -273,61 +297,113 @@ export async function meSeatsData(env: Env, user: SiteUser) {
     myQueue: seatInfo && seatInfo.seats.full ? seatInfo.places.map(({ name, position }) => ({ name, position })) : [] };
 }
 
+/** The account's own data for the boot and /api/me. The page's catalogue (meta) is no longer part of it: since
+ * Evergreen 12 Nov 2026 (CL2-072) it rides in the page's boot data only (site.ts), because no page code reads it from
+ * /api/me. */
 export async function meData(env: Env, user: SiteUser, settings?: SiteSettings, ruleset?: RulesetSnapshot) {
-  const state = settings && ruleset ? { settings, ruleset } : await loadSiteState(env);
-  const s = state.settings;
+  return (await meDataWithState(env, user, settings, ruleset)).dto;
+}
+
+/** The same answer as meData, for the configured (old Floor) serving wrapper only (owner ruling of 14 Nov 2026, "Fix it
+ * now"). That wrapper admits the account's reads only as dfca7a2 issued them: one at a time, in one fixed order, each
+ * with its original method (privacy-serving-site-me.ts groups()). It refuses a batch of more than three statements and
+ * a second read while one is running, so the shared batch of meDataWithState held every full /api/me there. Native
+ * serving, the ordinary /api/me route and the page boot never call this. */
+export async function meDataInOriginalOrder(env: Env, user: SiteUser) {
+  return (await meDataWithState(env, user, undefined, undefined, true)).dto;
+}
+
+type MeSeatInfo = Awaited<ReturnType<typeof guildSeats>> | null;
+/** dfca7a2's reading order: settings, application (first), votes, friends, reserved, nominated-for, board votes, the
+ * seat batch, the two office authority reads one after the other (each may repeat its own read once after its crypto),
+ * the editor proof, and the rename hold (first). Entry i of the answer holds the rows of `reads[i]`, so the caller
+ * reads them exactly as it reads the batch. */
+async function meReadsInOriginalOrder(env: Env, user: SiteUser, reads: D1PreparedStatement[]): Promise<[Array<{ results: unknown[] }>, MeSeatInfo, boolean, boolean, string | undefined]> {
   const id = user.discord_id;
-  const app = await env.DB.prepare("SELECT * FROM site_applications WHERE discord_id = ?1").bind(id).first<AppRow>();
-  const votes = await env.DB.prepare(
-    "SELECT ballot, slot, nominee_kind AS kind, nominee_key AS key, nominee_label AS label, reason FROM site_votes WHERE voter_id = ?1 ORDER BY ballot, slot",
-  )
-    .bind(id)
-    .all<{ ballot: string; slot: number; kind: string; key: string; label: string; reason: string | null }>();
-  const friends = await env.DB.prepare(
-    "SELECT friend_kind AS kind, friend_key AS key, friend_label AS label, note FROM site_friends WHERE owner_id = ?1 ORDER BY created_at, friend_label",
-  )
-    .bind(id)
-    .all<{ kind: string; key: string; label: string; note: string | null }>();
-  const reserved = await myReserved(env, id);
-  // The roles other members wrote this account in for (roles only: never who, never how many). The Home page tells
-  // them, so someone put forward for a role can apply for it and be on the voting board.
-  const nominated = await env.DB.prepare(
-    `SELECT DISTINCT v.ballot FROM site_votes v JOIN site_users u ON u.discord_id = v.voter_id AND u.denied = 0
+  const all = async (i: number) => ({ results: (await reads[i].all()).results as unknown[] });
+  const first = async (i: number) => { const row = await reads[i].first(); return { results: row ? [row as unknown] : [] }; };
+  const out: Array<{ results: unknown[] }> = [];
+  if (reads.length > 7) out[7] = await all(7);
+  out[0] = await first(0);
+  for (const i of [1, 2, 3, 4, 5]) out[i] = await all(i);
+  const seatInfo = user.denied ? null : await guildSeats(env, now(), id);
+  const streamShield = user.denied ? false : await canUseStreamShield(env, id);
+  const townCrier = user.denied ? false : await canEditTownCrier(env, id);
+  const editorProof = user.denied ? undefined : await sign(env.COOKIE_SECRET, APPLICATION_EDITOR_PURPOSE, applicationEditorValue(user));
+  out[6] = await first(6);
+  return [out, seatInfo, streamShield, townCrier, editorProof];
+}
+
+/** The same reading as meData, plus the resolved settings and ruleset it used, so the boot can describe the same state.
+ * Evergreen 12 Nov 2026 (CL2-073): the account's own rows (and the settings, when the caller has none) are read in ONE
+ * batch instead of eight sequential round trips; the seat state, the two office authority reads and the editor proof
+ * run beside it. Every read is unchanged in its SQL and in what it binds; only the waiting is shared. The office
+ * authority reads (site-appointed-identities.ts) keep their own captured predicates and are not merged into the batch. */
+export async function meDataWithState(env: Env, user: SiteUser, settings?: SiteSettings, ruleset?: RulesetSnapshot, originalOrder = false) {
+  const id = user.discord_id;
+  const known = settings && ruleset ? { settings, ruleset } : null;
+  const reads = [
+    env.DB.prepare("SELECT * FROM site_applications WHERE discord_id = ?1").bind(id),
+    env.DB.prepare(
+      "SELECT ballot, slot, nominee_kind AS kind, nominee_key AS key, nominee_label AS label, reason FROM site_votes WHERE voter_id = ?1 ORDER BY ballot, slot",
+    ).bind(id),
+    env.DB.prepare(
+      "SELECT friend_kind AS kind, friend_key AS key, friend_label AS label, note FROM site_friends WHERE owner_id = ?1 ORDER BY created_at, friend_label",
+    ).bind(id),
+    myReservedStatement(env, id),
+    // The roles other members wrote this account in for (roles only: never who, never how many). The Home page tells
+    // them, so someone put forward for a role can apply for it and be on the voting board.
+    env.DB.prepare(
+      `SELECT DISTINCT v.ballot FROM site_votes v JOIN site_users u ON u.discord_id = v.voter_id AND u.denied = 0
       WHERE v.nominee_kind = 'discord' AND v.nominee_key = ?1 AND v.voter_id <> ?1`,
-  )
-    .bind(id)
-    .all<{ ballot: string }>();
-  // Votes on an appointed role's board, or on a role now chosen without a public vote, no longer count as "voted on":
-  // that board is closed.
-  const board = await env.DB.prepare(MY_BOARD_VOTES).bind(id).all<{ rk: string; n: number }>();
-  const boardVotes = board.results.filter((r) => boardOpenFor(s, r.rk)).reduce((n, r) => n + r.n, 0);
-  const admin = isSiteAdmin(env, id);
+    ).bind(id),
+    // Votes on an appointed role's board, or on a role now chosen without a public vote, no longer count as "voted on":
+    // that board is closed.
+    env.DB.prepare(MY_BOARD_VOTES).bind(id),
+    // .114: a rename Blizzard required asks the member to apply again; the same read as rename-review.ts openRenameHold.
+    env.DB.prepare("SELECT old_name, new_name, decided_at FROM rename_holds WHERE discord_id = ?1 AND state = 'reapply' ORDER BY decided_at DESC LIMIT 1").bind(id),
+    ...(known ? [] : [env.DB.prepare(SITE_STATE_SQL)]),
+  ];
   // .115 (item B): one guarded batch; the viewer's own rows only; times rounded to the hour (guild-seats.ts memberSeats).
   // A denied account gets neither. The signed-out boot and /api/public carry no seat state.
-  const seatInfo = user.denied ? null : await guildSeats(env, now(), id);
-  return {
+  // originalOrder: the configured serving wrapper's sequence (meReadsInOriginalOrder above); everything else batches.
+  const [results, seatInfo, streamShield, townCrier, editorProof] = originalOrder ? await meReadsInOriginalOrder(env, user, reads) : await Promise.all([
+    env.DB.batch(reads),
+    user.denied ? null : guildSeats(env, now(), id),
+    user.denied ? false : canUseStreamShield(env, id),
+    user.denied ? false : canEditTownCrier(env, id),
+    user.denied ? undefined : sign(env.COOKIE_SECRET, APPLICATION_EDITOR_PURPOSE, applicationEditorValue(user)),
+  ]);
+  const rows = <T,>(i: number) => (results[i]?.results ?? []) as T[];
+  const state = known ?? await siteStateFrom(env, rows<{ key: string; value: string }>(7));
+  const s = state.settings;
+  const app = rows<AppRow>(0)[0] ?? null;
+  const board = rows<{ rk: string; n: number }>(5);
+  const boardVotes = board.filter((r) => boardOpenFor(s, r.rk)).reduce((n, r) => n + r.n, 0);
+  const hold = rows<{ old_name: string; new_name: string; decided_at: number }>(6)[0] ?? null;
+  const admin = isSiteAdmin(env, id);
+  const dto = {
     signedIn: true,
     inServer: user.in_server === 1,
     now: now(),
     user: { ...publicUser(env, user, admin),
-      canUseStreamShield: !user.denied && await canUseStreamShield(env, id),
-      canEditTownCrier: !user.denied && await canEditTownCrier(env, id) },
+      canUseStreamShield: !user.denied && streamShield,
+      canEditTownCrier: !user.denied && townCrier },
     denied: !!user.denied,
     deniedText: user.denied ? DENIED_TEXT : undefined,
     settings: generalSettingsDto(s),
-    meta: meta(state.ruleset),
-    applicationEditorProof: user.denied ? undefined : await sign(env.COOKIE_SECRET, APPLICATION_EDITOR_PURPOSE, applicationEditorValue(user)),
+    applicationEditorProof: editorProof,
     application: app ? await ownApplicationOut219(app) : null,
-    votes: votes.results,
+    votes: rows<{ ballot: string; slot: number; kind: string; key: string; label: string; reason: string | null }>(1),
     boardVotes,
-    nominatedFor: user.denied ? [] : nominated.results.map((r) => r.ballot).filter((b) => ballotOf(b) && boardOpenFor(s, b)),
-    friends: friends.results,
-    reserved: reservedOut(reserved.results),
-    // .114: a rename Blizzard required asks the member to apply again (rename-review.ts); Home says so and why
-    reapply: await openRenameHold(env, id),
+    nominatedFor: user.denied ? [] : rows<{ ballot: string }>(4).map((r) => r.ballot).filter((b) => ballotOf(b) && boardOpenFor(s, b)),
+    friends: rows<{ kind: string; key: string; label: string; note: string | null }>(2),
+    reserved: reservedOut(rows<ReservedRow>(3)),
+    reapply: hold ? { from: hold.old_name, to: hold.new_name, decidedAt: hold.decided_at } : null,
     seats: seatInfo && memberSeats(env, seatInfo.seats),
     myQueue: seatInfo && seatInfo.seats.full ? seatInfo.places.map(({ name, position }) => ({ name, position })) : [],
   };
+  return { dto, settings: s, ruleset: state.ruleset };
 }
 
 // ---------- the application ----------
@@ -1052,7 +1128,11 @@ async function saveFriends(env: Env, user: SiteUser, body: Record<string, unknow
 
 async function saveReserved(env: Env, user: SiteUser, body: Record<string, unknown>): Promise<Response> {
   const s = await loadSettings(env);
-  if (!s.namesOpen || now() < s.namesOpenAt) {
+  // Owner ruling of 13 Nov 2026 (CL2-175): once Blizzard's reservation has ended (site-data.ts NAME_ENTRY_CLOSED_AT) the
+  // stored namesOpen switch no longer matters. A save may only remove the member's own names; one that adds or changes
+  // a name is refused below, before anything is written. Removing one's own names is never blocked.
+  const entryClosed = now() >= NAME_ENTRY_CLOSED_AT;
+  if (!entryClosed && (!s.namesOpen || now() < s.namesOpenAt)) {
     return apiJson({ error: "closed", message: "Reserved names can be entered once Blizzard's name reservation opens." }, 403);
   }
   const input = Array.isArray(body.names) ? body.names : null;
@@ -1067,6 +1147,9 @@ async function saveReserved(env: Env, user: SiteUser, body: Record<string, unkno
   if (wanted.length > LIMITS.reserved) return bad(fail("names", `At most ${LIMITS.reserved} names: that is how many Blizzard lets one account reserve.`));
 
   const current = await myReserved(env, user.discord_id);
+  if (entryClosed && wanted.some((w) => !current.results.some((r) => r.name_key === w.key))) {
+    return apiJson({ error: "names_closed", field: "names", message: "Reserved-name entry closed when Blizzard's name reservation ended on 3 November 2026, so names can no longer be added or changed. You can still remove names from your list." }, 403);
+  }
   const keep = new Set(wanted.map((w) => w.key));
   // Only a live invite holds a name on the list; one that ended can come off like any other.
   const locked = current.results.filter((r) => shownReserved(r.status, r.queueStatus) === "queued" && !keep.has(r.name_key));
@@ -1096,7 +1179,8 @@ async function saveReserved(env: Env, user: SiteUser, body: Record<string, unkno
 async function search(env: Env, user: SiteUser, url: URL, admin: boolean): Promise<Response> {
   const q = cleanText(url.searchParams.get("q"), 32).replace(/^@/, "");
   if (Array.from(q).length < 2) return apiJson({ results: [] });
-  if (rateLimited(`s:${user.discord_id}`, 40, 60)) return apiJson({ error: "slow_down", message: "Searching too fast. Wait a few seconds.", results: [] }, 429);
+  const rateLimitAt1116280=consumeRateLimit280(`s:${user.discord_id}`,40,60);
+  if (rateLimitAt1116280.limited) return apiJson({ error: "slow_down", message: "Searching too fast. Wait a few seconds.", results: [] }, 429,rateLimitHeaders280(rateLimitAt1116280));
   if (!/^\d{17,20}$/.test(env.SITE_GUILD_ID ?? "") || !env.DISCORD_BOT_TOKEN) return apiJson({ results: [], unavailable: true });
   const appointment = admin && url.searchParams.get('purpose') === 'appointment';
   let out: { found: Found[]; limited?: boolean };
@@ -1110,7 +1194,7 @@ async function search(env: Env, user: SiteUser, url: URL, admin: boolean): Promi
   const appointmentStatuses = appointment ? await appointmentAccountStatuses(env, ids) : null;
   const onSite = new Set<string>();
   const linked = new Set<string>();
-  if (ids.length) {
+  if (admin && ids.length) {
     const marks = ids.map((_, i) => `?${i + 1}`).join(",");
     const a = await env.DB.prepare(`SELECT discord_id FROM site_users WHERE discord_id IN (${marks})`).bind(...ids).all<{ discord_id: string }>();
     for (const r of a.results) onSite.add(r.discord_id);
@@ -1123,6 +1207,7 @@ async function search(env: Env, user: SiteUser, url: URL, admin: boolean): Promi
   }
   return apiJson({
     limited: out.limited || undefined,
+    siteProfilesVisible: admin,
     results: out.found.map((f) => ({
       id: f.id,
       username: f.username,
@@ -1131,7 +1216,7 @@ async function search(env: Env, user: SiteUser, url: URL, admin: boolean): Promi
       label: labelOf(f),
       shown: shownName(f), // .114: every differing name, for the result row; the label above is what a pick stores
       avatarUrl: avatarUrl(env, f.id, f.avatar),
-      onSite: onSite.has(f.id),
+      ...(admin ? { onSite: onSite.has(f.id) } : {}),
       self: f.id === user.discord_id,
       ...(admin ? { linked: linked.has(f.id) } : {}),
       ...(appointmentStatuses ? { appointmentStatus: appointmentStatuses.get(f.id) ?? 'unavailable' } : {}),
@@ -1141,26 +1226,82 @@ async function search(env: Env, user: SiteUser, url: URL, admin: boolean): Promi
 
 // ---------- membership, deletion, plumbing ----------
 
+/** Whether this account's hourly Discord membership check is due (or its stored check time is not believable). */
+export function membershipRecheckDue(user: { checked_at: number | null }): boolean {
+  const checked = user.checked_at ?? 0;
+  return !(checked > 0 && checked <= now() && now() - checked < MEMBER_RECHECK);
+}
+
+/**
+ * Single-flight for the hourly check (Evergreen 12 Nov 2026, CL2-077). One page load sends the document, app.js,
+ * app.css and the member-only images and modules, and each of them passes the member gate; when the hour is up every one of them used to ask Discord and
+ * write site_users. Now the requests of one session in this isolate share one Discord read and one write. The outcome
+ * is kept briefly after it settles, for requests that read the account row before the write committed. Fail closed is
+ * unchanged: an unavailable answer is shared for a few seconds only, never turned into access, and a caller that waits
+ * longer than the Discord timeout allows stops waiting and is held (a shared promise can outlive the request that
+ * started it, for example when that client goes away).
+ */
+type MemberCheck = "member" | "not_member" | "unavailable";
+const MEMBER_CHECK_SHARE_S: Record<MemberCheck, number> = { member: 30, not_member: 30, unavailable: 5 };
+const MEMBER_CHECK_WAIT_MS = 10_000; // credentialFetch gives up after 8 s; the D1 write then needs a moment more
+type MemberCheckFlight = { at: number; settled: number | null; result: MemberCheck | null; outcome: Promise<MemberCheck> };
+const memberChecks = new Map<string, MemberCheckFlight>();
+const memberCheckKey = (user: SiteUser) =>
+  JSON.stringify([user.discord_id, user.account_incarnation, user.session_version, user.privacyGeneration ?? null]);
+
 /** At most hourly before protected delivery or a save. A due check fails closed. */
 export async function stillMember(env: Env, user: SiteUser): Promise<Response | null> {
   if (user.in_server !== 1) return notMember();
-  const checked = user.checked_at ?? 0;
-  if (checked > 0 && checked <= now() && now() - checked < MEMBER_RECHECK) return null;
+  if (!membershipRecheckDue(user)) return null;
   if (!env.DISCORD_BOT_TOKEN || !/^\d{17,20}$/.test(env.SITE_GUILD_ID ?? "")) {
     return apiJson({ error: 'membership_unavailable', message: 'Discord membership must be confirmed before protected access. Please try again shortly.' }, 503);
   }
+  const key = memberCheckKey(user);
+  // The expiry test is synchronous (no await between reading the entry and replacing it), so two requests that both
+  // see an expired share cannot each start a flight or delete the other's newer one (Stage 2 review, 12 Nov 2026).
+  let entry = memberChecks.get(key);
+  if (entry && entry.settled !== null && entry.result !== null
+    && (now() - entry.settled >= MEMBER_CHECK_SHARE_S[entry.result] || entry.settled > now())) {
+    memberChecks.delete(key);
+    entry = undefined;
+  }
+  if (!entry) {
+    if (memberChecks.size > 2000) for (const [k, v] of memberChecks) if (v.settled !== null) memberChecks.delete(k);
+    const created: MemberCheckFlight = { at: now(), settled: null, result: null, outcome: Promise.resolve("unavailable") };
+    created.outcome = checkMembership(env, user).then(
+      (outcome) => { created.result = outcome; created.settled = now(); return outcome; },
+      (error) => { if (memberChecks.get(key) === created) memberChecks.delete(key); throw error; },
+    );
+    memberChecks.set(key, created);
+    entry = created;
+  }
+  const shared = entry;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const outcome = await Promise.race([
+    shared.outcome,
+    new Promise<"timeout">((resolve) => { timer = setTimeout(() => resolve("timeout"), MEMBER_CHECK_WAIT_MS); }),
+  ]).finally(() => { if (timer !== undefined) clearTimeout(timer); });
+  if (outcome === "timeout") {
+    if (memberChecks.get(key) === shared && shared.settled === null) memberChecks.delete(key);
+    return membershipUnavailable();
+  }
+  return outcome === "member" ? null : outcome === "not_member" ? notMember() : membershipUnavailable();
+}
+
+/** The Discord read and its write, exactly as before the single-flight; the outcome, not a Response, is shared. */
+async function checkMembership(env: Env, user: SiteUser): Promise<MemberCheck> {
   try {
     const m = await rest<{ nick?: string | null; avatar?: string | null; pending?: boolean }>(env, "GET", `/guilds/${env.SITE_GUILD_ID}/members/${user.discord_id}`, undefined, 1);
     if (m.pending) {
       await env.DB.prepare("UPDATE site_users SET in_server = 0, checked_at = ?2, session_version = session_version + 1 WHERE discord_id = ?1").bind(user.discord_id, now()).run();
-      return notMember();
+      return "not_member";
     }
     await env.DB.prepare(
       "UPDATE site_users SET nick = ?2, avatar = CASE WHEN ?3 IS NOT NULL THEN ?3 WHEN avatar LIKE 'g:%' THEN NULL ELSE avatar END, in_server = 1, checked_at = ?4 WHERE discord_id = ?1",
     )
       .bind(user.discord_id, m.nick ?? null, m.avatar ? `g:${m.avatar}` : null, now())
       .run();
-    return null;
+    return "member";
   } catch (e) {
     if (e instanceof DiscordError && e.status === 404) {
       const at = now();
@@ -1168,11 +1309,14 @@ export async function stillMember(env: Env, user: SiteUser): Promise<Response | 
         env.DB.prepare("INSERT INTO audit(ts,actor,action,subject,details) SELECT ?1,?2,?3,NULL,NULL").bind(at, user.discord_id, "site.left_server"),
         env.DB.prepare("UPDATE site_users SET in_server = 0, checked_at = ?2, session_version = session_version + 1 WHERE discord_id = ?1").bind(user.discord_id, at),
       ]);
-      return notMember();
+      return "not_member";
     }
-    return apiJson({ error: 'membership_unavailable', message: 'Discord membership could not be confirmed. Protected access is held; please try again shortly.' }, 503);
+    return "unavailable";
   }
 }
+
+const membershipUnavailable = () =>
+  apiJson({ error: 'membership_unavailable', message: 'Discord membership could not be confirmed. Protected access is held; please try again shortly.' }, 503);
 
 const notMember = () =>
   apiJson({ error: "not_member", message: "Current membership of Asmongold's Discord server is required for protected access. Rejoin and complete screening, then sign in again." }, 403);

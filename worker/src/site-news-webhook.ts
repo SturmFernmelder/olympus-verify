@@ -1,3 +1,4 @@
+import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 /** Explicit Town Crier webhook delivery. Existing443 tables only; no automatic sends or retries.
  * site_settings holds immutable descriptors, never a token or a copied notice body.
  * privacy_provider_messages is the sole outcome/debt ledger, including unknown sends.
@@ -175,7 +176,8 @@ export async function handleTownCrierWebhook(request: Request, env: Env, parts: 
   const sub = parts.join('/');
   if (request.method !== 'GET' && request.method !== 'POST' || !['retained', 'preview', 'publish', 'revoke', 'reconcile'].includes(sub)) return apiJson({ error: 'not_found' }, 404);
   if (request.method === 'POST' && (!sameOrigin(request) || request.headers.get('X-Olympus') !== PAGE_VERSION)) return apiJson({ error: 'reload_or_origin' }, 403);
-  if (rateLimited(`news-wh:${e.ctx.subject!.discordId}`, request.method === 'GET' ? 30 : 10, 60)) return apiJson({ error: 'slow_down' }, 429);
+  const rateLimitAt178280=consumeRateLimit280(`news-wh:${e.ctx.subject!.discordId}`,request.method === 'GET' ? 30 : 10,60);
+  if (rateLimitAt178280.limited) return apiJson({ error: 'slow_down' }, 429,rateLimitHeaders280(rateLimitAt178280));
   if (sub === 'retained') return retainedPage(request, env, e);
   if (sub === 'revoke' || sub === 'reconcile') {
     if (request.method !== 'POST' || !exact(body, ['id', 'revision']) || typeof body.id !== 'string' || !NOTICE.test(body.id) || !int(body.revision)) return apiJson({ error: 'invalid_request' }, 400);

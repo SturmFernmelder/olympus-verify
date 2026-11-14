@@ -64,3 +64,25 @@ export async function guildOrganizerMemberNow219(env:Env,id:string,guild:string)
   if (r.status!==200 || !m || m.user?.id!==id || (m.user.bot!==undefined&&m.user.bot!==false) || (m.pending!==undefined&&m.pending!==false) || !Array.isArray(m.roles) || m.roles.some(x=>typeof x!=='string'||!/^[0-9]{17,20}$/.test(x))) return false;
   return (admins.has(id)||m.roles.some(role=>roles.has(role)));
 }
+/** Calendar round 5 (owner ruling, 13 Nov 2026, about 12:15 UTC): ONE fresh member read that answers two questions.
+ * `officer` is exactly guildOrganizerMemberNow219's predicate (the same role set, admins included). `council` is the
+ * subset of that same role set that belongs to native slots 0 and 1 (Guild Master and High Council): the leader keys of
+ * officerRoles (ROLE_GUILD_LEADER, ROLE_GUILD_MASTER and the canonical High Council role it adds), and slots 0 and 1 of
+ * the captured lane configuration (staffMap idx 0/1, fresh native[0]/native[1]). Officer, Officer Alt and Raid Leader
+ * roles are never `council`; an admin is `council` only through a role. Same refusals as the predicate above: a
+ * provider failure, a pending or bot member, or a malformed answer is false for both. No REST retry, no cache. */
+export async function guildCalendarRolesNow219(env:Env,id:string,guild:string):Promise<Readonly<{officer:boolean;council:boolean}>> {
+  const none=Object.freeze({officer:false,council:false});
+  if(!/^[0-9]{17,20}$/.test(id)||guild!==destination(env)?.guild)return none;
+  const { captureLaneConfig }=await import('./full-release-roles');
+  const cap=captureLaneConfig(env), officers=officerRoles(env);
+  const roles=new Set([...officers,env.ROLE_RAID_LEADER,...cap.staffMap.filter(row=>[0,1,2,4].includes(row.idx)).map(row=>row.role),...[0,1,2,4].map(slot=>cap.cfg?.native[slot])].filter(Boolean));
+  const leaders=new Set([env.ROLE_GUILD_LEADER,env.ROLE_GUILD_MASTER].filter(Boolean));
+  const council=new Set([...officers.filter(role=>role!==env.ROLE_OFFICER||leaders.has(role)),...cap.staffMap.filter(row=>[0,1].includes(row.idx)).map(row=>row.role),...[0,1].map(slot=>cap.cfg?.native[slot])].filter(Boolean));
+  const admins=new Set((env.SITE_ADMINS??'').split(',').map(x=>x.trim()));
+  const r=await discord(env,'GET',`/guilds/${guild}/members/${id}`);
+  const m=r.value as {user?:{id?:unknown;bot?:unknown};pending?:unknown;roles?:unknown}|null;
+  if (r.status!==200 || !m || m.user?.id!==id || (m.user.bot!==undefined&&m.user.bot!==false) || (m.pending!==undefined&&m.pending!==false) || !Array.isArray(m.roles) || m.roles.some(x=>typeof x!=='string'||!/^[0-9]{17,20}$/.test(x))) return none;
+  const held=m.roles as string[];
+  return Object.freeze({officer:admins.has(id)||held.some(role=>roles.has(role)),council:held.some(role=>council.has(role))});
+}

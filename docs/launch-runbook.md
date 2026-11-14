@@ -11,17 +11,25 @@ on head .101 and revised on head .108 for Codex's 12:06 UTC review (R1-R4); ever
 section 7 records what was done and what is live. The prospective qualification and restore rules below were corrected
 on 3 Oct 2026 under the owner's Codex takeover instruction; historical signatures retain their original scope.
 
-Nothing below is an agent's step. The agents prepare exact commits and sign them in the task log
-(`Olympus/consolidation-2026-09-30/claude_code_x_codex.md`); the owner runs the commands, or Codex where the owner has authorized
-it in the log. The never-run list in `CLAUDE.md` stands throughout: `wrangler deploy` from a working folder, `wrangler
+> **Dated history (12 November 2026 note).** Sections 0 and 8 and the who-runs-what rules in this runbook describe
+> October 2026. Today Codex Root alone merges, backs up and deploys (`CLAUDE.md`, "Release qualification and production
+> rollout"), the gate is [release-qualification.md](release-qualification.md) with the four CI jobs `worker`, `addon`,
+> `backup` and `check`, and the task log is `Olympus/claude_code_x_chatgpt_codex.md`. Read the sections below as the
+> record of how the launch was run, not as current instructions.
+
+Nothing below is an agent's step. The agents prepared exact commits and signed them in the task log of that time
+(`Olympus/consolidation-2026-09-30/claude_code_x_codex.md`); the owner ran the commands, or Codex where the owner had
+authorized it in the log. The never-run list in `CLAUDE.md` stands throughout: `wrangler deploy` from a working folder, `wrangler
 secret put`, `db:init` against the remote database, `register`, the watcher against the live Worker, `cutover-config.sh
 --apply` before its gates, the publication helpers beyond `--help`.
 
-## 0. What "signed" means
+## 0. What "signed" means (dated history)
 
-For the current .210 Master QA task, the direct owner override recorded in `CLAUDE.md` supersedes the external Claude
-signature and host-lane wait described below. Root integration authority retains independent internal source review,
-completed exact-head automated review, all13 CI jobs and the single final local qualification. It also requires a
+For the .210 Master QA task (28-29 October 2026), the owner's direct override (recorded in
+[owner-instruction-history.md](owner-instruction-history.md)) superseded the external Claude signature and host-lane
+wait described below. Root integration authority then retained independent internal source review, completed
+exact-head automated review, the thirteen CI jobs of that time and the single final local qualification; the thirteen-job
+graph and the final local aggregate are retired since 10 November 2026. It also requires a
 fresh private D1 backup and successful local restore before deployment, with all production feature gates preserved.
 The older signatures, publication topology and dated release procedures below remain records of their stated scope.
 
@@ -525,9 +533,12 @@ launch counts as accepted only once each is observed or explicitly named as a re
 - the first scheduled officer digest after 15:00 (counts only, in the private review channel);
 - Codex's whole-tool qualification on one final commit under section 0, with attributable independent peer evidence.
 
-## 8. Beta member and rank reset (owner scope confirmed 14 October 2026)
+## 8. Beta member and rank reset (owner scope confirmed 14 October 2026; dated history)
 
-**Candidate instructions, updated 15 October 2026 UTC.** The requested automatic reset starts at **22 October 2026,
+The reset minute of 22 October 2026 has passed; this section is the record of its plan. What actually ran is in
+`docs/deploy-checklist.md` and the shared log.
+
+**Candidate instructions as of 15 October 2026 UTC.** The requested automatic reset starts at **22 October 2026,
 17:00 UTC (noon CDT)**. This is a start time, not an instant completion promise. The integrated source is not yet
 qualified or activated for that minute callback. The previous appointment-wipe and manual-leadership-reset procedure
 is superseded and preserved only in [the dated historical record](history/launch-runbook-beta-reset-superseded-2026-10-15.md).

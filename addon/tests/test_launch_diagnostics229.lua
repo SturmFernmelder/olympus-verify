@@ -23,10 +23,10 @@ local function fixture()
   return f
 end
 local f = fixture()
-f.env.GuildControlGetRankName=function(order) return order==7 and "Veteran" or order==9 and "Member" or "Other" end
+f.env.GuildControlGetRankName=function(order) return order==6 and "Veteran" or order==8 and "Member" or "Other" end
 local text = f.run()
 check("diagnostics prints exact native guild and realm, not configured guesses", text:find('guild="OLYMPUS PRIME"', 1, true) and text:find('realm="CAMWOW US2 Realm 3 PvE"', 1, true) and not text:find("A typed guess", 1, true))
-check("native promotion target names use actual client zero-based slots6 and8",text:find('slot0=6 name="Veteran"; slot0=8 name="Member"',1,true) and f.effects==0)
+check("native promotion target names use current client zero-based slots5 and7",text:find('slot0=5 name="Veteran"; slot0=7 name="Member"',1,true) and f.effects==0)
 check("native rank slot, own GUID and client build are visible", text:find('rank="High Council" slot0=1', 1, true) and text:find('GUID="Player-1-0000ABCD"', 1, true) and text:find('build="69893"', 1, true) and text:find('interface="16001"', 1, true))
 check("all requested API capability types are reported without invoking them", text:find("API SetGuildRankOrder=function", 1, true) and text:find("API IsGuildRankAssignmentAllowed=function", 1, true) and text:find("API Invite=function", 1, true) and text:find("API Promote=function", 1, true) and text:find("API GuildPromote=function", 1, true) and f.effects == 0)
 check("shared secret is never printed and verification-only mode remains explicit", not text:find("synthetic-never-print-secret", 1, true) and text:find("membershipOnly=true", 1, true))

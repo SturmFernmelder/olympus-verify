@@ -701,5 +701,7 @@ export function roleGuides201(positions: readonly LegacyPosition201[] = []): Rea
     if (/^office_[0-9]{2,3}$/.test(position.key)) continue;
     guides[position.key] = Object.freeze({ ...existing, eligibilityNote: eligibilityNote201(existing.eligibility), definition: position.info.about, responsibilities: Object.freeze([...position.info.duties]), expectations: Object.freeze([...position.info.expect]), commitment: position.info.time, worksWith: position.info.works ?? existing.worksWith });
   }
-  return editorialRoleGuides219(guides);
+  // REV-GOV-1: each native rank's guide follows its own source office through the one editorial pass.
+  const nativeSource = Object.fromEntries(OFFICE_APPOINTMENTS.filter(office => office.group === 'native' && office.nativeIndex !== undefined).map(office => [office.key, rankSource201[office.nativeIndex!]]));
+  return editorialRoleGuides219(guides, nativeSource);
 }

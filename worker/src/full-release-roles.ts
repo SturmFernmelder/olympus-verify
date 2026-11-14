@@ -1,3 +1,4 @@
+import {neutralIdentityShape280} from './consumed-identity280';
 /** Fresh full-release roles (Revision 4; owner decisions of 16 Oct 2026). Pure: the lane configuration capture, the lane
  * constants and every lane SQL text. No D1, no HTTP, no env read after the capture, no module-load effect.
  * Default OFF: FULL_RELEASE_ROLES and STAFF_TEN_RANK_ROLES absent or "" (staff also "false") select every .160 path; an
@@ -12,6 +13,8 @@
 import { DB_NOW, sha256 } from './account-generation-contracts';
 import { privacyGenerationFenceSql } from './privacy-serving-authority';
 import { NATIVE_RANKS } from './qr-phase1';
+import {NATIVE_SCOPE232} from './native-rank-reconciliation232';
+import {directiveSnapshotSql280} from './directive-native-authority';
 import { parseNativeRoleMap,privilegedNativeMap } from './native-rank-adapter';
 import { BETA_RESET_CUTOFF,BETA_RESET_ROLE_IDS } from './beta-reset-policy';
 import { intVar } from './env';
@@ -266,6 +269,29 @@ function boundedCanonicalSweep266(sql:string):string{
  return sql;
 }
 export const CANONICAL233_SWEEP249_SELECT=boundedCanonicalSweep266(CANONICAL_SWEEP_SELECT266);
+const NEUTRAL_CANONICAL_CANDIDATES280=` UNION SELECT DISTINCT c.discord_id AS subject FROM characters c LEFT JOIN privacy_subjects p ON p.subject_id=c.discord_id WHERE c.status='member'
+ AND EXISTS(SELECT 1 FROM role_settlements a WHERE (${neutralIdentityShape280('a')}) AND a.subject=c.discord_id AND a.subject_generation IS p.generation AND a.native_guid=c.guid AND a.created_at>=c.bound_at AND a.created_at>=c.verified_at)`;
+/** The original policy retains its ordinal/profile vocabulary. A new neutral
+ * identity may be a candidate, but the issuer still proves its current source. */
+function originalCanonicalSweep280():string{
+ if(CANONICAL_SWEEP_SELECT266.split(CANONICAL_CANDIDATES266).length!==2)throw Error('canonical280_original_candidate_boundary');
+ const selected=CANONICAL_SWEEP_SELECT266.replace(CANONICAL_CANDIDATES266,CANONICAL_CANDIDATES266+NEUTRAL_CANONICAL_CANDIDATES280);
+ if(selected.split(NEUTRAL_CANONICAL_CANDIDATES280).length!==2||selected.replace(NEUTRAL_CANONICAL_CANDIDATES280,'')!==CANONICAL_SWEEP_SELECT266)throw Error('canonical280_original_candidate_union');
+ return boundedCanonicalSweep266(selected);
+}
+export const ORIGINAL_CANONICAL_SWEEP280_SELECT=originalCanonicalSweep280();
+/** Current scheduling vocabulary is separate from the retained .233 selector.
+ * Old receipts remain candidates/lineage, never a new ordinal's settled rank.
+ * Unqualified tables admit only independent standing-cleanup candidates. The
+ * original issuer and adjacent writer CAS still prove every actual effect. */
+const DIRECTIVE_CANDIDATES280=CANONICAL_CANDIDATES266
+ .replace("a.native_profile='olympus-canonical-ranks-20261106-v1'","a.native_profile IN('olympus-canonical-ranks-20261106-v1','olympus-canonical-ranks-directive-20261112-v2')")
+ .replace("IN('olympus-prime-live-20261105-v1','olympus-canonical-ranks-20261106-v1')","IN('olympus-prime-live-20261105-v1','olympus-canonical-ranks-20261106-v1','olympus-canonical-ranks-directive-20261112-v2')")
+  +NEUTRAL_CANONICAL_CANDIDATES280;
+const DIRECTIVE_SWEEP_WORK280=CANONICAL_SWEEP_WORK266.replace(CANONICAL_CANDIDATES266,DIRECTIVE_CANDIDATES280)
+ .replace("r.native_profile='olympus-canonical-ranks-20261106-v1'","r.native_profile='olympus-canonical-ranks-directive-20261112-v2'");
+export const DIRECTIVE_CANONICAL_SWEEP280_SELECT=boundedCanonicalSweep266(CANONICAL_SWEEP_SELECT266.replace(CANONICAL_SWEEP_WORK266,
+ `SELECT * FROM (${DIRECTIVE_SWEEP_WORK280}) WHERE restricted OR EXISTS(SELECT 1 FROM roster_snapshots rank_scope280 WHERE ${directiveSnapshotSql280('rank_scope280.id',NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)})`));
 
 // --- configuration capture (A1, Q6). Synchronous, descriptor-based: an accessor or inherited key is never invoked.
 export const LANE_CONFIG_KEYS=Object.freeze(['CANONICAL_ENTITLEMENTS233','CANONICAL_RANKS233','FULL_RELEASE_ROLES','STAFF_TEN_RANK_ROLES','LINKS_NOT_BEFORE','LINKS_NOT_BEFORE_CLOCK_GATED','ROSTER_MIN_MEMBERS','ROSTER_MAX_SHRINK_PCT',

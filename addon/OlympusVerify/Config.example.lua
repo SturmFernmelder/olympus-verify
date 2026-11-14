@@ -13,9 +13,10 @@ OlympusVerifyConfig = {
   uiAutoShow = true,
   -- Seconds between re-merges of the OlympusQueue table loaded at login or /reload; a new queue file needs a /reload (Sync & reload). 0 = only then.
   mergeSeconds = 45,
-  -- Read mail bodies looking for "!verify" when the subject does not contain it. GetInboxText marks a mail read, so
-  -- set this false if you would rather the addon never touch your mailbox; senders must then put !verify CODE in the
-  -- SUBJECT for mail verification to work.
+  -- Authorized verification-mail body reading. false disables body reads in both scanners.
+  -- Live reads at most50 loaded mails once per scan and looks only for explicit verification markers/bare subjects.
+  -- GetInboxText may mark mail read. Mail collection/deletion remains manual; local capture is not a server ACK.
+  -- This does not affect the separate body-free TITHE gold observer.
   readMail = true,
   -- Launch verification-only mode. Mirror Worker VERIFY_MEMBERSHIP_ONLY=true; a code never queues an invite.
   -- Only a fresh trusted approved-guild roster on the Worker can grant the corresponding Discord roles.

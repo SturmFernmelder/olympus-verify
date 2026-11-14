@@ -1,3 +1,4 @@
+import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 /**
  * .61 (1 Oct 2026): trial reviews, consolidation batch 4a of Codex's adapter map, ported from Olympus Forever's
  * src/trials.ts (frozen candidate manifest 296db2c8…) onto the .56 door.
@@ -163,7 +164,8 @@ export async function createTrial(request: Request, env: Env, ctx: CommunityCont
   if (!ctx.features.has("trials")) return featureOff();
   const reload = needPage(request);
   if (reload) return reload;
-  if (rateLimited(`ct:${admin.discord_id}`, 30, 60)) return apiJson({ error: "slow_down" }, 429);
+  const rateLimitAt166280=consumeRateLimit280(`ct:${admin.discord_id}`,30,60);
+  if (rateLimitAt166280.limited) return apiJson({ error: "slow_down" }, 429,rateLimitHeaders280(rateLimitAt166280));
   try {
     onlyKeys(body, ["opId", "discordId", "reviewDueAt", "sponsorDiscordId"]);
     const { opId, discordId, sponsorDiscordId } = body;

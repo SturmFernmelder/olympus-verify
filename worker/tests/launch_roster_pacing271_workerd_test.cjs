@@ -6,9 +6,9 @@ const {performance}=require('node:perf_hooks');
 const {buildSync}=require('esbuild'),{Miniflare,Log,LogLevel,convertV4MiniflareOptions}=require('miniflare');
 const root=path.resolve(__dirname,'..'),out=fs.mkdtempSync(path.join(os.tmpdir(),'olv-roster-pacing271-'));
 const started=performance.now();
-const sourceFiles=['src/site-launch229.ts','src/launch-discord-reads271.ts','src/launch-operations229.ts','src/officer-invites233.ts','src/roster-verification275.ts','src/unverified.ts','src/routine-membership-authority232.ts'];
+const sourceFiles=fs.readdirSync(path.join(root,'src'),{recursive:true}).filter(file=>file.endsWith('.ts')).map(file=>'src/'+file.replaceAll('\\','/')).sort();
 const hashes=()=>Object.fromEntries(sourceFiles.map(file=>[file,createHash('sha256').update(fs.readFileSync(path.join(root,file))).digest('hex')]));
-const testFiles=['tests/launch_roster_pacing271_runtime.mjs','tests/launch_roster_pacing271_workerd_test.cjs'];
+const testFiles=['tests/launch_roster_pacing271_runtime.mjs','tests/launch_roster_pacing271_workerd_test.cjs','tests/d1_statement_budget.mjs'];
 const testHashes=()=>Object.fromEntries(testFiles.map(file=>[file,createHash('sha256').update(fs.readFileSync(path.join(root,file))).digest('hex')]));
 const http=[],checks=[],perMode=new Map(),inflightMutations=new Set();let mf,active=0,maxActive=0,sourceChanged=false,unrelatedChanged=false;
 const check=(name,value)=>{assert(value,name);checks.push({name,passed:true});};
@@ -51,7 +51,7 @@ async function verificationChurn272(){
   const beforeSwitch=http.length,switched=(await fixtureCall('page',{mode:'identity-switch',cursor:cached.pageCursor})).page;
   const reads=http.slice(beforeSwitch),replacement=reads.filter(row=>row.subject==='800000000000009999');
   const target=switched.promotions.find(row=>row.guid==='Player-6933-00000001');
-  check('selected-page account change invalidates its cached role and freshly reads the exact replacement account',replacement.length===1&&!reads.some(row=>row.subject==='800000000000001000')&&target?.targetSlot===6&&target.reason==='knight-veteran'&&reads.length===16);
+  check('selected-page account change invalidates its cached role and freshly reads the exact replacement account',replacement.length===1&&!reads.some(row=>row.subject==='800000000000001000')&&target?.targetSlot===5&&target.reason==='knight-veteran'&&reads.length===16);
   check('unchanged cached successes retain their original expiry across an account switch',JSON.stringify(switched.scan)===JSON.stringify(cached.scan)&&switched.snapshotAt===cached.snapshotAt&&switched.expiresAt<=Math.min(...captured.roleReads.slice(1).map(row=>row[2]+60)));
   assert.equal((await fixtureCall('source-observe')).originalIdentity,false);
   await fixtureCall('source-state',{kind:'identity',restore:true});
@@ -71,16 +71,16 @@ async function reviewRecords275(){
   const recommendation=(page,guid)=>page.promotions.find(row=>row.guid===guid);
   try{
     const base=await read();
-    check('genuine D1 canonical post-cutoff observed-without-dispatch lineage verifies an exact old-proof GUID without changing proof clocks',setup.syntheticSourceFacts&&base.actualLocalWorkerdD1&&verified(base.display,target)&&recommendation(base.page,target)?.targetSlot===8&&base.readOnlySourceUnchanged);
+    check('genuine D1 canonical post-cutoff observed-without-dispatch lineage verifies an exact old-proof GUID without changing proof clocks',setup.syntheticSourceFacts&&base.actualLocalWorkerdD1&&verified(base.display,target)&&recommendation(base.page,target)?.targetSlot===7&&base.readOnlySourceUnchanged);
     const unbound=base.display.unverified.find(row=>row.guid===guids[1]),pending=base.display.unverified.find(row=>row.guid===guids[2]);
     check('unbound null-GUID history without a current GUID owner is unverified while a fresh active request remains pending',unbound?.pending===false&&pending?.pending===true&&!recommendation(base.page,guids[1])&&!recommendation(base.page,guids[2]));
     const baselineHTTP=http.filter(row=>row.mode==='review-records');
     check('unbound and pending histories cause no role read for the historical account and risk stays review-only',![1,2].some(index=>baselineHTTP.some(row=>row.subject===String(800000000000001000n+BigInt(index))))&&base.page.riskBuffer.some(row=>row.guid===guids[1]&&row.reviewOnly===true)&&base.page.actions.automatic===false&&base.page.actions.removals===false);
     check('malformed missing wrong-generation cross-GUID denied private and rename-held canonical records stay unknown',guids.slice(3,10).every(guid=>unknown(base.display,guid)&&!recommendation(base.page,guid))&&verified(base.display,guids[10]));
     const selected=await read({mode:'review-records-selected',selection:await selectedInput273(0)});
-    check('actual selected reader shares the corrected classification without exposing lineage or granting invites risk or role writes',selected.selection.protocol==='promotion-selection-v274'&&selected.selection.coveredGuids.includes(target)&&recommendation(selected.page,target)?.targetSlot===8&&selected.page.invites.length===0&&selected.page.riskBuffer.length===0&&selected.readOnlySourceUnchanged&&!JSON.stringify(selected.selection).includes('lineageAnchorId'));
+    check('actual selected reader shares the corrected classification without exposing lineage or granting invites risk or role writes',selected.selection.protocol==='promotion-selection-v274'&&selected.selection.coveredGuids.includes(target)&&recommendation(selected.page,target)?.targetSlot===7&&selected.page.invites.length===0&&selected.page.riskBuffer.length===0&&selected.readOnlySourceUnchanged&&!JSON.stringify(selected.selection).includes('lineageAnchorId'));
     const archived=await mutate('anchor-historical'),archivedRead=await read({mode:'review-records-archived',selection:await selectedInput273(0)});
-    check('an archived post-cutoff identity receipt keeps its expired original300s interval while fresh source and role observations admit display and selected readiness',archived.postCutoff&&archived.originalIntervalSeconds===300&&archived.originalCheckWithinInterval&&archived.originalIntervalExpired&&verified(archivedRead.display,target)&&recommendation(archivedRead.page,target)?.targetSlot===8&&archivedRead.readOnlySourceUnchanged);
+    check('an archived post-cutoff identity receipt keeps its expired original300s interval while fresh source and role observations admit display and selected readiness',archived.postCutoff&&archived.originalIntervalSeconds===300&&archived.originalCheckWithinInterval&&archived.originalIntervalExpired&&verified(archivedRead.display,target)&&recommendation(archivedRead.page,target)?.targetSlot===7&&archivedRead.readOnlySourceUnchanged);
     await mutate('anchor-restore');
     for(const kind of ['anchor-subject','anchor-guid','anchor-role','anchor-rank','anchor-digest','anchor-generation','anchor-precutoff','anchor-future','anchor-interval']){
       await mutate(kind);const held=await read();
@@ -119,7 +119,7 @@ async function reviewRecords275(){
     assert.equal(operands.oldInitialEnvelopeConjunct,false,'the real-clock case must expose the older overstrict envelope assertion');
     check('a newer qualifying canonical receipt leaves the stable oldest witness and its cached role observations unchanged',operands.newReads===6&&operands.promotions===11&&operands.sameScan&&operands.sameOriginalPage&&operands.exactCachedTuplesRetained&&operands.cachedAccountReads===0&&operands.newExpiryWithinOriginalCaps&&operands.sourceUnchanged);
     await mutate('remove-old-anchor');const beforeRemoved=http.length,removed=await read({mode:'review-records-cache',cursor});
-    check('removing the original canonical witness forces a fresh exact-account role read before using its replacement',http.length-beforeRemoved===7&&http.slice(beforeRemoved).some(row=>row.subject==='800000000000001000')&&recommendation(removed.page,target)?.targetSlot===8&&JSON.stringify(removed.page.scan)===JSON.stringify(cached.page.scan)&&removed.page.expiresAt<=Math.min(...body.roleReads.filter(row=>row[0]!==target).map(row=>row[2]+60))&&removed.readOnlySourceUnchanged);
+    check('removing the original canonical witness forces a fresh exact-account role read before using its replacement',http.length-beforeRemoved===7&&http.slice(beforeRemoved).some(row=>row.subject==='800000000000001000')&&recommendation(removed.page,target)?.targetSlot===7&&JSON.stringify(removed.page.scan)===JSON.stringify(cached.page.scan)&&removed.page.expiresAt<=Math.min(...body.roleReads.filter(row=>row[0]!==target).map(row=>row[2]+60))&&removed.readOnlySourceUnchanged);
     await mutate('generation');
     await refused('review-records275',{action:'read',mode:'review-records-cache',cursor},'launch_cursor_role_source_changed',409);
     const invalid=await read();check('a changed privacy generation invalidates cached lineage and holds the current GUID without role authority',unknown(invalid.display,target)&&!recommendation(invalid.page,target)&&invalid.readOnlySourceUnchanged);
@@ -144,7 +144,7 @@ async function batchSelections276(discovery){
   fs.writeFileSync(path.join(out,'batch-selected-success.json'),JSON.stringify(first,null,2)+'\n',{flag:'wx'});
   const digest=createHash('sha256').update(JSON.stringify(selection.targetGuids)).digest('hex');
   check('one genuine sparse selected batch covers17 noncontiguous exact GUIDs without pretending to scan the other983 members',first.version===1&&first.protocol==='promotion-selection-v276'&&first.coverageKind==='selected-guids'&&first.controlId===selection.selectionId&&first.targetsDigest===digest&&JSON.stringify(first.targetGuids)===JSON.stringify(selection.targetGuids)&&JSON.stringify(first.coveredGuids)===JSON.stringify(selection.targetGuids)&&first.page.entitlements.offset===0&&first.page.entitlements.pageSize===20&&first.page.entitlements.scanned===17&&first.page.entitlements.total===1000&&first.page.entitlements.unscanned===983&&first.page.memberCount===1000&&http.length-start===17);
-  check('ordinary verified non-Knights and Knights retain their distinct Member and Veteran recommendations in the same batch',first.page.promotions.length===17&&first.page.promotions.filter(row=>row.targetSlot===8&&row.reason==='verified-initiate').length===16&&first.page.promotions.filter(row=>row.targetSlot===6&&row.reason==='knight-veteran').length===1&&first.page.promotions.every(row=>selection.targetGuids.includes(row.guid)));
+  check('ordinary verified non-Knights and Knights retain their distinct Member and Veteran recommendations in the same batch',first.page.promotions.length===17&&first.page.promotions.filter(row=>row.targetSlot===7&&row.reason==='verified-initiate').length===16&&first.page.promotions.filter(row=>row.targetSlot===5&&row.reason==='knight-veteran').length===1&&first.page.promotions.every(row=>selection.targetGuids.includes(row.guid)));
   check('batch evidence keeps original600s control/native deadlines and no invite risk traversal or automatic authority',first.page.expiresAt<=first.page.fetchedAt+600&&first.page.scan.startedAt===Number(selection.selectionId.split(':')[0])&&first.page.scan.expiresAt===Math.min(first.page.scan.startedAt+600,selection.snapshotAt+600)&&first.page.nextCursor===null&&first.page.invites.length===0&&first.page.riskBuffer.length===0&&first.page.actions.automatic===false&&first.page.actions.roleGrants===false&&first.page.actions.removals===false&&JSON.stringify(discovery)===history);
   check('batch wrapper has only the agreed public projection fields and exact digest coverage',Object.keys(first).sort().join(',')==='controlId,coverageKind,coveredGuids,page,protocol,targetGuids,targetsDigest,version');
   for(const targetGuids of [[],[...selection.targetGuids].reverse(),[...selection.targetGuids,selection.targetGuids.at(-1)]])await refused('batch-selection',{mode:'batch-full',selection:{...selection,targetGuids}},'invalid_selection_request',400);
@@ -190,7 +190,7 @@ async function batchSelections276(discovery){
   const staleStart=http.length,stale=await fixtureCall('batch-boundary',{mode:'batch-partial',selection:partialInput,cursor:partial.page.pageCursor,kind:'expired-role'});
   check('600s sparse observations still require fresh roles when synthetic-boundary cached observations are61s old',stale.syntheticSignedInputBoundary&&http.length-staleStart===17&&stale.selection.page.promotions.length===17);
   await fixtureCall('source-state',{kind:'identity'});const identityStart=http.length,switched=(await fixtureCall('batch-selection',{mode:'batch-partial',selection:partialInput,cursor:partial.page.pageCursor})).selection;
-  check('batch cached authority cannot transfer to a changed account and the exact replacement is freshly read',http.length-identityStart===13&&http.slice(identityStart).some(row=>row.subject==='800000000000009999')&&switched.page.promotions.find(row=>row.guid===partialInput.targetGuids[0])?.targetSlot===6);
+  check('batch cached authority cannot transfer to a changed account and the exact replacement is freshly read',http.length-identityStart===13&&http.slice(identityStart).some(row=>row.subject==='800000000000009999')&&switched.page.promotions.find(row=>row.guid===partialInput.targetGuids[0])?.targetSlot===5);
   await fixtureCall('source-state',{kind:'identity',restore:true});
   await fixtureCall('source-state',{kind:'privacy'});await refused('batch-selection',{mode:'batch-partial',selection:partialInput,cursor:partial.page.pageCursor},'launch_cursor_role_source_changed',409);await fixtureCall('source-state',{kind:'privacy',restore:true});
   await fixtureCall('source-state',{kind:'native'});await refused('batch-selection',{mode:'batch-partial',selection:partialInput,cursor:partial.page.pageCursor},'launch_cursor_source_changed',409);await fixtureCall('source-state',{kind:'native',restore:true});
@@ -221,6 +221,61 @@ async function batchSelections276(discovery){
   check('batch private cursor serializes only the request digest and no account IDs credentials or duplicate target list',!['800000000000001000','synthetic-roster-pacing','DISCORD_BOT_TOKEN','discord_id','discordId','targetGuids'].some(value=>text.includes(value)));
 }
 let selectedSerial=300;
+async function directiveHandler280(){
+  const actor=(await fixtureCall('directive-actor')).actorGuid;
+  const input=async indices=>{
+    const observed=await fixtureCall('batch-observe',{indices});
+    return {selectionId:observed.at+':'+(++selectedSerial),targetGuids:observed.targetGuids,snapshotId:observed.snapshotId,snapshotAt:observed.snapshotAt,actorGuid:actor,confirmations:[]};
+  };
+  const decode=cursor=>JSON.parse(Buffer.from(cursor.split('.')[0],'base64url').toString('utf8'));
+  try{
+    await fixtureCall('selection-native',{kind:'long-guids'});
+    const selection=await input(Array.from({length:20},(_,i)=>i)),before=http.length;
+    const first=(await fixtureCall('directive',{mode:'directive-late-limit',selection})).selection;
+    const outer=decode(first.page.pageCursor),inner=decode(outer.inner),partialOriginal=JSON.stringify(first),originalCursor=first.page.pageCursor;
+    check('current v234 handler returns actor-bound v6 outer cursor over actual v5 late429 observations',first.version===2&&first.protocol==='promotion-selection-directive-v1'&&first.actorGuid===actor&&outer.version===6&&/^[a-f0-9]{64}$/.test(outer.requestDigest)&&inner.version===5&&inner.roleReads.length===19&&http.length-before===20);
+    check('current outer8192 and unchanged inner4096 capacity admit20maxGUID targets and19cached successes',originalCursor.length<=8192&&outer.inner.length<=4096&&first.targetGuids.length===20&&first.targetGuids.every(g=>g.length===30)&&first.coveredGuids.length===20);
+    const retry=(await fixtureCall('directive',{mode:'directive-late-limit',selection,cursor:originalCursor})).selection;
+    check('current exact-original retry reads only one unknown and retains original scan/cache cutoffs',http.length-before===21&&retry.page.promotions.length===20&&JSON.stringify(retry.page.scan)===JSON.stringify(first.page.scan)&&retry.page.expiresAt<=Math.min(first.page.scan.expiresAt,...inner.roleReads.map(row=>row[2]+600))&&JSON.stringify(first)===partialOriginal);
+    check('current promotion seals are scoped plans not rank acknowledgements or automatic writes',retry.page.promotions.every(row=>row.targetSlot===7&&row.targetName==='Member'&&row.intent.actorGuid===actor&&row.intent.targetGuid===row.guid&&row.intent.startSlot===9&&row.intent.finalSlot===7&&row.intent.acknowledgedSteps===0&&typeof row.intentToken==='string')&&retry.page.actions.automatic===false&&retry.page.actions.roleGrants===false&&retry.page.actions.removals===false&&retry.page.invites.length===0&&retry.page.riskBuffer.length===0);
+    fs.writeFileSync(path.join(out,'current-v234-capacity.json'),JSON.stringify({actualLocalWorkerdD1:true,outerBytes:originalCursor.length,outerLimit:8192,innerBytes:outer.inner.length,innerLimit:4096,targetCount:20,cachedSuccesses:19,checksScope:'actual current handler; no native commands or current-client acceptance'},null,2)+'\n',{flag:'wx'});
+    const old=new URLSearchParams({keyVersion:'officer-operations-v233',selectionId:selection.selectionId,targetGuid:selection.targetGuids[0],snapshotId:selection.snapshotId,snapshotAt:selection.snapshotAt});
+    await refused('directive',{selection,rawQuery:String(old)},'invalid_launch_query',400);
+    const changed=[...selection.targetGuids];changed[19]='Player-999999-000000000000ffff';changed.sort();
+    await refused('directive',{mode:'directive-late-limit',selection:{...selection,targetGuids:changed},cursor:originalCursor},'invalid_selection_cursor',400);
+    await refused('directive',{mode:'directive-late-limit',selection:{...selection,actorGuid:'Player-6933-000003e7'},cursor:originalCursor},'invalid_selection_cursor',400);
+    const tampered={...outer,requestDigest:'f'.repeat(64)};
+    await refused('directive',{mode:'directive-late-limit',selection,cursor:Buffer.from(JSON.stringify(tampered)).toString('base64url')+'.'+originalCursor.split('.')[1]},'invalid_selection_cursor',400);
+    await refused('directive',{selection:{...selection,targetGuids:[actor]}},'invalid_selection_request',400);
+    check('retired public v233 plus outer actor target request and MAC replay substitutions are refused before HTTP',true);
+    const unknownStart=http.length,unknown=(await fixtureCall('directive',{selection:{...await input([0]),actorGuid:'Player-6933-0000ffff'}})).selection;
+    check('current unknown actor cannot issue an intent or read an entitlement',http.length===unknownStart&&unknown.coveredGuids.length===0&&unknown.page.status==='held'&&unknown.page.heldReasons.includes('promotion-actor-unconfirmed'));
+    for(const kind of ['v1','rank-mismatch']){
+      await fixtureCall('directive-source',{kind});const start=http.length,held=(await fixtureCall('directive',{selection:await input([0])})).selection;
+      check('current '+kind+' whole-scheme source holds before entitlement or intent',http.length===start&&held.page.status==='held'&&held.page.promotions.length===0&&held.coveredGuids.length===0);
+      await fixtureCall('directive-source',{kind:'restore'});
+    }
+    // Re-use the genuinely server-minted partial cursor. Account replacement
+    // invalidates only that role observation; it cannot inherit cached identity.
+    await fixtureCall('source-state',{kind:'identity'});const switchedStart=http.length,switched=(await fixtureCall('directive',{mode:'directive-late-limit',selection,cursor:originalCursor})).selection;
+    check('current cached account replacement requires its exact new account GET',http.length-switchedStart===2&&http.slice(switchedStart).some(x=>x.subject==='800000000000009999')&&switched.page.promotions.find(x=>x.guid===selection.targetGuids[0])?.targetSlot===5);
+    await fixtureCall('source-state',{kind:'identity',restore:true});
+    await fixtureCall('source-state',{kind:'native'});await refused('directive',{mode:'directive-late-limit',selection,cursor:originalCursor},'launch_cursor_source_changed',409);await fixtureCall('source-state',{kind:'native',restore:true});
+    const single=await input([0]),planned=(await fixtureCall('directive',{mode:'directive-single',selection:single})).selection,plan=planned.page.promotions[0];
+    const confirmed={...single,confirmations:[{guid:single.targetGuids[0],token:plan.intentToken,from:9,to:8,observedAt:Math.floor(Date.now()/1000)}]};
+    const replay=(await fixtureCall('directive',{mode:'directive-single',selection:confirmed})).selection;
+    check('same intent cannot fabricate a native rank step from a token or same snapshot alone',replay.page.promotions.length===0&&replay.page.held.some(x=>x.reason==='same-intent-continuation-held'));
+    for(const kind of ['privacy','denial','native','cutoff','credential','secret','link','scope','actor']){
+      const request=await input([0]),held=(await fixtureCall('directive',{mode:'directive-await-'+kind,selection:request})).selection;
+      check('current '+kind+' changes during real entitlement await invalidate the whole sealed overlay',inflightMutations.has('directive-'+kind)&&held.page.status==='held'&&held.page.promotions.length===0&&held.coveredGuids.length===0&&held.page.pageCursor===null);
+      if(kind==='actor')await fixtureCall('directive-actor');else await fixtureCall(kind==='scope'?'batch-scope':'source-state',kind==='scope'?{restore:true}:{kind,restore:true});
+    }
+  }finally{
+    await fixtureCall('selection-native',{kind:'restore'});
+    await fixtureCall('directive-source',{kind:'restore'});
+    await fixtureCall('directive-actor',{enabled:false});
+  }
+}
 async function selectedInput273(index=399){
   const source=await fixtureCall('selection-observe',{index});
   return {selectionId:source.at+':'+(++selectedSerial),targetGuid:source.targetGuid,snapshotId:source.snapshotId,snapshotAt:source.snapshotAt};
@@ -284,7 +339,7 @@ async function selectedReads273(originalDiscovery){
   check('a selected600s observation does not loosen60s retry-cache reuse: original61s-old roles require20fresh GETs',stale.syntheticSignedInputBoundary&&http.length-staleStart===20&&stale.selection.page.promotions.length===20);
   await fixtureCall('source-state',{kind:'identity'});
   const switchStart=http.length,switched=(await fixtureCall('selection',{mode:'selected-partial',selection:partialInput,cursor:partial.page.pageCursor})).selection;
-  check('selected cached GUID cannot transfer role authority to a changed linked account',http.length-switchStart===16&&http.slice(switchStart).some(row=>row.subject==='800000000000009999')&&switched.page.promotions.find(row=>row.guid===partialInput.targetGuid)?.targetSlot===6);
+  check('selected cached GUID cannot transfer role authority to a changed linked account',http.length-switchStart===16&&http.slice(switchStart).some(row=>row.subject==='800000000000009999')&&switched.page.promotions.find(row=>row.guid===partialInput.targetGuid)?.targetSlot===5);
   await fixtureCall('source-state',{kind:'identity',restore:true});
   await fixtureCall('selection-native',{kind:'drift'});
   await refused('selection',{mode:'selected-partial',selection:partialInput,cursor:partial.page.pageCursor},'launch_cursor_source_changed',409);
@@ -308,6 +363,15 @@ async function selectedReads273(originalDiscovery){
 }
 async function run(){
   const seed=await fixtureCall('seed');check('fixture runs inside actual local Workerd with genuine D1',seed.actualLocalWorkerdD1);
+  // Evergreen 12 Nov 2026 (CL2-024): statement ceilings and query plans, measured on their own 1,000-member database.
+  const budget=await fixtureCall('budget');assert(budget.actualLocalWorkerdD1&&budget.checks.length===26);
+  const budgetRecord={modeBoundaries:budget.modeBoundaries,page:budget.page,legacy:budget.legacy,rankHeld:budget.rankHeld,display:budget.display,ingest:budget.ingest,ceilings:budget.ceilings,timings:budget.timings,plans:budget.plans};
+  fs.writeFileSync(path.join(out,'d1-statement-budget.json'),JSON.stringify(budgetRecord,null,2)+'\n',{flag:'wx'});
+  console.log('D1_STATEMENT_BUDGET '+JSON.stringify({page:budget.page,legacy:budget.legacy,rankHeld:budget.rankHeld,display:budget.display,ingest:budget.ingest,ceilings:budget.ceilings,timings:budget.timings}));
+  for(const item of budget.checks){assert(item.passed,item.name);checks.push(item);}
+  if(process.argv.includes('--budget-only'))return {complete:true,actualLocalWorkerdD1:true,checks,syntheticDiscordGETs:http.length,providerCalls:0,pages:0};
+  await directiveHandler280();
+  check('remaining v4/v5 controls exercise exported internal readers, not retired HTTP acceptance',true);
   await selectedCursorCapacity273();
   let cursor=null,originalScan,offset=0;const recommendations=new Set(),pages=[];
   do{
@@ -317,7 +381,7 @@ async function run(){
     assert(page.pageCursor&&typeof page.pageCursor==='string');assert.equal(page.snapshotAt,seed.at-120);
     assert(page.expiresAt<=page.fetchedAt+60&&page.scan.expiresAt===seed.at-120+600);
     if(!originalScan)originalScan=page.scan;else assert.deepEqual(page.scan,originalScan);
-    for(const row of page.promotions){assert(!recommendations.has(row.guid));recommendations.add(row.guid);assert.equal(row.currentSlot,9);assert.equal(row.targetSlot,8);assert.equal(row.targetName,'Member');}
+    for(const row of page.promotions){assert(!recommendations.has(row.guid));recommendations.add(row.guid);assert.equal(row.currentSlot,9);assert.equal(row.targetSlot,7);assert.equal(row.targetName,'Member');}
     assert.equal(http.length-before,20,'each real page uses exactly 20 external role reads');
     cursor=page.nextCursor;offset+=20;
   }while(cursor);
@@ -400,8 +464,8 @@ async function run(){
   await reviewRecords275();
   await batchSelections276(pages[0]);
   await fixtureCall('ranks');const beforeSkip=http.length,skip=await fixtureCall('page',{mode:'skip-native'});
-  const expected=Array.from({length:7},(_,i)=>'Player-6933-'+(i+1).toString(16).padStart(8,'0'));
-  check('exact native ranks 0 through 6 need neither Discord reads nor unknown-entitlement holds',http.length-beforeSkip===13&&skip.page.promotions.length===13&&http.slice(beforeSkip).every(row=>BigInt(row.subject)-800000000000001000n>=7n)&&expected.every(id=>!skip.page.held.some(r=>r.guid===id)&&!skip.page.promotions.some(r=>r.guid===id)));
+  const expected=Array.from({length:6},(_,i)=>'Player-6933-'+(i+1).toString(16).padStart(8,'0'));
+  check('exact native ranks 0 through 5 need neither Discord reads nor unknown-entitlement holds',http.length-beforeSkip===14&&skip.page.promotions.length===13&&http.slice(beforeSkip).every(row=>BigInt(row.subject)-800000000000001000n>=6n)&&expected.every(id=>!skip.page.held.some(r=>r.guid===id)&&!skip.page.promotions.some(r=>r.guid===id)));
   const changed=await fixtureCall('page',{mode:'source-change'});
   check('actual D1 native source change during Discord await refuses the whole projection',sourceChanged&&changed.page.status==='held'&&changed.page.promotions.length===0&&changed.page.heldReasons.includes('native-snapshot-changed'));
   const audit=await fixtureCall('audit');for(const item of audit.checks){assert(item.passed);checks.push(item);}
@@ -414,7 +478,7 @@ async function run(){
     const sourceSHA256=hashes(),testSHA256=testHashes();
     fs.writeFileSync(path.join(out,'source-sha256.json'),JSON.stringify(sourceSHA256,null,2)+'\n',{flag:'wx'});
     const script=buildSync({entryPoints:[path.join(__dirname,'launch_roster_pacing271_runtime.mjs')],absWorkingDir:root,bundle:true,write:false,format:'esm',platform:'browser',target:'es2022',external:['node:async_hooks'],tsconfig:path.join(root,'tsconfig.json'),logLevel:'silent'}).outputFiles[0].text;
-    mf=new Miniflare(convertV4MiniflareOptions({rootPath:out,script,modules:true,compatibilityDate:'2026-09-01',compatibilityFlags:['nodejs_compat'],host:'127.0.0.1',port:0,cf:false,log:new Log(LogLevel.NONE),logRequests:false,telemetry:{enabled:false},unsafeRegisterWorker:false,unsafeLocalExplorer:false,unsafeObservability:false,d1Databases:{DB:'roster-pacing271'},resourceTmpPath:path.join(out,'tmp'),resourcePersistencePath:path.join(out,'persist'),isolatedResourcePersistencePath:path.join(out,'isolated'),outboundService:async request=>{
+    mf=new Miniflare(convertV4MiniflareOptions({rootPath:out,script,modules:true,compatibilityDate:'2026-09-01',compatibilityFlags:['nodejs_compat'],host:'127.0.0.1',port:0,cf:false,log:new Log(LogLevel.NONE),logRequests:false,telemetry:{enabled:false},unsafeRegisterWorker:false,unsafeLocalExplorer:false,unsafeObservability:false,d1Databases:{DB:'roster-pacing271',DB_BUDGET:'roster-budget1112'},resourceTmpPath:path.join(out,'tmp'),resourcePersistencePath:path.join(out,'persist'),isolatedResourcePersistencePath:path.join(out,'isolated'),outboundService:async request=>{
       const url=new URL(request.url),match=url.pathname.match(/^\/api\/v10\/guilds\/800000000000000001\/members\/(\d{18})$/),mode=(request.headers.get('Authorization')||'').replace('Bot synthetic-roster-pacing-','');
       assert.equal(url.origin,'https://discord.com');assert.equal(url.search,'');assert.equal(request.method,'GET');assert(match);
       const index=BigInt(match[1])-800000000000001000n;assert(index>=0n&&index<1000n||match[1]==='800000000000009999');
@@ -442,8 +506,13 @@ async function run(){
           if(['anchor','config','native-config'].includes(kind))await fixtureCall('review-records275',{action:'mutate',kind:kind==='anchor'?'anchor-digest':kind});
           else await fixtureCall(kind==='scope'?'batch-scope':'source-state',kind==='scope'?{}:{kind});
         }
+        if(mode.startsWith('directive-await-')&&!inflightMutations.has('directive-'+mode.slice(16))){
+          const kind=mode.slice(16);inflightMutations.add('directive-'+kind);
+          if(kind==='actor')await fixtureCall('directive-actor',{enabled:false});
+          else await fixtureCall(kind==='scope'?'batch-scope':'source-state',kind==='scope'?{}:{kind});
+        }
         const reviewLimit=mode==='review-records-cache'&&[1,7,8].includes(n)?(n===1?{header:'2.2',body:2.2,reset:'2.2'}:{header:'0.03',body:0.03,reset:'0.03'}):null;
-        const limited=reviewLimit??((['partial-recover','identity-switch','selected-partial','selected-cache-age','batch-partial'].includes(mode)&&n===6||['selected-late-limit','batch-late-limit'].includes(mode)&&n===20)?{header:'0.03',body:0.03,reset:'0.03'}:modes[mode]);
+        const limited=reviewLimit??((['partial-recover','identity-switch','selected-partial','selected-cache-age','batch-partial'].includes(mode)&&n===6||['selected-late-limit','batch-late-limit','directive-late-limit'].includes(mode)&&n===20)?{header:'0.03',body:0.03,reset:'0.03'}:modes[mode]);
         if(limited)return Response.json({retry_after:limited.body,global:false},{status:429,headers:{'Retry-After':limited.header,'X-RateLimit-Reset-After':limited.reset}});
         return Response.json({user:{id:match[1]},roles:mode==='malformed'?'invalid-role-body':match[1]==='800000000000009999'||mode.startsWith('batch-')&&index===122n?['1299841745550311535']:[]},{headers:mode==='malformed'?{'X-RateLimit-Remaining':'not-a-number','X-RateLimit-Reset-After':'Infinity'}:row.resetMilliseconds?{'X-RateLimit-Remaining':'0','X-RateLimit-Reset-After':'0.03'}:{'X-RateLimit-Remaining':'1','X-RateLimit-Reset-After':'0'}});
       }finally{row.completed=performance.now();active--;}

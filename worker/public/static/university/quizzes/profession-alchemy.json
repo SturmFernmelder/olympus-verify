@@ -1,0 +1,154 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "profession-alchemy",
+ "questions": [
+  {
+   "id": "profession-alchemy.healing-potions",
+   "scope": "profession:alchemy",
+   "tier": 101,
+   "chapter": "alchemy-101-changes",
+   "type": "mcq",
+   "stem": "Which profession makes Superior and Major Healing Potions in Forever?",
+   "choices": [
+    "First Aid",
+    "Alchemy"
+   ],
+   "answer": 0,
+   "explanation": "Superior and Major Healing Potions are now First Aid crafts; the old Alchemy healing-potion recipes are gone.",
+   "facts": [
+    "profession-alchemy.healing-potions-moved"
+   ]
+  },
+  {
+   "id": "profession-alchemy.lab-skill",
+   "scope": "profession:alchemy",
+   "tier": 101,
+   "chapter": "alchemy-101-changes",
+   "type": "mcq",
+   "stem": "At what Alchemy skill can you place the Alchemy Laboratory camp object?",
+   "choices": [
+    "300",
+    "140",
+    "20"
+   ],
+   "answer": 0,
+   "explanation": "The Mana Well comes at skill 20, the Fermenter at 140 and the Alchemy Laboratory at 300.",
+   "facts": [
+    "profession-alchemy.camp-objects"
+   ]
+  },
+  {
+   "id": "profession-alchemy.artisan",
+   "scope": "profession:alchemy",
+   "tier": 101,
+   "chapter": "alchemy-101-leveling",
+   "type": "mcq",
+   "stem": "What does Artisan Alchemy training need?",
+   "choices": [
+    "skill 200, level 35",
+    "skill 125, level 20",
+    "skill 50, level 10"
+   ],
+   "answer": 0,
+   "explanation": "Journeyman needs skill 50 and level 10, Expert skill 125 and level 20, and Artisan skill 200 and level 35.",
+   "facts": [
+    "profession-alchemy.skill-ranks"
+   ]
+  },
+  {
+   "id": "profession-alchemy.expert-cap",
+   "scope": "profession:alchemy",
+   "tier": 101,
+   "chapter": "alchemy-101-leveling",
+   "type": "mcq",
+   "stem": "Up to what skill does Expert Alchemy go?",
+   "choices": [
+    "225",
+    "150",
+    "300"
+   ],
+   "answer": 0,
+   "explanation": "Apprentice goes up to 75, Journeyman up to 150, Expert up to 225 and Artisan up to 300.",
+   "facts": [
+    "profession-alchemy.skill-ranks"
+   ]
+  },
+  {
+   "id": "profession-alchemy.elixir-length",
+   "scope": "profession:alchemy",
+   "tier": 201,
+   "chapter": "alchemy-201-raid",
+   "type": "mcq",
+   "stem": "How long do the new Favor elixirs last?",
+   "choices": [
+    "30 minutes",
+    "5 minutes",
+    "30 s"
+   ],
+   "answer": 0,
+   "explanation": "The new Favor elixirs last 30 minutes. Potion of Elemental Purging lasts 5 minutes and the Major Frenzy Potion 30 s.",
+   "facts": [
+    "profession-alchemy.30-minute-elixirs"
+   ],
+   "distractorFacts": [
+    "profession-alchemy.new-potions"
+   ]
+  },
+  {
+   "id": "profession-alchemy.grizzly",
+   "scope": "profession:alchemy",
+   "tier": 201,
+   "chapter": "alchemy-201-raid",
+   "type": "mcq",
+   "stem": "Which Favor elixir gives +25 Strength and +2% crit?",
+   "choices": [
+    "Grizzly",
+    "Owl",
+    "Cunning"
+   ],
+   "answer": 0,
+   "explanation": "Grizzly gives +25 Strength and +2% crit; Owl gives +25 Intellect and +2% crit; Cunning +25 Agility and Intellect.",
+   "facts": [
+    "profession-alchemy.30-minute-elixirs"
+   ]
+  },
+  {
+   "id": "profession-alchemy.fire-protection",
+   "scope": "profession:alchemy",
+   "tier": 201,
+   "chapter": "alchemy-201-raid",
+   "type": "mcq",
+   "stem": "In Classic 1.12, what Alchemy skill does the Greater Fire Protection Potion recipe need?",
+   "choices": [
+    "290",
+    "300",
+    "225"
+   ],
+   "answer": 0,
+   "explanation": "In Classic 1.12 the recipe drops in Blackrock Spire and needs Alchemy 290. Forever has not confirmed it.",
+   "facts": [
+    "profession-alchemy.fire-protection-recipe-classic-baseline"
+   ],
+   "distractorFacts": [
+    "profession-alchemy.skill-ranks"
+   ]
+  },
+  {
+   "id": "profession-alchemy.runecloth-bag",
+   "scope": "profession:alchemy",
+   "tier": 201,
+   "chapter": "alchemy-201-market",
+   "type": "mcq",
+   "stem": "How many Magenta Dye does a Runecloth Bag take in Forever?",
+   "choices": [
+    "4",
+    "2"
+   ],
+   "answer": 0,
+   "explanation": "The Runecloth Bag now takes 4 Magenta and 2 Cerulean Dye.",
+   "facts": [
+    "profession-alchemy.dyes"
+   ]
+  }
+ ]
+}

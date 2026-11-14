@@ -1,0 +1,941 @@
+{
+ "schema": "olympus-governance-evergreen1112-v1",
+ "recordedAt": "2026-11-12",
+ "authority": "Editorial reconciliation under the Evergreen Stage 2 governance lane: no rule, amount, eligibility condition, decision or named holder changes; decision-register entries stay verbatim.",
+ "base": "dfca7a2b7843dee9f31706e2964eca12ad064299",
+ "changes": [
+  {
+   "key": "s12a-erasure-row-cross-reference",
+   "issues": [
+    "CL2-032"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The S12a cell repeated the whole Article S12 erasure paragraph word for word; Article S12 stays the single full text.",
+   "before": "| Record or purpose | Selected term and conditions |\n|---|---|\n| Dues ledger | One gold weekly; fourteen-day new-member exemption; ninety-day ledger retention. Authorized people record actual receipts. No automatic gold collection or debtor sanction. The adopted per-member/home-guild treatment avoids duplicate assessment solely for verified alts. |\n| Privacy receipt conversations | New intake remains closed. Existing retained conversations use their original private credentials and thirty-day inactivity policy, with designated reading and ownership checks for attended help. Their separate purpose does not retain an erased ordinary account profile. |\n| Core roster and departed-member records | Balanced base: roster snapshots ninety days; departed members' rows and character links twelve months after they leave. Apply the later qualified conditions below where relevant, without retaining a deleted ordinary profile under a new operational exception. |\n| Sign-in records and audit log | Ordinary retention uses the selected twelve-month clock where applicable. Serving-account erasure removes attributable ordinary sign-in and operational data; it does not keep every audit row as a blanket exception. Original unresolved-effect, safety and recovery receipts retain only their separate published purposes, original dates and expiry limits. |\n| Inactive ordinary records | The selected twelve-month term covers unsuccessful applicants, ended links, unused site accounts with no active character, released reserved names, references to departed accounts and inactive relay records when their other retention conditions are met. Active members/characters and active bans/cases retain their separate rules. Use the qualified operating retention clock; this book does not substitute an arbitrary day count or invent a new clock. |\n| Erasure and safety marker | Live serving-account erasure is automatic in the Native operating mode. An authenticated owner submits one request through Account data controls or the separate Discord privacy connection; bounded automatic continuations then work on that original request without requiring another click. Eligible inactive site accounts with no active linked character, and dated inactive bot accounts, enter the qualified retention path after twelve months. The request retires the current account generation and revokes ordinary sessions. Cleanup removes the covered account, applications, linked character data, votes, friends, attributable roster and operational records, registered community records and exact attributable structured references. The bot checks and removes known Olympus guild roles associated with that account, including recorded leadership and Council roles. This is not a removal of server-wide moderator or blocking safety roles, the bot's roles or Discord's everyone role. Managed roles, permissions, hierarchy, ambiguous attribution or provider failure can keep the account pending or held. A completed role-removal slice is followed by a fresh absence check before the guarded atomic account cleanup. Unknown effects remain unknown; they are not rewritten as successful acknowledgements or blindly repeated. A lost reply proves neither rollback nor completion. The private fixed-expiry request status reports the original operation's actual outcome. Completion covers live serving-account cleanup, not every copy. An operator's backup, provider recovery history, downloaded file or another person's device is not physically erased by that result. There is no blanket exception retaining an erased ordinary profile or every audit row. Active bans and necessary reasons, unresolved safety cases, original provider-effect custody and narrowly scoped recovery barriers retain only their separate published purposes and clocks. Typed names and arbitrary free text are not guessed to belong to an account; legacy material without reliable attribution may need a separate correction. Disputes and attended help remain available, without turning ordinary automatic erasure into a human-only workflow. For a rejected guild application or membership, a keyed minimized account marker records the fixed reason and original decision date for up to 365 days from the original decision. It retains no application, name or rejection explanation, does not create a general ban and is not renewed by erasure or retry. Active verification bans and necessary reasons, unresolved safety cases and watch records have separate purposes. A restore-suppression record retains the retired Discord account identifier and generation for 366 days from erasure, preventing an older recovery copy from reviving that generation. The member-visible private request receipt omits the account identifier; necessary internal generation barriers and unresolved provider/role/proof custody may still require purpose-limited identifiers. These keyed or internally linkable safeguards are not promised to be anonymous. They are not the deleted ordinary profile. Recovery exports remain newest-only with a 365-day maximum age, verified replacement and exact approved disposal; live cleanup does not rewrite those exports or provider recovery history. Unknown historical or mismatched recovery sources remain held, with no all-copy erasure claim. |\n| Events | Scheduled start is capped at 366 days from original creation. Repeated rescheduling does not create a new original date or keep a record indefinitely. Other qualified event-retention conditions still apply. |\n| Residual beta dates | Preserve original beta code-request and character first-seen dates. Following the separately reviewed role/link/queue transition, residual dates age from the actual recorded beta cutoff and remain at least twelve months from that cutoff before deletion, with all other conditions met. Do not restart waiting periods by silently deleting or replacing those original dates. |\n| Private recovery exports | Newest-only, with a maximum age of 365 days. Arrange verified replacement before expiry, then exact owner-approved cleanup receipts for the superseded copy. Verify replacement hash, restore checks and applicable counts before cleanup. An unknown-age, over-age or unverified copy is a recovery-policy hold to resolve, not blanket deletion authority or evidence that the cap is currently met. |\n| Deletion replay | Keep minimal recovery-replay records for 366 days for the selected 365-day recovery-copy maximum age. These records are distinct from the deleted account's full profile. Verify every recoverable copy's maximum age before shortening replay; an assumed provider window is insufficient. No promise of deletion from all recovery copies or authorization to restore deleted access follows. |",
+   "after": "| Record or purpose | Selected term and conditions |\n|---|---|\n| Dues ledger | One gold weekly; fourteen-day new-member exemption; ninety-day ledger retention. Authorized people record actual receipts. No automatic gold collection or debtor sanction. The adopted per-member/home-guild treatment avoids duplicate assessment solely for verified alts. |\n| Privacy receipt conversations | New intake remains closed. Existing retained conversations use their original private credentials and thirty-day inactivity policy, with designated reading and ownership checks for attended help. Their separate purpose does not retain an erased ordinary account profile. |\n| Core roster and departed-member records | Balanced base: roster snapshots ninety days; departed members' rows and character links twelve months after they leave. Apply the later qualified conditions below where relevant, without retaining a deleted ordinary profile under a new operational exception. |\n| Sign-in records and audit log | Ordinary retention uses the selected twelve-month clock where applicable. Serving-account erasure removes attributable ordinary sign-in and operational data; it does not keep every audit row as a blanket exception. Original unresolved-effect, safety and recovery receipts retain only their separate published purposes, original dates and expiry limits. |\n| Inactive ordinary records | The selected twelve-month term covers unsuccessful applicants, ended links, unused site accounts with no active character, released reserved names, references to departed accounts and inactive relay records when their other retention conditions are met. Active members/characters and active bans/cases retain their separate rules. Use the qualified operating retention clock; this book does not substitute an arbitrary day count or invent a new clock. |\n| Erasure and safety marker | Stated in full in [Article S12](#/governance/the-guild-statute-of-olympus/article-s12): automatic serving-account erasure, the rejection marker kept for up to 365 days from the original decision and the restore-suppression record kept for 366 days from erasure. |\n| Events | Scheduled start is capped at 366 days from original creation. Repeated rescheduling does not create a new original date or keep a record indefinitely. Other qualified event-retention conditions still apply. |\n| Residual beta dates | Preserve original beta code-request and character first-seen dates. Following the separately reviewed role/link/queue transition, residual dates age from the actual recorded beta cutoff and remain at least twelve months from that cutoff before deletion, with all other conditions met. Do not restart waiting periods by silently deleting or replacing those original dates. |\n| Private recovery exports | Newest-only, with a maximum age of 365 days. Arrange verified replacement before expiry, then exact owner-approved cleanup receipts for the superseded copy. Verify replacement hash, restore checks and applicable counts before cleanup. An unknown-age, over-age or unverified copy is a recovery-policy hold to resolve, not blanket deletion authority or evidence that the cap is currently met. |\n| Deletion replay | Keep minimal recovery-replay records for 366 days for the selected 365-day recovery-copy maximum age. These records are distinct from the deleted account's full profile. Verify every recoverable copy's maximum age before shortening replay; an assumed provider window is insufficient. No promise of deletion from all recovery copies or authorization to restore deleted access follows. |"
+  },
+  {
+   "key": "ord15-erasure-cross-reference",
+   "issues": [
+    "CL2-032"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "ORD 15 repeated the Article S12 erasure paragraph word for word; the Ordinances already defer to Article S12.",
+   "before": "New private-request intake remains closed; existing retained cases and attended help follow Article S12 and the published privacy account routes. Establish the account owner before disclosure. Live serving-account erasure is automatic in the Native operating mode. An authenticated owner submits one request through Account data controls or the separate Discord privacy connection; bounded automatic continuations then work on that original request without requiring another click. Eligible inactive site accounts with no active linked character, and dated inactive bot accounts, enter the qualified retention path after twelve months. The request retires the current account generation and revokes ordinary sessions. Cleanup removes the covered account, applications, linked character data, votes, friends, attributable roster and operational records, registered community records and exact attributable structured references. The bot checks and removes known Olympus guild roles associated with that account, including recorded leadership and Council roles. This is not a removal of server-wide moderator or blocking safety roles, the bot's roles or Discord's everyone role. Managed roles, permissions, hierarchy, ambiguous attribution or provider failure can keep the account pending or held. A completed role-removal slice is followed by a fresh absence check before the guarded atomic account cleanup. Unknown effects remain unknown; they are not rewritten as successful acknowledgements or blindly repeated. A lost reply proves neither rollback nor completion. The private fixed-expiry request status reports the original operation's actual outcome. Completion covers live serving-account cleanup, not every copy. An operator's backup, provider recovery history, downloaded file or another person's device is not physically erased by that result. There is no blanket exception retaining an erased ordinary profile or every audit row. Active bans and necessary reasons, unresolved safety cases, original provider-effect custody and narrowly scoped recovery barriers retain only their separate published purposes and clocks. Typed names and arbitrary free text are not guessed to belong to an account; legacy material without reliable attribution may need a separate correction. Disputes and attended help remain available, without turning ordinary automatic erasure into a human-only workflow. For a rejected guild application or membership, a keyed minimized account marker records the fixed reason and original decision date for up to 365 days from the original decision. It retains no application, name or rejection explanation, does not create a general ban and is not renewed by erasure or retry. Active verification bans and necessary reasons, unresolved safety cases and watch records have separate purposes. A restore-suppression record retains the retired Discord account identifier and generation for 366 days from erasure, preventing an older recovery copy from reviving that generation. The member-visible private request receipt omits the account identifier; necessary internal generation barriers and unresolved provider/role/proof custody may still require purpose-limited identifiers. These keyed or internally linkable safeguards are not promised to be anonymous. They are not the deleted ordinary profile. Recovery exports remain newest-only with a 365-day maximum age, verified replacement and exact approved disposal; live cleanup does not rewrite those exports or provider recovery history. Unknown historical or mismatched recovery sources remain held, with no all-copy erasure claim. Directory listings, crafting offers and public profiles require their own consent; an application does not create it. Publish governance contacts using only an agreed display name and appropriate contact route, avoiding credentials and unnecessary account identifiers. New records need a purpose, access owner and published retention schedule before collection; this book performs no live data operation or recovery-copy change.",
+   "after": "New private-request intake remains closed; existing retained cases and attended help follow Article S12 and the published privacy account routes. Establish the account owner before disclosure. Account erasure, its automatic continuations and the records kept after it follow [Article S12](#/governance/the-guild-statute-of-olympus/article-s12) in full. Directory listings, crafting offers and public profiles require their own consent; an application does not create it. Publish governance contacts using only an agreed display name and appropriate contact route, avoiding credentials and unnecessary account identifiers. New records need a purpose, access owner and published retention schedule before collection; this book performs no live data operation or recovery-copy change."
+  },
+  {
+   "key": "s13-beta-reset-cross-reference",
+   "issues": [
+    "CL2-032",
+    "CL2-193",
+    "REV-GOV-3"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "Article S13 repeated Charter section 1.8 word for word; the Charter is the higher instrument and keeps the full text.",
+   "before": "## Article S13   Beta transition  resignation and amendments\n\nThe beta reset removes only the fixed beta membership and native-rank Discord roles. Manual leadership and Council roles, developer, bot and server-moderator roles, all website appointments and the leadership directory are preserved. This includes the existing website appointments of richwcampbell. as Co-Guild Master and Fernmelder as Treasurer, without issuing either governance warrant or filling another vacancy. The selected cutoff is 22 October 2026 at 17:00 UTC / noon CDT. The cutoff alone does not arm or activate removal. Old beta grants close at the fixed cutoff even while reset removal remains OFF. A removal run needs its separately authorized policy, exact target preview, current permissions and source/runtime qualification; no date, count, elapsed quiet period or observation of absence proves old-source drain. The reset changes no native game rank, website appointment, directory entry, application, vote or private record. It does not clear verification links or the invite queue as a blanket website reset. Launch identity controls and residual-date retention use their separately qualified paths, preserving original dates rather than silently restarting waiting periods. Reset preservation is distinct from an account owner's authenticated erasure request.",
+   "after": "## Article S13 — Beta transition, resignation and amendments\n\nThe beta reset, its cutoff of 22 October 2026 at 17:00 UTC and the roles and appointments it preserves are stated in full in [Charter section 1.8](#/governance/1-guild-charter-of-olympus/section-1-8-continuity-amendment-and-adoption)."
+  },
+  {
+   "key": "ord18-beta-reset-cross-reference",
+   "issues": [
+    "CL2-032",
+    "REV-GOV-3"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "ORD 18 repeated Charter section 1.8 word for word.",
+   "before": "Beta assignments are provisional; the current owner-selected scope is a member/rank reset, not removal of every leadership or Council appointment. The beta reset removes only the fixed beta membership and native-rank Discord roles. Manual leadership and Council roles, developer, bot and server-moderator roles, all website appointments and the leadership directory are preserved. This includes the existing website appointments of richwcampbell. as Co-Guild Master and Fernmelder as Treasurer, without issuing either governance warrant or filling another vacancy. The selected cutoff is 22 October 2026 at 17:00 UTC / noon CDT. The cutoff alone does not arm or activate removal. Old beta grants close at the fixed cutoff even while reset removal remains OFF. A removal run needs its separately authorized policy, exact target preview, current permissions and source/runtime qualification; no date, count, elapsed quiet period or observation of absence proves old-source drain. The reset changes no native game rank, website appointment, directory entry, application, vote or private record. It does not clear verification links or the invite queue as a blanket website reset. Launch identity controls and residual-date retention use their separately qualified paths, preserving original dates rather than silently restarting waiting periods. Reset preservation is distinct from an account owner's authenticated erasure request. Authorized Guild Masters handle any separately approved game-rank changes. No midnight, authoring date or assumed shutdown hour runs the reset; a fresh-source epoch and any role reuse require separate qualified source and custody authority.",
+   "after": "Beta assignments are provisional; the current owner-selected scope is a member/rank reset, not removal of every leadership or Council appointment. The reset itself is stated in full in [Charter section 1.8](#/governance/1-guild-charter-of-olympus/section-1-8-continuity-amendment-and-adoption). Authorized Guild Masters handle any separately approved game-rank changes. No midnight, authoring date or assumed shutdown hour runs the reset; a fresh-source epoch and any role reuse require separate qualified source and custody authority."
+  },
+  {
+   "key": "charter-1-5-current-composition",
+   "issues": [
+    "CL2-038"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "Charter 1.5 still described the four-department layout as current beside the thirteen-seat Cabinet.",
+   "before": "**Original R7 department layer.** Section II.8.1 identifies the current Cabinet. Four core portfolios coordinate work across Olympus: Department of War, Federal Treasury, Association of Artisanry, and Department of Heraldry. War may have separate PvP and raiding heads. Ministers set agreed standards, offer support, and coordinate through the corresponding emissaries. They do not command Guild Masters merely because their boxes sit higher on a diagram.",
+   "after": "The High Council is set out in Section II.8.1: the Guild Master chairs it, and the Co-Guild Master serves alongside twelve numbered portfolios, with Systems & Heraldry as the thirteenth seat. The original R7 text grouped this work into four departments (War, which could have separate PvP and raiding heads, the Federal Treasury, the Association of Artisanry and Heraldry); Section II.8.1 replaces that grouping. Ministers set agreed standards, offer support, and coordinate through the corresponding emissaries. They do not command Guild Masters merely because their boxes sit higher on a diagram."
+  },
+  {
+   "key": "royal-charter-2-1-portfolios",
+   "issues": [
+    "CL2-038"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The ceremonial Royal Charter named the superseded four-portfolio layout.",
+   "before": "We recognize Asmon as Founder and final authority within the published settlement. We establish the High Council to advise and coordinate, the four core portfolios to serve the guilds, and the Council of Justice to consider disputes with independence and restraint. Each Guild Master shall govern their own guild under the common Charter; each minister shall coordinate through willing and duly appointed emissaries. Service shall be measured by fulfilled duties, not by the grandeur of a title.",
+   "after": "We recognize Asmon as Founder and final authority within the published settlement. We establish the High Council to advise and coordinate, its portfolios to serve the guilds, and the Council of Justice to consider disputes with independence and restraint. Each Guild Master shall govern their own guild under the common Charter; each minister shall coordinate through willing and duly appointed emissaries. Service shall be measured by fulfilled duties, not by the grandeur of a title."
+  },
+  {
+   "key": "organisation-offices-intro",
+   "issues": [
+    "CL2-038"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The chapter introduction presented the original four-department chart as the current structure.",
+   "before": "The expanded structure uses four core departments, a shared Systems division and five correspondents per affiliated guild. Solid reporting lines identify accountability; coordination lines identify cooperation rather than command. A job can be combined with another compatible job where workload permits, but a custodian cannot independently audit their own assets and a case participant cannot adjudicate their own dispute. The ten native ranks are stated in Article S3 and remain distinct from the appointment and reporting structure.",
+   "after": "The High Council's current composition is set out in Section II.8.1. The office descriptions in this chapter come from the original R7 chart, which grouped the work into four core departments, a shared Systems division and five correspondents per affiliated guild. Solid reporting lines identify accountability; coordination lines identify cooperation rather than command. A job can be combined with another compatible job where workload permits, but a custodian cannot independently audit their own assets and a case participant cannot adjudicate their own dispute. The ten native ranks are stated in Article S3 and remain distinct from the appointment and reporting structure."
+  },
+  {
+   "key": "four-core-portfolios-historical-heading",
+   "issues": [
+    "CL2-038"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading presented the original chart portfolios as current; the entries are kept verbatim under a historical heading.",
+   "before": "## The four core portfolios",
+   "after": "## Historical: the original chart portfolios\n\nThese five entries keep the titles and grouping of the original R7 chart; Section II.8.1 replaces them with the current Cabinet. The chart references they name stay as recorded, and the rules they state on warrants, custody and audit still apply."
+  },
+  {
+   "key": "portfolio-deputies-current-heading",
+   "issues": [
+    "CL2-038"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "Deputy and audit rules are current; a heading separates them from the historical chart entries above.",
+   "before": "**Minister of Heraldry.** Coordinates events, announcements, identity, recruitment communications and community participation. The reference chart leaves the office vacant. The minister supervises Events, Media and community support teams according to their warrants, coordinates the Heraldry Emissaries, and serves as the communications partner for the Chancery’s intake function. Publicity requires verified facts and appropriate consent.\n\n**Portfolio Deputies.** Each War head, Treasurer and Minister has a named deputy or explicit cover arrangement. Deputies may be High Councillors or trusted officers. A warrant states the activation condition, decisions delegated, exclusions, financial ceiling and reporting duty. Deputyship is neither a new native rank nor automatic permanent succession. Treasury deputy custody must remain independent of the Bank Auditor.",
+   "after": "**Minister of Heraldry.** Coordinates events, announcements, identity, recruitment communications and community participation. The reference chart leaves the office vacant. The minister supervises Events, Media and community support teams according to their warrants, coordinates the Heraldry Emissaries, and serves as the communications partner for the Chancery’s intake function. Publicity requires verified facts and appropriate consent.\n\n## Portfolio deputies and the independent audit\n\n**Portfolio Deputies.** Each War head, Treasurer and Minister has a named deputy or explicit cover arrangement. Deputies may be High Councillors or trusted officers. A warrant states the activation condition, decisions delegated, exclusions, financial ceiling and reporting duty. Deputyship is neither a new native rank nor automatic permanent succession. Treasury deputy custody must remain independent of the Bank Auditor."
+  },
+  {
+   "key": "o3-current-composition",
+   "issues": [
+    "CL2-038",
+    "CL2-033"
+   ],
+   "scope": [
+    "book",
+    "charter"
+   ],
+   "why": "O3 opened with a build number and listed the Council offices before the current composition.",
+   "before": "Build .199 owner direction supersedes the 23 October ladder: Leader (Guild Master), High Council, Officer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt and Initiate, at zero-based Slots 0–9. High Council is Slot 1 and Officer Slot 2. Guild Master, Co-Guild Master and Treasurer remain the core Council offices for executive coordination. The Guild Master chairs the High Council, and the Co-Guild Master serves alongside twelve numbered portfolios in the [current Cabinet register](#/organization/council). Co-Guild Master and Treasurer are appointments within the Leader / High Council tier rather than extra native ranks. Officer Corps service at Officer, Officer Alt and Raid Leader remains distinct from Council membership. Office acceptance, votes, live native ranks and platform permissions remain separate; this document executes none. Use the Roles Rosetta Stone for all office and application cross-references.",
+   "after": "The Guild Master chairs the High Council, and the Co-Guild Master serves alongside twelve numbered portfolios in the [current Cabinet register](#/organization/council), with Systems & Heraldry as the thirteenth seat. Among these offices, Guild Master, Co-Guild Master and Treasurer remain the core offices for executive coordination. The ten native ranks, Leader (Guild Master) at Slot 0 to Initiate at Slot 9, are listed in Article S3: High Council is Slot 1 and Officer Slot 2. The owner’s direction of 25 October 2026 replaced the 23 October ladder. Co-Guild Master and Treasurer are appointments within the Leader / High Council tier rather than extra native ranks. Officer Corps service at Officer, Officer Alt and Raid Leader remains distinct from Council membership. Office acceptance, votes, live native ranks and platform permissions remain separate; this document executes none. Use the Roles Rosetta Stone for all office and application cross-references."
+  },
+  {
+   "key": "s5-current-portfolios",
+   "issues": [
+    "CL2-038"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "Article S5 described the four departments as the current structure.",
+   "before": "The Department of War has separate PvP and Raiding heads and coordinates strategy, readiness and cross-guild operations. The Federal Treasury coordinates shared budgets, contribution accounting and resource logistics. The Association of Artisanry coordinates crafting, professions and supply. Heraldry coordinates events, public communications, identity and publicity. Each portfolio shall have a deputy or a documented continuity arrangement.",
+   "after": "Section II.8.1 sets out the current High Council portfolios and their duties. The original R7 text organized the same work as four departments: the Department of War, with separate PvP and Raiding heads, for strategy, readiness and cross-guild operations; the Federal Treasury for shared budgets, contribution accounting and resource logistics; the Association of Artisanry for crafting, professions and supply; and Heraldry for events, public communications, identity and publicity. Each portfolio shall have a deputy or a documented continuity arrangement."
+  },
+  {
+   "key": "rc2-core-offices",
+   "issues": [
+    "CL2-038"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "RC2 said the Council consists of three offices, contradicting the thirteen-seat Cabinet.",
+   "before": "The core leadership Council consists of the offices of Guild Master, Co-Guild Master and Treasurer. Guild Master remains responsible for the individual guild and protected game configuration. Co-Guild Master coordinates implementation and continuity within the accepted delegation. Treasurer safeguards the bank, receives and reconciles in-game gold, and reports resource decisions. Combining offices does not create another person or another vote. An appointment's acceptance, voting eligibility, recusal and actual permissions remain separately recorded; publication is not an executed warrant.",
+   "after": "Within the High Council set out in Section II.8.1, the core leadership offices are Guild Master, Co-Guild Master and Treasurer. Guild Master remains responsible for the individual guild and protected game configuration. Co-Guild Master coordinates implementation and continuity within the accepted delegation. Treasurer safeguards the bank, receives and reconciles in-game gold, and reports resource decisions. Combining offices does not create another person or another vote. An appointment's acceptance, voting eligibility, recusal and actual permissions remain separately recorded; publication is not an executed warrant."
+  },
+  {
+   "key": "reading-guide-ladder-date",
+   "issues": [
+    "CL2-033"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The reading guide cited a build number as its authority.",
+   "before": "Build .199 current owner direction: the exact ten-rank ladder is Leader (Guild Master), High Council, Officer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt and Initiate. Display ranks are 1–10; zero-based native slots are 0–9. High Council is Rank 2 / Slot 1; Officer Rank 3 / Slot 2; Officer Alt Rank 4 / Slot 3. Co-Guild Master and Treasurer are appointments within the Leader / High Council tier, not additional native ranks. The [Olympus Role & Rank Rosetta Stone](#/roles/rosetta-stone) joins the current guide and all 103 stable offices / 139 assignable keys. Current ordinary choices are Member, Raider and Artisan; Leader, High Council and Officer Corps seats are reserved appointments. Six retained payload categories do not mean six open application tracks. Royal Writs and new Patron applications are paused while the separate Admin switch is OFF. Historical beta-five game observations and older ladder proposals are dated technical history, not competing current recommendations. This book records no executed game promotion; accepted Council seat, eligible vote, character rank and actual permission remain separate.",
+   "after": "Current owner direction of 25 October 2026: the exact ten-rank ladder is Leader (Guild Master), High Council, Officer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt and Initiate. Display ranks are 1–10; zero-based native slots are 0–9. High Council is Rank 2 / Slot 1; Officer Rank 3 / Slot 2; Officer Alt Rank 4 / Slot 3. Co-Guild Master and Treasurer are appointments within the Leader / High Council tier, not additional native ranks. The [Olympus Role & Rank Rosetta Stone](#/roles/rosetta-stone) joins the current guide and all 103 stable offices / 139 assignable keys. Current ordinary choices are Member, Raider and Artisan; Leader, High Council and Officer Corps seats are reserved appointments. Six retained payload categories do not mean six open application tracks. Royal Writs and new Patron applications are paused while their separate Admin switch is off. Historical beta-five game observations and older ladder proposals are dated technical history, not competing current recommendations. This book records no executed game promotion; accepted Council seat, eligible vote, character rank and actual permission remain separate."
+  },
+  {
+   "key": "charter-1-5-ladder-date",
+   "issues": [
+    "CL2-033"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "Charter 1.5 cited a build number.",
+   "before": "The current .199 owner-directed native ladder has ten ranks in this order: Leader (Guild Master), High Council, Officer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt and Initiate. Their zero-based slots are respectively 0–9. Co-Guild Master and Treasurer are appointed core Council offices within the Leader / High Council tier, not an eleventh native rank. High Council service is distinct from Officer Corps duties at Officer, Officer Alt and Raid Leader. Additional specialist work remains duties, appointments or tags. Officer Alt and Alt both require the applicable verified owner/main relationship and create no duplicate person or vote. Class Heads remain AddOn appointments for the original nine classes; their expertise grants no disciplinary or bank authority. The Rosetta Stone on Roles provides the common crosswalk; actual permissions require attended application.",
+   "after": "The current owner-directed native ladder of 25 October 2026 has ten ranks in this order: Leader (Guild Master), High Council, Officer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt and Initiate. Their zero-based slots are respectively 0–9. Co-Guild Master and Treasurer are appointed core Council offices within the Leader / High Council tier, not an eleventh native rank. High Council service is distinct from Officer Corps duties at Officer, Officer Alt and Raid Leader. Additional specialist work remains duties, appointments or tags. Officer Alt and Alt both require the applicable verified owner/main relationship and create no duplicate person or vote. Class Heads remain AddOn appointments for the original nine classes; their expertise grants no disciplinary or bank authority. The Rosetta Stone on Roles provides the common crosswalk; actual permissions require attended application."
+  },
+  {
+   "key": "officer-alt-ladder-date",
+   "issues": [
+    "CL2-033"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The Officer Alt entry cited a build number.",
+   "before": "**Officer Alt.** Rank 4 / zero-based Slot 3 in the owner's exact .199 ten-rank ladder, for an officer's verified alternate character. The owner/main relationship is established through the applicable verification process; a label alone proves neither identity nor the actual native rank. Officer Alt belongs to the Officer Corps, distinct from High Council. Its accepted local remit, sensitive permissions and attended Guild Master placement are checked separately. It creates no other person, Council seat, duplicate vote, command over another guild or automatic permission. Alt remains the separate ordinary alternate-character Rank 9 / Slot 8.",
+   "after": "**Officer Alt.** Rank 4 / zero-based Slot 3 in the owner's exact ten-rank ladder of 25 October 2026, for an officer's verified alternate character. The owner/main relationship is established through the applicable verification process; a label alone proves neither identity nor the actual native rank. Officer Alt belongs to the Officer Corps, distinct from High Council. Its accepted local remit, sensitive permissions and attended Guild Master placement are checked separately. It creates no other person, Council seat, duplicate vote, command over another guild or automatic permission. Alt remains the separate ordinary alternate-character Rank 9 / Slot 8."
+  },
+  {
+   "key": "rc1-ladder-date",
+   "issues": [
+    "CL2-033"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "RC1 cited a build number.",
+   "before": "Historical 23 October 2026 supplement — native-ladder and tier schedule superseded by Build .199 Titles II–V and the Roles Rosetta Stone. This 23 October 2026 supplement records the owner's public PvE Alliance direction, the then-proposed B ladder (a dated source, not current rank guidance), the core Council offices of Guild Master, Co-Guild Master and Treasurer, and the cosmetic recognition rules below. It supplements the adopted R7 constitution; it does not forge a Founder's signature or represent a live game-rank change. Existing website holder records remain authoritative for richwcampbell. as Co-Guild Master and Fernmelder as Treasurer. A name in a source document does not replace the separately admitted account association.",
+   "after": "Historical 23 October 2026 supplement — native-ladder and tier schedule superseded by the 25 October 2026 Titles II–V and the Roles Rosetta Stone. This 23 October 2026 supplement records the owner's public PvE Alliance direction, the then-proposed B ladder (a dated source, not current rank guidance), the core Council offices of Guild Master, Co-Guild Master and Treasurer, and the cosmetic recognition rules below. It supplements the adopted R7 constitution; it does not forge a Founder's signature or represent a live game-rank change. Existing website holder records remain authoritative for richwcampbell. as Co-Guild Master and Fernmelder as Treasurer. A name in a source document does not replace the separately admitted account association."
+  },
+  {
+   "key": "rc6-apex-date",
+   "issues": [
+    "CL2-033"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "RC6 cited a build number.",
+   "before": "The owner’s chosen schedule applies to verified additional contributions within each ninety-day season: Tithe Payer requires at least 25 additional gold, Patron of the Treasury at least 100, and Benefactor of Olympus at least 500. At most the highest currently qualified tier is shown, as cosmetic colour only, and every award lapses at that season’s end. There is no permanent donor rank or rolling lifetime credit; a new season needs its own eligible receipts. The title identifies the tier without publishing a balance. The website never publishes a member's exact amount, receipt, hardship status, private ledger or payment correspondence. A person may decline public recognition without losing credit or guild standing. Build .199 adds the reference-only seasonal Apex Patron tiers Arch-Financier of Olympus at 1,000g and Hand of the Imperial Treasury at 2,500g, with the latter the capped Patron tier. Titles III–V and the shared Royal Writ schedule give the current terms. Existing provider tier configuration is not expanded or activated by this publication; cosmetic dispatch remains OFF.",
+   "after": "The owner’s chosen schedule applies to verified additional contributions within each ninety-day season: Tithe Payer requires at least 25 additional gold, Patron of the Treasury at least 100, and Benefactor of Olympus at least 500. At most the highest currently qualified tier is shown, as cosmetic colour only, and every award lapses at that season’s end. There is no permanent donor rank or rolling lifetime credit; a new season needs its own eligible receipts. The title identifies the tier without publishing a balance. The website never publishes a member's exact amount, receipt, hardship status, private ledger or payment correspondence. A person may decline public recognition without losing credit or guild standing. The owner's direction of 25 October 2026 adds the reference-only seasonal Apex Patron tiers Arch-Financier of Olympus at 1,000g and Hand of the Imperial Treasury at 2,500g, with the latter the capped Patron tier. Titles III–V and the shared Royal Writ schedule give the current terms. Existing provider tier configuration is not expanded or activated by this publication; cosmetic dispatch remains OFF."
+  },
+  {
+   "key": "rc8-service-writs",
+   "issues": [
+    "CL2-033"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The member quick guide cited a build number.",
+   "before": "Sign in through Discord, review the guild rules, select an activity suited to your time, and use the current verification instructions for the character you intend to link. An application, a vote and an invite are separate steps. Check the evidence timestamp on capacity information and do not treat a missing guild report as zero members. The Olympus role-holder directory lists eligible members by default with an opt-out; extra details and Workshop offers remain voluntary opt-in publications. Do not treat the rest of Asmongold’s server as the guild directory. Ask the responsible officer for a correction; retain a private operation receipt when an action is pending. Cosmetic tithe recognition is optional and never buys authority, admission or raid priority. Separate .199 service writs request only the bounded administrative or capacity-conditional consideration stated in Titles III–V; they guarantee no favourable result. Account-data controls remain the route for your own download and serving-account erasure.",
+   "after": "Sign in through Discord, review the guild rules, select an activity suited to your time, and use the current verification instructions for the character you intend to link. An application, a vote and an invite are separate steps. Check the evidence timestamp on capacity information and do not treat a missing guild report as zero members. The Olympus role-holder directory lists eligible members by default with an opt-out; extra details and Workshop offers remain voluntary opt-in publications. Do not treat the rest of Asmongold’s server as the guild directory. Ask the responsible officer for a correction; retain a private operation receipt when an action is pending. Cosmetic tithe recognition is optional and never buys authority, admission or raid priority. Separate service writs request only the bounded administrative or capacity-conditional consideration stated in Titles III–V; they guarantee no favourable result. Account-data controls remain the route for your own download and serving-account erasure."
+  },
+  {
+   "key": "title-i-edition-date",
+   "issues": [
+    "CL2-033"
+   ],
+   "scope": [
+    "book",
+    "titles"
+   ],
+   "why": "Title I introduced itself by build numbers.",
+   "before": "**The Crown bears the charge of service before it bears the seal of command.** These five Titles are the owner's Build .199 successor to the 25 October 2026 expansion of the current R7 reader. The preserved .198 source remains a dated edition; the exact ten-rank mapping and gold schedules below are the current owner direction. They give the guild's existing constitutional settlement a fuller statutory and roleplay expression. R7's original adoption remains 13 October 2026; this publication records no new Council vote, Founder signature, individual warrant or game permission. If a provision conflicts with the joint Charters, the Guild Statute, the published privacy policy or a platform rule, the controlling provision prevails and the registrar publishes the discrepancy for correction. More protective notice, confidentiality and independent-review requirements continue to apply. Section II.8.1 gives the current Cabinet remit. D17 records the dated Build .199 direction.",
+   "after": "**The Crown bears the charge of service before it bears the seal of command.** These five Titles are the owner's 25 October 2026 expansion of the current R7 reader, in the second edition issued that day. The first edition remains a dated record; the exact ten-rank mapping and gold schedules below are the current owner direction. They give the guild's existing constitutional settlement a fuller statutory and roleplay expression. R7's original adoption remains 13 October 2026; this publication records no new Council vote, Founder signature, individual warrant or game permission. If a provision conflicts with the joint Charters, the Guild Statute, the published privacy policy or a platform rule, the controlling provision prevails and the registrar publishes the discrepancy for correction. More protective notice, confidentiality and independent-review requirements continue to apply. Section II.8.1 gives the current Cabinet remit. Decision D17 in the Source and Decision Register records that direction."
+  },
+  {
+   "key": "title-ii-treasurer-slot-date",
+   "issues": [
+    "CL2-033"
+   ],
+   "scope": [
+    "book",
+    "titles"
+   ],
+   "why": "Section II.1.1 cited a build number.",
+   "before": "(a) The owner's exact ten native ranks, in order, are **1 Leader (Guild Master) [Slot 0]; 2 High Council [Slot 1]; 3 Officer [Slot 2]; 4 Officer Alt [Slot 3]; 5 Raid Leader [Slot 4]; 6 Veteran [Slot 5]; 7 Raider [Slot 6]; 8 Member [Slot 7]; 9 Alt [Slot 8]; 10 Initiate [Slot 9]**. Slots are zero-based; displayed rank numbers are one-based. The owner's express clarification fixes High Council at Slot 1 and Officer at Slot 2. Co-Guild Master and Treasurer are appointments within the Leader / High Council tier, not extra native ranks. The earlier .198 Treasurer-slot wording is superseded, not evidence of an executed promotion. Holding several offices creates one person and at most one eligible vote.",
+   "after": "(a) The owner's exact ten native ranks, in order, are **1 Leader (Guild Master) [Slot 0]; 2 High Council [Slot 1]; 3 Officer [Slot 2]; 4 Officer Alt [Slot 3]; 5 Raid Leader [Slot 4]; 6 Veteran [Slot 5]; 7 Raider [Slot 6]; 8 Member [Slot 7]; 9 Alt [Slot 8]; 10 Initiate [Slot 9]**. Slots are zero-based; displayed rank numbers are one-based. The owner's express clarification fixes High Council at Slot 1 and Officer at Slot 2. Co-Guild Master and Treasurer are appointments within the Leader / High Council tier, not extra native ranks. The earlier Treasurer-slot wording of the first 25 October 2026 edition is superseded, not evidence of an executed promotion. Holding several offices creates one person and at most one eligible vote."
+  },
+  {
+   "key": "title-iii-cosmetic-controls",
+   "issues": [
+    "CL2-033"
+   ],
+   "scope": [
+    "book",
+    "titles"
+   ],
+   "why": "Section III.4.2 named an environment flag.",
+   "before": "(b) Actual cosmetic Discord dispatch requires its separately qualified writer, configured zero-permission role below the bot, admitted operator and original-operation checks. All `TREASURY_COSMETIC_*` controls remain absent or OFF until separately authorized and configured. Publication of these thresholds creates no role or grant. Pending or uncertain awards remain labelled; a correction reconciles only the affected cosmetic recognition and never removes guild membership as punishment. Staff do not retain a private receipt beyond its proper policy merely to keep an expired colour visible.",
+   "after": "(b) Actual cosmetic Discord dispatch requires its separately qualified writer, configured zero-permission role below the bot, admitted operator and original-operation checks. All cosmetic-dispatch controls remain absent or off until separately authorized and configured. Publication of these thresholds creates no role or grant. Pending or uncertain awards remain labelled; a correction reconciles only the affected cosmetic recognition and never removes guild membership as punishment. Staff do not retain a private receipt beyond its proper policy merely to keep an expired colour visible."
+  },
+  {
+   "key": "title-iii-off-switches",
+   "issues": [
+    "CL2-033"
+   ],
+   "scope": [
+    "book",
+    "titles"
+   ],
+   "why": "Section III.8 named two environment flags.",
+   "before": "(b) The catalogue is reference data, not a merchant, bot writer or escrow engine. **TREASURY_COSMETIC_ENABLED remains OFF; ARMY_SITE_AGGREGATE_ENABLED remains OFF; Olympus Link remains OFF** until each separately authorized and qualified activation. Existing dispatch, privacy admission, statement budgets and original-operation custody remain intact. No additional provider call, gold collection, role creation, unban, keyed rejection-marker change, game invite or permission update follows from selecting or publishing a writ. An operator records what really happened; a drafted checklist, paid ledger row or impressive title is never substituted for an observed effect.",
+   "after": "(b) The catalogue is reference data, not a merchant, bot writer or escrow engine. **Cosmetic tithe dispatch, the Army site aggregate and Olympus Link all remain off** until each separately authorized and qualified activation. Existing dispatch, privacy admission, statement budgets and original-operation custody remain intact. No additional provider call, gold collection, role creation, unban, keyed rejection-marker change, game invite or permission update follows from selecting or publishing a writ. An operator records what really happened; a drafted checklist, paid ledger row or impressive title is never substituted for an observed effect."
+  },
+  {
+   "key": "register-d19-d20",
+   "issues": [
+    "CL2-044"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The register ended at D18 although the owner instruction history records two later Council decisions. D17 itself is unchanged.",
+   "before": "D17 Current owner Build .199 directive — 25 October 2026. The exact ten native ranks are Leader (Guild Master), High Council, Officer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt and Initiate, at zero-based Slots 0–9. High Council is Slot 1 and Officer Slot 2, expressly confirmed by the owner. Co-Guild Master and Treasurer are appointments within the Leader / High Council tier, not extra native ranks. The Roles Rosetta Stone unifies every stable office, assignable key and application track. The in-game-gold-only schedules and safeguards in Titles II–V supersede older conflicting price or rank guidance; they grant no automatic rank, office, access, game capacity, provider effect or paid addon capability. Original adoption, signatures, historical observations, privacy and OFF gates remain separate.\n\n## Official date references",
+   "after": "D17 Current owner Build .199 directive — 25 October 2026. The exact ten native ranks are Leader (Guild Master), High Council, Officer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt and Initiate, at zero-based Slots 0–9. High Council is Slot 1 and Officer Slot 2, expressly confirmed by the owner. Co-Guild Master and Treasurer are appointments within the Leader / High Council tier, not extra native ranks. The Roles Rosetta Stone unifies every stable office, assignable key and application track. The in-game-gold-only schedules and safeguards in Titles II–V supersede older conflicting price or rank guidance; they grant no automatic rank, office, access, game capacity, provider effect or paid addon capability. Original adoption, signatures, historical observations, privacy and OFF gates remain separate.\n\nD19 Owner Council clarification — 30 October 2026. The owner clarified that the High Council may have twelve or more seats, that Trading and Heraldry remain distinct portfolios and that the ten native ranks remain unchanged. Source: the Master218 instruction of 30 October 2026 in the owner instruction history.\n\nD20 Owner Cabinet-title direction — 2 November 2026. The owner directed that twelve Cabinet titles be standardized while every office key, assignment key and historical ballot is preserved. Source: the Build .224 directive of 2 November 2026 in the owner instruction history.\n\n## Official date references"
+  },
+  {
+   "key": "heading-1-1-purpose-and-membership",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## 1 1 Purpose and membership",
+   "after": "## 1.1 Purpose and membership"
+  },
+  {
+   "key": "heading-1-2-document-authority",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## 1 2 Document authority",
+   "after": "## 1.2 Document authority"
+  },
+  {
+   "key": "heading-1-3-founder-and-final-authority",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## 1 3 Founder and final authority",
+   "after": "## 1.3 Founder and final authority"
+  },
+  {
+   "key": "heading-1-4-high-council-and-executive-coordination",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## 1 4 High Council and executive coordination",
+   "after": "## 1.4 High Council and executive coordination"
+  },
+  {
+   "key": "heading-1-5-departments-and-guild-autonomy",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## 1 5 Departments and guild autonomy",
+   "after": "## 1.5 Departments and guild autonomy"
+  },
+  {
+   "key": "heading-1-6-justice-and-review",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## 1 6 Justice and review",
+   "after": "## 1.6 Justice and review"
+  },
+  {
+   "key": "heading-1-7-resources-records-and-boundaries",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## 1 7 Resources  records  and boundaries",
+   "after": "## 1.7 Resources, records, and boundaries"
+  },
+  {
+   "key": "heading-1-8-continuity-amendment-and-adoption",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## 1 8 Continuity  amendment  and adoption",
+   "after": "## 1.8 Continuity, amendment, and adoption"
+  },
+  {
+   "key": "heading-2-1-preamble-and-foundation",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## 2 1 Preamble and foundation",
+   "after": "## 2.1 Preamble and foundation"
+  },
+  {
+   "key": "heading-2-2-liberties-and-obligations",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## 2 2 Liberties and obligations",
+   "after": "## 2.2 Liberties and obligations"
+  },
+  {
+   "key": "heading-2-3-service-succession-and-preservation",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## 2 3 Service  succession  and preservation",
+   "after": "## 2.3 Service, succession, and preservation"
+  },
+  {
+   "key": "heading-3-1-common-execution-and-register",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## 3 1 Common execution and register",
+   "after": "## 3.1 Common execution and register"
+  },
+  {
+   "key": "heading-3-2-appointment-patent",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## 3 2 Appointment patent",
+   "after": "## 3.2 Appointment patent"
+  },
+  {
+   "key": "heading-3-3-deputy-or-acting-warrant",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## 3 3 Deputy or acting warrant",
+   "after": "## 3.3 Deputy or acting warrant"
+  },
+  {
+   "key": "heading-3-4-guild-affiliation-and-guild-master-patent",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## 3 4 Guild affiliation and Guild Master patent",
+   "after": "## 3.4 Guild affiliation and Guild Master patent"
+  },
+  {
+   "key": "heading-3-5-independent-auditor-warrant",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## 3 5 Independent auditor warrant",
+   "after": "## 3.5 Independent auditor warrant"
+  },
+  {
+   "key": "heading-3-6-revocation-and-acknowledgement-record",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## 3 6 Revocation and acknowledgement record",
+   "after": "## 3.6 Revocation and acknowledgement record"
+  },
+  {
+   "key": "heading-membership-ranks-relationships-tags-and-review-statuses",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Membership ranks  relationships  tags and review statuses",
+   "after": "## Membership ranks, relationships, tags and review statuses"
+  },
+  {
+   "key": "heading-article-s1-purpose-scope-and-controlling-rules",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Article S1   Purpose  scope and controlling rules",
+   "after": "## Article S1 — Purpose, scope and controlling rules"
+  },
+  {
+   "key": "heading-article-s2-admission-identity-and-membership",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Article S2   Admission  identity and membership",
+   "after": "## Article S2 — Admission, identity and membership"
+  },
+  {
+   "key": "heading-article-s3-the-ten-native-ranks",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Article S3   The ten native ranks",
+   "after": "## Article S3 — The ten native ranks"
+  },
+  {
+   "key": "heading-article-s4-reserved-leadership-and-the-high-council",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Article S4   Reserved leadership and the High Council",
+   "after": "## Article S4 — Reserved leadership and the High Council"
+  },
+  {
+   "key": "heading-article-s5-departments-and-shared-services",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Article S5   Departments and shared services",
+   "after": "## Article S5 — Departments and shared services"
+  },
+  {
+   "key": "heading-article-s6-local-appointments-and-class-expertise",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Article S6   Local appointments and class expertise",
+   "after": "## Article S6 — Local appointments and class expertise"
+  },
+  {
+   "key": "heading-article-s7-rights-duties-and-fair-access",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Article S7   Rights  duties and fair access",
+   "after": "## Article S7 — Rights, duties and fair access"
+  },
+  {
+   "key": "heading-article-s8-justice-restrictions-and-sanctions",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Article S8   Justice  restrictions and sanctions",
+   "after": "## Article S8 — Justice, restrictions and sanctions"
+  },
+  {
+   "key": "heading-article-s9-appeal-and-reinstatement",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Article S9   Appeal and reinstatement",
+   "after": "## Article S9 — Appeal and reinstatement"
+  },
+  {
+   "key": "heading-article-s10-treasury-dues-and-procurement",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Article S10   Treasury  dues and procurement",
+   "after": "## Article S10 — Treasury, dues and procurement"
+  },
+  {
+   "key": "heading-article-s11-loot-and-event-rules",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Article S11   Loot and event rules",
+   "after": "## Article S11 — Loot and event rules"
+  },
+  {
+   "key": "heading-article-s12-privacy-records-and-tools",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Article S12   Privacy  records and tools",
+   "after": "## Article S12 — Privacy, records and tools"
+  },
+  {
+   "key": "heading-article-s12a-owner-selected-operating-retention",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Article S12a   Owner-selected operating retention",
+   "after": "## Article S12a — Owner-selected operating retention"
+  },
+  {
+   "key": "heading-bylaw-b1-appointments-and-the-register",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Bylaw B1   Appointments and the register",
+   "after": "## Bylaw B1 — Appointments and the register"
+  },
+  {
+   "key": "heading-bylaw-b2-council-notice-and-quorum",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Bylaw B2   Council notice and quorum",
+   "after": "## Bylaw B2 — Council notice and quorum"
+  },
+  {
+   "key": "heading-bylaw-b3-motions-votes-and-constitutional-recommendations",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Bylaw B3   Motions  votes and constitutional recommendations",
+   "after": "## Bylaw B3 — Motions, votes and constitutional recommendations"
+  },
+  {
+   "key": "heading-bylaw-b4-minutes-and-reserved-decisions",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Bylaw B4   Minutes and reserved decisions",
+   "after": "## Bylaw B4 — Minutes and reserved decisions"
+  },
+  {
+   "key": "heading-bylaw-b5-emergency-measures",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Bylaw B5   Emergency measures",
+   "after": "## Bylaw B5 — Emergency measures"
+  },
+  {
+   "key": "heading-bylaw-b6-intake-trials-and-mentoring",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Bylaw B6   Intake  trials and mentoring",
+   "after": "## Bylaw B6 — Intake, trials and mentoring"
+  },
+  {
+   "key": "heading-bylaw-b7-resource-authorization-and-audit",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Bylaw B7   Resource authorization and audit",
+   "after": "## Bylaw B7 — Resource authorization and audit"
+  },
+  {
+   "key": "heading-bylaw-b8-complaints-and-case-administration",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Bylaw B8   Complaints and case administration",
+   "after": "## Bylaw B8 — Complaints and case administration"
+  },
+  {
+   "key": "heading-bylaw-b9-operational-cadence-and-continuity",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Bylaw B9   Operational cadence and continuity",
+   "after": "## Bylaw B9 — Operational cadence and continuity"
+  },
+  {
+   "key": "heading-bylaw-b10-adoption-and-implementation",
+   "issues": [
+    "CL2-193"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The heading lost its decimal point and commas in conversion.",
+   "before": "## Bylaw B10   Adoption and implementation",
+   "after": "## Bylaw B10 — Adoption and implementation"
+  },
+  {
+   "key": "title-iii-8-2-b-duel-escrow-suspended-proposal",
+   "issues": [
+    "CL2-282"
+   ],
+   "scope": [
+    "book",
+    "titles"
+   ],
+   "why": "Owner ruling of 31 October 2026: wagering is an inactive proposal and must be clearly marked so. The clause already ends by saying the schedule is suspended under Section III.9.2(b); the marker now opens it, and no fee, stake or condition changes.",
+   "before": "(b) A **Privy Court Civil Suit / Mak'gora Duel Escrow** request has a **25g filing fee + 10% Treasury rake** on the agreed settled escrow. Before anyone takes custody, every willing party agrees the lawful game-only subject, independent custodian, exact stake, percentage base, outcome evidence, settlement, cancellation and dispute route. Declining a duel is not misconduct. No real-money stake, coerced combat, gambling prohibited by the applicable platform, automatic custody or claimed escrow without a separately accepted custodian is permitted. Free safety reporting and ordinary appeals remain available. A private civil bargain cannot override Title II's fair process or require a reviewer to decide their own financial interest. The duel-stake and Treasury-rake parts of this historical schedule are suspended under Section III.9.2(b); a civil filing activates neither. While suspended, the whole historical programme, including its 25g civil filing, remains inactive. The suspended reference remains subject to Blizzard policy.",
+   "after": "(b) **[Suspended proposal — not active]** A **Privy Court Civil Suit / Mak'gora Duel Escrow** request would have a **25g filing fee + 10% Treasury rake** on the agreed settled escrow. Before anyone takes custody, every willing party agrees the lawful game-only subject, independent custodian, exact stake, percentage base, outcome evidence, settlement, cancellation and dispute route. Declining a duel is not misconduct. No real-money stake, coerced combat, gambling prohibited by the applicable platform, automatic custody or claimed escrow without a separately accepted custodian is permitted. Free safety reporting and ordinary appeals remain available. A private civil bargain cannot override Title II's fair process or require a reviewer to decide their own financial interest. The duel-stake and Treasury-rake parts of this historical schedule are suspended under Section III.9.2(b); a civil filing activates neither. While suspended, the whole historical programme, including its 25g civil filing, remains inactive. The suspended reference remains subject to Blizzard policy."
+  },
+  {
+   "key": "title-v-8-1-b-duel-escrow-suspended-proposal",
+   "issues": [
+    "CL2-282"
+   ],
+   "scope": [
+    "book",
+    "titles"
+   ],
+   "why": "Owner ruling of 31 October 2026: wagering is an inactive proposal and must be clearly marked so. The clause already ends by saying the schedule is suspended under Section III.9.2(b); the marker now opens it, and no fee, stake or condition changes.",
+   "before": "(b) A **Privy Court Civil Suit / Mak'gora Duel Escrow**, **25g filing + 10% Treasury rake**, follows Section III.8.2 before a willing independent custodian accepts any game gold. The Herald publishes only the safe agreed spectacle, not private evidence, a forced accusation or an unwilling player's location. The result requires the agreed actual observations; a disconnected client, absent player or unverifiable outcome is unresolved rather than a convenient forfeiture. A participant can decline a duel without losing membership, the right to appeal or access to free safety reporting. No addon becomes a betting system or a paid gate by hosting this reference. The duel-stake and Treasury-rake parts of this historical schedule are suspended under Section III.9.2(b); a civil filing activates neither. While suspended, the whole historical programme, including its 25g civil filing, remains inactive. The suspended reference remains subject to Blizzard policy.",
+   "after": "(b) **[Suspended proposal — not active]** A **Privy Court Civil Suit / Mak'gora Duel Escrow**, **25g filing + 10% Treasury rake**, follows Section III.8.2 before a willing independent custodian accepts any game gold. The Herald publishes only the safe agreed spectacle, not private evidence, a forced accusation or an unwilling player's location. The result requires the agreed actual observations; a disconnected client, absent player or unverifiable outcome is unresolved rather than a convenient forfeiture. A participant can decline a duel without losing membership, the right to appeal or access to free safety reporting. No addon becomes a betting system or a paid gate by hosting this reference. The duel-stake and Treasury-rake parts of this historical schedule are suspended under Section III.9.2(b); a civil filing activates neither. While suspended, the whole historical programme, including its 25g civil filing, remains inactive. The suspended reference remains subject to Blizzard policy."
+  },
+  {
+   "key": "operative-clarification-reconciliation-record",
+   "issues": [
+    "REV-GOV-2"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The 12 November 2026 editorial reconciliation had no dated record a reader can see. Round 4 item 5 (13 Nov 2026): the record is its own short paragraph after the 18 October clarification, which keeps its own text unchanged; the pair spans the clarification and the next paragraph whole, so the paragraph bridge stays unambiguous in both directions.",
+   "before": "**Operative clarification · 18 October 2026.** The owner authorized the reset and privacy clauses below to match the current member/rank-only reset scope and live Native serving-account erasure. The original R7 adoption remains dated 13 October 2026. Earlier decisions retained in the source register are marked historical where superseded; this clarification fabricates no named signature, appointment, permission change or all-copy deletion guarantee.\n\nCurrent owner direction of 25 October 2026: the exact ten-rank ladder is Leader (Guild Master), High Council, Officer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt and Initiate. Display ranks are 1–10; zero-based native slots are 0–9. High Council is Rank 2 / Slot 1; Officer Rank 3 / Slot 2; Officer Alt Rank 4 / Slot 3. Co-Guild Master and Treasurer are appointments within the Leader / High Council tier, not additional native ranks. The [Olympus Role & Rank Rosetta Stone](#/roles/rosetta-stone) joins the current guide and all 103 stable offices / 139 assignable keys. Current ordinary choices are Member, Raider and Artisan; Leader, High Council and Officer Corps seats are reserved appointments. Six retained payload categories do not mean six open application tracks. Royal Writs and new Patron applications are paused while their separate Admin switch is off. Historical beta-five game observations and older ladder proposals are dated technical history, not competing current recommendations. This book records no executed game promotion; accepted Council seat, eligible vote, character rank and actual permission remain separate.",
+   "after": "**Operative clarification · 18 October 2026.** The owner authorized the reset and privacy clauses below to match the current member/rank-only reset scope and live Native serving-account erasure. The original R7 adoption remains dated 13 October 2026. Earlier decisions retained in the source register are marked historical where superseded; this clarification fabricates no named signature, appointment, permission change or all-copy deletion guarantee.\n\nOn 12 November 2026 the text was editorially reconciled. Repeated passages became cross-references; superseded Council compositions, build numbers and damaged headings were corrected; the duel-escrow clauses were marked as a suspended proposal; and the tithe tiers are described as the Treasury defines them. No rule, amount, eligibility condition, decision or named holder changed, and the editorial manifest keeps the earlier wording so it can be restored exactly.\n\nCurrent owner direction of 25 October 2026: the exact ten-rank ladder is Leader (Guild Master), High Council, Officer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt and Initiate. Display ranks are 1–10; zero-based native slots are 0–9. High Council is Rank 2 / Slot 1; Officer Rank 3 / Slot 2; Officer Alt Rank 4 / Slot 3. Co-Guild Master and Treasurer are appointments within the Leader / High Council tier, not additional native ranks. The [Olympus Role & Rank Rosetta Stone](#/roles/rosetta-stone) joins the current guide and all 103 stable offices / 139 assignable keys. Current ordinary choices are Member, Raider and Artisan; Leader, High Council and Officer Corps seats are reserved appointments. Six retained payload categories do not mean six open application tracks. Royal Writs and new Patron applications are paused while their separate Admin switch is off. Historical beta-five game observations and older ladder proposals are dated technical history, not competing current recommendations. This book records no executed game promotion; accepted Council seat, eligible vote, character rank and actual permission remain separate."
+  },
+  {
+   "key": "o15-dated-heading",
+   "issues": [
+    "CL2-038",
+    "REV-GOV-4"
+   ],
+   "scope": [
+    "book",
+    "charter"
+   ],
+   "why": "O15 presented the four 13 October 2026 responsibility portfolios as current beside the twelve-portfolio Council of Section II.8.1.",
+   "before": "## O15 Published Council responsibility portfolios",
+   "after": "## O15 Historical: Council responsibility portfolios published 13 October 2026"
+  },
+  {
+   "key": "o15-dated-intro",
+   "issues": [
+    "CL2-038",
+    "REV-GOV-4"
+   ],
+   "scope": [
+    "book",
+    "charter"
+   ],
+   "why": "The O15 introduction did not say that the current Council seats are set out elsewhere.",
+   "before": "The authorized guild administration directed publication of these responsibility portfolios on 13 October 2026. They describe the work to coordinate; they do not represent a signed appointment instrument, a new native rank or a permission grant. Existing appointments and the local chains of command keep their separate status.",
+   "after": "The authorized guild administration directed publication of these responsibility portfolios on 13 October 2026. They are kept as a dated record: the current High Council seats and their duties are set out in Title II, Section II.8.1. The portfolios describe the work to coordinate; they do not represent a signed appointment instrument, a new native rank or a permission grant. Existing appointments and the local chains of command keep their separate status."
+  },
+  {
+   "key": "title-iii-4-1-a-colour-roles-and-ceremonial-titles",
+   "issues": [
+    "CONTENT-07"
+   ],
+   "scope": [
+    "book",
+    "titles"
+   ],
+   "why": "Section III.4.1 called all five tiers Cosmetic Tithe Roles; the Treasury defines three Discord colour roles (25, 100 and 500 gold) and two attended ceremonial titles (1,000 and 2,500 gold) capped at the Benefactor colour. Every threshold is unchanged.",
+   "before": "(a) Cosmetic Tithe Roles recognise additional, voluntary in-game gold within each published ninety-day season: **Tithe Payer — 25 gold**, **Patron of the Treasury — 100 gold**, **Benefactor of Olympus — 500 gold**, **Arch-Financier of Olympus — 1,000 gold**, and **Hand of the Imperial Treasury — 2,500 gold**, the capped Patron tier. At most the highest currently qualified tier is displayed. Contributions are mailed to Fern Melder with a TITHE reference and verified against the actual receipt by the admitted Treasurer or an independently authorized reviewer. The reference alone is not payment proof.",
+   "after": "(a) Seasonal tithe recognition marks additional, voluntary in-game gold within each published ninety-day season. Three tiers are Discord colour roles: **Tithe Payer — 25 gold**, **Patron of the Treasury — 100 gold** and **Benefactor of Olympus — 500 gold**. Two tiers are attended ceremonial titles with no Discord role of their own: **Arch-Financier of Olympus — 1,000 gold** and **Hand of the Imperial Treasury — 2,500 gold**, the capped Patron tier. A member who qualifies for a ceremonial title is shown at most the Benefactor of Olympus colour. At most the highest currently qualified tier is displayed. Contributions are mailed to Fern Melder with a TITHE reference and verified against the actual receipt by the admitted Treasurer or an independently authorized reviewer. The reference alone is not payment proof."
+  },
+  {
+   "key": "title-iii-4-2-a-recognition-kinds",
+   "issues": [
+    "CONTENT-07"
+   ],
+   "scope": [
+    "book",
+    "titles"
+   ],
+   "why": "Section III.4.2 said recognition is colour only, which the two ceremonial titles are not.",
+   "before": "(a) A member may decline public recognition without losing credit or standing. Publish only the consented tier, never the exact amount, receipt, private ledger, hardship status or payment correspondence. Recognition is cosmetic colour only: it gives no channels, native rank, Council seat or vote, bank right, raid or loot priority, admission preference, rule exemption or confidential access. A contribution cannot guarantee a hearing outcome or relief from discipline. An eligible bail petition under Article II.7 remains a separate, independently reviewed request, with an ordinary free appeal available.",
+   "after": "(a) A member may decline public recognition without losing credit or standing. Publish only the consented tier, never the exact amount, receipt, private ledger, hardship status or payment correspondence. Recognition is cosmetic only, a colour role or a ceremonial title: it gives no channels, native rank, Council seat or vote, bank right, raid or loot priority, admission preference, rule exemption or confidential access. A contribution cannot guarantee a hearing outcome or relief from discipline. An eligible bail petition under Article II.7 remains a separate, independently reviewed request, with an ordinary free appeal available."
+  },
+  {
+   "key": "title-ii-1-1-b-twelve-portfolios",
+   "issues": [
+    "CL2-038"
+   ],
+   "scope": [
+    "book",
+    "titles"
+   ],
+   "why": "Owner ruling of 13 November 2026 (\"Keep 13 seats\"): the Council is the Co-Guild Master plus twelve numbered portfolios, Systems & Heraldry the thirteenth seat, and only this miscounting paragraph is corrected. It counted the Co-Guild Master's executive coordination as a portfolio and omitted Court Protocol; the list now follows Section II.8.1 and the role directory's Council order. No office, holder or vote is renumbered.",
+   "before": "(b) High Council Roles concern the competent Leader and High Council mandates: the twelve current portfolios enumerated in Article II.8, with their distinct Treasury, Trading, PvE, PvP, Justice, Internal Security, Chancery, Concordat, Artisanry, Propaganda, Systems & Heraldry and executive coordination remits as individually warranted. A further portfolio requires its own explicit instrument; this list does not appoint a holder. Officer Corps Roles concern local Officer, Officer Alt and Raid Leader service: branch administration, class support, recruitment, auditing, heraldry, events and moderation within the accepted remit. Member & Specialist Roles concern Veteran, Raider, Member, Alt and Initiate standing plus the voluntary Master Artisan and Crafter remits of Title V. A departmental label does not by itself raise its holder into the Council or expand a native permission. The [Olympus Role & Rank Rosetta Stone](#/roles/rosetta-stone) is the common bridge to the [current stable-office and assignable-key register](#/organization), [application tracks](#/vote) and attended [rank planner](#/admin/ranks).",
+   "after": "(b) High Council Roles concern the competent Leader and High Council mandates: the twelve current portfolios enumerated in Article II.8, with their distinct Treasury, Justice, PvE, PvP, Internal Security, Chancery, Concordat, Artisanry, Propaganda, Court Protocol, Trading and Systems & Heraldry remits as individually warranted, and the Co-Guild Master sits beside them with the executive coordination remit. A further portfolio requires its own explicit instrument; this list does not appoint a holder. Officer Corps Roles concern local Officer, Officer Alt and Raid Leader service: branch administration, class support, recruitment, auditing, heraldry, events and moderation within the accepted remit. Member & Specialist Roles concern Veteran, Raider, Member, Alt and Initiate standing plus the voluntary Master Artisan and Crafter remits of Title V. A departmental label does not by itself raise its holder into the Council or expand a native permission. The [Olympus Role & Rank Rosetta Stone](#/roles/rosetta-stone) is the common bridge to the [current stable-office and assignable-key register](#/organization), [application tracks](#/vote) and attended [rank planner](#/admin/ranks)."
+  },
+  {
+   "key": "revised-chart-top-tier-and-justiciar",
+   "issues": [
+    "CL2-039"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "Owner ruling of 13 November 2026 on the organization chart: the Co-Guild Master sits in the top tier beside the Guild Master, and the Lord High Justiciar sits in the High Council Cabinet, reports directly to both and oversees the Court branch. Placement and reporting lines only.",
+   "before": "The chart identifies accountability and the distinct coordination paths. Guild Masters report to Asmon and the High Council; portfolio heads coordinate through emissaries. The Chief of Staff coordinates daily work. Justice handles cases independently. Systems is a shared division, not a fifth core department. This book newly appoints none of the named holders; the two existing website appointments retained by the owner's reset choice remain distinct from the unissued governance warrants.",
+   "after": "The chart identifies accountability and the distinct coordination paths. Guild Masters report to Asmon and the High Council; portfolio heads coordinate through emissaries. The Guild Master, as Sovereign, and the Co-Guild Master form the top tier. The Chief of Staff coordinates daily work. The Lord High Justiciar sits in the High Council Cabinet, reports directly to the Guild Master and the Co-Guild Master, and oversees the Court branch: the Council of Justice and the Stockades & Court of Appeals. Hearing panels decide cases independently. Systems is a shared division, not a fifth core department. This book newly appoints none of the named holders; the two existing website appointments retained by the owner's reset choice remain distinct from the unissued governance warrants."
+  },
+  {
+   "key": "title-iii-9-1-a-paused-bifrost-and-attunement",
+   "issues": [
+    "CL2-291"
+   ],
+   "scope": [
+    "book",
+    "titles"
+   ],
+   "why": "Owner ruling of 13 November 2026: the Bifrost passes and attunement charters carry the status Paused / Inactive Statutory Proposal (Not Active in Current Build); neither can be bought or requested.",
+   "before": "(a) The Bifrost Writ proposes twenty-five gold per week or seventy-five gold per month for an attended portal and summoning network. Before any pilot, its steward must confirm lawful locations, staffed hours, available reagents, provider consent, cancellation and refund terms. A proposal for unlimited use is not a promise of unlimited capacity. A permitted attunement or dungeon-service charter may propose a disclosed fifteen-percent coordination margin, counted only after providers, refunds and obligations are paid. It never licenses GDKP: Blizzard’s [official Forever developer Q&A](https://www.youtube.com/watch?v=Y5zzSMSVhRo&t=4548s) rejects gold-bid loot runs. GDKP is excluded from guild offers, charter licensing and every revenue forecast. Both service proposals remain subject to Blizzard policy.",
+   "after": "(a) **[Paused / Inactive Statutory Proposal (Not Active in Current Build)]** The **Bifrost Writ** proposes twenty-five gold per week or seventy-five gold per month for an attended portal and summoning network. Before any pilot, its steward must confirm lawful locations, staffed hours, available reagents, provider consent, cancellation and refund terms. A proposal for unlimited use is not a promise of unlimited capacity. **[Paused / Inactive Statutory Proposal (Not Active in Current Build)]** A permitted **attunement or dungeon-service charter** may propose a disclosed fifteen-percent coordination margin, counted only after providers, refunds and obligations are paid. It never licenses GDKP: Blizzard’s [official Forever developer Q&A](https://www.youtube.com/watch?v=Y5zzSMSVhRo&t=4548s) rejects gold-bid loot runs. GDKP is excluded from guild offers, charter licensing and every revenue forecast. Neither can be bought or requested. Both service proposals remain subject to Blizzard policy."
+  },
+  {
+   "key": "title-iii-9-1-b-paused-trial-memorial",
+   "issues": [
+    "CL2-291"
+   ],
+   "scope": [
+    "book",
+    "titles"
+   ],
+   "why": "Owner ruling of 13 November 2026: the trial review and memorial writs carry the same status; the Trade Factor warrant beside them keeps its wording, as the ruling does not cover it.",
+   "before": "(b) A Royal Trade Factor warrant proposes one hundred fifty to five hundred gold per season for a transparently labelled supplier listing and agreed requisition service. It buys no exclusive control of a market, collusive price, bank access or forced purchase from guildmates. The proposal is subject to Blizzard policy. Priority trial reviews, consented heraldic inscriptions and Hall of Fame memorials may be proposed at fifty to five hundred gold only with disclosed delivery criteria and the recipient’s consent, subject to Blizzard policy. These are distinct from the existing Featured Crafter Pin at fifty to one hundred fifty gold per season and the one hundred fifty gold Writ of Expedited Assize. No price guarantees a raid seat or trial result, and no price buys loot priority, a governing office or a favourable judgment. Ordinary applications, safety reports, appeals and account privacy controls remain free.",
+   "after": "(b) A Royal Trade Factor warrant proposes one hundred fifty to five hundred gold per season for a transparently labelled supplier listing and agreed requisition service. It buys no exclusive control of a market, collusive price, bank access or forced purchase from guildmates. The proposal is subject to Blizzard policy. **[Paused / Inactive Statutory Proposal (Not Active in Current Build)]** **Priority trial reviews, consented heraldic inscriptions and Hall of Fame memorials** may be proposed at fifty to five hundred gold only with disclosed delivery criteria and the recipient’s consent. None of them can be bought or requested; any activation would be subject to Blizzard policy. These are distinct from the existing Featured Crafter Pin at fifty to one hundred fifty gold per season and the one hundred fifty gold Writ of Expedited Assize. No price guarantees a raid seat or trial result, and no price buys loot priority, a governing office or a favourable judgment. Ordinary applications, safety reports, appeals and account privacy controls remain free."
+  },
+  {
+   "key": "title-ii-8-1-a-co-gm-top-tier",
+   "issues": [
+    "CL2-039"
+   ],
+   "scope": [
+    "book",
+    "titles"
+   ],
+   "why": "Owner ruling of 13 November 2026 on the organization chart: the Co-Guild Master sits in the top tier beside the Guild Master. Section II.8.1(a) names that place; the Council seat beside the twelve numbered portfolios, the seat numbers and the 13-seat count are unchanged.",
+   "before": "(a) The Guild Master chairs the High Council. The Co-Guild Master serves alongside twelve numbered portfolios in the [current Cabinet register](#/organization/council). Systems & Heraldry sets technical stewardship and heraldic standards. The Addon / Discord Architect remains an Officer Corps specialist; the Herald directs campaigns and the Seneschal directs court protocol. The Sovereign may establish a further distinct portfolio through an explicit instrument. Each office keeps its own key and accepted warrant. Existing holder records and ballots retain their original identities.",
+   "after": "(a) The Guild Master chairs the High Council. The Co-Guild Master sits beside the Guild Master in the top tier and serves alongside twelve numbered portfolios in the [current Cabinet register](#/organization/council). Systems & Heraldry sets technical stewardship and heraldic standards. The Addon / Discord Architect remains an Officer Corps specialist; the Herald directs campaigns and the Seneschal directs court protocol. The Sovereign may establish a further distinct portfolio through an explicit instrument. Each office keeps its own key and accepted warrant. Existing holder records and ballots retain their original identities."
+  }
+ ]
+}

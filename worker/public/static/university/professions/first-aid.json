@@ -1,0 +1,370 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "profession",
+ "id": "first-aid",
+ "name": "First Aid",
+ "type": "secondary",
+ "status": "complete",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json professions[11] (2026-11-04), rewritten into the course format on 2026-11-12",
+ "factFiles": [
+  "common",
+  "profession-first-aid",
+  "profession-cooking",
+  "profession-herbalism"
+ ],
+ "quizFiles": [
+  "profession-first-aid"
+ ],
+ "pairsWith": [
+  "herbalism"
+ ],
+ "overview": {
+  "lead": "First Aid now covers more than bandages: healing potions moved here from Alchemy, and new remedies treat poison, disease and bleeds.",
+  "points": [
+   {
+    "text": "Any raider with enough First Aid skill can make their own healing potions from vendor manuals, and Herbalism supplies the herbs.",
+    "facts": [
+     "profession-first-aid.self-made-healing-potions",
+     "profession-first-aid.healing-potions"
+    ]
+   }
+  ],
+  "facts": [
+   "profession-first-aid.healing-potions",
+   "profession-first-aid.new-remedies"
+  ]
+ },
+ "tracks": {
+  "101": {
+   "summary": "What Forever changes for First Aid, its camp objects, and how to level it.",
+   "chapters": [
+    {
+     "id": "first-aid-101-changes",
+     "section": "overview",
+     "title": "What Forever changes for First Aid",
+     "theory": [
+      "profession-first-aid.healing-potions",
+      "profession-first-aid.new-remedies",
+      "profession-first-aid.powerful-anti-venom",
+      "profession-first-aid.cannot-be-unlearned"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Buy the Superior and Major Healing Potion manuals from a vendor. They need First Aid 215 and 275.",
+        "facts": [
+         "profession-first-aid.healing-potions"
+        ]
+       },
+       {
+        "text": "Carry a Crystal Vial, Soothing Spices and Sungrass or Golden Sansam to make them.",
+        "facts": [
+         "profession-first-aid.healing-potions"
+        ]
+       },
+       {
+        "text": "Use Potent Anti-Venom on poisons, poultices on diseases and tourniquets on bleeds. Poultices and tourniquets only work out of combat, and all remedies share a 1-minute cooldown.",
+        "facts": [
+         "profession-first-aid.new-remedies"
+        ]
+       },
+       {
+        "text": "Powerful Anti-Venom now cures poisons up to level 65. Its recipe needs Argent Dawn Honored.",
+        "facts": [
+         "profession-first-aid.powerful-anti-venom"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Reaching for a tourniquet in the middle of a fight.",
+        "fix": "Poultices and tourniquets only work out of combat.",
+        "facts": [
+         "profession-first-aid.new-remedies"
+        ]
+       },
+       {
+        "mistake": "Planning to unlearn First Aid later.",
+        "fix": "Secondary professions cannot be unlearned.",
+        "facts": [
+         "profession-first-aid.cannot-be-unlearned"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "first-aid-101-camp",
+     "section": "overview",
+     "title": "Camp objects",
+     "theory": [
+      "profession-first-aid.camp-objects",
+      "profession-first-aid.first-aid-kit",
+      "profession-cooking.campfire",
+      "profession-cooking.camp-rules"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Place a First Aid Kit at First Aid 20, a Toxin Study at 140 and a Plague Doctor's Laboratory at 300.",
+        "facts": [
+         "profession-first-aid.camp-objects"
+        ]
+       },
+       {
+        "text": "Get the Toxin Study blueprint from Commander Springvale in Shadowfang Keep.",
+        "facts": [
+         "profession-first-aid.camp-objects"
+        ]
+       },
+       {
+        "text": "Add your object to a camp, then sit or craft nearby for about a minute. The benefits last an hour.",
+        "facts": [
+         "profession-cooking.camp-rules",
+         "profession-cooking.bigger-camps"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Counting the First Aid Kit buff on top of Power Word: Fortitude.",
+        "fix": "The First Aid Kit's buff matches Power Word: Fortitude and does not stack with it.",
+        "facts": [
+         "profession-first-aid.first-aid-kit"
+        ]
+       },
+       {
+        "mistake": "Expecting a trainer to sell the Toxin Study.",
+        "fix": "Trainers and NPCs hand out the skill-20 camp objects. The Toxin Study comes from a blueprint that drops from Commander Springvale in Shadowfang Keep.",
+        "facts": [
+         "profession-first-aid.camp-objects",
+         "profession-cooking.campfire"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "first-aid-101-leveling",
+     "section": "overview",
+     "title": "Skill ranks and Legacy perks",
+     "theory": [
+      "profession-first-aid.expert-and-artisan",
+      "profession-first-aid.field-medicine"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Learn Expert First Aid from a book.",
+        "facts": [
+         "profession-first-aid.expert-and-artisan"
+        ]
+       },
+       {
+        "text": "Take the Triage quest for Artisan First Aid. It needs level 35 and First Aid 225, and the cap is 300.",
+        "facts": [
+         "profession-first-aid.expert-and-artisan"
+        ]
+       },
+       {
+        "text": "Take the Field Medicine Legacy perk to shorten the Recently Bandaged debuff.",
+        "facts": [
+         "profession-first-aid.field-medicine"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Waiting for a trainer to teach Artisan First Aid.",
+        "fix": "Artisan comes from the Triage quest, which needs level 35 and First Aid 225.",
+        "facts": [
+         "profession-first-aid.expert-and-artisan"
+        ]
+       }
+      ]
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "First Aid makes no gear."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in 201."
+    }
+   ]
+  },
+  "201": {
+   "summary": "Potions and bandages for raids, and what sells.",
+   "chapters": [
+    {
+     "id": "first-aid-201-raid",
+     "section": "consumables",
+     "title": "Potions and bandages for raids",
+     "theory": [
+      "profession-first-aid.self-made-healing-potions",
+      "profession-first-aid.heavy-runecloth-bandage",
+      "profession-first-aid.first-aid-kit"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Make your own Major Healing Potions. They still heal 1050 to 1750 on a 2-minute cooldown.",
+        "facts": [
+         "profession-first-aid.self-made-healing-potions"
+        ]
+       },
+       {
+        "text": "Carry Heavy Runecloth Bandages: they heal 2000 over 8 s. Using one needs First Aid 225; Icy Veins says making one needs 290.",
+        "facts": [
+         "profession-first-aid.heavy-runecloth-bandage"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Waiting for an alchemist to supply Major Healing Potions.",
+        "fix": "Any raider with enough First Aid skill can make them now.",
+        "facts": [
+         "profession-first-aid.self-made-healing-potions"
+        ]
+       },
+       {
+        "mistake": "Leaving First Aid below 225 and still packing Heavy Runecloth Bandages.",
+        "fix": "You need First Aid 225 to use a Heavy Runecloth Bandage.",
+        "facts": [
+         "profession-first-aid.heavy-runecloth-bandage"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "first-aid-201-gold",
+     "section": "praxis",
+     "title": "Gold and the Auction House",
+     "theory": [
+      "profession-first-aid.healing-potions",
+      "profession-first-aid.self-made-healing-potions"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Raiders who make their own healing potions need Sungrass or Golden Sansam, Crystal Vials and Soothing Spices, so those are the lines to watch on the Auction House. Trading is subject to Blizzard policy.",
+        "facts": [
+         "profession-first-aid.healing-potions",
+         "profession-first-aid.self-made-healing-potions"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Buying only the herb for a batch of healing potions.",
+        "fix": "Healing potions also use a Crystal Vial and Soothing Spices.",
+        "facts": [
+         "profession-first-aid.healing-potions"
+        ]
+       }
+      ]
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "The 101 track covers this."
+    },
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "First Aid makes no gear."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Skill routes and the open manual and camp questions need reviewed data the site does not have yet.",
+   "chapters": [
+    {
+     "id": "first-aid-301-routes",
+     "section": "overview",
+     "title": "Leveling routes and open questions",
+     "theory": [
+      "profession-first-aid.unknown-1",
+      "profession-first-aid.unknown-2",
+      "profession-first-aid.unknown-3",
+      "profession-first-aid.unknown-4"
+     ],
+     "unavailable": "No reviewed skill-by-skill route exists for Forever yet. Where Alliance players buy the healing-potion manuals, where the Plague Doctor's Laboratory blueprint drops, whether the Meticulous perk is live and the exact First Aid Kit buff are also open."
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "First Aid makes no gear."
+    },
+    {
+     "section": "consumables",
+     "reason": "Nothing beyond 201 has been reviewed yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Nothing beyond 201 has been reviewed yet."
+    }
+   ]
+  }
+ }
+}

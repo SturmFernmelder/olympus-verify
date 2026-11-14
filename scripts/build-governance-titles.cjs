@@ -78,6 +78,13 @@ const cabinet228 = JSON.parse(cabinet228Bytes);
 const currentCopyBytes = fs.readFileSync(path.join(root, 'docs/governance-current-reader-copy228.json'));
 if (sha256(currentCopyBytes) !== '1a70754c9ea8ff9d8788eae6789f555b287ff04a95e98c43a6bb884a1c098544') throw Error('Current reader copy manifest changed');
 const currentCopy228 = JSON.parse(currentCopyBytes);
+// Evergreen Stage 2 editorial reconciliation (12 November 2026): one full copy of each long block, one current
+// Council composition, dates instead of build numbers and repaired headings. It changes no rule, amount, eligibility,
+// decision or named holder, and leaves every D-numbered register entry verbatim. Whole-paragraph pairs keep each
+// earlier edition exactly recoverable, so it is applied last and inverted first.
+const evergreen1112Bytes = fs.readFileSync(path.join(root, 'docs/governance-evergreen1112.json'));
+if (sha256(evergreen1112Bytes) !== 'b55224c6240cea33dc36de1ce272d17a955b97faedf304c6ef880620238d8a4e') throw Error('Evergreen1112 editorial manifest changed');
+const evergreen1112 = JSON.parse(evergreen1112Bytes);
 
 function scopedParagraphBridge(text, inverse, scope, manifest, label) {
   const changes = manifest.changes.filter(change => change.scope.includes(scope) || scope === "outside" && change.scope.includes("book") && !change.scope.includes("titles"));
@@ -96,6 +103,7 @@ function scopedParagraphBridge(text, inverse, scope, manifest, label) {
 }
 function currentBridge222(text, inverse = false, scope = 'book') {
   if (inverse) {
+    text = scopedParagraphBridge(text, true, scope, evergreen1112, 'Evergreen1112 editorial');
     text = scopedParagraphBridge(text, true, scope, currentCopy228, 'current reader copy');
     text = cabinetBridge224(scopedParagraphBridge(text, true, scope, cabinet228, 'Cabinet228'), true, scope);
   }
@@ -109,7 +117,8 @@ function currentBridge222(text, inverse = false, scope = 'book') {
   }
   if (inverse) return text;
   text = scopedParagraphBridge(cabinetBridge224(text, false, scope), false, scope, cabinet228, 'Cabinet228');
-  return scopedParagraphBridge(text, false, scope, currentCopy228, 'current reader copy');
+  text = scopedParagraphBridge(text, false, scope, currentCopy228, 'current reader copy');
+  return scopedParagraphBridge(text, false, scope, evergreen1112, 'Evergreen1112 editorial');
 }
 function projection(book, source) {
   source = currentBridge222(source, true, 'titles');
@@ -148,8 +157,34 @@ function run(mode) {
   } else if (expected.text !== book || charter !== expectedCharter || model.book.bytes !== expected.bytes || model.book.sha256 !== expected.sha256 || JSON.stringify(model.statutoryExpansion) !== JSON.stringify(supplement)) throw Error("Governance Titles projection or model pins differ; run --write");
   console.log(JSON.stringify({ mode, chapters: 20, titles: 5, articles: 36, sections: 72, subclauses: 147, bytes: expected.bytes, sha256: expected.sha256, supplement }));
 }
+// CL2-039 (owner ruling on the organization chart, 13 Nov 2026): the model's reportingLines1113 record is an exact
+// finite delta. This undoes it in reverse order and returns the previous model, so the historical graph, term and
+// mandate inverses keep working on the earlier edition. A current value that differs from the recorded "after", a
+// target that is missing or duplicated, an unknown kind of change or a leftover reference to a removed node refuses.
+function restoreReportingLines1113(model) {
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b), record = model && model.reportingLines1113;
+  if (!record || record.recordedAt !== "2026-11-13" || record.issue !== "CL2-039" || !Array.isArray(record.changes) || !record.changes.length) throw Error("Reporting1113 record missing");
+  const prior = structuredClone(model), removed = new Set();
+  const one = (rows, test, label) => { const hit = (rows || []).filter(test); if (hit.length !== 1) throw Error("Reporting1113 target " + label); return hit[0]; };
+  for (const change of record.changes.slice().reverse()) {
+    if (change.field === "node") {
+      const node = one(prior.nodes, n => n.id === change.nodeId, change.nodeId);
+      if (change.before !== null || !same(node, change.after)) throw Error("Reporting1113 node differs: " + change.nodeId);
+      prior.nodes.splice(prior.nodes.indexOf(node), 1); removed.add(change.nodeId); continue;
+    }
+    const kinds = [["nodeId", prior.nodes, r => r.id], ["term", prior.terms, r => r.officeKey], ["officeMandate", prior.officeMandates, r => r.title], ["councilSeat", prior.councilComposition && prior.councilComposition.currentSeats, r => r.id]].filter(([k]) => Object.hasOwn(change, k));
+    if (kinds.length !== 1 || typeof change.field !== "string" || (kinds[0][0] !== "nodeId" && change.field !== "nodeId")) throw Error("Reporting1113 change kind");
+    const [kind, rows, keyOf] = kinds[0], row = one(rows, r => keyOf(r) === change[kind], change[kind]);
+    if (!Object.hasOwn(row, change.field) || !same(row[change.field], change.after)) throw Error("Reporting1113 value differs: " + change[kind] + "." + change.field);
+    row[change.field] = structuredClone(change.before);
+  }
+  const refs = [...prior.nodes.flatMap(n => [n.parent, ...n.coordinates, ...(n.alsoReportsTo || [])]), ...prior.terms.map(t => t.nodeId), ...prior.officeMandates.map(o => o.nodeId), ...prior.councilComposition.currentSeats.map(s => s.nodeId)];
+  if (refs.some(id => removed.has(id)) || prior.nodes.some(n => Object.hasOwn(n, "alsoReportsTo"))) throw Error("Reporting1113 leftover reference");
+  delete prior.reportingLines1113;
+  return prior;
+}
 if (require.main === module) {
   if (process.argv.length !== 3 || !["--check", "--write", "--write-book"].includes(process.argv[2])) throw Error("Use --check, --write or --write-book");
   run(process.argv[2]);
 }
-module.exports = { projection, rankBridge, factsBridge, presentationBridge218, currentBridge222, assertAuthoredSource222 };
+module.exports = { projection, rankBridge, factsBridge, presentationBridge218, currentBridge222, assertAuthoredSource222, restoreReportingLines1113 };

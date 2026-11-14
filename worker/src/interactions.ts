@@ -9,7 +9,7 @@ import { readPrivacySubject, privacyBoundSubjectEnv,privacyActorAlreadyBound,pen
 import { audit, getCharacter, getMember, likeArg, now, openPendingFor, openTicketFor, type PendingRow } from "./db";
 import { banApproverRoles, officerRankNames, officerRoles, staffChannel } from "./env";
 import { codeFor, dayBucket, normalizeCharacter, randomNonce, ticketFor } from "./codes";
-import { autocomplete, banMember, DiscordError, editMessage, explainDiscordError, focusedOption, hasAnyRole, type Interaction, EPHEMERAL, json, logLine, modalField, option, postMessage, removeRole, reply, rest, subcommand, updateMessage, userOf } from "./discord";
+import { autocomplete, banMember, DiscordError, editMessage, explainDiscordError, fitContent, focusedOption, hasAnyRole, type Interaction, EPHEMERAL, json, logLine, modalField, option, postMessage, removeRole, reply, rest, subcommand, updateMessage, userOf } from "./discord";
 import { SNAPSHOT_WRITE_GRACE_S, syncFromLatest } from "./roster";
 import { explainRefusal } from "./ingest";
 import { guildSeats, seatsStaffLine, seatsText } from "./guild-seats";
@@ -27,13 +27,45 @@ import { openRenameHold, reapplyText } from "./rename-review";
 import { captureLaneConfig, FRESH_AUDIT, laneClock, LEGACY_BAN_ALLOWANCE, type LaneCapture } from "./full-release-roles";
 import { appendLinkBlock } from "./link"; // .186: the Olympus Link code, last in the two code replies; off, the very same string
 import { isNicknameInteraction233,handleNicknameInteraction233 } from './member-nickname233';
+import type {RoleRequestReceipt280} from './role-reconcile242';
 async function requestRoleReconciliation242(...args:Parameters<typeof import('./role-reconcile242').requestRoleReconciliation242>){if(currentNativeVerification242(args[0]))return (await import('./role-reconcile242')).requestRoleReconciliation242(...args);}
 async function kickRoleWork242(...args:Parameters<typeof import('./role-reconcile242').kickRoleWork242>){if(currentNativeVerification242(args[0]))return (await import('./role-reconcile242')).kickRoleWork242(...args);}
 import {captureLaunchVerification} from './launch-verification227';
+import {captureCanonicalRankConfig233} from './canonical-ranks233';
 function currentNativeVerification242(env:Env):boolean{const capture=captureLaunchVerification(env);return capture.mode==='members-only'&&capture.scope!==null&&capture.current();}
+/** Informational previous-result hint only: no identity, role or re-link authority. */
+async function originalIdentityHint280(env:Env,subject:string):Promise<boolean>{
+ if(!/^[1-9][0-9]{16,19}$/.test(subject))return false;
+ const row=await env.DB.prepare(`SELECT a.action,a.ts,a.details,p.generation,p.state FROM audit a
+  LEFT JOIN privacy_subjects p ON p.subject_id=a.subject WHERE a.actor='system' AND a.subject=?1
+  AND a.action IN('role.request242_finished','role.native232_attempt') ORDER BY a.id DESC LIMIT 1`)
+  .bind(subject).first<{action:string;ts:number;details:string|null;generation:string|null;state:string|null}>();
+ if(!row||row.action!=='role.request242_finished'||row.state!==null&&row.state!=='active'||!Number.isSafeInteger(row.ts)||row.ts<1||row.ts>now()||typeof row.details!=='string'||row.details.length>4096)return false;
+ let value:unknown;try{value=JSON.parse(row.details);}catch{return false;}
+ if(!value||typeof value!=='object'||Array.isArray(value))return false;const v=value as Record<string,unknown>;
+ return v.schema==='role-request280-v1'&&Object.hasOwn(v,'generation')&&v.generation===row.generation&&Number.isSafeInteger(v.requestId)&&Number(v.requestId)>0
+  &&v.state==='held'&&v.reason==='native232_original_identity_or_source_held';
+}
+const ORIGINAL_IDENTITY_HINT280='Your previous check could not confirm the original identity proof or current guild source. Ask an officer to refresh the guild data. If access is still held, press **Verify another character** and send its fresh code from **the same character**. Older links are not backfilled automatically.';
+const ORIGINAL_IDENTITY_TOOLS_HELD280='This existing link needs a fresh request code to prove control again, but current officer tools have not confirmed support for request codes. Ask an officer to update and sync them, then use **Verify another character** from this same character. Your link is retained; no fresh code or role was issued.';
 
 /** Revision 4: registers deferred work past the reply (index.ts deferOriginalServing). Absent in tests and direct callers. */
 type Defer = (label: string, work: () => Promise<unknown>) => void;
+export type VerificationIssueOutcome280=Readonly<{reconciliation?:RoleRequestReceipt280;refusal?:Readonly<{kind:'active_named_cap';retryAfterSeconds:number}>}>;
+// Per-original-response bookkeeping only. No browser field or mutable global
+// Boolean can claim that another request created durable reconciliation work.
+const issueOutcomes280=new WeakMap<Response,VerificationIssueOutcome280>();
+const issueReply280=(response:Response,outcome:VerificationIssueOutcome280)=>{issueOutcomes280.set(response,Object.freeze(outcome));return response;};
+export function verificationIssueOutcome280(response:Response):VerificationIssueOutcome280|null{return issueOutcomes280.get(response)??null;}
+function wakeIssued280(env:Env,response:Response,defer?:Defer){if(verificationIssueOutcome280(response)?.reconciliation?.kind==='created')defer?.('interaction_roles242',()=>kickRoleWork242(env,'requests'));}
+export function roleRequestText280(receipt:RoleRequestReceipt280):string{
+ switch(receipt.kind){
+  case 'created':return 'One guarded check of your existing links has been queued. It can finish on hold if the trusted roster or current access cannot be confirmed; use **My status** or **/verify-status** for the result.';
+  case 'already_pending':return 'A check of your existing links is already waiting. No duplicate check was created. A fresh officer sync or the scheduled recovery can service it; use **My status** or **/verify-status** for the result.';
+  case 'held':return 'The check is on hold. No new check was queued. Use **My status** or **/verify-status** to review your current access.';
+  case 'unknown':return 'The request outcome could not be confirmed. No extra wake was sent. Check **My status** or **/verify-status** before submitting again; an existing queued check may still be waiting.';
+ }
+}
 /** Revision 4 (A6): the fresh-role wording, only with a configured capture whose lane is open now (from epochStart); before
  * that, and in every unconfigured call, the .160 text. Grants for the verify and guide texts, removals for unbind. */
 const freshGrantText = (lane?: LaneCapture) => !!lane && laneClock(lane, now()).grants;
@@ -66,6 +98,13 @@ async function refreshPinnedGuide(env: Env, channel: string, lane?: LaneCapture)
 const PENDING_TTL = 24 * 3600; // one code per character per day, plus the boundary tolerance in codes.ts
 // A request code is accepted on its issue day and the next (codes.ts), so a nonce is not handed out again for 48 hours.
 const NONCE_REUSE_AFTER = 48 * 3600;
+/** Source-authored SQL data, never account admission or proof authority. The
+ * authenticated caller's original Native subject/generation fence still owns
+ * execution. Keeping this statement shared permits a stale-read race test. */
+export const TICKET_REQUEST280_INSERT_SQL=`INSERT INTO pending (discord_id, name_key, name, created_at, expires_at, nonce)
+ SELECT ?1, '', '', ?2, ?3, ?4
+ WHERE NOT EXISTS (SELECT 1 FROM pending WHERE nonce=?4 AND created_at>?5)
+ AND NOT EXISTS (SELECT 1 FROM pending WHERE discord_id=?1 AND nonce IS NOT NULL AND consumed_at IS NULL AND expires_at>CAST(strftime('%s','now') AS INTEGER))`;
 // Forever uses two-part names; allow one space and apostrophes, and accented letters (EU realms) via Unicode classes.
 const NAME_RE = /^\p{L}[\p{L}' ]{1,30}$/u;
 const NATIVE_NAME_RE242 = /^\p{L}[\p{L}' ]{1,31}$/u;
@@ -99,7 +138,7 @@ export async function handleInteraction(env: Env, i: Interaction, defer?: Defer,
         // character is whichever one whispers it (27 Sep). The option is optional once scripts/register.mjs has run.
         const character = (option<string>(i, "character") ?? "").trim();
         const response=await (character ? issueCode(env,i,character,lane,roleDispatch) : issueTicket(env,i,lane));
-        if(currentNativeVerification242(env))defer?.('interaction_roles242',()=>kickRoleWork242(env,'requests'));return response;
+        wakeIssued280(env,response,defer);return response;
       }
       case "verify-status":
       case "olympus-status":
@@ -122,7 +161,7 @@ export async function handleInteraction(env: Env, i: Interaction, defer?: Defer,
   if (i.type === 3) return handleComponent(env,i,lane,roleDispatch,defer);
   if (i.type === 5) {
     // modal submit — the "Verify a character" button in the pinned guide
-    if (i.data?.custom_id === GUIDE_MODAL) {const response=await issueCode(env,i,modalField(i,GUIDE_FIELD)??'',lane,roleDispatch);if(currentNativeVerification242(env))defer?.('interaction_roles242',()=>kickRoleWork242(env,'requests'));return response;}
+    if (i.data?.custom_id === GUIDE_MODAL) {const response=await issueCode(env,i,modalField(i,GUIDE_FIELD)??'',lane,roleDispatch);wakeIssued280(env,response,defer);return response;}
     return reply("Unknown form.");
   }
   return reply("Unsupported interaction.");
@@ -149,14 +188,16 @@ export async function requestCharacterCode242(env:Env,user:{id:string;username?:
   if (existing && existing.discord_id !== user.id && existing.status !== "unbound") {
     await audit(env, user.id, "verify.refused_bound", raw, { boundTo: existing.discord_id });
     return reply(
-      `**${raw}** is already linked to another Discord account. If that character is yours, ask High Council in #help-desk — the bot never re-links a name on its own.`,
+      `**${raw}** is already linked to another Discord account. If that character is yours, ask an Olympus officer — the bot never re-links a name on its own.`,
     );
   }
   if (currentNativeVerification242(env) && existing && existing.discord_id === user.id && ['member','verified','queued'].includes(existing.status) && existing.verified_at) {
     // Ownership is already recorded; the latest roster can update rank immediately.
     // The queue carries no identity authority: the original Native issuer rechecks it.
-    await requestRoleReconciliation242(env,user.id,'existing_verified_request');
-    return reply(`**${existing.name}** is already linked to your account. A guarded refresh of your current guild role has been requested. No new code is needed to request this refresh. Use **/verify-status** here for current access; the in-game Watcher list is a dated snapshot and can lag behind.`);
+    const originalHeld=await originalIdentityHint280(env,user.id);
+    if(originalHeld&&!await ticketsReady(env))return reply(ORIGINAL_IDENTITY_TOOLS_HELD280);
+    const reconciliation=await requestRoleReconciliation242(env,user.id,'existing_verified_request')??Object.freeze({kind:'held' as const});
+    return issueReply280(reply(`**${existing.name}** is already linked to your account. ${roleRequestText280(reconciliation)} ${originalHeld?ORIGINAL_IDENTITY_HINT280:'No new code or whisper is needed to request this check. The in-game Watcher list is a dated snapshot and can lag behind.'}`),{reconciliation});
   }
   if (captureLaunchVerification(env).mode==='legacy' && existing && existing.discord_id === user.id && existing.status === "member") {
     const note = restoreNote(await restoreMemberRole(env, user.id, roles, "verify",roleDispatch));
@@ -181,6 +222,7 @@ export async function requestCharacterCode242(env:Env,user:{id:string;username?:
       `INSERT INTO pending (discord_id, name_key, name, created_at, expires_at)
        SELECT ?1, ?2, ?3, ?4, ?5
         WHERE NOT EXISTS (SELECT 1 FROM pending WHERE name_key = ?2 AND consumed_at IS NULL AND expires_at > ?4)
+          AND (SELECT COUNT(*) FROM (SELECT 1 FROM pending WHERE discord_id=?1 AND nonce IS NULL AND consumed_at IS NULL AND expires_at>CAST(strftime('%s','now') AS INTEGER) LIMIT 3))<3
           AND NOT EXISTS (SELECT 1 FROM pending p WHERE p.name_key = ?2 AND p.nonce IS NULL
                            AND ((p.created_at >= ?6
                                  AND NOT EXISTS (SELECT 1 FROM characters c WHERE c.name_key = ?2 AND c.discord_id = ?1
@@ -191,11 +233,16 @@ export async function requestCharacterCode242(env:Env,user:{id:string;username?:
     )
       .bind(user.id, nameKey, raw, opened, expiresAt, opened - (opened % 86_400))
       .run();
+    if(ins.success!==true||!ins.meta||!Number.isSafeInteger(ins.meta.changes)||ins.meta.changes<0||ins.meta.changes>1)throw Error('verification280_request_outcome_unknown');
     if (ins.meta.changes) await audit(env, user.id, "verify.requested", raw);
     else {
       // Another press got there first, or the name is closed for today: whoever holds it now decides the answer.
       open = await openPendingFor(env, nameKey);
-      if (!open) return reply(await takenToday(env, raw, opened));
+      if (!open) {
+        const active=await env.DB.prepare("SELECT expires_at FROM pending WHERE discord_id=?1 AND nonce IS NULL AND consumed_at IS NULL AND expires_at>CAST(strftime('%s','now') AS INTEGER) ORDER BY expires_at LIMIT 3").bind(user.id).all<{expires_at:number}>();
+        if(active.results.length===3){const retryAfterSeconds=Math.max(1,Math.ceil(active.results[0]!.expires_at-now()));return issueReply280(reply('You already have at least **3 active character requests**. Finish an existing request or wait for one to expire before opening another name. You can still use the name-free request-code option in **Verify another character**.'),{refusal:Object.freeze({kind:'active_named_cap',retryAfterSeconds})});}
+        return reply(await takenToday(env, raw, opened));
+      }
       if (open.discord_id !== user.id) return reply(await heldElsewhere(env, raw));
       opened = open.created_at;
       expiresAt = open.expires_at;
@@ -253,7 +300,7 @@ async function issueTicket(env: Env, i: Interaction, lane?: LaneCapture,newChara
   if (member?.banned) return reply("This account cannot verify. Contact High Council if you think that is a mistake.");
   if(currentNativeVerification242(env)&&!newCharacter){
     const linked=await env.DB.prepare("SELECT name FROM characters WHERE discord_id=?1 AND status IN('member','verified','queued') AND verified_at IS NOT NULL AND guid IS NOT NULL ORDER BY verified_at DESC LIMIT 1").bind(user.id).first<{name:string}>();
-    if(linked){await requestRoleReconciliation242(env,user.id,'existing_verified_button');return reply(`**${linked.name}** is already linked. A guarded refresh of your current roster rank has been requested; no new whisper is needed to request this refresh. Use **My status** here or **/verify-status** for current access. The in-game Watcher list is a dated snapshot and can lag behind. To link a different character, press **Verify another character**.`);}
+    if(linked){const originalHeld=await originalIdentityHint280(env,user.id);if(originalHeld&&!await ticketsReady(env))return reply(ORIGINAL_IDENTITY_TOOLS_HELD280);const reconciliation=await requestRoleReconciliation242(env,user.id,'existing_verified_button')??Object.freeze({kind:'held' as const});return issueReply280(reply(`**${linked.name}** is already linked. ${roleRequestText280(reconciliation)} ${originalHeld?ORIGINAL_IDENTITY_HINT280:'No new whisper is needed to request this check. The in-game Watcher list is a dated snapshot and can lag behind. To link a different character, press **Verify another character**.'}`),{reconciliation});}
   }
 
   // Until an officer's addon and watcher that understand request codes have checked in (relays.ts), a request code
@@ -269,14 +316,11 @@ async function issueTicket(env: Env, i: Interaction, lane?: LaneCapture,newChara
     // day and the next, so at most 48 hours; postVerify also insists on the exact code a request showed). The check
     // and the insert are one statement, so two presses racing for the same nonce cannot both get it: D1 runs
     // statements one at a time.
-    const ins = await env.DB.prepare(
-      `INSERT INTO pending (discord_id, name_key, name, created_at, expires_at, nonce)
-       SELECT ?1, '', '', ?2, ?3, ?4
-        WHERE NOT EXISTS (SELECT 1 FROM pending WHERE nonce = ?4 AND created_at > ?5)`,
-    )
+    const ins = await env.DB.prepare(TICKET_REQUEST280_INSERT_SQL)
       .bind(user.id, t, t + PENDING_TTL, nonce, t - NONCE_REUSE_AFTER)
       .run();
-    if (!ins.meta.changes) continue;
+    if(ins.success!==true||!ins.meta||!Number.isSafeInteger(ins.meta.changes)||ins.meta.changes<0||ins.meta.changes>1)throw Error('verification280_ticket_outcome_unknown');
+    if (!ins.meta.changes) {row=await openTicketFor(env,user.id);if(row)break;continue;}
     row = { id: Number(ins.meta.last_row_id), discord_id: user.id, name_key: "", name: "", created_at: t, expires_at: t + PENDING_TTL, consumed_at: null, nonce };
     await audit(env, user.id, "verify.ticket_issued", undefined, { expiresAt: row.expires_at });
   }
@@ -316,6 +360,7 @@ async function cmdStatus(env: Env, i: Interaction,roleDispatch:BetaRoleDispatch=
   // /verify-status and the guide's "My status" button are where people look when their access has gone missing.
   const restored = restoreNote(await restoreMemberRole(env, user.id, i.member?.roles, "status",roleDispatch));
   if (restored) lines.push(restored);
+  if(currentNativeVerification242(env)&&await originalIdentityHint280(env,user.id))lines.push(ORIGINAL_IDENTITY_HINT280);
   // .114: a rename Blizzard required (rename-review.ts): the account applies again, and this is where the member reads why
   const hold = await openRenameHold(env, user.id);
   if (hold) lines.push(reapplyText(hold));
@@ -464,7 +509,7 @@ async function describeUser(env: Env, userId: string): Promise<{ text: string; i
 /** Right-click a member → Apps → "Olympus linked characters". Same answer as /olympus-admin lookup user:. */
 async function cmdUserMenu(env: Env, i: Interaction): Promise<Response> {
   if (i.data?.name !== USER_MENU_LOOKUP) return reply("Unknown command.");
-  if (!hasAnyRole(i, officerRoles(env))) return reply("High Council only.");
+  if (!hasAnyRole(i, officerRoles(env))) return reply("Only current Olympus staff authorized for this command can use it.");
   const target = i.data?.target_id;
   if (!target) return reply("No member selected.");
   // Build .41: the same answer as /olympus-lookup in Asmongold's server, guild-site entries included (lookup.ts).
@@ -523,6 +568,137 @@ function adminBanFailure(error: unknown): string {
   return `${ref}; the provider outcome is unconfirmed. Inspect current state before another command.`;
 }
 
+/** The ban's own Discord request ceiling: ROLE_CALL_BUDGET (default 40) capped so the reply edit, the staff card and the
+ * log line still fit under the 50-subrequest limit (12 Nov 2026). */
+const BAN_RANK_COMMAND_REQUESTS = 44;
+const BAN_RANK_REASONS: Record<string, string> = {
+  bot_missing_manage_roles: "the bot lacks Manage Roles",
+  role_managed_by_integration: "an integration manages this role",
+  role_above_bot: "the role sits at or above the bot's highest role",
+  role_identity_changed: "the role's name or permissions no longer match the Olympus rank list",
+  role_has_permissions: "this retired rank role carries permissions",
+  beta_dispatch_mode_held: "held by the beta dispatch mode",
+  earlier_role_change_unresolved: "an earlier change to this role has an unconfirmed result",
+  role_change_in_progress: "another change to this role is in progress",
+  removal_cause_withdrawn: "the ban was lifted or replaced before the removal was sent",
+  never_dispatched: "the removal was stopped before it was sent",
+  refused_403: "Discord refused the removal (403)",
+  refused_404: "Discord reported the member or the role as missing (404)",
+  rate_limited_429: "Discord rate-limited the removal; the role sweep can try again when its banned rotation reaches this account",
+  provider_refused_manual: "Discord returned a confirmed 403/404 refusal; that original removal is not repeated automatically",
+  ban_rank1112_provider_refused_manual: "Discord returned a confirmed 403/404 refusal; that original removal is not repeated automatically",
+  managed_rank_cooldown: "Discord's recorded wait deadline is still active; normal rank-role changes wait for it",
+  ban_rank1112_managed_rank_cooldown: "Discord's recorded wait deadline is still active; normal rank-role changes wait for it",
+  delete_outcome_unknown: "Discord's answer could not confirm the removal",
+  confirmation_unknown: "the confirming member read failed",
+  effect_not_confirmed: "the role was still present after Discord accepted the removal",
+  receipt_unknown: "the result could not be recorded",
+  interrupted_after_ack: "Discord accepted the removal, but the command stopped before confirming it",
+  visit_interrupted: "the command stopped before this removal was sent",
+};
+const BAN_RANK_HOLDS: Record<string, string> = {
+  ban_rank1112_configuration_held: "the Olympus rank configuration is not active",
+  ban_rank1112_venue_held: "the role-settlement service is not enabled",
+  ban_rank1112_original_capture_required: "the account's privacy state was not captured",
+  ban_rank1112_ban_event_required: "the ban record could not be read",
+  subject_held: "the account is not in an active privacy state",
+  original_removal_generation_changed: "the account changed while the command ran",
+  removal_cause_withdrawn: "the ban was lifted or replaced while the command ran",
+  role_request_budget: "no Discord request budget was left",
+  bot_identity: "the bot's identity did not match",
+  role_inventory: "Discord's role data could not be read",
+  bot_inventory: "Discord's role data could not be read",
+  target_inventory_unknown: "the member holds a role missing from the server's role list",
+  ban_rank1112_inventory_or_currentness_held: "Discord's role or member data could not be read",
+  managed_rank_cooldown: "Discord's recorded wait deadline is still active; normal rank-role changes wait for it",
+  managed_rank_pacing_held: "the recorded rank-role wait data could not be confirmed; ask the operator to review it",
+};
+/** Past this length the role list gives way to counts, so the reply, the staff card and the log line all stay inside
+ * Discord's 2,000 characters next to a 400-character reason and the member summary (repair round, 12 Nov 2026). */
+const BAN_RANK_NOTE_MAX = 900;
+/** Successor (12 Nov 2026): the role sweep's banned lane runs about every 30 minutes and removes one rank role per run,
+ * so n deferred roles take about n half-hours through the sweep alone (18 roles: about nine hours). Repair round (13 Nov
+ * 2026): that is this account alone; each run visits one banned account and the others share the rotation. */
+function sweepPace1112(n: number): string {
+  const minutes = n * 30;
+  return minutes < 60 ? "about 30 minutes" : minutes === 60 ? "about an hour" : `about ${Number.isInteger(minutes / 60) ? minutes / 60 : (minutes / 60).toFixed(1)} hours`;
+}
+/** Successor (12 Nov 2026): a role whose removal got no answer stays blocked for this member, unban included, until an
+ * attended resolution exists; the reply says so instead of implying the bot will finish it. */
+const BAN_RANK_UNKNOWN_HOLD = "Nothing is sent again for these roles, and the bot will not add or remove them for this member, even after an unban, until an attended resolution exists. Check the member in Discord and remove by hand any of these roles still there.";
+/** Repair round (13 Nov 2026): a role held by an earlier unresolved change was on the member at this command's read and
+ * no removal is sent for it, so the ban takes full effect only once staff remove it by hand. */
+const BAN_RANK_EARLIER_HOLD = "No removal is sent for these roles: remove them in Discord by hand for the ban to take full effect. The bot will not add or remove them for this member, even after an unban, until an attended resolution exists.";
+/** Repair round (13 Nov 2026): the deferred line names what actually stopped the command. */
+const BAN_RANK_DEFERRED_CAUSE: Record<string, string> = {
+  unconfirmed: "The command stopped after a removal got no confirmed answer.",
+  rate_limit: "Discord asked the command to wait (rate limit), so it stopped.",
+  budget: "The command ran out of Discord requests before it reached them.",
+  one_per_visit: "A sweep visit removes one rank role at a time.",
+};
+/** Repair round (13 Nov 2026): the sweep visits one banned account per run and the others share that rotation, so the
+ * estimate holds for this account alone. */
+function sweepDeferredNote1112(n: number): string {
+  return `The role sweep is only a safety net: each run, about every 30 minutes, visits one banned account and removes at most one rank role, and other banned accounts share that rotation. For this account alone ${n === 1 ? "this role takes" : `these ${n} roles take`} ${sweepPace1112(n)}; it takes longer while other banned accounts wait ahead of it.`;
+}
+/** Staff-facing summary: every role removed, held, unknown or left for the sweep, and why (owner ruling, 12 Nov 2026).
+ * Roles that share a reason are listed together, so the reason text appears once. */
+function banRankNote1112(r: import("./role-settlements").BanRankOutcome1112): string {
+  const role = (id: string) => `<@&${id}>`;
+  const grouped = (xs: readonly { role: string; reason: string }[]) => {
+    const by = new Map<string, string[]>();
+    for (const x of xs) { const why = BAN_RANK_REASONS[x.reason] ?? "held"; by.set(why, [...(by.get(why) ?? []), role(x.role)]); }
+    return [...by].map(([why, roles]) => `${roles.join(", ")} (${why})`).join("; ");
+  };
+  if (r.inServer === false) return "\nNot in the Discord server, so no rank role was removed.";
+  const lines: string[] = [];
+  if (r.removed.length) lines.push(`Rank roles removed (confirmed absent): ${r.removed.map(role).join(", ")}.`);
+  if (r.held.length) lines.push(`Rank roles not removed: ${grouped(r.held)}.${r.held.some((x) => !["removal_cause_withdrawn", "rate_limited_429", "managed_rank_cooldown", "ban_rank1112_managed_rank_cooldown"].includes(x.reason)) ? " Remove them in Discord by hand if they must go now." : ""}`);
+  const earlier = r.unknown.filter((x) => x.reason === "earlier_role_change_unresolved"), own = r.unknown.filter((x) => x.reason !== "earlier_role_change_unresolved");
+  if (own.length) lines.push(`Rank roles with an unconfirmed result: ${grouped(own)}. ${BAN_RANK_UNKNOWN_HOLD}`);
+  if (earlier.length) lines.push(`Rank roles still on the member: ${grouped(earlier)}. ${BAN_RANK_EARLIER_HOLD}`);
+  // Successor (12 Nov 2026): the command removes every role it can at once; the sweep is only the safety net.
+  if (r.deferred.length) {
+    const causes = (["unconfirmed", "rate_limit", "budget", "one_per_visit"] as const).filter((c) => r.deferredBy.includes(c)).map((c) => BAN_RANK_DEFERRED_CAUSE[c]);
+    lines.push(`Rank roles left for the role sweep: ${r.deferred.map(role).join(", ")}. ${causes.length ? causes.join(" ") + " " : ""}${sweepDeferredNote1112(r.deferred.length)}`);
+  }
+  if (r.raced) lines.push("The ban was lifted while a removal was in flight. Removed roles are not given back automatically.");
+  if (!lines.length) {
+    if (r.reason === "no_rank_role_present") lines.push("They held no Olympus rank role.");
+    else lines.push(`Rank-role removal is held: ${BAN_RANK_HOLDS[r.reason] ?? "the check did not complete"}. ${r.dispatched ? "A removal was already sent" : "No rank role was removed"}; check the member's roles in Discord.`);
+  }
+  const note = "\n" + lines.join("\n");
+  if (note.length <= BAN_RANK_NOTE_MAX) return note;
+  // Repair round (13 Nov 2026): the summary keeps the hand-removal instruction and the shared-rotation caveat.
+  const earlierCount = r.unknown.filter((x) => x.reason === "earlier_role_change_unresolved").length;
+  return `\nRank roles: ${r.removed.length} removed (confirmed absent), ${r.held.length} not removed, ${r.unknown.length} with an unconfirmed result, ${r.deferred.length} left for the role sweep (one banned account and at most one role per run, about every 30 minutes${r.deferred.length ? `; for this account alone ${sweepPace1112(r.deferred.length)}, longer while other banned accounts wait` : ""}).${earlierCount ? ` ${earlierCount} of the unconfirmed roles are still on the member and get no removal: remove them in Discord by hand for the ban to take full effect.` : ""}${r.unknown.length ? " The bot will not add or remove the unconfirmed roles for this member, even after an unban, until an attended resolution exists." : ""} Check the member's roles in Discord for the details.`;
+}
+
+/** Round 4 item 8 (13 Nov 2026): why a rank role stays blocked after an unban. "inflight": the change's claim window is
+ * still open, so it may yet land; "unconfirmed": its original effect is not known, including closed GET-only history. `ban` is true when the change is the ban's own
+ * removal (canonical_ban_remove_v1, desired 0); false for any other purpose (a grant, a migration, another removal). */
+type UnbanBlock1112 = import("./role-settlements").BanRankPhysicalBlock1112;
+/** Read the existing physical barrier's descriptions; the DTO cannot clear a fence or authorize any role effect. */
+async function unbanBlockedRanks1112(env: Env, subject: string): Promise<readonly UnbanBlock1112[] | null> {
+  return (await import("./role-settlements")).readBanRankPhysicalBlocks1112(env, subject);
+}
+/** Round 4 item 8 (13 Nov 2026): the unban reply's blocked-role text, one sentence per cause. */
+function unbanBlockedText1112(target: string, blocked: readonly UnbanBlock1112[]): string {
+  const list = (xs: readonly UnbanBlock1112[]) => xs.map((x) => `<@&${x.role}>`).join(", ");
+  const these = (xs: readonly UnbanBlock1112[]) => xs.length === 1 ? "this role" : "these roles";
+  const them = (xs: readonly UnbanBlock1112[]) => xs.length === 1 ? "it" : "them";
+  const group = (kind: UnbanBlock1112["kind"], ban: boolean) => blocked.filter((x) => x.kind === kind && x.ban === ban);
+  const parts: string[] = [`<@${target}> can verify again. ${blocked.length === 1 ? "One Olympus rank role stays" : `${blocked.length} Olympus rank roles stay`} blocked for them: ${list(blocked)}.`];
+  const banLost = group("unconfirmed", true), otherLost = group("unconfirmed", false), banLive = group("inflight", true), otherLive = group("inflight", false);
+  const many = [banLost, otherLost, banLive, otherLive].filter((g) => g.length).length > 1;
+  const named = (xs: readonly UnbanBlock1112[]) => many ? list(xs) : these(xs);
+  if (banLost.length) parts.push(`An earlier ban removal of ${named(banLost)} got no confirmed answer, so the bot will not add or remove ${them(banLost)} for this member until an attended resolution exists.`);
+  if (otherLost.length) parts.push(`An earlier change to ${named(otherLost)} outside the ban got no confirmed answer, so the bot will not add or remove ${them(otherLost)} for this member until an attended resolution exists.`);
+  if (banLive.length) parts.push(`The ban's removal of ${named(banLive)} was still in flight when the ban was lifted and may still take effect; the bot will not add or remove ${them(banLive)} for this member until ${banLive.length === 1 ? "its" : "their"} outcome is known. Check the member's roles in Discord afterwards.`);
+  if (otherLive.length) parts.push(`Another change to ${named(otherLive)} was still in flight at the unban; the bot will not add or remove ${them(otherLive)} for this member until ${otherLive.length === 1 ? "its" : "their"} outcome is known.`);
+  return parts.join(" ");
+}
+
 async function runAdminBan(env: Env, actor: string, target: string, reason: string, lane: LaneCapture | undefined, defer: Defer | undefined, roleDispatch: BetaRoleDispatch, removalDispatch: BetaRoleDispatch['capture'], targetCapture: Awaited<ReturnType<typeof readPrivacySubject>> | undefined): Promise<Response> {
   await env.DB.prepare(
     "INSERT INTO members (discord_id, banned, ban_reason) VALUES (?1, 1, ?2) ON CONFLICT(discord_id) DO UPDATE SET banned = 1, ban_reason = ?2",
@@ -540,7 +716,25 @@ async function runAdminBan(env: Env, actor: string, target: string, reason: stri
   // With ROLE_GUILD_MEMBER unset there is no member role to take away, and saying "could not remove" on every
   // ban would be noise about a role that no longer exists.
   let roleNote = "";
-  if (env.ROLE_GUILD_MEMBER) {
+  if (captureCanonicalRankConfig233(env).present) {
+    // Owner ruling, 12 Nov 2026: a ban removes the member's Olympus rank role immediately, whether the bot or a staff
+    // member granted it. One source-owned writer covers all 18 fixed rank IDs (the shared Member role included), so the
+    // old Guild Member remover is not also run against the same role.
+    let outcome: import("./role-settlements").BanRankOutcome1112 | undefined;
+    try {
+      const event = await env.DB.prepare("SELECT MAX(id) AS id FROM audit WHERE action = 'admin.ban' AND subject = ?1").bind(target).first<{ id: number | null }>();
+      const central = await import("./role-settlements");
+      const budget = callBudget(env);
+      budget.limit = Math.min(budget.limit, BAN_RANK_COMMAND_REQUESTS);
+      outcome = await central.removeBanRankRoles1112(env, target, { kind: "command", banEvent: event?.id ?? 0 }, targetCapture === undefined ? undefined : targetCapture?.subjectGeneration ?? null, budget, roleDispatch);
+      roleNote = banRankNote1112(outcome);
+    } catch (e) {
+      roleNote = `\n⚠️ Rank-role removal stopped before its result was confirmed: ${adminBanFailure(e)}`;
+      await audit(env, "system", "role.remove_failed", target, { error: errorRef(e) }).catch(() => {});
+    }
+    // Repair round, 12 Nov 2026: the audit is written after the note, so its failure never replaces the real result.
+    if (outcome) await audit(env, "system", "role.ban_rank1112", target, { source: "interaction:ban", state: outcome.state, reason: outcome.reason, removed: outcome.removed.length, held: outcome.held.length, unknown: outcome.unknown.length, deferred: outcome.deferred.length, raced: outcome.raced, requests: outcome.requests, dispatched: outcome.dispatched, observed: outcome.observed }).catch(() => {});
+  } else if (env.ROLE_GUILD_MEMBER) {
     try {
       if(betaRoleDispatchHeld(env,roleDispatch,env.GUILD_ID,env.ROLE_GUILD_MEMBER)
         &&(betaSourceEpochState(roleDispatch.env,removalDispatch).mode!=='active'||!membershipSettlementEnabled(env))){
@@ -596,7 +790,8 @@ async function runAdminBan(env: Env, actor: string, target: string, reason: stri
       // BAN_BUTTON_ENABLED is on, the card lists the account and says what a Guild Leader can do by hand.
       const button = env.BAN_BUTTON_ENABLED === "true";
       await postMessage(env, channel, {
-        content: `\u{1F528} **Verification ban** \u2014 <@${target}> banned from verifying by <@${actor}>${reason ? ` \u2014 ${reason}` : ""}.${roleNote}\n${who.text}${inGame}${button ? "" : `\nA Discord ban, if wanted, is a <@&${env.ROLE_GUILD_LEADER}> decision made in the server settings; the bot does not hold Ban Members here.`}`,
+        // Repair round, 12 Nov 2026: fitted like reply(), so a long role note never stops the card from posting.
+        content: fitContent(`\u{1F528} **Verification ban** \u2014 <@${target}> banned from verifying by <@${actor}>${reason ? ` \u2014 ${reason}` : ""}.${roleNote}\n${who.text}${inGame}${button ? "" : `\nA Discord ban, if wanted, is a <@&${env.ROLE_GUILD_LEADER}> decision made in the server settings; the bot does not hold Ban Members here.`}`),
         components: button
           ? [
               {
@@ -674,7 +869,7 @@ async function runAdminSync(env: Env, actor: string, roleDispatch: BetaRoleDispa
 }
 
 async function cmdAdmin(env: Env, i: Interaction, lane?: LaneCapture, defer?: Defer,roleDispatch:BetaRoleDispatch=captureBetaRoleDispatch(env)): Promise<Response> {
-  if (!hasAnyRole(i, officerRoles(env))) return reply("High Council only.");
+  if (!hasAnyRole(i, officerRoles(env))) return reply("Only current Olympus staff authorized for this command can use it.");
   const actor = userOf(i).id;
   switch (subcommand(i)) {
     case "release":
@@ -686,7 +881,7 @@ async function cmdAdmin(env: Env, i: Interaction, lane?: LaneCapture, defer?: De
       // SEN-01 follow-up (30 Oct 2026): a name with no live binding (never linked, or unbound) can still be held by an open
       // request. Closing it is the officers' lever short of a ban; the reply names the holder, who cannot take the name back
       // before 00:00 UTC (issueCode). A blank name (open request codes carry an empty name_key) closes nothing; an unbound
-      // name with nothing open is unbound again as before.
+      // name with nothing open is a no-op for release; explicit unbind stays separate.
       const held = key && (!row || row.status === "unbound") ? await openPendingFor(env, key) : null;
       if (held) {
         // Keep the original target generation with the officer through every continuation.
@@ -705,6 +900,7 @@ async function cmdAdmin(env: Env, i: Interaction, lane?: LaneCapture, defer?: De
         await releaseEnv.DB.prepare('SELECT 1 AS admin_release_target_current').first();
         return reply(`No binding for **${held.name}**; the open verification request from <@${held.discord_id}> is closed, and ${when}${ticket}.`);
       }
+      if (subcommand(i) === "release") return reply("No open verification request for this character. Nothing was unlinked.");
       if (!row) return reply(`No binding for **${raw}**.`);
       await env.DB.batch([
         env.DB.prepare("UPDATE characters SET status = 'unbound', left_at = ?2, guid = NULL WHERE name_key = ?1").bind(key, now()),
@@ -737,7 +933,23 @@ async function cmdAdmin(env: Env, i: Interaction, lane?: LaneCapture, defer?: De
       const target = option<string>(i, "user") ?? "";
       await env.DB.prepare("UPDATE members SET banned = 0, ban_reason = NULL WHERE discord_id = ?1").bind(target).run();
       await audit(env, actor, "admin.unban", target);
-      return reply(`<@${target}> can verify again.`);
+      // Repair round (13 Nov 2026): a rank role whose ban removal got no confirmed answer stays blocked for this member
+      // after the unban (the same unresolved rows that fence every writer); the reply says which, instead of implying none.
+      // Round 4 item 8 (13 Nov 2026): every rank role an unresolved row of ANY purpose holds back is named, and a change
+      // still in flight at this moment is called in flight, not unconfirmed.
+      const blocked = await unbanBlockedRanks1112(env, target);
+      const diagnostics = await import('./access-check242');
+      let known:import('./access-check242').ManualRankRefusalRow280[]|null=null;
+      try{known=(await diagnostics.manualRankRefusalStatement280(env,target).all<import('./access-check242').ManualRankRefusalRow280>()).results;}catch{/* Refused diagnostics never imply no outstanding history. */}
+      if (blocked === null || known === null) return reply(`<@${target}> can verify again. The bot could not read all outstanding role changes and known provider refusals; check the member's roles in Discord before granting one by hand.`);
+      const refused=diagnostics.manualRankRefusalText280(known),base=blocked.length?unbanBlockedText1112(target,blocked):`<@${target}> can verify again.`;
+      let text=base+(refused?'\n'+refused:'');
+      if(text.length>1950){
+        const group=(kind:UnbanBlock1112['kind'])=>blocked.filter(row=>row.kind===kind).map(row=>`<@&${row.role}>`).join(', ');
+        const unknown=group('unconfirmed'),live=group('inflight');
+        text=`<@${target}> can verify again.`+(unknown?`\nUnconfirmed original changes still block: ${unknown}. No replay or clearance; attended resolution is required.`:'')+(live?`\nOriginal changes still in flight block: ${live}. Their outcome must be known first.`:'')+(refused?'\n'+refused:'');
+      }
+      return reply(text);
     }
     case "queue": {
       const q = await env.DB.prepare(
@@ -897,7 +1109,7 @@ async function handleComponent(env: Env, i: Interaction, lane?: LaneCapture,role
   const id = i.data?.custom_id ?? "";
   // One click, no typing: a request code whose character is decided by who whispers it (27 Sep). The modal that asked
   // for the name is still answered below, for anyone who had it open across the deploy.
-  if(id===GUIDE_VERIFY){const response=await issueTicket(env,i,lane);if(currentNativeVerification242(env))defer?.('interaction_roles242',()=>kickRoleWork242(env,'requests'));return response;}
+  if(id===GUIDE_VERIFY){const response=await issueTicket(env,i,lane);wakeIssued280(env,response,defer);return response;}
   if(id==='guide:another'&&currentNativeVerification242(env))return issueTicket(env,i,lane,true);
   if (id === GUIDE_STATUS) return cmdStatus(env, i,roleDispatch);
   const [ns, action, arg] = id.split(":");
@@ -909,7 +1121,7 @@ async function handleComponent(env: Env, i: Interaction, lane?: LaneCapture,role
 
   if (ns === "ban") {
     if (action === "dismiss") {
-      if (!hasAnyRole(i, officerRoles(env))) return reply("High Council only.");
+      if (!hasAnyRole(i, officerRoles(env))) return reply("Only current Olympus staff authorized for this command can use it.");
       return updateMessage({ content: `${i.message ? "" : ""}Left as it is by <@${userOf(i).id}> \u2014 no Discord ban.`, components: [] });
     }
     if (action !== "discord" || !arg) return reply("Unknown component.");
@@ -939,7 +1151,7 @@ async function handleComponent(env: Env, i: Interaction, lane?: LaneCapture,role
   }
 
   if (ns !== "review") return reply("Unknown component.");
-  if (!hasAnyRole(i, officerRoles(env))) return reply("High Council only.");
+  if (!hasAnyRole(i, officerRoles(env))) return reply("Only current Olympus staff authorized for this command can use it.");
   const actor = userOf(i).id;
   const result = action === "approve" ? await approvePending(env, Number(arg), actor) : await denyPending(env, Number(arg), actor);
   if (!result.ok) return reply(result.message);

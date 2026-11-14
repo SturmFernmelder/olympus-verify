@@ -88,6 +88,34 @@ export const SCHEDULED_CAPS = {
 const C = SCHEDULED_CAPS;
 
 /**
+ * Ban lane, repair round (12 Nov 2026): the most physical D1 statements one banned-account visit of the role sweep may
+ * spend with the canonical ranks selected (removeBanRankRoles1112 at its one-DELETE maximum path, or the GET-only
+ * observeBanRankDebt1112 after an unban), admission controls included. tests/evergreen1112_ban_workerd_test.cjs
+ * measures every visit path on genuine Workerd/D1 and holds each to it; 50 leaves one admitted write group for the
+ * branches the fixture does not reach. This path needs the admitted runtime venue (captureRuntimeVenue230: write
+ * admission on, recorded-live layout), so it is charged in ADMISSION_SCHEDULED_BUDGET's role slice, never in the
+ * ordinary table's legacy 12. Successor (12 Nov 2026): with the canonical ranks selected this visit runs only in the
+ * role sweep's "ban" lane (roleSweepLane1112), never after the member walk in the same run, so the role slice holds
+ * either the walk (117/118 measured, below) or one banned visit plus the sweep's common reads and receipt. The exact
+ * whole-schedule measurement of both lanes is Codex's.
+ */
+export const BAN_RANK1112_SWEEP_VISIT_STATEMENTS = 50;
+
+/** The two role-sweep lanes in canonical mode (restore.ts sweepMemberRoles). */
+export type RoleSweepLane1112 = "ordinary" | "ban";
+/**
+ * Ban lane successor (12 Nov 2026, the plan agreed with Codex): the lane a canonical role sweep runs, from the schedule's
+ * captured quarter-hour phase (originalRosterScheduleFacts(...).phase, read once before any await). The news phase runs
+ * the ordinary member and promotion walk, the roster phase the banned rotation, so with the 15-minute cron each lane gets
+ * one opportunity about every 30 minutes. Pure: a scheduling fact only, never account, role or dispatch authority. The
+ * callers in index.ts use it so the branch runs end to end; Codex owns that wiring (and any cursor merge between
+ * concurrent callers) and may replace it.
+ */
+export function roleSweepLane1112(phase: "news" | "roster"): RoleSweepLane1112 {
+  return phase === "news" ? "ordinary" : "ban";
+}
+
+/**
  * Worst case per job, in statements, in the order scheduled() starts them. `rule` says what is counted. The fixed costs
  * are read from the source: a job whose statements change changes its line here.
  */
@@ -113,7 +141,7 @@ export const SCHEDULED_BUDGET: ReadonlyArray<{ job: string; worst: number; rule:
     // held account 2 reads and 2 audit attempts. scheduled_budget_test measures 7, 5 and 4 exactly (review of 3 Oct 2026);
     // the call budget (at most 50 requests) stops a failure run at 11 accounts, so 20 is the account cap's bound
     worst: 10 + (40 + 35) * C.roleSweepAccounts + 12 * C.roleSweepBanned,
-    rule: "10 fixed + central generation/membership envelope40 plus bounded rank continuation35 per account +12 per banned/held account; actual joined max-path gate required",
+    rule: "10 fixed + central generation/membership envelope40 plus bounded rank continuation35 per account +12 per banned/held account (legacy Guild Member path; the canonical ban visit runs only under write admission, see BAN_RANK1112_SWEEP_VISIT_STATEMENTS); actual joined max-path gate required",
   },
   {
     job: "continueRosterEffects",
@@ -138,7 +166,7 @@ export const SCHEDULED_BUDGET: ReadonlyArray<{ job: string; worst: number; rule:
   { job: "newsCron", worst: 4 + 1 + 1 + 4 + 5 + 1, rule: "the cleanup batch (4) + its audit, the settings read when the cleanup failed, the ids batch (4), the counts batch (4 anti-joins + 1), the compare-and-set" },
   { job: "runOfficerDigest", worst: 1 + 1 + 2 + 7 + 1 + 2, rule: "the state, the lease, one cleanup write with its audit, the 7 counts, the frozen intent, the settle with its audit" },
   {job:'runServingErasureJob',worst:155,rule:'one oldest current job including native inactive-account admission, up to2 expired role debts GET-only, two message pages of5, catalog plus atomic serving erase including typed legacy grouped-audit and shared-publication actor projection; completed-account message cleanup shares this envelope'},
-  {job:'sweepServingRetention',worst:21,rule:'scheduled original entry-tick alternates21 general payloads and at most12 beta payloads (6 B1 + 2 short credentials + 3 reset lifecycle + 1 activation attribution); both phases every30min, credentials every15min; beta lifecycle4 always runs in its original phase even with feature flags OFF;4 installed controls keep max25; full manual legacy batch27 outside cron'},
+  {job:'sweepServingRetention',worst:21,rule:'scheduled original entry-tick alternates21 general payloads and at most12 beta payloads (6 B1 + 2 short credentials + 3 reset lifecycle + 1 activation attribution); both phases every30min, credentials every15min; beta lifecycle4 always runs in its original phase even with feature flags OFF; receipt expiry uses only a known spare5 physical statements within the same installed25 slice, never a new job;4 installed controls keep max25; full manual legacy batch27 outside cron'},
   {job:'sweepRejectionExpiry',worst:7,rule:'one original fixed-clock Native marker expiry group; includes proof read, payload and four admission controls in the installed branch'},
 ];
 

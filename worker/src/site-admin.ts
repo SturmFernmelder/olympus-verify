@@ -1,3 +1,5 @@
+import {erasedReceiptMarkerSql280} from './tithe-erased-replay280';
+import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 import {captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy';
 import { NICKNAME_SETTINGS_FILTER233 } from './member-nickname-data233';
 /**
@@ -47,13 +49,14 @@ import { closeRenameHold, listRenames, markForcedRename } from "./rename-review"
 import { handleNewsAdmin } from "./site-news";
 async function treasuryLedger242(...args:Parameters<typeof import('./intake242').treasuryLedger242>){return (await import('./intake242')).treasuryLedger242(...args);}
 import { handleTreasuryCosmeticAdmin } from "./treasury-cosmetic";
+import {receiptNoteMaintenance280} from './treasury-note-maintenance280';
 import { discordDirectoryAttendedVisibility } from "./community-discord-directory";
 import { handleRulesetPublication } from './ruleset-publication';
 import { handleMembershipRetirement } from './membership-retirement-route';
 import {prepareMembershipDecision,membershipDecisionTargetToken,membershipDecisionDetailKey,applyMembershipDecision,membershipDecisionPartialGuard,membershipDecisionAuthRequest,membershipDecisionBodyRequest,assertMembershipDecisionOrigin,type MembershipDecisionOrigin} from './privacy-rejection-decision';
 import { handleBetaRoleReset } from './beta-reset-route';
 import { APPLICATION_OPENING_ANSWER_KEY, ORDINARY_DECLINE_ANSWER_KEY } from './application-edit219';
-import { appointmentPublicationConfirmation, containsInternalAppointmentProof, prepareAppointmentPublication, appointmentPublicationTargetsCurrentSql, appointmentPublicationTargetFailure, type AppointmentPublicationFailure } from './site-appointed-identities';
+import { appointmentAccountId, appointmentPublicationConfirmation, containsInternalAppointmentProof, prepareAppointmentPublication, appointmentPublicationTargetsCurrentSql, appointmentPublicationTargetFailure, type AppointmentPublicationFailure } from './site-appointed-identities';
 
 const PAGE = 50;
 const STATUSES = new Set(["submitted", "reviewing", "accepted", "declined", "withdrawn"]);
@@ -65,6 +68,8 @@ const PROFESSIONS_OF_A = "json_each(CASE WHEN json_valid(a.answers) THEN a.answe
 
 export async function handleAdmin(request: Request, env: Env, path: string, admin: SiteUser, _waitUntil: (work: () => Promise<unknown>) => void,decisionOrigin?:MembershipDecisionOrigin,originalDispatch?:BetaRoleDispatch): Promise<Response> {
   const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
+  if (request.method !== 'GET' && request.method !== 'HEAD' && request.headers.get('X-Olympus') !== PAGE_VERSION)
+    return apiJson({error:'reload',message:'The site changed since this page opened. Reload before saving.'},409);
   if(path.startsWith('/api/admin/membership-retirement'))return handleMembershipRetirement(request,env,path,admin,roleDispatch);
   if(path.startsWith('/api/admin/beta-role-reset'))return handleBetaRoleReset(request,env,path,admin);
   if(path==='/api/admin/beta-reset'||path.startsWith('/api/admin/beta-reset/'))return apiJson({error:'beta_reset_scope_replaced',message:'The beta reset preserves website appointments and leadership. Use the member and rank role reset preview.'},410);
@@ -79,6 +84,7 @@ export async function handleAdmin(request: Request, env: Env, path: string, admi
   const actor = admin.discord_id;
 
   if (parts[0] === 'ruleset-publication') return handleRulesetPublication(request,env,parts.slice(1),body);
+  if (path === '/api/admin/treasury/ledger/note-redaction') return receiptNoteMaintenance280(request,env,actor,body);
   if (parts[0] === 'treasury' && parts[1] === 'ledger' && m === 'GET') return treasuryLedger242(request,env);
   if (parts[0] === 'treasury') return handleTreasuryCosmeticAdmin(request,env,parts.slice(1),admin,body);
   if (parts[0] === 'discord-directory' && parts.length === 2) return discordDirectoryAttendedVisibility(request, env, await communityContext(env, request), parts[1]!, body);
@@ -89,7 +95,8 @@ export async function handleAdmin(request: Request, env: Env, path: string, admi
   if (m === "PUT" && parts[0] === "settings") {
     // Original authenticated administrator already captured by site-api.ts.
     // The soft cap precedes every changed-holder provider lookup.
-    if (rateLimited('appointed-save:' + actor, 30, 60)) return apiJson({ error: 'slow_down' }, 429);
+    const rateLimitAt96280=consumeRateLimit280('appointed-save:' + actor,30,60);
+    if (rateLimitAt96280.limited) return apiJson({ error: 'slow_down' }, 429,rateLimitHeaders280(rateLimitAt96280));
     return saveSettings(env, actor, body);
   }
   // .114: the Battle.net sign-in switch (bnet-switch.ts), the I-X leadership directory and the beta reset (site-leadership.ts), forced renames (rename-review.ts)
@@ -231,6 +238,7 @@ async function overview(env: Env) {
       WHERE a.status IN ('submitted','reviewing') AND u.denied = 0 AND j.type = 'text'
       GROUP BY j.value`,
   ).all<{ profession: string; n: number }>();
+  const settings = await loadSettings(env);
   return {
     now: now(),
     counts: c ?? {},
@@ -239,9 +247,34 @@ async function overview(env: Env) {
     reserved: reserved.results,
     queue: { waiting: queue?.waiting ?? 0, reserved: queue?.reserved ?? 0 },
     seats: (await guildSeats(env)).seats, // .115 (item B): exact, staff only (guild-seats.ts)
-    settings: await loadSettings(env),
+    settings,
+    appointedAccounts: await appointedAccounts(env, settings.appointed),
     discordIntentOperations: DISCORD_INTENT_OPERATIONS,
   };
+}
+
+/**
+ * CL2-015 (Evergreen 12 Nov 2026): Admin -> Appointed roles showed each holder as the raw <@id> pointer. This staff-only
+ * answer names the website accounts behind the stored pointers, with the same fields (names, avatar) every other admin
+ * list already shows for a site account (userOut). A pointer without a website profile is left out: the page offers the
+ * existing exact-ID appointment search for it. Nothing here changes what members see; their projection stays the
+ * separately consented /api/appointed-identities reader.
+ */
+async function appointedAccounts(env: Env, appointed: Record<string, string>) {
+  const ids = [...new Set(Object.values(appointed).map((v) => appointmentAccountId(v)).filter((id): id is string => id !== null))].slice(0, 250);
+  if (!ids.length) return [];
+  const rows = await env.DB.prepare(
+    "SELECT u.discord_id, u.username, u.global_name, u.nick, u.avatar FROM json_each(?1) wanted JOIN site_users u ON u.discord_id = wanted.value",
+  ).bind(JSON.stringify(ids)).all<{ discord_id: string; username: string | null; global_name: string | null; nick: string | null; avatar: string | null }>();
+  return rows.results.map((r) => ({
+    id: r.discord_id,
+    username: r.username,
+    displayName: r.global_name,
+    nick: r.nick,
+    label: labelOf({ username: r.username, displayName: r.global_name, nick: r.nick }),
+    shown: shownName({ username: r.username, displayName: r.global_name, nick: r.nick }),
+    avatarUrl: avatarUrl(env, r.discord_id, r.avatar),
+  }));
 }
 
 async function saveSettings(env: Env, actor: string, body: Record<string, unknown>): Promise<Response> {
@@ -277,6 +310,7 @@ async function saveSettings(env: Env, actor: string, body: Record<string, unknow
   }
   if (body.notice !== undefined) next.notice = cleanText(body.notice, 300);
   let appointedObj: Record<string, string> | null = null; // .115: the cleaned map itself, for the consent check and the audit's role keys
+  let reusedProofsOnly = false; // CL2-122: no publication tick, so every association must keep its original proof
   if (body.appointed !== undefined) {
     if (containsInternalAppointmentProof(body.appointed)) return apiJson({ error: 'internal_appointed_fields', field: 'appointed', message: 'Publication proofs are private server-authored metadata. Select the account and confirm publication instead.' }, 400);
     appointedObj = cleanAppointed(body.appointed);
@@ -299,13 +333,34 @@ async function saveSettings(env: Env, actor: string, body: Record<string, unknow
     if (changed.length > 0 && body.namesConfirmed !== true) {
       return apiJson({ error: "confirm_names", field: "appointed", message: "Confirm that each person you name agreed to be named. Appointed names appear on the signed-in guild site and in signed-in account settings; an existing valid account session can still read those settings after server departure or denial." }, 400);
     }
+    // CL2-122 (Evergreen 12 Nov 2026): the publication tick was demanded for every save of a map that held any Discord
+    // association, so typing or clearing a plain-text holder needed it too. It is now demanded only when this save would
+    // publish something new: an association added or changed here refuses at once (before any provider call), and an
+    // unchanged one passes only if prepareAppointmentPublication below reuses its exact original proof. A legacy
+    // association (no stored proof key for its pointer at all) also refuses here, before any provider call. One whose
+    // stored proof no longer verifies (a requalified account) is found only inside prepare, after its Discord member read,
+    // and still needs the tick (checked after prepare, before any write). Nothing is written on either path.
     if (!appointmentPublicationConfirmation(appointedObj, body)) {
-      return apiJson({ error: 'confirm_appointed_characters', field: 'appointed', message: 'Explicitly confirm publication of the selected Discord account profile to qualified Community readers and, only when a current website identity exists, its current verified characters. A Discord-only association never publishes private characters through a later sign-in. This applies to every office and rank account association; it grants no role or permission.' }, 400);
+      const changedAssociation = Object.entries(appointedObj).some(([key, who]) => appointmentAccountId(who) !== null && !(Object.prototype.hasOwnProperty.call(stored, key) && stored[key] === who));
+      if (changedAssociation) return publicationConsentRefusal();
+      let raw: Record<string, unknown> = {};
+      try { const parsed: unknown = JSON.parse(storedValues.get('appointed') ?? '{}'); if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) raw = parsed as Record<string, unknown>; } catch { /* no stored proof */ }
+      // A necessary condition only (some proof key holds this pointer); prepare verifies the proof itself.
+      const proofKeyFor = (who: string) => Object.entries(raw).some(([key, value]) => value === who && containsInternalAppointmentProof({ [key]: value }));
+      if (Object.values(appointedObj).some(who => appointmentAccountId(who) !== null && !proofKeyFor(who))) return publicationConsentRefusal();
+      reusedProofsOnly = true;
     }
   }
   const prepared = appointedObj ? await prepareAppointmentPublication(env, appointedObj, storedValues.get('appointed') ?? null) : null;
   if (prepared && !prepared.ok) return appointmentAccountRefusal(prepared);
   const publication = prepared?.ok ? prepared : null;
+  if (reusedProofsOnly && publication && appointedObj) {
+    let original: Record<string, unknown> = {};
+    try { const parsed: unknown = JSON.parse(storedValues.get('appointed') ?? '{}'); if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) original = parsed as Record<string, unknown>; } catch { /* no reusable proof */ }
+    const minted = Object.entries(publication.stored).some(([key, value]) => !Object.prototype.hasOwnProperty.call(appointedObj, key)
+      && !(Object.prototype.hasOwnProperty.call(original, key) && original[key] === value));
+    if (minted) return publicationConsentRefusal();
+  }
   if (publication) next.appointed = JSON.stringify(publication.stored);
   const entries = Object.entries(next) as Array<[string, string]>;
   if (!entries.length) return apiJson({ ok: true, settings: cur });
@@ -336,13 +391,17 @@ async function saveSettings(env: Env, actor: string, body: Record<string, unknow
   return apiJson({ ok: true, settings: await loadSettings(env) });
 }
 
+function publicationConsentRefusal(): Response {
+  return apiJson({ error: 'confirm_appointed_characters', field: 'appointed', message: 'Explicitly confirm publication of the selected Discord account profile to qualified Community readers and, only when a current website identity exists, its current verified characters. A Discord-only association never publishes private characters through a later sign-in. This applies to every office and rank account association; it grants no role or permission.' }, 400);
+}
+
 function appointmentAccountRefusal(failure: AppointmentPublicationFailure): Response {
   const action = failure.status === 'fresh_check_limit'
     ? 'At most 32 new, changed or unqualified Discord members can be checked in one save. Save a smaller reviewed batch; unchanged qualified associations remain intact when included in the full map.'
     : failure.status === 'discord_unavailable'
     ? 'Current Discord server membership could not be confirmed. Try searching and saving again shortly; website sign-in is not required.'
     : failure.status === 'account_changed'
-      ? 'The selected site identity changed. Reload Settings and search for the account again before reviewing publication.'
+      ? 'The selected site identity changed. Reload Appointed roles and search for the account again before reviewing publication.'
       : 'The selected account is not currently eligible for publication. Confirm its current Discord server membership and review its current standing, then search again. Website sign-in is not required.';
   return apiJson({ error: 'appointed_account_unavailable', field: 'appointed', role: failure.role, accountStatus: failure.status, message: `${roleLabel(failure.role)}: ${action} No settings were saved.` }, 409);
 }
@@ -1286,8 +1345,17 @@ function auditRules(actions: string, subject: AuditRule["subject"], fields: Audi
   for (const action of actions.split(" ")) AUDIT_RULES[action] = { actor, subject, fields };
 }
 auditRules("treasury.receipt242", "none", { copper: "count", items: "count" }, "id-or-system");
+auditRules("treasury.receipt_note_redaction280", "none", { ceiling: "count", blanked: "count" }, "id-or-system");
 auditRules("site.login site.login_not_member site.left_server site.application_withdrawn site.copy_exported", "id");
-auditRules("site.application_submitted site.application_updated site.settings site.leadership site.beta_closed", "none");
+auditRules("site.application_submitted site.application_updated site.leadership site.beta_closed", "none");
+// CL2-128 (Evergreen 12 Nov 2026): a settings row showed only "details withheld". settingsAuditDetails already stores
+// counts and switches, never a name or the notice text; show those, and keep withholding the role keys, the times and
+// the no-vote list (they stay "withheld").
+{
+  const flag = ["0", "1"];
+  auditRules("site.settings", "none", { appointedNames: "count", namesConfirmed: "boolean", appointedCharactersConfirmed: "boolean", notice: "boolean",
+    namesTimeConfirmed: flag, namesOpen: flag, autoQueue: flag, applicationsOpen: flag, votingOpen: flag, newsOn: flag, loginAnimation: flag, royalWritsOn: flag });
+}
 auditRules("site.ruleset_switch", "none", { mode: ["beta", "full_release"], targets: "count", approver: "boolean" }); // item 7 (14 Oct 2026): the switch, never the identity
 auditRules("site.application_status", "id", { status: ["submitted", "reviewing", "accepted", "declined", "withdrawn"] });
 auditRules("site.denied", "id", { released: "count" });
@@ -1311,6 +1379,8 @@ auditRules("role.backfilled role.blocked role.blocked_removed role.misconfigured
 // .125 R3 (Claude, 9 Oct 2026): roster.ts stores a character, while interactions.ts removes by Discord ID. Only the
 // four roster writers below include discordId in their detail; this is deliberately not an all-actions ID allowance.
 auditRules("role.remove_failed", "id-or-character");
+// Ban rank-role removal (owner ruling, 12 Nov 2026): counts only, never role IDs or the reason text.
+auditRules("role.ban_rank1112", "id", { state: ["settled", "held", "unknown"], removed: "count", held: "count", unknown: "count", deferred: "count", raced: "boolean", requests: "count", dispatched: "count", observed: "count" });
 auditRules("role.add_failed role.deferred role.refused_banned roles.read_failed", "character", { discordId: "id" });
 auditRules("role.backfill_page role.sweep_failed", "none");
 auditRules("role.budget_exhausted", "none", { attempts: "count", calls: "count", retries: "count", limit: "count" });
@@ -1539,9 +1609,10 @@ async function auditPage(env: Env, p: AuditQuery): Promise<AuditPage> {
   const shape = { window: p.window, limit: p.limit };
   // 1. The stretch's top: the cursor (exclusive) or the newest id, never above the newest (a cursor from nowhere would
   //    otherwise walk empty ids). MAX on the primary key reads one row.
-  //    The oldest id is read in the same statement: each subquery is SQLite's one-row min/max on the primary key (a single
+  //    Closed replay markers carry expiry rather than activity time and are excluded.
+  //    The oldest id is read in the same statement using primary-key min/max (a single
   //    SELECT MIN(id), MAX(id) would scan the table).
-  const top = await env.DB.prepare("SELECT (SELECT MIN(id) FROM audit) AS oldest, (SELECT MAX(id) FROM audit) AS newest").first<{ oldest: number | null; newest: number | null }>();
+  const top = await env.DB.prepare(`SELECT (SELECT MIN(id) FROM audit WHERE NOT(${erasedReceiptMarkerSql280('audit')})) AS oldest, (SELECT MAX(id) FROM audit WHERE NOT(${erasedReceiptMarkerSql280('audit')})) AS newest`).first<{ oldest: number | null; newest: number | null }>();
   const newest = top?.newest ?? 0;
   const oldest = top?.oldest ?? 1;
   const hi = p.before === null ? newest : Math.min(p.before - 1, newest);
@@ -1555,7 +1626,7 @@ async function auditPage(env: Env, p: AuditQuery): Promise<AuditPage> {
   const cutoff = p.window === "all" ? null : now() - AUDIT_WINDOWS[p.window];
   let likelyFrom = oldest;
   if (cutoff !== null) {
-    const first = await env.DB.prepare("SELECT id FROM audit WHERE ts >= ?1 ORDER BY ts, id LIMIT 1").bind(cutoff).first<{ id: number }>();
+    const first = await env.DB.prepare(`SELECT id FROM audit WHERE ts >= ?1 AND NOT(${erasedReceiptMarkerSql280('audit')}) ORDER BY ts, id LIMIT 1`).bind(cutoff).first<{ id: number }>();
     if (!first) return { entries: [], next: null, scanned: null, exhausted: true, likelyEnd: true, ...shape }; // nothing stamped inside the window
     likelyFrom = first.id;
   }
@@ -1567,7 +1638,7 @@ async function auditPage(env: Env, p: AuditQuery): Promise<AuditPage> {
   //    range, "role." up to "role/" ('/' follows '.'), exact and case-sensitive where LIKE folds case and needs escapes;
   //    "role" therefore never matches roles.*. Details are cut in SQL, so a long row never leaves the database whole.
   const args: unknown[] = [lo, hi];
-  const where: string[] = [];
+  const where: string[] = [`NOT(${erasedReceiptMarkerSql280('audit')})`];
   if (cutoff !== null) {
     args.push(cutoff);
     where.push(`+ts >= ?${args.length}`); // the window itself, on the walk (the unary + keeps audit_ts out of the plan)

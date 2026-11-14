@@ -1,0 +1,198 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "profession-mining",
+ "facts": [
+  {
+   "id": "profession-mining.starter-zone-book",
+   "scope": {
+    "profession": "mining"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Starter-zone book",
+   "value": "Starting zones drop quest items that teach a gathering profession and give +2 skill. The mining one is Mining for Dummies.",
+   "sources": [
+    "g218-25",
+    "g218-98"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-mining.scarce-ores",
+   "scope": {
+    "profession": "mining"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Scarce ores",
+   "value": "Mining can also yield scarce Pyrite, Bauxite and Pitchblende.",
+   "sources": [
+    "g218-104"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-mining.new-bars",
+   "scope": {
+    "profession": "mining"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "New bars",
+   "value": "Heavy Thorium Bar is smelted at a Molten Foundry, Azerothium Bar is made from Pitchblende and Coal (Mining 275), and Legionite Bar is an Alchemy transmute.",
+   "sources": [
+    "g218-104"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-mining.camp-objects",
+   "scope": {
+    "profession": "mining"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Camp objects",
+   "value": "Lodestone at skill 20, Rock Garden at 140 (blueprint from the Relic Guardian in the Excavation Site: Wetlands) and Molten Foundry at 300.",
+   "sources": [
+    "g218-100"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-mining.no-jewelcrafting",
+   "scope": {
+    "profession": "mining"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "No Jewelcrafting",
+   "value": "Blizzard's starter guide lists 12 professions. Jewelcrafting and Inscription are not among them.",
+   "sources": [
+    "g218-95"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-mining.skill-caps",
+   "scope": {
+    "profession": "mining"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Skill caps",
+   "value": "Apprentice 75, Journeyman 150, Expert 225, Artisan 300.",
+   "sources": [
+    "g218-98",
+    "g218-25"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-mining.level-for-each-rank",
+   "scope": {
+    "profession": "mining"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Level for each rank",
+   "value": "Guides disagree. Icy Veins lists no level for Journeyman, 10 for Expert and 25 for Artisan; Warcraft Tavern lists 10, 20 and 35, the same as crafts.",
+   "sources": [
+    "g218-98",
+    "g218-25"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-mining.legacy-perks",
+   "scope": {
+    "profession": "mining"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Legacy perks",
+   "value": "Bountiful Harvest gives extra Scarce resources from gathering, and Working Overtime improves your skill-up chance.",
+   "sources": [
+    "g218-96"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-mining.lodestone",
+   "scope": {
+    "profession": "mining"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Lodestone",
+   "value": "The Lodestone's buff matches Blessing of Might (melee attack power) and does not stack with it, so it helps most in groups without a Paladin.",
+   "sources": [
+    "g218-100"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-mining.unknown-1",
+   "scope": {
+    "profession": "mining"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Where the Molten Foundry blueprint drops; Heavy Thorium Bars are smelted there.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-mining.unknown-2",
+   "scope": {
+    "profession": "mining"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "When Heavy Thorium, Azerothium and Legionite become available, and where the new ores spawn.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-mining.unknown-3",
+   "scope": {
+    "profession": "mining"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Whether any passive mining perk exists. The +5% health claim and mining creatures after death appear only in unverified lists.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  }
+ ]
+}

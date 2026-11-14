@@ -1,3 +1,4 @@
+import {erasedReceiptMarkerSql280} from './tithe-erased-replay280';
 import { metadataFields219 } from './guild-calendar-metadata219';
 /** Identify-only history continuation (owner takeover, 2026-10-10). Cursors convey integrity, never admission. */
 import type { Env } from './env';
@@ -63,7 +64,7 @@ export function privacyBoundedScalarStatement(env:Env,id:string,source:string,fi
  return env.DB.prepare('SELECT * FROM ('+source+') WHERE CASE WHEN '+privacyProjectedByteSql(fields)+'<='+byteLimit+' THEN 1 ELSE json_extract(\'privacy_copy_oversize\',\'$\') END').bind(id);
 }
 function statements(env:Env,id:string,c:PrivacyHistoryCollection,p:Position|null,pageLimit:number):D1PreparedStatement[]{
- const source=c==='actions'?'SELECT ts,id,action FROM audit WHERE subject=?1 OR actor=?1':c==='eventChanges'?'SELECT id,event_id,action,at,fields FROM community_event_changes WHERE actor=?1':ownContributionCopyDecisionSource();
+ const source=c==='actions'?`SELECT ts,id,action FROM audit WHERE (subject=?1 OR actor=?1) AND NOT(${erasedReceiptMarkerSql280('audit')})`:c==='eventChanges'?'SELECT id,event_id,action,at,fields FROM community_event_changes WHERE actor=?1':ownContributionCopyDecisionSource();
  const fields=c==='actions'?['ts','action']:c==='eventChanges'?['event_id','action','at','fields']:['at','action','retain_until','guild_scope','own_subject','own_actor'];
  return boundedPrivacyHistoryStatements(env,id,source,fields,'id',c==='actions'?'ts':'at',p,pageLimit);
 }

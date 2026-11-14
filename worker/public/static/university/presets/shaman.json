@@ -1,0 +1,151 @@
+{
+ "schema": "olympus-university-presets-v1",
+ "note": "Copied from guides218.json presets by scripts/university/migrate-guides218.cjs --presets; scripts/university/validate.cjs refuses any drift.",
+ "talentRevision": "02e1e101d1a5",
+ "presets": [
+  {
+   "id": "shaman-elemental-raid-60",
+   "classId": "shaman",
+   "specId": "elemental",
+   "label": "raid (35/5/11)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.shaman.60.55033310030213510500000000000000000532000010000000",
+   "points": 51,
+   "treePoints": [
+    35,
+    5,
+    11
+   ],
+   "why": [
+    "Lightning build: Concussion, Convection, Call of Flame and Elemental Alacrity, then Call of Thunder (5% crit on Lightning Bolt and Chain Lightning), Lightning Overload and Elemental Fury.",
+    "Lightning Mastery, formerly Elemental Mastery, shortens Lightning Bolt’s cast by 0.5 sec and removes Chain Lightning’s cooldown for 15 sec. Eye of the Storm protects your casts and Elemental Reach adds range.",
+    "Five Enhancement points take Thundering Strikes for crit, and eleven Restoration points take Tidal Focus, Mindfulness, Natural Grace and Water Shield. Lava Burst was removed."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "shaman-elemental-leveling-30",
+   "classId": "shaman",
+   "specId": "elemental",
+   "label": "leveling (level 30)",
+   "context": "leveling",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.shaman.30.55003110131010000000000000000000000000000000000000",
+   "points": 21,
+   "treePoints": [
+    21,
+    0,
+    0
+   ],
+   "why": [
+    "Convection and Concussion make Lightning Bolt cheaper and stronger, and Elemental Alacrity shortens its cast.",
+    "Eye of the Storm protects your casts, Elemental Focus can make your next damage spell free, and Trial by Fire and Earthbound help against groups.",
+    "Call of Thunder, which replaced Lava Burst, is the 21st point and adds 5% crit to Lightning Bolt and Chain Lightning."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "shaman-enhancement-raid-60",
+   "classId": "shaman",
+   "specId": "enhancement",
+   "label": "raid (10/36/5)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.shaman.60.05320000000000000550303100512122510500000000000000",
+   "points": 51,
+   "treePoints": [
+    10,
+    36,
+    5
+   ],
+   "why": [
+    "Enhancement core: Thundering Strikes, Ancestral Knowledge for the Intellect that Mental Dexterity (new) turns into Attack Power, Flurry (needs Mental Dexterity), Elemental Weapons, Stormstrike and Improved Stormstrike (new), Maelstrom Weapon (new) and Rage of the Farseer (new, 31).",
+    "Shamanistic Focus (new) cuts Shock and Lightning Shield costs, Spirit Weapons lowers your threat outside Rockbiter, and Mental Quickness (new) adds spell damage and opens Rage of the Farseer. Improved Ghost Wolf is for mobility.",
+    "Ten Elemental points: Concussion for stronger Lightning Bolt and Earth Shock, Elemental Devastation for melee crit after spell crits, and Reverberation for shorter Shock cooldowns. Five Restoration points: Tidal Focus for hit. Improved Ghost Wolf is on row 4."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "shaman-enhancement-leveling-30",
+   "classId": "shaman",
+   "specId": "enhancement",
+   "label": "leveling (level 30)",
+   "context": "leveling",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.shaman.30.00000000000000000530303100510000000000000000000000",
+   "points": 21,
+   "treePoints": [
+    0,
+    21,
+    0
+   ],
+   "why": [
+    "Thundering Strikes adds crit, which feeds Flurry’s faster swings, and Mental Dexterity turns Intellect into Attack Power and opens Flurry.",
+    "Ancestral Knowledge adds Intellect for Mental Dexterity, Elemental Weapons strengthens your weapon imbue, and Shamanistic Focus cuts Shock and Lightning Shield costs.",
+    "Stormstrike arrives at level 30. Improved Ghost Wolf moved to row 4, so it waits until after level 30."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "shaman-restoration-raid-60",
+   "classId": "shaman",
+   "specId": "restoration",
+   "label": "raid healer (0/5/46)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.shaman.60.00000000000000000050000000000000005533203315513151",
+   "points": 51,
+   "treePoints": [
+    0,
+    5,
+    46
+   ],
+   "why": [
+    "Healing core: Improved Healing Wave, Tidal Focus, Healing Way into Riptide (new, 31), Tidal Mastery, Purification and Nature's Swiftness.",
+    "Mana: Mindfulness and Water Shield (both new), Mana Tide Totem (16 points) and Restorative Totems for Mana Spring. Totemic Focus is trimmed to 2 because buff totems now last 5 minutes.",
+    "Natural Grace lowers your threat, Healing Focus protects casts, and Ancestral Healing adds armor to your target after crits; five Enhancement points in Ancestral Knowledge add Intellect."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "shaman-restoration-dungeon-30",
+   "classId": "shaman",
+   "specId": "restoration",
+   "label": "dungeon healer (level 30)",
+   "context": "dungeon",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.shaman.30.00000000000000000000000000000000005230001314010100",
+   "points": 21,
+   "treePoints": [
+    0,
+    0,
+    21
+   ],
+   "why": [
+    "Improved Healing Wave shortens your main heal; Mindfulness (new) and Water Shield (new, 11) keep your mana up.",
+    "Healing Focus helps you finish heals while you are hit, and Mana Tide Totem (16 points) restores mana to your group for 12 s.",
+    "Nature's Swiftness at 21 points gives an instant heal for emergencies, and Tidal Mastery adds healing crit."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  }
+ ]
+}

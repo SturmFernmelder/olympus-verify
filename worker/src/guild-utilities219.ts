@@ -15,11 +15,19 @@ import { FOREVER_SCHEDULE } from './site-data';
 
 export interface GuildEmbed219 { title:string;description?:string;url?:string;fields?:{name:string;value:string;inline?:boolean}[];footer?:{text:string} }
 export const safeDiscordText219=(input:unknown,max=1000)=>String(input??'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/[@`*_~|<>\\]/g,c=>'\\'+c).slice(0,max);
+/** Discord option labels are plain text, not Markdown. Keep literal punctuation
+ * while bounding UTF16 units without splitting a surrogate pair. */
+export function plainDiscordLabel280(input:unknown,max=100):string{
+ let result='';for(const ch of String(input??'').replace(/[\u0000-\u001f\u007f]/g,' ')){if(result.length+ch.length>max)break;result+=ch;}return result;
+}
 // Only caller-owned separators survive per-item sanitization.
 const discordLines219=(parts:readonly unknown[],separator:'\n'|'\n\n',max:number)=>
  parts.map(part=>safeDiscordText219(part,max)).join(separator).slice(0,max);
 const field=(name:string,value:unknown)=>({name:safeDiscordText219(name,150),value:safeDiscordText219(value,1000)||'Unavailable'});
 const NOVEMBER_TALENT_NOTES219='https://us.forums.blizzard.com/en/wow/t/2360696/9';
+// Evergreen Stage 2 (owner ruling, 12 Nov 2026): codes made on the archived 16 October revision open read-only on the
+// website (talents/archive/); the Discord preview reads only the current contract. Keep equal to ARCHIVES in calculator.js.
+const ARCHIVED_TALENT_REVISIONS219:readonly string[]=['260cf99b52db'];
 type Any219=Record<string,any>;
 async function assetJson219(env:Env,a:GuildActor219,path:string):Promise<Any219> {
  if(!['/static/guides218.json','/static/governance/organization.json'].includes(path)||!await currentGuildActor219(env,a))throw Error('The guide could not be confirmed.');
@@ -34,17 +42,21 @@ export async function guideLookup219(env:Env,a:GuildActor219,sub:string,v:Record
  const base='https://'+destination(env)!.host;
  if(sub==='talent'){
   const build=talentBuildAttachment(v.build,destination(env)!.host);
-  if(!build?.code||!build.className||!build.level)throw Error('Paste a valid current Olympus talent code or its exact site share URL. Historical or third-party URLs are not fetched.');
+  if(!build?.code||!build.className||!build.level){
+   const pasted=typeof v.build==='string'?v.build:'',archived=ARCHIVED_TALENT_REVISIONS219.some(revision=>pasted.includes('ot1.'+revision+'.'));
+   throw Error(archived?'That build was made on the 16 October beta data. Open its link on the website, where it is shown read-only, or paste a current code.':'Paste a valid current Olympus talent code or its exact site share URL. Historical or third-party URLs are not fetched.');
+  }
   const ranks=build.code.split('.')[4]!,rows=TALENT_ATTACHMENT_CLASSES[build.className]!,specs=APPLICATION_SPECS_219[build.className]!;
   return {title:'Talent preview · '+build.className,url:base+'/#/talents/'+build.className+'/'+build.code,
-   description:'This preview shows the allocation encoded against the 16 October beta talent snapshot. Check the talents on your character in game before using the build.',
+   description:'This preview shows the allocation encoded against the 10 November talent data. Check the talents on your character in game before using the build.',
    fields:[field('Level / allocated points',build.level+' / '+build.points),...specs.map((spec,index)=>field(spec.label,rows.reduce((n,row,i)=>n+(row[2]===index?Number(ranks[i]):0),0)+' points')),
     field('Blizzard’s 2 November notes',NOVEMBER_TALENT_NOTES219)]};
  }
  const guide=await assetJson219(env,a,'/static/guides218.json');
  if(guide.schema!=='olympus-guides-v1'||!Array.isArray(guide.classes)||!Array.isArray(guide.presets)||!guide.tools)throw Error('The current guide catalogue is unavailable.');
- // Evergreen Stage 2 (4 Nov 2026): true before and after the launch; the pinned data stays a beta snapshot until replaced.
- const evidence='Grades: A pinned client data · B official announcement · C community · D derived · E Classic reference · U unknown. Pinned data comes from the beta; the released game can differ.';
+ // REV-UNI-3 (12 Nov 2026): the same six grades as university/index.json and guides218.json. Grade A is the talent
+ // calculator's 10 November 2026 export with server hotfixes, which replaced the beta snapshot, so no beta caveat remains.
+ const evidence='Grades: A talent data, 10 November 2026 export · B official Blizzard source · C published Forever guide or community · D derived from Classic · E Classic reference · U unavailable.';
  if(sub==='class'){
   const cls=guide.classes.find((row:Any219)=>row.id===v.class),specQuery=typeof v.spec==='string'?v.spec.trim().toLowerCase():'';
   if(!cls||!Array.isArray(cls.specs))throw Error('Choose one of the nine classes.');
@@ -52,7 +64,7 @@ export async function guideLookup219(env:Env,a:GuildActor219,sub:string,v:Record
   if(specQuery&&!spec)throw Error('Choose a specialization for that class, or omit spec to see the class guide.');
   const presets=guide.presets.filter((row:Any219)=>row.classId===cls.id&&(!spec||row.specId===spec.id)).slice(0,4);
   const presetFields=presets.map((row:Any219)=>({name:safeDiscordText219(row.label,150),value:'[Open level '+row.level+' talent preset]('+base+'/#/talents/'+cls.id+'/'+row.code+')'}));
-  if(presetFields.length) presetFields.unshift(field('16 October beta builds','Check these builds against your current in-game talents and Blizzard’s 2 November notes: '+NOVEMBER_TALENT_NOTES219));
+  if(presetFields.length) presetFields.unshift(field('Talent builds','These builds use the 10 November talent data. Check them against your talents in game and Blizzard’s 2 November notes: '+NOVEMBER_TALENT_NOTES219));
   return {title:cls.name+(spec?' · '+spec.name:''),url:base+'/#/guides/class/'+cls.id+(spec?'/'+spec.id:''),description:discordLines219((spec?.beginner?.summary??cls.overview??[]).slice(0,2),'\n\n',1700),fields:presetFields,footer:{text:evidence}};
  }
  if(sub==='attunement'){
@@ -101,7 +113,7 @@ export async function referenceLookup219(env:Env,a:GuildActor219,name:string):Pr
   const on=(out[0]!.results[0] as {value?:unknown}|undefined)?.value==='1';
   return {title:'Imperial Treasury · Fernmelder',url:base+'/#/governance',description:ROYAL_WRIT_POLICY.banner,fields:[
    field('Royal Writs schedule',on?'The website reference schedule is ON. Every transaction still needs the separately authorized officer process.':'The website Royal Writs schedule is OFF. The existing MEE6 appeal and eligible 100g standard bail remain available through /stockades.'),
-   field('Provider and custody limits','This command performs no payment, bank action, role grant or cosmetic provider dispatch. Officer review and platform safety rules still apply.')]};
+   field('Information only','This command does not take gold, make payments, change roles or apply appearance rewards. Ask an Olympus officer about a transaction.')]};
  }
  if(name==='branches'){
   const org=await assetJson219(env,a,'/static/governance/organization.json');
@@ -111,11 +123,11 @@ export async function referenceLookup219(env:Env,a:GuildActor219,name:string):Pr
   for(const raw of rows[1]!.results){const row=raw as {key:string;value:string;updated_at:number;updated_by:string|null},snapshot=parsedArmySnapshot219(row,at);if(!snapshot||armyKey(snapshot)!==row.key||snapshots.has(snapshot.guilds[0].name)){held=true;break;}snapshots.set(snapshot.guilds[0].name,snapshot);}
   const aliases=branchArmySnapshots229([...snapshots.values()]);
   const empty=!held&&snapshots.size===0;
-  const scope='Branch contexts and accepted Army aggregates; not a live membership or invitation guarantee. Daniel’s automatic relay is off. October Beta 1000/1000 +247 queued is historical only.';
+  const scope='These are reports from members’ game clients, not proof of current free guild slots or an invitation. Automatic branch updates are off. October Beta counts are historical only.';
   const description=empty?'No published capacity snapshot for OLYMPUS PRIME / Olympus II–X yet. Live capacity is unknown. '+scope:scope;
   return {title:'OLYMPUS PRIME / Olympus II–X · branch status',url:base+'/#/army',description,fields:empty?[]:org.guildPlaceholders.map((branch:Any219)=>{
    const name=canonicalOlympusGuildName(branch.name),ambiguous=!!name&&aliases.ambiguous.has(name),snapshot=held||!name?null:aliases.byGuild.get(name),row=snapshot?.guilds[0],age=row?Math.max(0,at-row.receivedAt):null;
-   return field(name??branch.name,branch.state+'. '+(!row?'Live capacity unknown; '+(held?'stored aggregate validation is held.':ambiguous?'competing stored guild aliases are held for review.':'no accepted current aggregate.'):'Volunteer-client aggregate (unverified), reported as '+row.name+': '+(row.reportedCharacters==='few'?'fewer than 5':row.reportedCharacters)+' reported characters; received '+new Date(row.receivedAt*1000).toISOString()+'. '+(age!>86400?'Stale; live capacity unknown.':'A dated observation, not current free-slot proof.')));
+   return field(name??branch.name,branch.state+'. '+(!row?'Live capacity unknown; '+(held?'the saved report needs review.':ambiguous?'conflicting guild reports need review.':'no accepted report is available.'):'Report from a member’s game client for '+row.name+': '+(row.reportedCharacters==='few'?'fewer than 5':row.reportedCharacters)+' reported characters; received '+new Date(row.receivedAt*1000).toISOString()+'. '+(age!>86400?'Out of date; live capacity unknown.':'This report may be out of date and does not confirm free guild slots.')));
   }),footer:{text:'No automatic invitation, transfer, ranking or Link action. Officer review uses current evidence; small populations retain the Army suppression rules.'}};
  }
  if(name==='council'){

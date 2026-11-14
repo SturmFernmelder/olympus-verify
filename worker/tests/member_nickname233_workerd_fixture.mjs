@@ -1,6 +1,6 @@
 // Genuine local Workerd/D1 and actual opaque issuer. All remote transport is local-mocked.
 import {handleNicknameInteraction233,NICKNAME_USE233,NICKNAME_RESET233} from '../src/member-nickname233.ts';
-import {nicknameEraseStatements233,nicknameErasureAssertion233,nicknameKey233} from '../src/member-nickname-data233.ts';
+import {nicknameEraseStatements233,nicknameErasureAssertion233,nicknameKey233,nicknameUnresolvedSql233,nicknameErasureUnresolvedSql233} from '../src/member-nickname-data233.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
 import {CANONICAL_RANKS233,CANONICAL_PROFILE233} from '../src/canonical-ranks233.ts';
 import {NATIVE_RANK_NAMES232,NATIVE_RANK_PROFILE232,NATIVE_STEWART_ROLE232,MIRROR_BY_NAME232,NATIVE_SCOPE232} from '../src/native-rank-reconciliation232.ts';
@@ -15,6 +15,7 @@ export function nicknameFixture233(seed){const started=new Set(),states=new Map(
   const original=await env.DB.prepare('SELECT value FROM site_settings WHERE key=?1').bind(key).first();
   await env.DB.batch(nicknameEraseStatements233(env,subject));
   const redacted=await env.DB.prepare('SELECT value FROM site_settings WHERE key=?1').bind(key).first();
+  const gates=await env.DB.prepare(`SELECT (${nicknameUnresolvedSql233('?1')}) AS write_blocked,(${nicknameErasureUnresolvedSql233('?1')}) AS erasure_blocked`).bind(subject).first();
   const guard=await env.DB.batch([nicknameErasureAssertion233(env,subject)]);
   // Exact source receipt-CAS shape: a late original PATCH result cannot replace
   // the marker after that same raw dispatch record was redacted.
@@ -31,7 +32,7 @@ export function nicknameFixture233(seed){const started=new Set(),states=new Map(
   await env.DB.prepare('DELETE FROM site_settings WHERE key=?1').bind(key).run();const absent=await env.DB.batch([nicknameErasureAssertion233(env,subject)]);
   await env.DB.prepare('INSERT INTO site_settings(key,value,updated_at)VALUES(?1,?2,?3)').bind(key,retained.value,seed.now).run();
   const after=await db.prepare('SELECT epoch,mode,active,nonce,purpose FROM privacy_write_admission').first();
-  return Response.json({actualLocalWorkerdD1:true,start,end:wires.length,wires,redacted:redacted.value,guardSuccess:guard.every(r=>r.success===true),lateChanges:late.meta?.changes,lateRows:late.results.length,afterLate:afterLate.value,negatives,retained:retained.value,absentSuccess:absent.every(r=>r.success===true),controlUnchanged:JSON.stringify(before)===JSON.stringify(after)});
+  return Response.json({actualLocalWorkerdD1:true,start,end:wires.length,wires,redacted:redacted.value,writeBlocked:gates.write_blocked,erasureBlocked:gates.erasure_blocked,guardSuccess:guard.every(r=>r.success===true),lateChanges:late.meta?.changes,lateRows:late.results.length,afterLate:afterLate.value,negatives,retained:retained.value,absentSuccess:absent.every(r=>r.success===true),controlUnchanged:JSON.stringify(before)===JSON.stringify(after)});
  }
  if(kind==='identify-copy'&&request.method==='POST'&&states.has('copy')&&!started.has(kind)){
   started.add(kind);const {env,wires}=states.get('copy'),BASE='https://'+env.SITE_HOST;

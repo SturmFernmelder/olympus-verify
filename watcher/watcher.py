@@ -47,11 +47,15 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import codes  # noqa: E402
 import intake242
+import local_correspondence280
 import savedvars  # noqa: E402
+import savedvars_source280
+import safe_projection280
 from custody_recovery import StateLease  # noqa: E402
 from treasury_receipts227 import TreasuryJournal, normalize_name as treasury_name, parse_note as treasury_note  # noqa: E402
 from native_membership227 import parse_membership_note, validate_membership  # noqa: E402
 import launch_operations229  # noqa: E402
+import native_rank_attestation  # noqa: E402
 import officer_invites233  # noqa: E402
 
 # The sender is a character name, never a channel tag or a UI escape. Since patch 12.1 code shipped to this client,
@@ -109,7 +113,7 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.37"
+WATCHER_VERSION = "0.6.38"
 STRICT_DISPLAY_PROTOCOL = "launch-roster-display-v2"
 STRICT_DISPLAY_PATH = "/queue/unverified?keyVersion=" + STRICT_DISPLAY_PROTOCOL
 STRICT_DISPLAY_MAX_BYTES = 512 * 1024
@@ -257,7 +261,8 @@ class Worker:
 
     def _save_pause(self) -> None:
         if self.pause_state is not None:
-            self.pause_state.save()
+            save = getattr(self, "pause_save280", None)
+            (save if save is not None else self.pause_state.save)()
 
     @staticmethod
     def _retry_after(headers: Any) -> int:
@@ -309,8 +314,34 @@ class Worker:
         if changed:  # said once per cause, not on every poll
             log(why)
 
+    def _note_clock280(self, response: Any, start: float, end: float, elapsed: float) -> None:
+        # Header time is warning-only. It cannot authenticate/freshen a native
+        # proof or change any admission/expiry clock or operating-system setting.
+        state = "inconclusive"
+        try:
+            url = urllib.parse.urlsplit(response.geturl())
+            expected = urllib.parse.urlsplit(self.base)
+            if url.scheme != "https" or url.netloc.lower() != expected.netloc.lower():
+                return
+            date = parsedate_to_datetime(response.headers.get("Date", ""))
+            if date.tzinfo is None:
+                return
+            server = date.timestamp()
+            if (all(math.isfinite(v) for v in (start, end, elapsed, server)) and 0 <= elapsed <= 30
+                    and 0 <= end-start and abs((end-start)-elapsed) <= 1):
+                low, high = server-end, server+1-start  # Date is rounded to whole seconds.
+                state = "possibly-slow" if low > 5 else "possibly-fast" if high < -5 else "within-estimate"
+        except (AttributeError, TypeError, ValueError, OverflowError):
+            pass
+        if getattr(self, "_clock_diagnosis280", None) != state:
+            self._clock_diagnosis280 = state
+            if state in ("possibly-slow", "possibly-fast"):
+                log("Clock check: local time may be " + ("behind" if state == "possibly-slow" else "ahead")
+                    + " by more than5s; check OS time. Verification windows are unchanged.")
+
     def call(self, method: str, path: str, body: Any = None, retries: int = 3) -> Any:
         self.last_refusal = None  # internal evidence; the original (True, None) transport contract stays intact
+        self.last_startup_transient280 = False  # Read-only health retry classification, never POST authority.
         paused = self.paused()
         if paused:
             return False, paused
@@ -326,13 +357,16 @@ class Worker:
             # A pre-launch Worker refuses keyVersion before touching the queue
             # or ingestion. This also fences a binary rollback after startup's
             # health check; an ignored proof can never become a legacy grant.
-            wire_path += ('&' if '?' in wire_path else '?') + 'keyVersion=launch-membership-v1'
+            protocol = ('native-roster-v2' if method == 'POST' and path == '/ingest/roster'
+                        and isinstance(body, dict) and 'nativeRankTable' in body else 'launch-membership-v1')
+            wire_path += ('&' if '?' in wire_path else '?') + 'keyVersion=' + protocol
         req = urllib.request.Request(self.base + wire_path, data=data, method=method)
         req.add_header("Authorization", f"Bearer {self.token}")
         req.add_header("Content-Type", "application/json")
         req.add_header("User-Agent", f"olympus-verify-watcher/{WATCHER_VERSION}")
         delay = 2
         for attempt in range(retries):
+            started, monotonic_start = time.time(), time.monotonic()
             try:
                 with self.opener.open(req, timeout=20) as res:
                     try:
@@ -350,6 +384,7 @@ class Worker:
                         # (Codex 03:07: an empty 2xx was True/None and post() dropped the event as delivered)
                         log(f"worker {method} {log_path} -> {getattr(res, 'status', '2xx')} without a JSON acknowledgment; not treated as delivered")
                         return False, "invalid_response"
+                    self._note_clock280(res, started, time.time(), time.monotonic()-monotonic_start)
                     pause = self._pause_data()
                     if pause.get("worker_retry_status") is not None:
                         pause["worker_retry_status"] = None
@@ -357,6 +392,7 @@ class Worker:
                     return True, result
             except urllib.error.HTTPError as e:
                 code = e.code
+                self.last_startup_transient280 = method == "GET" and log_path == "/health" and code in (502, 503, 504)
                 if 300 <= code < 400:
                     self._pause_for(code, self.PAUSE_REDIRECT, f"worker {method} {log_path} -> {code} redirect refused; worker_url must be the Worker's own HTTPS origin; all requests paused for 15 minutes")
                     return False, {"httpStatus": code, "retryAfterSeconds": self.PAUSE_REDIRECT, "configurationError": True}
@@ -405,10 +441,19 @@ class Worker:
                     self.last_refusal = code
                     return True, None
                 log(f"worker {method} {log_path} -> {code}, retry {attempt + 1}/{retries}")
+                if method == "GET" and log_path == "/health":
+                    try:
+                        e.close()
+                    except (OSError, http.client.HTTPException):
+                        pass
             except (urllib.error.URLError, TimeoutError, OSError, http.client.HTTPException) as e:
                 # the exception's class only: its text can carry response bytes (0.6.6, Codex 03:07)
+                reason = e.reason if isinstance(e, urllib.error.URLError) else e
+                self.last_startup_transient280 = (method == "GET" and log_path == "/health"
+                    and isinstance(reason, (TimeoutError, ConnectionResetError, ConnectionRefusedError, http.client.RemoteDisconnected)))
                 log(f"worker {method} {log_path} unreachable ({type(e).__name__}), retry {attempt + 1}/{retries}")
-            time.sleep(delay)
+            if not (method == "GET" and log_path == "/health" and attempt+1 == retries):
+                time.sleep(delay)
             delay *= 2
         return False, "unreachable"
 
@@ -472,6 +517,10 @@ class VerificationDeferred(RuntimeError):
     """Original source remains on disk; no verification claim or request was made."""
 
 
+class SavedVariablesSourceUnavailable(RuntimeError):
+    """Recoverable source read/shape failure; never a state-journal failure."""
+
+
 class Delivery(str, Enum):
     DELIVERED = "delivered"
     EXPIRED_LOCAL = "expired-unattempted-source"
@@ -532,7 +581,7 @@ class State:
         }
         if path.exists():
             try:
-                loaded = json.loads(path.read_text(encoding="utf-8"))
+                loaded = local_correspondence280.load_owned_state(path.read_text(encoding="utf-8"))
                 if not isinstance(loaded, dict) or not isinstance(loaded.get("outbox", []), list) or not isinstance(loaded.get("seen", []), list):
                     raise ValueError("invalid custody state")
                 self.d.update(loaded)
@@ -589,7 +638,20 @@ class Watcher:
         # Identity used to claim invites, so two officers running the addon do not both invite the same applicant.
         # Defaults to the officer character, normalized, which is unique per officer and needs no extra configuration.
         self.officer_id = str(cfg.get("officer_id") or codes.normalize_character(self.officer) or "").strip()[:64]
+        self._custody_halted = False
         self.state = State(Path(cfg.get("state_file", "watcher-state.json")))
+        # Owner-requested local text removal precedes every recovery/save/consumer.
+        # It creates denial only; failure/uncertain replacement stops this instance.
+        try:
+            self._local_correspondence_status280 = local_correspondence280.initialize(self.state)
+        except (OSError, ValueError, TypeError, OverflowError, RecursionError):
+            self._custody_halted = True
+            raise
+        if not self._local_correspondence_status280["complete"]:
+            cleanup = self._local_correspondence_status280
+            log(f"Local correspondence cleanup incomplete: blanked {cleanup['blankedNotes']}, held {cleanup.get('heldRows', 0)}, reason {cleanup['reason']}. Unsupported originals stay unchanged and local only. Verification keeps its normal checks.")
+        elif self._local_correspondence_status280["blankedNotes"]:
+            log(f"Local correspondence cleanup complete: blanked {self._local_correspondence_status280['blankedNotes']}, held 0. These records and their original delivery outcomes stay local only.")
         # Local unclassified receipts are independent of network/role dispatch and
         # commit before the chat/SavedVariables cursor. The owner named this exact
         # collector (3 Nov 2026); neither branch names nor a Discord ID are inferred.
@@ -609,7 +671,7 @@ class Watcher:
         self.unverified_poll = _seconds(cfg, "unverified_poll_seconds", 1800)
         self._last_unverified_pull = 0.0
         self._next_strict_display_pull = 0.0
-        self.launch_scan = launch_operations229.Scan(lambda: time.time())
+        self.launch_scan = launch_operations229.Scan(lambda: time.time(), discovery235=True)
         self.launch_selected = launch_operations229.SelectedRead(lambda: time.time())
         self._launch_selected_control = None  # A consumed control identity; never read/admission authority.
         self._next_launch_read_at = 0.0  # Shared across discovery and new-source selected reads.
@@ -623,12 +685,18 @@ class Watcher:
         # Current-process originals only. Persisted/reloaded queue rows never
         # acquire this independent scheduling or non-head ACK custody.
         self._independent_originals: dict[int, dict[str, Any]] = {}
+        self._event_originals280: dict[int, dict[str, Any]] = {}
+        self._event_claims280: dict[str, dict[str, Any]] = {}
+        self._source_diagnoses280: dict[str, Any] = {}
+        self._projection_writes280: dict[str, dict[str, Any]] = {}
         self._verification_waiting = None
         self._verification_sv_stamp = None
+        self._verification_sv_source280 = None
+        self._savedvars_source280 = None
         self._launch_consumed_sv_witness = None  # Process-only, after control handling and durable intake save.
         self._unverified: dict[str, Any] | None = None
         self.max_outbox = int(cfg.get("max_outbox", 500))
-        self._custody_halted = False
+        self.worker.pause_save280 = self._save_state280
         self._ack_settlement_pending: tuple[str, dict[str, Any]] | None = None
         self._custody_warning = None
         # other client logs, scanned for OLVDIAG markers only (a C_Log test); what was there at start is not news
@@ -646,7 +714,45 @@ class Watcher:
         # upgrade would resend every one of them still in the addon's 500-event ring.
         if not self.state.d.get("trusted_keys_since"):
             self.state.d["trusted_keys_since"] = int(time.time())
+            self._save_state280()
+
+    def _save_state280(self) -> None:
+        # Journal/serialization failures are global custody failures, including
+        # cursor/diagnostic saves. They must never be caught as bad source data.
+        try:
             self.state.save()
+        except (OSError, ValueError, TypeError, OverflowError, RecursionError):
+            self._custody_halted = True
+            raise
+
+    def _source_counts280(self, lane: str, held: int) -> None:
+        previous = self._source_diagnoses280.get(lane)
+        self._source_diagnoses280[lane] = held
+        if held and previous != held:
+            log(f"SavedVariables {lane}: {held} invalid observation(s) held; contents withheld")
+
+    def _event_current280(self, item: dict[str, Any]) -> bool:
+        source = self._event_originals280.get(id(item))
+        if source is None or source.get("original") is not item:
+            return False
+        claims = source["claims"]
+        return (source["snapshot"] == json.dumps(item, sort_keys=True, allow_nan=False)
+                and bool(claims) and len(set(claims)) == len(claims)
+                and all(self._event_claims280.get(key) is source and self.state.d["seen"].count(key) == 1 for key in claims))
+
+    def _write_projection280(self, path: Path, body: str, inputs: Any) -> bool | None:
+        try:
+            written, receipt = safe_projection280.write(path, self.wow_dir / "Interface" / "AddOns" / "OlympusVerify",
+                body, inputs, self._projection_writes280.get(path.name))
+        except safe_projection280.ProjectionUnavailable:
+            key = "projection-" + path.name
+            if self._source_diagnoses280.get(key) != "held":
+                self._source_diagnoses280[key] = "held"
+                log("projection file held: " + path.name + "; path or write unavailable, existing dates preserved")
+            return None
+        self._projection_writes280[path.name] = receipt
+        self._source_diagnoses280["projection-" + path.name] = "available"
+        return written
 
     # ---------- delivery ----------
     def _warn_custody(self, reason: str) -> None:
@@ -699,6 +805,47 @@ class Watcher:
             self._verification_roster_originals[id(item)] = {**candidate, "original": item}
         return item
 
+    def _verification_file_source280(self, snapshot: savedvars_source280.Snapshot) -> dict[str, Any] | None:
+        db = snapshot.data.get("OlympusVerifyDB")
+        if type(db) is not dict:
+            return None
+        roster = db.get("roster")
+        source = verification_roster_source(roster)
+        officer = codes.normalize_character(self.officer)
+        guid = db.get("lastCharacterGuid")
+        if (source is None or roster["exportedAt"] > int(time.time()) + 5
+                or not codes.is_guid(guid) or source["members"].get(officer) != guid
+                or source["guidCounts"].get(guid) != 1):
+            return None
+        return {"identity": (os.path.normcase(os.path.abspath(self.sv_file)), snapshot.witness[:2]),
+                "rosterDigest": source["digest"], "exportedAt": roster["exportedAt"],
+                "scopeHash": source["scopeHash"], "officer": officer, "officerGuid": guid,
+                "descriptor": snapshot.witness, "digest": snapshot.digest}
+
+    @staticmethod
+    def _same_verification_source280(left: Any, right: Any) -> bool:
+        keys = ("identity", "rosterDigest", "scopeHash", "officer", "officerGuid")
+        return (isinstance(left, dict) and isinstance(right, dict)
+                and type(left.get("exportedAt")) is int and type(right.get("exportedAt")) is int
+                and right["exportedAt"] >= left["exportedAt"]
+                and all(key in left and key in right and left[key] == right[key] for key in keys))
+
+    def _verification_source_current280(self, source: dict[str, Any]) -> bool:
+        try:
+            snapshot = savedvars_source280.read(self.sv_file, self._savedvars_source280)
+            current = self._verification_file_source280(snapshot)
+        except savedvars_source280.SourceUnavailable:
+            current = None
+        if not self._same_verification_source280(source["fileSource280"], current):
+            if source is self._verification_roster:
+                self._verification_roster = None
+            return False
+        # Revalidate unrelated SavedVariables changes without renewing the known
+        # roster ACK, source cutoff, pending request or proof's original clock.
+        source["fileSource280"].update(descriptor=current["descriptor"], digest=current["digest"])
+        self._savedvars_source280 = snapshot
+        return True
+
     def verification_roster_ready(self, body: Any) -> bool:
         if not self.membership_only:
             return True
@@ -706,13 +853,8 @@ class Watcher:
         at = int(time.time())
         if not isinstance(body, dict) or witness is None:
             return False
-        if witness["fileStamp"] is not None:
-            try:
-                current = self.sv_file.stat()
-            except OSError:
-                return False
-            if (current.st_mtime_ns, current.st_size) != witness["fileStamp"]:
-                return False
+        if not self._verification_source_current280(witness):
+            return False
         proof = validate_membership(self.secret, body.get("character", ""), body.get("guid"),
                                     body.get("code", ""), body.get("nativeMembership"), at)
         if (proof is None or body.get("source") != "whisper" or proof["scopeHash"] != witness["scopeHash"]
@@ -730,13 +872,8 @@ class Watcher:
         valid = officer_invites233.validate(self.secret, body, at)
         if not self.membership_only or valid is None or witness is None:
             return False
-        if witness["fileStamp"] is not None:
-            try:
-                current = self.sv_file.stat()
-            except OSError:
-                return False
-            if (current.st_mtime_ns, current.st_size) != witness["fileStamp"]:
-                return False
+        if not self._verification_source_current280(witness):
+            return False
         return (valid["nativeInvite"]["scopeHash"] == witness["scopeHash"]
                 and at - 600 < witness["exportedAt"] <= at
                 and self.state.d["roster_sent"] == witness["exportedAt"]
@@ -766,9 +903,18 @@ class Watcher:
                 or type(receipt.get("members")) is not int or receipt["members"] != len(source["body"]["members"])
                 or "refused" in receipt or "skipped" in receipt):
             return
+        if not self._verification_source_current280(source):
+            return
+        installed = self._verification_roster
+        # A late receipt cannot downgrade a newer known ACK. Revalidate that
+        # installed source; preserve its original clocks and snapshot verbatim.
+        if (installed is not None and installed["exportedAt"] > source["exportedAt"]
+                and self._verification_source_current280(installed)):
+            return
         self._verification_roster = {"digest": source["digest"], "exportedAt": source["exportedAt"],
                                      "scopeHash": source["scopeHash"], "members": source["members"], "guidCounts": source["guidCounts"],
-                                     "snapshot": receipt["snapshot"], "fileStamp": source["fileStamp"]}
+                                     "snapshot": receipt["snapshot"], "fileStamp": source["fileStamp"],
+                                     "fileSource280": source["fileSource280"]}
         self._verification_waiting = None
         log("verification roster ACK: complete native source accepted; pending fresh proofs may now be relayed")
 
@@ -800,6 +946,9 @@ class Watcher:
             source = self._verification_originals.get(id(item))
             return (source is not None and source["attempted"] is False
                     and self._verification_original_current(item, source) and self._verification_claims_owned(item, source))
+        if item.get("path") == "/ingest/events":
+            source = self._event_originals280.get(id(item))
+            return source is not None and source["attempted"] is False and self._event_current280(item)
         return False
 
     def _settle_original(self, item: dict[str, Any]) -> Delivery:
@@ -821,7 +970,7 @@ class Watcher:
             self.state.d["seen"] = [claim for claim in seen_before if claim not in original["claims"]]
         box.pop(index)
         try:
-            self.state.save()
+            self._save_state280()
         except OSError as error:
             box.insert(index, item)
             if seen_before is not None:
@@ -843,6 +992,11 @@ class Watcher:
 
     def _forget_verification_original(self, item: dict[str, Any]) -> None:
         self._independent_originals.pop(id(item), None)
+        event = self._event_originals280.pop(id(item), None)
+        if event is not None:
+            for claim in event["claims"]:
+                if self._event_claims280.get(claim) is event:
+                    self._event_claims280.pop(claim, None)
         original = self._verification_originals.pop(id(item), None)
         if original is not None:
             for claim in original["claims"]:
@@ -929,12 +1083,21 @@ class Watcher:
                 return Delivery.HELD
             original["attempted"] = True  # before transport; unknown outcomes cannot acquire a second attempt
             retries = 1
+        if self.membership_only and item.get("path") == "/ingest/events":
+            event = self._event_originals280.get(id(item))
+            if event is None or event["attempted"] or not self._event_current280(item) or self.worker.paused():
+                self._warn_custody("event original lacks a fresh unused source witness; exact original retained")
+                return Delivery.HELD
+            event["attempted"] = True
+            retries = 1
         self.worker.last_refusal = None
         if independent is not None:
             independent["attempted"] = True
         try:
             # A transport stub or caller cannot mutate the original body held in state.
             body = json.loads(json.dumps(item["body"], allow_nan=False))
+            if item["path"] in ("/ingest/verify", "/ingest/events", officer_invites233.PATH):
+                log("original request attempt: " + item["path"] + "; no delivery outcome claimed")
             ok, res = self.worker.call("POST", item["path"], body, retries=retries)
         except Exception:
             self._warn_custody("transport outcome unknown; exact original remains held")
@@ -973,7 +1136,7 @@ class Watcher:
         if ok and res is None and type(self.worker.last_refusal) is int and 400 <= self.worker.last_refusal < 500:
             item["refusal_status"] = self.worker.last_refusal
             try:
-                self.state.save()
+                self._save_state280()
             except OSError as error:
                 self._custody_halted = True
                 self._state_write_failed("refusal-receipt", error)
@@ -982,7 +1145,7 @@ class Watcher:
             self._warn_custody("no application receipt; exact original remains held")
         return Delivery.HELD
 
-    def post(self, path: str, body: Any, label: str, *, _verification_claims: tuple[str, ...] = ()) -> Delivery:
+    def post(self, path: str, body: Any, label: str, *, _verification_claims: tuple[str, ...] = (), _event_claims280: tuple[str, ...] = ()) -> Delivery:
         """Reserve an exact durable original before HTTP; never evict a prior unacknowledged body."""
         box = self.state.d["outbox"]
         if self._custody_halted or len(box) >= self.max_outbox:
@@ -998,9 +1161,14 @@ class Watcher:
             original["claims"] = _verification_claims
             for claim in _verification_claims:
                 self._verification_seen_claims[claim] = original
+        if self.membership_only and path == "/ingest/events" and _event_claims280:
+            source = {"original": item, "attempted": False, "snapshot": json.dumps(item, sort_keys=True, allow_nan=False), "claims": _event_claims280}
+            self._event_originals280[id(item)] = source
+            for claim in _event_claims280:
+                self._event_claims280[claim] = source
         box.append(item)
         try:
-            self.state.save()
+            self._save_state280()
         except OSError as error:
             # Atomic replace may have an uncertain local outcome. Retain the in-memory original,
             # dispatch nothing, stop new custody, and leave the source cursor uncommitted.
@@ -1014,7 +1182,8 @@ class Watcher:
             if ((path == "/ingest/roster" and roster is not None and roster.get("original") is item
                  and item.get("body") == roster.get("body"))
                     or (path in ("/ingest/verify", officer_invites233.PATH) and verification is not None
-                        and self._verification_original_current(item, verification) and self._verification_claims_owned(item, verification))):
+                        and self._verification_original_current(item, verification) and self._verification_claims_owned(item, verification))
+                    or path == "/ingest/events" and self._event_current280(item)):
                 self._independent_originals[id(item)] = {"original": item, "snapshot": json.dumps(item, sort_keys=True, allow_nan=False),
                                                         "attempted": False, "receipt": None}
         if box[0] is not item:
@@ -1032,8 +1201,12 @@ class Watcher:
         for key in keys:
             if not self.state.seen(key):
                 claims.append(self.state._k(key))
-        result = (self.post(path, body, label, _verification_claims=tuple(claims))
-                  if self.membership_only and path in ("/ingest/verify", officer_invites233.PATH) else self.post(path, body, label))
+        if self.membership_only and path in ("/ingest/verify", officer_invites233.PATH):
+            result = self.post(path, body, label, _verification_claims=tuple(claims))
+        elif self.membership_only and path == "/ingest/events":
+            result = self.post(path, body, label, _event_claims280=tuple(claims))
+        else:
+            result = self.post(path, body, label)
         if result is Delivery.NO_CUSTODY:
             self.state.d["seen"] = before
             raise NoCustody("source paused until original custody is available")
@@ -1135,7 +1308,7 @@ class Watcher:
             if fp:
                 self.state.d["chat_fp"] = fp
             self.state.d["chat_init"] = True
-            self.state.save()
+            self._save_state280()
             return
         if size == off:
             return
@@ -1174,7 +1347,7 @@ class Watcher:
         self.state.d["chat_size"] = size
         if fp:
             self.state.d["chat_fp"] = fp
-        self.state.save()
+        self._save_state280()
 
     def handle_chat_line(self, line: str) -> None:
         if "OLVDIAG" in line and OUT_WHISPER_RE.match(line):
@@ -1222,9 +1395,8 @@ class Watcher:
             body["nativeMembership"] = native["nativeMembership"]
         if guid:
             body["guid"] = guid
-        log(f"whisper from {sender}: valid {'request ' if kind == 'ticket' else ''}code, forwarding{' (character ID known)' if guid else ''}")
         self._post_claimed("/ingest/verify", body, f"verify {sender}", [key])
-        self.state.save()
+        self._save_state280()
 
     @staticmethod
     def code_key(source: str, sender: str, code: str) -> str:
@@ -1288,7 +1460,7 @@ class Watcher:
         diag.append({"tag": tag, "epoch": epoch, "file": where, "lag": lag, "seenAt": int(time.time())})
         del diag[:-30]
         log(f"diag: marker '{tag}' reached {where} {lag:.0f}s after it was written")
-        self.state.save()
+        self._save_state280()
 
     def _snapshot_log_sizes(self) -> dict[str, float]:
         """Where each of the other logs ends now: only what is written after this is looked at."""
@@ -1431,9 +1603,8 @@ class Watcher:
         if self.state.was_seen(key):
             return True
         self.note_lag("signed", line)
-        log(f"guild: {name} joined (addon-signed); forwarding")
         self._post_claimed("/ingest/events", {"events": [{"type": "joined", "name": name, "ts": int(time.time()), "ok": True, "origin": "token", "detail": "addon-confirmed"}]}, f"joined {name}", [key])
-        self.state.save()
+        self._save_state280()
         return True
 
     def handle_signed_leave(self, line: str) -> bool:
@@ -1462,9 +1633,8 @@ class Watcher:
         else:
             ev = {"type": "left", "detail": "left the guild (addon-signed)" if kind == "left" else "removed from the guild (addon-signed)"}
         ev.update({"name": name, "ts": int(time.time()), "ok": True, "origin": "token"})
-        log(f"guild: {name} — {ev['detail']}; forwarding")
         self._post_claimed("/ingest/events", {"events": [ev]}, f"{ev['type']} {name}", [key])
-        self.state.save()
+        self._save_state280()
         return True
 
     def handle_signed_relay(self, line: str) -> bool:
@@ -1492,7 +1662,7 @@ class Watcher:
         if prev.get("character") != name or prev.get("addon") != ver:
             log(f"relay: {name} is in the world with addon {ver} — /verify names {name}" + ("" if self.report_presence else " (presence reports are off)"))
             self._presence_at = 0.0  # report the new character on the next poll, not up to 20 s later
-        self.state.save()
+        self._save_state280()
         return True
 
     def read_identity(self, line: str) -> tuple[str, str] | None:
@@ -1532,7 +1702,7 @@ class Watcher:
         if self.state.was_seen(key):
             return True
         self._post_claimed("/ingest/events", {"events": [{"type": "identity", "name": name, "guid": guid, "ts": int(time.time()), "ok": True, "origin": "token"}]}, f"identity {name}", [key])
-        self.state.save()
+        self._save_state280()
         return True
 
     def note_saved_relay(self, db: dict[str, Any], mtime: float) -> None:
@@ -1600,9 +1770,8 @@ class Watcher:
         ev["ts"] = int(time.time())
         ev["ok"] = True
         ev["origin"] = "chatlog"  # forgeable with /emote: the Worker will not grant or remove a role on this alone
-        log(f"guild: {ev['name']} — {ev['detail']} (chat log, unverified); forwarding")
         self._post_claimed("/ingest/events", {"events": [ev]}, f"{ev['type']} {ev['name']}", [key])
-        self.state.save()
+        self._save_state280()
 
     def read_native_membership(self, line: str) -> dict[str, Any] | None:
         outgoing = OUT_WHISPER_RE.match(line)
@@ -1640,7 +1809,7 @@ class Watcher:
         self.note_ticket_sender(row["character"], row["code"])
         body = {**row, "source": "whisper", "ts": row["nativeMembership"]["observedAt"], "officer": self.officer}
         self._post_claimed("/ingest/verify", body, "native membership verification", [key])
-        self.state.save()
+        self._save_state280()
         return True
 
     def handle_signed_treasury(self, line: str) -> bool:
@@ -1680,55 +1849,49 @@ class Watcher:
         self._treasury_purged_at = current
 
     # ---------- 2. SavedVariables ----------
-    def _launch_savedvars_witness(self) -> tuple[int, ...] | None:
+    def _launch_savedvars_witness(self) -> tuple[Any, ...] | None:
         try:
-            source = self.sv_file.lstat()
-            if not stat.S_ISREG(source.st_mode):
-                return None
-            witness = (source.st_dev, source.st_ino, source.st_mtime_ns, source.st_ctime_ns, source.st_size)
-            if any(type(value) is not int or value < 0 for value in witness) or source.st_ino == 0:
-                return None
-            return witness
-        except (OSError, ValueError, TypeError, AttributeError):
+            # No parsing or admission here: only revalidate exact read custody.
+            snapshot = savedvars_source280.read(self.sv_file, getattr(self, "_savedvars_source280", None))
+            return snapshot.witness + (snapshot.digest,)
+        except savedvars_source280.SourceUnavailable:
             return None
 
     def check_savedvars(self) -> None:
         self.purge_treasury_receipts()
-        intake242.collect(self)
-        witness = self._launch_savedvars_witness() if self.membership_only else None
-        if self.membership_only and witness is None:
+        try:
+            snapshot = savedvars_source280.owned(self)
+        except savedvars_source280.SourceUnavailable:
             self._launch_consumed_sv_witness = None
             self._verification_roster = None
-            return
-        if not self.sv_file.exists():
-            self._verification_roster = None
-            return
-        initial = self.sv_file.stat()
-        mtime = initial.st_mtime
+            self._verification_sv_source280 = None
+            # Valid retained intake may progress independently of a broken source.
+            # drain enforces its own original witnesses and global custody fence.
+            intake242.drain(self, collect_inputs=False)
+            raise SavedVariablesSourceUnavailable() from None
+        current_source = self._verification_file_source280(snapshot) if self.membership_only else None
+        if self._verification_roster is not None:
+            if not self._same_verification_source280(self._verification_roster["fileSource280"], current_source):
+                self._verification_roster = None
+            else:
+                self._verification_roster["fileSource280"].update(descriptor=current_source["descriptor"], digest=current_source["digest"])
+        self._verification_sv_source280 = current_source
+        witness = snapshot.witness + (snapshot.digest,) if self.membership_only else None
+        intake242.collect(self, snapshot)
+        mtime = snapshot.mtime
         if mtime <= self.state.d["sv_mtime"]:
-            if getattr(self, '_launch_consumed_sv_witness', None) != witness:
+            if getattr(self, "_launch_consumed_sv_witness", None) != witness:
                 self._launch_consumed_sv_witness = None
             intake242.drain(self, collect_inputs=False)
             return
         self._launch_consumed_sv_witness = None
-        time.sleep(1.0)  # WoW writes the file in one go, but give it a moment
-        try:
-            data = savedvars.parse_file(str(self.sv_file))
-        except Exception:
+        self._verification_sv_stamp = (snapshot.witness[3], snapshot.witness[2])
+        data = snapshot.data
+        if type(data.get("OlympusVerifyDB")) is not dict:
             self._verification_roster = None
-            log("SavedVariables parse failed: unreadable or invalid data (contents withheld)")
-            self.state.d["sv_mtime"] = mtime
-            self.state.save()
-            return
-        current = self.sv_file.stat()
-        if (current.st_mtime_ns, current.st_size) != (initial.st_mtime_ns, initial.st_size):
-            self._verification_roster = None
-            return
-        if self.membership_only and self._launch_savedvars_witness() != witness:
-            self._verification_roster = None
-            return
-        self._verification_sv_stamp = (current.st_mtime_ns, current.st_size)
-        db = data.get("OlympusVerifyDB") or {}
+            intake242.drain(self, collect_inputs=False)
+            raise SavedVariablesSourceUnavailable()
+        db = data["OlympusVerifyDB"]
         treasury = db.get("treasury") or {}
         receipts = treasury.get("receipts") if isinstance(treasury, dict) else None
         if isinstance(receipts, list):
@@ -1739,11 +1902,11 @@ class Watcher:
         if not self.membership_only:
             self.forward_events(db.get("events") or [])
         control = self.valid_launch_control(db)
-        new_scan = (control is not None and control['action'] in ('scan', 'select', 'select-many')
+        new_scan = (control is not None and control['action'] in ('scan', 'select', 'select-many', 'select-directive')
                     and not self.state.was_seen("launch-control:" + control['guid'] + ":" + control['id']))
         slot = db.get('launchControl')
         consumed = getattr(self, '_launch_selected_control', None)
-        preserve_discovery = (control is not None and control.get('version') in (2, 3) or consumed is not None
+        preserve_discovery = (control is not None and control.get('version') in (2, 3, 4) or consumed is not None
                               and isinstance(slot, dict) and type(slot.get('version')) is int
                               and type(slot.get('observedAt')) is int and slot == consumed)
         # Recognizing the already consumed slot after 60s preserves history only;
@@ -1753,7 +1916,16 @@ class Watcher:
             roster_options['begin_launch_scan'] = True
         if preserve_discovery:
             roster_options['preserve_discovery'] = True
-        self.forward_roster(db.get("roster") or {}, **roster_options)
+        roster = db.get("roster") or {}
+        if type(roster) is not dict:
+            self._verification_roster = None
+            intake242.drain(self, collect_inputs=False)
+            raise SavedVariablesSourceUnavailable()
+        try:
+            self.forward_roster(roster, **roster_options)
+        except SavedVariablesSourceUnavailable:
+            intake242.drain(self, collect_inputs=False)
+            raise
         intake242.drain(self, collect_inputs=False)
         if self.membership_only:
             try:
@@ -1762,7 +1934,8 @@ class Watcher:
                 return  # keep the original SavedVariables cursor until roster admission is known
         self.read_launch_control(db)
         self.state.d["sv_mtime"] = mtime
-        self.state.save()
+        self._save_state280()
+        self._source_diagnoses280["source"] = "readable"
         if (witness is not None and not getattr(self, '_custody_halted', False)
                 and self._launch_savedvars_witness() == witness):
             self._launch_consumed_sv_witness = witness
@@ -1771,11 +1944,17 @@ class Watcher:
         relay: list[dict[str, Any]] = []
         relay_keys: list[str] = []
         batch_keys: set[str] = set()
-        stale = 0
+        stale, invalid = 0, 0
+        if type(events) is not list:
+            self._source_counts280("events", 1)
+            return
         for e in events:
-            if not isinstance(e, dict):
+            if (type(e) is not dict or type(e.get("type")) is not str or type(e.get("ts")) is not int
+                    or not 0 < e["ts"] <= 9_007_199_254_740_991
+                    or "name" in e and type(e["name"]) is not str):
+                invalid += 1
                 continue
-            t, name, ts = e.get("type"), e.get("name") or "", int(e.get("ts") or 0)
+            t, name, ts = e["type"], e.get("name") or "", e["ts"]
             if t == "officer_invite_proof" and self.membership_only:
                 self.forward_officer_invite(e.get("body"))
             elif t in ("whisper", "mail") and e.get("ok") and e.get("code"):
@@ -1791,7 +1970,12 @@ class Watcher:
                     self.note_ticket_sender(name, strict)
                 body = {"character": name, "code": strict or raw, "source": t, "ts": ts, "officer": self.officer}
                 if self.membership_only:
-                    proof = validate_membership(self.secret, name, e.get("guid"), strict or raw, e.get("nativeMembership"), int((e.get("nativeMembership") or {}).get("observedAt") or time.time()))
+                    native = e.get("nativeMembership")
+                    observed = native.get("observedAt") if type(native) is dict else None
+                    if type(observed) is not int:
+                        invalid += 1
+                        continue
+                    proof = validate_membership(self.secret, name, e.get("guid"), strict or raw, native, observed)
                     if proof is None:
                         continue
                     if proof["member"] is False:
@@ -1800,7 +1984,6 @@ class Watcher:
                     body["nativeMembership"] = proof
                 if codes.is_guid(e.get("guid")):
                     body["guid"] = e["guid"]  # the addon read it from the whisper event itself
-                log(f"{t} from {name} (SavedVariables): forwarding")
                 self._post_claimed("/ingest/verify", body, f"verify {name}", [key])
             elif t == "guild_full":
                 # No character of its own: key it on the minute so a burst of refused invites reports once.
@@ -1855,6 +2038,7 @@ class Watcher:
                     ev["reason"] = str(e["reason"])[:32]
                 relay.append(ev)
                 relay_keys.append(key); batch_keys.add(key)
+        self._source_counts280("events", invalid)
         if relay:
             self._post_claimed("/ingest/events", {"events": relay}, f"{len(relay)} addon event(s)", relay_keys)
         if stale and not getattr(self, "_stale_reported", False):
@@ -1862,6 +2046,17 @@ class Watcher:
             log(f"SavedVariables: {stale} join/departure event(s) older than {SV_EVENT_MAX_AGE // 3600} h not relayed (the roster export has settled them)")
 
     def forward_roster(self, roster: dict[str, Any], *, begin_launch_scan: bool = False, preserve_discovery: bool = False) -> None:
+        if (type(roster) is not dict or "exportedAt" in roster and type(roster["exportedAt"]) is not int
+                or "members" in roster and type(roster["members"]) is not list):
+            self._verification_roster = None
+            raise SavedVariablesSourceUnavailable()
+        try:
+            # Source-only preflight before changing scan/ACK custody. No raw
+            # value is normalised, and journal failures remain global failures.
+            json.dumps(roster, sort_keys=True, ensure_ascii=False, allow_nan=False).encode("utf-8")
+        except (TypeError, ValueError, OverflowError):
+            self._verification_roster = None
+            raise SavedVariablesSourceUnavailable() from None
         if preserve_discovery and self.launch_scan.phase != 'idle':
             self.launch_scan._stop('superseded')  # Cancel active cursors; keep the serialized history intact.
         selected = getattr(self, 'launch_selected', None)
@@ -1875,11 +2070,6 @@ class Watcher:
         accepted = self._launch_accepted_roster
         first = self.launch_scan.pages.get(0)
         at = time.time()
-        if (verified is not None and verification is not None and verification['digest'] == verified["digest"]
-                and type(roster.get("exportedAt")) is int and verified["exportedAt"] <= roster["exportedAt"] <= at + 5):
-            # Only the observed file stamp follows an identical complete export.
-            # Neither the original source timestamp nor its ACK deadline is renewed.
-            verified["fileStamp"] = self._verification_sv_stamp
         if (not begin_launch_scan and self.membership_only and digest is not None and accepted is not None and first is not None
                 and self.launch_scan.stopped in (None, 'rate-limited-wait') and at < first['scan']['expiresAt']
                 and first['snapshotId'] == accepted['snapshot'] and first['snapshotAt'] == accepted['exportedAt']
@@ -1901,15 +2091,16 @@ class Watcher:
             value = roster.get(field)
             if isinstance(value, str) and 0 < len(value.encode("utf-8")) <= 128 and not any(ord(c) < 32 or ord(c) == 127 for c in value):
                 native_scope[field] = value
+        if 'nativeRankTable' in roster:
+            native_scope['nativeRankTable'] = native_rank_attestation.observation(roster['nativeRankTable'])
         # Scope is part of source identity, including an otherwise identical
         # export at the same second. Never let an older export replace a newer
         # one, and retain old unscoped watermarks without an unsolicited replay.
         scope_hash = hashlib.sha256(json.dumps(native_scope, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
         prior_scope_hash = self.state.d.get("roster_scope_hash")
         same_scope = prior_scope_hash == scope_hash or prior_scope_hash is None and not native_scope
-        if not exported or exported < self.state.d["roster_sent"] or exported == self.state.d["roster_sent"] and same_scope or not isinstance(members, list):
+        if not exported or exported < self.state.d["roster_sent"] or not isinstance(members, list):
             return
-        self._verification_roster = None  # a newer pending/refused source never borrows an older positive ACK
         payload = {
             "exportedAt": exported,
             "members": [
@@ -1932,16 +2123,27 @@ class Watcher:
         # from its configuration or a character claim. The Worker pins it before
         # admitting a launch roster. Older addons remain unscoped, not guessed.
         payload.update(native_scope)
+        payload_hash = hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False, allow_nan=False).encode('utf-8')).hexdigest()
+        prior_payload_hash = self.state.d.get('roster_payload_hash')
+        if exported == self.state.d['roster_sent'] and same_scope and (prior_payload_hash is None or prior_payload_hash == payload_hash):
+            return  # An old watermark is not reconstructed into a new dispatch.
+        self._verification_roster = None  # a newer pending/refused source never borrows an older positive ACK
         self._verification_roster_candidate = None
         if digest is not None:
             self._launch_roster_candidate = {'body': json.loads(json.dumps(payload)), 'digest': digest, 'exportedAt': exported}
         if verification is not None:
+            file_source = self._verification_sv_source280
+            if (file_source is None or file_source["rosterDigest"] != verification["digest"]
+                    or file_source["exportedAt"] != exported):
+                file_source = None
             self._verification_roster_candidate = {**verification, "body": json.loads(json.dumps(payload)),
-                "exportedAt": exported, "fileStamp": self._verification_sv_stamp}
+                "exportedAt": exported, "fileStamp": self._verification_sv_stamp,
+                "fileSource280": file_source}
         log(f"roster ({len(payload['members'])} members, exported {exported})")
         previous_watermark = self.state.d["roster_sent"]
         self.state.d["roster_sent"] = exported  # committed atomically with custody, before any dispatch
         self.state.d["roster_scope_hash"] = scope_hash
+        self.state.d['roster_payload_hash'] = payload_hash
         outcome = self.post("/ingest/roster", payload, f"roster {exported}")
         if outcome is Delivery.NO_CUSTODY:
             self.state.d["roster_sent"] = previous_watermark
@@ -1949,6 +2151,10 @@ class Watcher:
                 self.state.d.pop("roster_scope_hash", None)
             else:
                 self.state.d["roster_scope_hash"] = prior_scope_hash
+            if prior_payload_hash is None:
+                self.state.d.pop('roster_payload_hash', None)
+            else:
+                self.state.d['roster_payload_hash'] = prior_payload_hash
             raise NoCustody("roster source paused until original custody is available")
         if outcome is Delivery.DELIVERED:
             self._last_unverified_pull = 0.0  # the list is derived from the roster: refresh it on the next queue pull
@@ -2020,10 +2226,11 @@ class Watcher:
             # Presence stays zero-D1. This exact cache intent remains fenced by launch-membership-v1; members-only never claims invite rows.
             cache_okay, cache_response = self.worker.call("GET", "/queue?cacheOnly242=1", retries=1)
             cached = intake242.verification_results(self, cache_response) if cache_okay else []
-            if receipts or cached:
+            qualified_cache = (cache_okay and type(cache_response) is dict and cache_response.get("presenceOnly") is True
+                               and type(cache_response.get("verificationResults")) is list)
+            if qualified_cache and (receipts or cached or self.queue_file.name in self._projection_writes280):
                 body = self.render_queue([], False, intake_receipts=receipts, verification_results=cached)
-                self.queue_file.parent.mkdir(parents=True, exist_ok=True)
-                atomic_local_text(self.queue_file, body)
+                self._write_projection280(self.queue_file, body, {"intakeReceipts242": receipts, "verificationResults242": cached})
             if cache_okay:
                 self._optional_role_wake264(cache_response)
             return
@@ -2045,11 +2252,10 @@ class Watcher:
         # The unverified list is an input too. Leaving it out would repeat the .24 trap, where new data changed and the
         # gate still said "unchanged", so the file never reached the addon.
         h = hashlib.sha256(json.dumps({"e": entries, "n": bool(res.get("setGuildNote")), "u": self._unverified, "intakeReceipts242": receipts, "verificationResults242": cached}, sort_keys=True).encode("utf-8")).hexdigest()
-        if h == self.state.d["queue_hash"] and self.queue_file.exists():
-            self.retry_queue_written()
+        written = self._write_projection280(self.queue_file, body, {"e": entries, "n": bool(res.get("setGuildNote")), "u": self._unverified,
+                                                     "intakeReceipts242": receipts, "verificationResults242": cached})
+        if not written:
             return
-        self.queue_file.parent.mkdir(parents=True, exist_ok=True)
-        atomic_local_text(self.queue_file, body)
         self.state.d["queue_hash"] = h
         queued = [e["id"] for e in entries if e.get("status") == "queued"]
         if queued:
@@ -2057,7 +2263,7 @@ class Watcher:
             self.state.d["queue_written_pending"] = pending
             self.state.d["queue_written_original"] = self._freeze_original("/queue/written", {"ids": pending, "officer": self.officer_id}, "queue written")
         try:
-            self.state.save()  # file hash, IDs and actual original officer/body are one custody save
+            self._save_state280()  # file hash, IDs and actual original officer/body are one custody save
         except OSError as error:
             self._custody_halted = True
             self._state_write_failed("queue-reservation", error)
@@ -2066,20 +2272,39 @@ class Watcher:
         if queued:
             self.retry_queue_written()
 
+    def _control_diagnosis280(self, control: Any, reason: str) -> None:
+        canonical = intake242._canonical_body(control)
+        fingerprint = canonical[1] if canonical is not None else "unreadable"
+        key = (fingerprint, reason)
+        if getattr(self, "_last_control_diagnosis280", None) != key:
+            self._last_control_diagnosis280 = key
+            log("launch control held: " + reason + "; no new action or control was created")
+
     def valid_launch_control(self, db: dict[str, Any]) -> dict[str, Any] | None:
         if not self.membership_only or self._custody_halted:
             return None
-        roster = db.get("roster")
-        control = db.get("launchControl")
+        roster, control = db.get("roster"), db.get("launchControl")
+        if control is None:
+            return None
         at = int(time.time())
         if not isinstance(roster, dict):
+            self._control_diagnosis280(control, "native roster unavailable")
             return None
         own = saved_character(db)
+        if not own or codes.normalize_character(own) != codes.normalize_character(self.officer):
+            self._control_diagnosis280(control, "officer scope not confirmed")
+            return None
+        exported = roster.get("exportedAt")
+        if type(exported) is not int or not 0 <= at-exported <= 600:
+            self._control_diagnosis280(control, "native roster time invalid or expired")
+            return None
         validator = (launch_operations229.validate_selected_control
-                      if isinstance(control, dict) and control.get('version') in (2, 3) else launch_operations229.validate_control)
-        if (not own or codes.normalize_character(own) != codes.normalize_character(self.officer)
-                or not isinstance(roster.get("exportedAt"), (int, float)) or not 0 <= at-roster["exportedAt"] <= 600
-                or not validator(self.secret, control, at, db.get("lastCharacterGuid"), roster.get("nativeGuild"), roster.get("nativeRealm"))):
+                     if isinstance(control, dict) and control.get('version') in (2, 3, 4) else launch_operations229.validate_control)
+        if not validator(self.secret, control, at, db.get("lastCharacterGuid"), roster.get("nativeGuild"), roster.get("nativeRealm")):
+            observed = control.get("observedAt") if type(control) is dict else None
+            reason = ("control time invalid or expired" if type(observed) is int and not 0 <= at-observed < 60
+                      else "signature, scope or shape not confirmed")
+            self._control_diagnosis280(control, reason)
             return None
         return control
 
@@ -2093,12 +2318,12 @@ class Watcher:
         # Spend the explicit local request before its first read. Restart never resumes a role scan.
         try:
             self.state.seen(key)
-            self.state.save()
+            self._save_state280()
         except Exception:
             self._custody_halted = True
             self._launch_consumed_sv_witness = None
             raise CustodyStopped("launch control reservation custody stopped; inspect storage and restart") from None
-        if control['version'] in (2, 3):
+        if control['version'] in (2, 3, 4):
             if self.launch_scan.phase != 'idle':
                 self.launch_scan._stop('superseded')
             self._launch_selected_control = json.loads(json.dumps(control))
@@ -2106,6 +2331,8 @@ class Watcher:
             if accepted is not None and accepted['exportedAt'] != self.state.d['roster_sent']:
                 accepted = None
             self.launch_selected.request(control, accepted, db['roster'], time.time())
+            if not self.launch_selected.running:
+                self._control_diagnosis280(control, "selected request held by current native source")
             self.launch_selected.next_at = max(self.launch_selected.next_at,
                                                getattr(self, '_next_launch_read_at', 0), self.launch_scan.next_at)
             self.write_launch_selected()
@@ -2120,6 +2347,7 @@ class Watcher:
             if (accepted is None or accepted['exportedAt'] != roster.get('exportedAt')
                     or accepted['exportedAt'] != self.state.d['roster_sent']
                     or accepted['digest'] != launch_operations229.complete_roster_digest(roster)):
+                self._control_diagnosis280(control, "native roster acknowledgment required")
                 self.launch_scan._stop('native-roster-receipt-required')
                 self.launch_scan.control_id = control['id']
                 self.write_launch_operations()
@@ -2128,6 +2356,8 @@ class Watcher:
             if control['action'] == 'scan':
                 self.launch_scan.expected_snapshot = (accepted['snapshot'],accepted['exportedAt'])
             self.write_launch_operations()
+        else:
+            self._control_diagnosis280(control, "scan request refused; use a new explicit control")
 
     def write_launch_operations(self) -> None:
         body = launch_operations229.render_pages(self.launch_scan.result(), int(time.time()))
@@ -2135,10 +2365,8 @@ class Watcher:
             log("launch projection validation held; previous page dates remain unchanged")
             return
         path = self.launch_operations_file
-        if not path.parent.is_dir() or path.is_symlink() or path.with_suffix(".tmp").is_symlink():
-            log("launch operation projection path unavailable; no queue file written")
+        if not self._write_projection280(path, body, self.launch_scan.result()):
             return
-        atomic_local_text(path, body)
         result = self.launch_scan.result()
         fresh = sum(int(time.time()) < page['expiresAt'] and int(time.time()) < page['scan']['expiresAt'] for page in result['pages'])
         log(f"launch projection: {result['discoveredPages']}/50 pages; discovery {'complete' if result['scanComplete'] else 'incomplete'}; {fresh} action-fresh page(s); {result['stoppedReason'] or self.launch_scan.phase}; reload to load")
@@ -2149,12 +2377,19 @@ class Watcher:
             log("selected promotion projection held; no file written")
             return
         path = self.launch_selected_file
-        if not path.parent.is_dir() or path.is_symlink() or path.with_suffix('.tmp').is_symlink():
-            log("selected promotion projection path unavailable; no file written")
+        if not self._write_projection280(path, body, self.launch_selected.record):
             return
-        atomic_local_text(path, body)
         r = self.launch_selected.record
         log(f"selected promotion read: {r['attempts']}/3 attempts; {'complete' if r['completed'] else r['stoppedReason'] or 'pending'}; reload to load")
+
+    def _selected_pause280(self, paused: dict[str, Any]) -> None:
+        before = json.dumps(self.launch_selected.record, sort_keys=True)
+        if isinstance(paused, dict) and type(paused.get('httpStatus')) is int and paused['httpStatus'] == 429:
+            self.launch_selected.defer_rate_limit(paused.get('retryAfterSeconds'))
+        else:
+            self.launch_selected.hold('source-refused')
+        if json.dumps(self.launch_selected.record, sort_keys=True) != before:
+            self.write_launch_selected()
 
     def _pull_launch_selected(self) -> None:
         selected = self.launch_selected
@@ -2166,11 +2401,7 @@ class Watcher:
             return
         paused = self.worker.paused()
         if paused:
-            if isinstance(paused, dict) and type(paused.get('httpStatus')) is int and paused['httpStatus'] == 429:
-                selected.defer_rate_limit(paused.get('retryAfterSeconds'))
-            else:
-                selected.hold('source-refused')
-            self.write_launch_selected()
+            self._selected_pause280(paused)
             return
         witness = self._launch_savedvars_witness()
         if witness is None or witness != getattr(self, '_launch_consumed_sv_witness', None):
@@ -2188,11 +2419,7 @@ class Watcher:
                 return
             paused = self.worker.paused()
             if paused:
-                if isinstance(paused, dict) and type(paused.get('httpStatus')) is int and paused['httpStatus'] == 429:
-                    selected.defer_rate_limit(paused.get('retryAfterSeconds'))
-                else:
-                    selected.hold('source-refused')
-                self.write_launch_selected()
+                self._selected_pause280(paused)
                 return
         if time.time() < getattr(self, '_next_launch_read_at', 0):
             return
@@ -2283,11 +2510,8 @@ class Watcher:
             log("strict roster display unavailable; any previous lists keep their original dates")
             return
         path = self.strict_display_file
-        if not path.parent.is_dir() or path.is_symlink() or path.with_suffix(".tmp").is_symlink():
-            log("strict roster display file unavailable; invitation queue untouched")
-            return
-        atomic_local_text(path, body)
-        self._next_strict_display_pull = at + cadence
+        if self._write_projection280(path, body, response) is not None:
+            self._next_strict_display_pull = at + cadence
 
     @staticmethod
     def render_strict_display(report: Any, at: int) -> str | None:
@@ -2364,7 +2588,7 @@ class Watcher:
         self.state.d["queue_written_pending"] = []
         self.state.d["queue_written_original"] = None
         try:
-            self.state.save()
+            self._save_state280()
         except OSError as error:
             self.state.d["queue_written_pending"] = pending
             self.state.d["queue_written_original"] = original
@@ -2549,9 +2773,18 @@ class Watcher:
         self._role_wake_startup264 = None
         if not self.membership_only:
             return
-        okay, response = self.worker.call("GET", "/health", retries=1)
+        for attempt in range(3):
+            self._require_custody_continuation()
+            okay, response = self.worker.call("GET", "/health", retries=1)
+            self._require_custody_continuation()
+            if (okay or not getattr(self.worker, "last_startup_transient280", False) or self.worker.paused() or attempt == 2):
+                break
+            self._require_custody_continuation()
+            time.sleep((1, 3)[attempt])
         state = response.get("verification") if okay and isinstance(response, dict) and response.get("ok") is True else None
-        if not isinstance(state, dict) or state.get("mode") != "members-only" or state.get("nativeScopePinned") is not True or type(state.get("nativeMembershipProofVersion")) is not int or state["nativeMembershipProofVersion"] != 1:
+        if (not isinstance(state, dict) or state.get("mode") != "members-only" or state.get("nativeScopePinned") is not True
+                or type(state.get("nativeMembershipProofVersion")) is not int or state["nativeMembershipProofVersion"] != 1
+                or type(state.get("nativeRosterProtocolVersion")) is not int or state["nativeRosterProtocolVersion"] != 2):
             raise LaunchNotReady("launch verification Worker/profile is not ready; ingestion was not started")
         build = re.fullmatch(r"\d{4}-\d{2}-\d{2}\.(\d{1,6})(?: .*)?", response.get("build", "")) if isinstance(response.get("build"), str) else None
         if build is not None and int(build[1]) >= 264:
@@ -2560,6 +2793,14 @@ class Watcher:
     def run(self) -> None:
         self.require_launch_worker()
         log(f"watcher {WATCHER_VERSION}: watching {self.chat_log} and {self.sv_file}")
+        def savedvars_lane():
+            try:
+                self.check_savedvars()
+            except SavedVariablesSourceUnavailable:
+                self._require_custody_continuation()
+                if self._source_diagnoses280.get("source") != "held":
+                    self._source_diagnoses280["source"] = "held"
+                    log("SavedVariables source held: unreadable or invalid data (contents withheld)")
         while True:
             prefix_seconds = 0.0
             launch_seconds = None
@@ -2569,12 +2810,12 @@ class Watcher:
                 self.recover_local_settlement()
                 self._require_custody_continuation()
                 if self.membership_only:
-                    self.check_savedvars()
+                    savedvars_lane()
                 self.flush_outbox()
                 self._require_custody_continuation()
                 self.tail_chat_log()
                 if not self.membership_only:
-                    self.check_savedvars()
+                    savedvars_lane()
                 prefix_seconds = max(0.0, time.monotonic() - prefix_started)
                 launch_started = time.monotonic()
                 selected = getattr(self, 'launch_selected', None)

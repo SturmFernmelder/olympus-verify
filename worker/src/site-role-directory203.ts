@@ -4,6 +4,7 @@
  * the ten native ranks link to these cards instead of becoming ten extra jobs.
  * Backend admission, holders, ballots, scopes and historical identities stay separate. */
 import { COUNCIL_FAMILY_ORDER, OFFICE_APPOINTMENTS, NATIVE_RANKS_199 } from './governance-offices';
+import { reservedApplication201, validateApplicationIntent199 } from './application-track199';
 
 export type RoleDirectoryKind203 = 'role' | 'activity' | 'status' | 'institution';
 export type RoleDirectoryTier203 = 'leader' | 'high_council' | 'officer_corps' | 'member_specialist';
@@ -15,6 +16,11 @@ export interface RoleDirectoryVariant203 {
   readonly kind: RoleVariantKind203;
   readonly presentation: RoleVariantPresentation218;
 }
+/** The directive's six Role & Office Catalog groups (Evergreen 12 Nov 2026, CL2-034), in their page order. */
+export type RoleCatalogGroup1112 = 'council' | 'officers' | 'raid' | 'workshop' | 'members' | 'royal';
+/** One eligibility vocabulary for every role surface (CL2-036). */
+export type RoleEligibility1112 = 'open_application' | 'reserved_seat' | 'appointed' | 'activity' | 'standing' | 'gold_writ';
+export type RoleApplicationTarget1112 = Readonly<{ applicationTrack: 'member' | 'raider' | 'artisan'; targetOffice: string | null }>;
 export interface RoleDirectoryFamily203 {
   readonly key: string;
   readonly label: string;
@@ -24,7 +30,13 @@ export interface RoleDirectoryFamily203 {
   readonly sourceKeys: readonly string[];
   readonly alternateTitles: readonly string[];
   readonly variants: readonly RoleDirectoryVariant203[];
-  readonly application?: Readonly<{ applicationTrack: 'member' | 'raider' | 'artisan'; targetOffice: string | null }>;
+  readonly application?: RoleApplicationTarget1112;
+  readonly group: RoleCatalogGroup1112;
+  /** The primary office's zero-based native slot, or null for an activity with no rank association. */
+  readonly nativeSlot: number | null;
+  readonly eligibility: RoleEligibility1112;
+  /** Exactly the intents the Worker accepts today (validateApplicationIntent199 and reservedApplication201). */
+  readonly applicationTargets: readonly RoleApplicationTarget1112[];
 }
 export interface RoleDirectory203 {
   readonly version: 1;
@@ -33,6 +45,8 @@ export interface RoleDirectory203 {
   readonly keyToFamily: Readonly<Record<string, string>>;
   readonly sourceKeyCount: 142;
   readonly councilOrder: readonly string[];
+  /** The six catalogue groups with their families in page order; every role surface sections by this list. */
+  readonly groups: readonly Readonly<{ key: RoleCatalogGroup1112; label: string; familyKeys: readonly string[] }>[];
 }
 
 interface FamilySeed203 {
@@ -50,26 +64,26 @@ interface FamilySeed203 {
 // In particular, a Council portfolio is never folded into its officer service,
 // and independent audit remains outside both Treasury and stock custody.
 const seeds203: readonly FamilySeed203[] = [
-  { key: 'systems_heraldry', label: "Systems & Heraldry", kind: 'role', tier: 'high_council', primaryKey: 'office_103', sourceKeys: ['office_103'] },
-  { key: 'propaganda', label: "Lord High Herald · Minister of Propaganda", kind: 'role', tier: 'high_council', primaryKey: 'office_102', sourceKeys: ['office_102'] },
-  { key: 'leader', label: 'Leader / Guild Master', kind: 'role', tier: 'leader', primaryKey: 'office_43', sourceKeys: ['office_43', 'office_81', 'office_41'], contexts: { office_81: 'Sovereign (The King) — alliance executive and royal decrees', office_41: 'Final Authority — the sovereign responsibility, not an additional office', guild_master: 'Guild Master — retained Olympus II–X branch guide' } },
-  { key: 'founder', label: 'Founder Recognition', kind: 'status', tier: 'leader', primaryKey: 'office_42', sourceKeys: ['office_42'] },
-  { key: 'high_council', label: 'High Council & Portfolio Appointments', kind: 'institution', tier: 'high_council', primaryKey: 'office_45', sourceKeys: ['office_45', 'office_28', 'office_57'], contexts: { office_28: 'Department Head — portfolio responsibility and officer coordination', office_57: 'Minister — statutory Council portfolio category' } },
+  { key: 'leader', label: 'Leader / Guild Master', kind: 'role', tier: 'leader', primaryKey: 'office_81', sourceKeys: ['office_81', 'office_43', 'office_41'], contexts: { office_43: 'Guild Master (GM) — a branch guild’s in-game configuration and permissions', office_41: 'Final Authority — the sovereign responsibility, not an additional office', guild_master: 'Guild Master — retained Olympus II–X branch guide' } },
   { key: 'co_gm', label: "Hand of the Sovereign · Co-Guild Master", kind: 'role', tier: 'high_council', primaryKey: 'office_19', sourceKeys: ['office_19', 'office_92'], contexts: { office_92: 'Vice Guild Master — the recorded continuity and succession delegation', co_gm: 'Co-Guild Master — retained detailed second-in-command guide' } },
-  { key: 'justice', label: 'Council of Justice — institution', kind: 'institution', tier: 'high_council', primaryKey: 'office_26', sourceKeys: ['office_26'] },
-  { key: 'privy_council', label: 'Privy Council', kind: 'institution', tier: 'high_council', primaryKey: 'office_67', sourceKeys: ['office_67'] },
-  { key: 'court', label: 'The Court — Constitutional Institution', kind: 'institution', tier: 'high_council', primaryKey: 'office_84', sourceKeys: ['office_84'] },
-  { key: 'chief_intake', label: "Lord High Chancellor · Minister of the Chancery & Imperial Census", kind: 'role', tier: 'high_council', primaryKey: 'office_14', sourceKeys: ['office_14'] },
-  { key: 'minister_artisanry', label: "Lord High Artificer · Minister of Artisanry & The Guild Workshop", kind: 'role', tier: 'high_council', primaryKey: 'office_58', sourceKeys: ['office_58'] },
-  { key: 'minister_heraldry', label: "Lord High Seneschal · Minister of Court Protocol & Crown Estates", kind: 'role', tier: 'high_council', primaryKey: 'office_59', sourceKeys: ['office_59'] },
-  { key: 'war_head', label: 'War Directorate — historical shared template', kind: 'institution', tier: 'high_council', primaryKey: 'office_94', sourceKeys: ['office_94'] },
   { key: 'treasurer', label: "Lord High Treasurer · Minister of the Imperial Exchequer", kind: 'role', tier: 'high_council', primaryKey: 'office_86', sourceKeys: ['office_86'], contexts: { treasurer: 'Treasurer — retained detailed financial stewardship guide', rank_treasurer: 'Historical Treasurer rank label — a current Council appointment, not an eleventh rank' } },
+  { key: 'head_justice', label: "Lord High Justiciar · Minister of Justice & The Privy Court", kind: 'role', tier: 'high_council', primaryKey: 'office_101', sourceKeys: ['office_101'] },
   { key: 'main_raid', label: "Lord High Marshal of PvE · Minister of Raid Campaigns", kind: 'role', tier: 'high_council', primaryKey: 'office_97', sourceKeys: ['office_97'] },
   { key: 'main_pvp', label: "Lord High Marshal of PvP · Minister of Battlegrounds & Honor", kind: 'role', tier: 'high_council', primaryKey: 'office_98', sourceKeys: ['office_98'] },
   { key: 'internal_security', label: "Lord High Inquisitor · Minister of Internal Security", kind: 'role', tier: 'high_council', primaryKey: 'office_99', sourceKeys: ['office_99'] },
+  { key: 'chief_intake', label: "Lord High Chancellor · Minister of the Chancery & Imperial Census", kind: 'role', tier: 'high_council', primaryKey: 'office_14', sourceKeys: ['office_14'] },
   { key: 'concordat_director', label: "Lord High Legate · Minister of the Grand Concordat", kind: 'role', tier: 'high_council', primaryKey: 'office_100', sourceKeys: ['office_100'] },
-  { key: 'head_justice', label: "Lord High Justiciar · Minister of Justice & The Privy Court", kind: 'role', tier: 'high_council', primaryKey: 'office_101', sourceKeys: ['office_101'] },
+  { key: 'minister_artisanry', label: "Lord High Artificer · Minister of Artisanry & The Guild Workshop", kind: 'role', tier: 'high_council', primaryKey: 'office_58', sourceKeys: ['office_58'] },
+  { key: 'propaganda', label: "Lord High Herald · Minister of Propaganda", kind: 'role', tier: 'high_council', primaryKey: 'office_102', sourceKeys: ['office_102'] },
+  { key: 'minister_heraldry', label: "Lord High Seneschal · Minister of Court Protocol & Crown Estates", kind: 'role', tier: 'high_council', primaryKey: 'office_59', sourceKeys: ['office_59'] },
   { key: 'head_trading', label: "Lord High Factor · Minister of Trading & Markets", kind: 'role', tier: 'high_council', primaryKey: 'office_96', sourceKeys: ['office_96'] },
+  { key: 'systems_heraldry', label: "Systems & Heraldry", kind: 'role', tier: 'high_council', primaryKey: 'office_103', sourceKeys: ['office_103'] },
+  { key: 'high_council', label: 'High Council & Portfolio Appointments', kind: 'institution', tier: 'high_council', primaryKey: 'office_45', sourceKeys: ['office_45', 'office_28', 'office_57'], contexts: { office_28: 'Department Head — portfolio responsibility and officer coordination', office_57: 'Minister — statutory Council portfolio category' } },
+  { key: 'justice', label: 'Council of Justice — institution', kind: 'institution', tier: 'high_council', primaryKey: 'office_26', sourceKeys: ['office_26'] },
+  { key: 'privy_council', label: 'Privy Council', kind: 'institution', tier: 'high_council', primaryKey: 'office_67', sourceKeys: ['office_67'] },
+  { key: 'court', label: 'The Court — Constitutional Institution', kind: 'institution', tier: 'high_council', primaryKey: 'office_84', sourceKeys: ['office_84'] },
+  { key: 'war_head', label: 'War Directorate — historical shared template', kind: 'institution', tier: 'high_council', primaryKey: 'office_94', sourceKeys: ['office_94'] },
+  { key: 'founder', label: 'Founder Recognition', kind: 'status', tier: 'leader', primaryKey: 'office_42', sourceKeys: ['office_42'] },
   { key: 'officer', label: 'Officer', kind: 'role', tier: 'officer_corps', primaryKey: 'office_62', sourceKeys: ['office_62'] },
   { key: 'officer_alt', label: 'Officer Alt', kind: 'role', tier: 'officer_corps', primaryKey: 'office_63', sourceKeys: ['office_63'] },
   { key: 'chief_staff', label: 'Chief of Staff', kind: 'role', tier: 'officer_corps', primaryKey: 'office_15', sourceKeys: ['office_15'] },
@@ -129,6 +143,52 @@ const rows203 = new Map(OFFICE_APPOINTMENTS.map(row => [row.key, row]));
 const ordinaryLabels203: Readonly<Record<string, string>> = { member: 'Guild Member', raider: 'Raider', pvp_team: 'PvP Team' };
 const sourceLabel203 = (key: string): string => rows203.get(key)?.label ?? ordinaryLabels203[key] ?? key;
 
+// Evergreen 12 Nov 2026 (CL2-034, CL2-214): the directive's six catalogue groups, moved here from the Roles page
+// so the organization register, the alliance overview, the Rosetta Stone, the vote board and the admin lists
+// section and order families the same way. Presentation only: no key, holder, ballot or permission changes.
+export const ROLE_CATALOG_GROUPS_1112 = Object.freeze([
+  { key: 'council', label: 'Sovereign & High Council' },
+  { key: 'officers', label: 'Officer Corps & Branch Command' },
+  { key: 'raid', label: 'Raid, PvP & Class Leadership' },
+  { key: 'workshop', label: 'Guild Workshop & Master Artisans' },
+  { key: 'members', label: 'Sworn Members, Raiders, Veterans, Alts & Initiates' },
+  { key: 'royal', label: 'Royal Patrons & Ceremonial Writs' },
+] as const).map(group => Object.freeze(group)) as readonly Readonly<{ key: RoleCatalogGroup1112; label: string }>[];
+const raidFamilies1112 = new Set(['class_leadership', 'chief_strategist', 'loot_council', 'pvp_leadership', 'raid_leader', 'raid_assist', 'pvp_team', 'marshall']);
+const workshopFamilies1112 = new Set(['profession_coordinator', 'artisan']);
+const royalFamilies1112 = new Set(['founder', 'emeritus', 'tithe', 'vip']);
+function catalogGroup1112(seed: FamilySeed203): RoleCatalogGroup1112 {
+  if (royalFamilies1112.has(seed.key)) return 'royal';
+  if (seed.tier === 'leader' || seed.tier === 'high_council') return 'council';
+  if (raidFamilies1112.has(seed.key)) return 'raid';
+  if (workshopFamilies1112.has(seed.key)) return 'workshop';
+  return seed.tier === 'officer_corps' ? 'officers' : 'members';
+}
+const ordinaryTracks1112 = new Set(['member', 'raider', 'artisan']);
+/** The intents the Worker accepts for a family, from the same two functions the application save calls. */
+function applicationTargets1112(seed: FamilySeed203, sourceKeys: readonly string[]): RoleApplicationTarget1112[] {
+  const accepted = (track: string, office: string | null): boolean => {
+    const intent = validateApplicationIntent199(track, office, () => false);
+    return !!intent && !('error' in intent) && !reservedApplication201({ applicationTrack: track, ...(office ? { targetOffice: office } : {}) });
+  };
+  const out: RoleApplicationTarget1112[] = [];
+  const push = (track: string, office: string | null) => {
+    if (!ordinaryTracks1112.has(track) || !accepted(track, office) || out.some(row => row.applicationTrack === track && row.targetOffice === office)) return;
+    out.push(Object.freeze({ applicationTrack: track as RoleApplicationTarget1112['applicationTrack'], targetOffice: office }));
+  };
+  if (seed.application) push(seed.application.applicationTrack, seed.application.targetOffice);
+  for (const key of sourceKeys) { const row = rows203.get(key); if (row?.applicationEligible) push(row.applicationTrack, key); }
+  return out;
+}
+function eligibility1112(seed: FamilySeed203, targets: readonly RoleApplicationTarget1112[]): RoleEligibility1112 {
+  if (seed.kind === 'institution') return 'appointed';
+  if (targets.length) return 'open_application';
+  if (seed.kind === 'role' && seed.tier !== 'member_specialist') return 'reserved_seat';
+  if (seed.key === 'tithe') return 'gold_writ';
+  if (seed.kind === 'activity') return 'activity';
+  return seed.kind === 'role' ? 'appointed' : 'standing';
+}
+
 function directory203(): RoleDirectory203 {
   const sources = new Map<string, string[]>(), keyToFamily: Record<string, string> = {};
   const add = (familyKey: string, sourceKey: string): void => {
@@ -173,10 +233,24 @@ function directory203(): RoleDirectory203 {
       return Object.freeze({ key, label, kind, presentation });
     });
     const alternateTitles = [...new Set(sourceKeys.map(sourceLabel203).filter(label => label !== seed.label && label !== sourceLabel203(seed.primaryKey)))];
-    return Object.freeze({ key: seed.key, label: seed.label, kind: seed.kind, tier: seed.tier, primaryKey: seed.primaryKey, sourceKeys: Object.freeze([...sourceKeys]), alternateTitles: Object.freeze(alternateTitles), variants: Object.freeze(variants), ...(seed.application ? { application: Object.freeze({ ...seed.application }) } : {}) });
+    const slotOf = (key: string): number | null => { const slot = rows203.get(key)?.nativeSlot; return typeof slot === 'number' ? slot : null; };
+    const nativeSlot = slotOf(seed.primaryKey) ?? sourceKeys.map(slotOf).find(slot => slot !== null) ?? null;
+    const applicationTargets = applicationTargets1112(seed, sourceKeys);
+    return Object.freeze({ key: seed.key, label: seed.label, kind: seed.kind, tier: seed.tier, primaryKey: seed.primaryKey, sourceKeys: Object.freeze([...sourceKeys]), alternateTitles: Object.freeze(alternateTitles), variants: Object.freeze(variants), ...(seed.application ? { application: Object.freeze({ ...seed.application }) } : {}),
+      group: catalogGroup1112(seed), nativeSlot, eligibility: eligibility1112(seed, applicationTargets), applicationTargets: Object.freeze(applicationTargets) });
   });
+  // Page order (CL2-214, CL2-061): the Leader, then the Council seats in protocol order, then the Council's institutions;
+  // every other group by the primary office's native slot, the rank's own family first within its slot, then by name.
+  const groupIndex = new Map(ROLE_CATALOG_GROUPS_1112.map((group, index) => [group.key, index]));
+  const seedIndex = new Map(seeds203.map((seed, index) => [seed.key, index]));
+  const councilIndex = (key: string) => key === 'leader' ? 0 : COUNCIL_FAMILY_ORDER.includes(key) ? COUNCIL_FAMILY_ORDER.indexOf(key) + 1 : COUNCIL_FAMILY_ORDER.length + 1 + seedIndex.get(key)!;
+  const isRankFamily = (key: string) => (rankFamilies203 as readonly string[]).includes(key);
+  families.sort((a, b) => groupIndex.get(a.group)! - groupIndex.get(b.group)!
+    || (a.group === 'council' ? councilIndex(a.key) - councilIndex(b.key)
+      : (a.nativeSlot ?? 99) - (b.nativeSlot ?? 99) || Number(isRankFamily(b.key)) - Number(isRankFamily(a.key)) || a.label.localeCompare(b.label, 'en')));
+  const groups = ROLE_CATALOG_GROUPS_1112.map(group => Object.freeze({ key: group.key, label: group.label, familyKeys: Object.freeze(families.filter(family => family.group === group.key).map(family => family.key)) }));
   const ranks = NATIVE_RANKS_199.map(rank => Object.freeze({ nativeSlot: rank.nativeSlot, nativeRankOrdinal: rank.nativeRankOrdinal, label: rank.name, familyKey: rankFamilies203[rank.nativeSlot] }));
-  return Object.freeze({ version: 1, families: Object.freeze(families), ranks: Object.freeze(ranks), keyToFamily: Object.freeze(keyToFamily), sourceKeyCount: 142, councilOrder: COUNCIL_FAMILY_ORDER });
+  return Object.freeze({ version: 1, families: Object.freeze(families), ranks: Object.freeze(ranks), keyToFamily: Object.freeze(keyToFamily), sourceKeyCount: 142, councilOrder: COUNCIL_FAMILY_ORDER, groups: Object.freeze(groups) });
 }
 
 /** Plain serializable display metadata. It is not read by backend admission. */

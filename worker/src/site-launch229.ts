@@ -1,3 +1,6 @@
+import { nativeMembershipSourceSql, nativeMembershipSourceMatches, qualifiedNativeSnapshotSource, nativeRankTableFromSource, DIRECTIVE_NATIVE_PROFILE, DIRECTIVE_RANK_DIGEST } from './native-rank-schemes';
+import { sealPromotionIntent, readPromotionIntent, continuationAdmitted, type PromotionIntent } from './promotion-intent-directive';
+import { captureCanonicalRankConfig233, currentDirectiveCanonicalPolicy233 } from './canonical-ranks233';
 /** Read-only launch operations view. Existing Native roster/links; no new storage or queue writes. */
 import type { Env } from './env';
 import { linksNotBefore, now } from './db';
@@ -6,7 +9,7 @@ import { apiJson } from './site-core';
 import { captureLaunchVerification, type LaunchVerificationCapture } from './launch-verification227';
 import { FLAGSHIP_GUILD_NAME, canonicalOlympusGuildName } from './guild-affiliation229';
 import { readOfficerInvites233 } from './officer-invites233';
-import { classifyKnightRoles229, needsLaunchRole229, projectLaunchOperations229, projectSelectedPromotions274, SELECTED_PROMOTION_TTL274, LAUNCH_ROLE_PAGE229, LAUNCH_ROLE_TTL229, LAUNCH_SCAN_TTL229, LAUNCH_OPERATIONS_PROTOCOL229, type KnightState229, type LaunchRosterRow229 } from './launch-operations229';
+import { DISCOVERY_OPERATIONS_PROTOCOL235, projectRankHeldDiscovery235, type DiscoveryRankHold235, classifyKnightRoles229, needsLaunchRole229, projectLaunchOperations229, projectSelectedPromotions274, SELECTED_PROMOTION_TTL274, LAUNCH_ROLE_PAGE229, LAUNCH_ROLE_TTL229, LAUNCH_SCAN_TTL229, LAUNCH_OPERATIONS_PROTOCOL229, type KnightState229, type LaunchRosterRow229 } from './launch-operations229';
 import { LaunchRolePacer271 } from './launch-discord-reads271';
 import { captureRosterLineage275,rosterVerificationSql275,type RosterLineageCapture275 } from './roster-verification275';
 
@@ -25,6 +28,8 @@ export type PromotionSelection273 = Readonly<{selectionId:string;targetGuid:stri
 export type PromotionSelections276 = Readonly<{selectionId:string;targetGuids:readonly string[];snapshotId:number;snapshotAt:number}>;
 type BatchSelection276 = PromotionSelections276 & Readonly<{targetsDigest:string}>;
 type ReadSelection276 = PromotionSelection273 | BatchSelection276;
+type DirectiveConfirmation = Readonly<{guid:string;token:string;from:number;to:number;observedAt:number}>;
+type DirectiveSelection = Readonly<{actorGuid:string;confirmations:readonly DirectiveConfirmation[];secret:string}>;
 type SelectionCursor273 = Omit<Cursor229,'version'|'roleReads'|'roleScope'> & PromotionSelection273 & {version:4;roleScope:string;roleReads:RoleRead229[]};
 const SELECTION_PROTOCOL274='promotion-selection-v274';
 type SelectionCursor276 = Omit<Cursor229,'version'|'roleReads'|'roleScope'> & {version:5;selectionId:string;targetsDigest:string;roleScope:string;roleReads:RoleRead229[]};
@@ -138,7 +143,7 @@ async function sourceRows229(env: Env, launch: LaunchVerificationCapture, at: nu
   LEFT JOIN native_guids ng ON ng.guid=rm.guid
   LEFT JOIN members m ON m.discord_id=c.discord_id LEFT JOIN site_users u ON u.discord_id=c.discord_id
   LEFT JOIN privacy_subjects p ON p.subject_id=c.discord_id
-  ORDER BY rm.name_key LIMIT 1000`).bind(launch.scope!.provenance,at,cutoff,lineage.nativePolicy,lineage.canonicalPolicy).all<SourceRow229>();
+  ORDER BY rm.name_key LIMIT 1000`).bind(qualifiedNativeSnapshotSource(launch.scope!.guild,launch.scope!.realm),at,cutoff,lineage.nativePolicy,lineage.canonicalPolicy).all<SourceRow229>();
   if(!rows.success)throw Error('launch_source_read_unavailable');return rows.results;
 }
 /** V1/V2 keep their original global authority digest; never reinterpret an old cache. */
@@ -176,10 +181,12 @@ export async function readPromotionSelections276(env:Env,input:unknown,cursor:st
   const page=await readLaunchPage229(env,cursor,selection,guids=>{coveredGuids=guids;});
   return {version:1 as const,protocol:SELECTION_PROTOCOL276,coverageKind:'selected-guids' as const,controlId:selection.selectionId,targetGuids:selection.targetGuids,targetsDigest,coveredGuids,page};
 }
-async function readLaunchPage229(env: Env, cursor: string | null = null,selection:ReadSelection276|null=null,coverage?:(guids:string[])=>void) {
+async function readLaunchPage229(env: Env, cursor: string | null = null,selection:ReadSelection276|null=null,coverage?:(guids:string[])=>void,directive?:DirectiveSelection) {
   const at=now(),launch=captureLaunchVerification(env),secret=secret229(env);
+  const rankPolicy=captureCanonicalRankConfig233(env);
   const batch=selection&&'targetGuids' in selection?selection:null,single=selection&&!('targetGuids' in selection)?selection:null;
   if(launch.mode!=='members-only'||!launch.scope||!launch.current()||canonicalOlympusGuildName(launch.scope.guild)!==FLAGSHIP_GUILD_NAME)return held229(at,'flagship-native-scope-unconfirmed');
+  if(!currentDirectiveCanonicalPolicy233(rankPolicy.policy)||!rankPolicy.current())return held229(at,'directive-rank-policy-held');
   const lineage=captureRosterLineage275(env,launch);
   if(!secret)return held229(at,'native-secret-unconfigured');
   const configuration=roleConfiguration229(env);
@@ -189,8 +196,12 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
   if(selection&&(!selectionSecret||Number(selection.selectionId.split(':')[0])>at))return held229(at,'selection-source-not-current');
   const captured=cursor?(batch?await readSelectionCursor276(cursor,selectionSecret!,batch,at):single?await readSelectionCursor273(cursor,selectionSecret!,single,at):await readCursor229(cursor,secret,at,roleSecret271,roleSecret272)):null,cutoff=linksNotBefore(env),rows=await sourceRows229(env,launch,at,cutoff,lineage),first=rows[0];
   if(!first||rows.length!==first.memberCount){if(captured)throw new LaunchCursor229('launch_cursor_source_changed',409);return held229(at,'native-snapshot-unavailable');}
+  const nativeRankTable=nativeRankTableFromSource(first.nativeSource);
+  if(!nativeRankTable||rows.some(row=>!Number.isInteger(row.currentSlot)||row.currentSlot===null||row.currentSlot<0||row.currentSlot>9||row.rank!==nativeRankTable.names[row.currentSlot]))return held229(at,'native-rank-scheme-unconfirmed');
   if(selection&&(selection.snapshotId!==first.snapshotId||selection.snapshotAt!==first.snapshotAt))throw new LaunchCursor229('selection_native_source_changed',409);
   const requested=batch?batch.targetGuids:single?[single.targetGuid]:[];
+  if(directive && (!rows.some(row=>row.guid===directive.actorGuid&&row.currentSlot!==null&&row.currentSlot<5)
+    ||requested.includes(directive.actorGuid)))return held229(at,'promotion-actor-unconfirmed');
   const matches=requested.map(guid=>rows.flatMap((row,index)=>row.guid===guid?[index]:[]));
   if(selection&&matches.some(indices=>indices.length!==1))return held229(at,'selected-target-unavailable');
   const selectedIndices=matches.map(indices=>indices[0]!);
@@ -222,7 +233,7 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
   }
   let retryAfterSeconds: number|null=null,rateLimited=false,roleUnavailable=false,readWindowHeld=false;
   const pacer=new LaunchRolePacer271(roleScope),accountStates=new Map<string,{state:KnightState229;observedAt:number}>();
-  const current=()=>{if(!launch.current()||!lineage.current()||configuration&&!configuration.current()||secret229(env)!==secret||linksNotBefore(env)!==cutoff||selection&&now()>=scanExpiresAt)throw Error('launch_source_changed');};
+  const current=()=>{if(!launch.current()||!rankPolicy.current()||!lineage.current()||configuration&&!configuration.current()||secret229(env)!==secret||linksNotBefore(env)!==cutoff||selection&&now()>=scanExpiresAt)throw Error('launch_source_changed');};
   // The Watcher has a 20-second HTTP timeout. Don't hold that request through a
   // long reset; return its signed progress and known cooldown to the same scan.
   const readDeadline=Math.min(Date.now()/1000+10,expiresAt,scanExpiresAt);
@@ -272,7 +283,7 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
   // Re-read the exact Native source and linked/denied/privacy state after provider awaits.
   // For the admin route this also consumes the original signed actor session again.
   const after=await sourceRows229(env,launch,now(),cutoff,lineage);
-  if(!launch.current()||!lineage.current()||configuration&&!configuration.current()||secret229(env)!==secret||linksNotBefore(env)!==cutoff
+  if(!launch.current()||!rankPolicy.current()||!lineage.current()||configuration&&!configuration.current()||secret229(env)!==secret||linksNotBefore(env)!==cutoff
     ||await digest229(JSON.stringify(nativeRows272(after)))!==nativeDigest
     ||legacy&&await digest229(JSON.stringify(legacyRows229(after)))!==rowsDigest)return held229(now(),'native-snapshot-changed');
   // Only this page can consume its current account/privacy facts or cached roles.
@@ -282,7 +293,7 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
   if(selection&&now()>=scanExpiresAt)return held229(now(),'selection-read-expired');
   if(readWindowHeld)return held229(now(),'launch-read-window-exhausted');
   const project=selection?projectSelectedPromotions274:projectLaunchOperations229;
-  const dto=project({snapshotId:first.snapshotId,snapshotAt:first.snapshotAt,memberCount:first.memberCount,guild:launch.scope.guild,realm:launch.scope.realm,scopeHash},rows,states,now(),expiresAt);
+  const dto=project({snapshotId:first.snapshotId,snapshotAt:first.snapshotAt,memberCount:first.memberCount,guild:launch.scope.guild,realm:launch.scope.realm,scopeHash,nativeRankTable},rows,states,now(),expiresAt);
   dto.scan={id:scanId,startedAt:issuedAt,expiresAt:scanExpiresAt};
   const pageGuids=new Set(page.map(row=>row.guid));
   // Page every native row, not just linked accounts: risk/held data stays bounded
@@ -296,6 +307,42 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
   if(selection){
     dto.riskBuffer.splice(0); // A selected promotion read supplies no purge-review authority.
     const i=dto.heldReasons.indexOf('native-unguilded-proof-required');if(i>=0)dto.heldReasons.splice(i,1);
+  }
+  if(directive && selection && dto.status!=='held'){
+    const prior=new Map(directive.confirmations.map(value=>[value.guid,value]));
+    const intended=[] as typeof dto.promotions;
+    for(const guid of requested){
+      const row=page.find(value=>value.guid===guid),confirmation=prior.get(guid);
+      if(!row || row.verification!=='verified')continue;
+      let recommendation=dto.promotions.find(value=>value.guid===guid),intent:PromotionIntent|null=null;
+      if(confirmation){
+        const original=await readPromotionIntent(confirmation.token,directive.secret,now());
+        if(original && continuationAdmitted(original,{actorGuid:directive.actorGuid,guid:row.guid,name:row.name,
+          subjectDigest:identities.get(guid)??'',snapshotId:first.snapshotId,snapshotAt:first.snapshotAt,slot:row.currentSlot!,
+          rankProfile:DIRECTIVE_NATIVE_PROFILE,rankSchemeDigest:DIRECTIVE_RANK_DIGEST,knight:states.get(guid)??'unknown',
+          confirmedFrom:confirmation.from,confirmedTo:confirmation.to,confirmedAt:confirmation.observedAt},now())){
+          intent=Object.freeze({...original,acknowledgedSteps:original.acknowledgedSteps+1,lastSnapshotId:first.snapshotId,lastObservedAt:confirmation.observedAt});
+          recommendation={guid:row.guid,name:row.name,currentSlot:row.currentSlot!,targetSlot:original.finalSlot,
+            targetName:original.finalSlot===5?'Veteran':'Member',reason:original.reason};
+        }
+      }else if(recommendation && directive.actorGuid!==guid){
+        const created=now();
+        intent=Object.freeze({version:1,id:crypto.randomUUID(),actorGuid:directive.actorGuid,targetGuid:guid,name:row.name,
+          subjectDigest:identities.get(guid)!,rankProfile:DIRECTIVE_NATIVE_PROFILE,rankSchemeDigest:DIRECTIVE_RANK_DIGEST,
+          originSnapshotId:first.snapshotId,originSnapshotAt:first.snapshotAt,originContext:scanId,startSlot:row.currentSlot!,
+          finalSlot:recommendation.targetSlot,reason:recommendation.reason,issuedAt:created,expiresAt:Math.min(expiresAt,created+600),
+          acknowledgedSteps:0,lastSnapshotId:first.snapshotId,lastObservedAt:first.snapshotAt});
+      }
+      if(recommendation && intent){
+        intended.push({...recommendation,intent,intentToken:await sealPromotionIntent(intent,directive.secret,now())});
+        dto.expiresAt=Math.min(dto.expiresAt,intent.expiresAt);
+      }else if(confirmation){
+        dto.held=dto.held.filter(value=>value.guid!==guid);
+        dto.held.push({guid:row.guid,name:row.name,reason:'same-intent-continuation-held'});
+      }
+    }
+    dto.promotions.splice(0,dto.promotions.length,...intended);
+    dto.held.splice(0,dto.held.length,...dto.held.filter(value=>!intended.some(row=>row.guid===value.guid)));
   }
   dto.entitlements={offset,pageSize:LAUNCH_ROLE_PAGE229,scanned:page.length,total:rows.length,unscanned:Math.max(0,rows.length-offset-page.length),retryAfterSeconds};
   if(rateLimited)dto.heldReasons.push('discord-rate-limited');if(roleUnavailable||!configuration)dto.heldReasons.push('discord-entitlement-unavailable');
@@ -311,17 +358,158 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
     }
   }
   if(dto.status!=='held')dto.status=dto.entitlements.unscanned||dto.held.some(r=>r.reason==='discord-entitlement-unknown')?'partial':'ready';
-  if(!launch.current()||!lineage.current()||configuration&&!configuration.current()||secret229(env)!==secret||linksNotBefore(env)!==cutoff)return held229(now(),'native-snapshot-changed');
+  const finalRows=directive?await sourceRows229(env,launch,now(),cutoff,lineage):null;
+  const finalPage=finalRows && (batch?batch.targetGuids.map(guid=>finalRows.find(row=>row.guid===guid)):finalRows.slice(offset,offset+LAUNCH_ROLE_PAGE229));
+  if(!launch.current()||!rankPolicy.current()||!lineage.current()||configuration&&!configuration.current()||secret229(env)!==secret||linksNotBefore(env)!==cutoff
+    ||selection&&now()>=dto.expiresAt||finalRows && (await digest229(JSON.stringify(nativeRows272(finalRows)))!==nativeDigest || await digest229(JSON.stringify(finalPage))!==pageDigest))return held229(now(),'native-snapshot-changed');
   if(selection)coverage?.(coveredGuids as string[]);
   return dto;
 }
+/** New-purpose actor/plan-bound cursor. The inner historical pagination grammar is never reinterpreted. */
+async function directiveCursor(raw:string,secret:string,requestDigest:string,at:number):Promise<string>{
+  if(raw.length>8192||!/^[-_A-Za-z0-9]+\.[a-f0-9]{64}$/.test(raw))throw new LaunchCursor229('invalid_selection_cursor');
+  try{
+    const [body,mac]=raw.split('.');
+    if(!await crypto.subtle.verify('HMAC',await cursorKey229(secret),bytes229(mac!),new TextEncoder().encode('promotion-selection-cursor|directive1|'+body)))throw Error();
+    const value=JSON.parse(atob(body!.replace(/-/g,'+').replace(/_/g,'/')));
+    if(encoded229(JSON.stringify(value))!==body||Object.keys(value).join(',')!=='version,requestDigest,expiresAt,inner'
+      ||value.version!==6||value.requestDigest!==requestDigest||!Number.isSafeInteger(value.expiresAt)||value.expiresAt<=at||typeof value.inner!=='string'||value.inner.length>4096)throw Error();
+    return value.inner;
+  }catch{throw new LaunchCursor229('invalid_selection_cursor');}
+}
+export async function readDirectivePromotions(env:Env,input:{selectionId:unknown;targetGuids:unknown;snapshotId:unknown;snapshotAt:unknown;actorGuid:unknown;confirmations:unknown},cursor:string|null=null){
+  const at=now(),policy=captureCanonicalRankConfig233(env),selected=selections276({selectionId:input.selectionId,targetGuids:input.targetGuids,snapshotId:input.snapshotId,snapshotAt:input.snapshotAt},cursor,at);
+  if(typeof input.actorGuid!=='string'||!GUID273.test(input.actorGuid)||selected.targetGuids.includes(input.actorGuid)||!Array.isArray(input.confirmations)||input.confirmations.length>1||input.confirmations.length>0&&selected.targetGuids.length!==1)throw new LaunchCursor229('invalid_selection_request');
+  const confirmations:DirectiveConfirmation[]=[];
+  for(const value of input.confirmations){
+    if(!value||typeof value!=='object'||Object.keys(value).sort().join(',')!=='from,guid,observedAt,to,token'
+      ||typeof value.guid!=='string'||!selected.targetGuids.includes(value.guid)||confirmations.some(row=>row.guid===value.guid)
+      ||typeof value.token!=='string'||value.token.length>4096||!/^[-_A-Za-z0-9]+\.[a-f0-9]{64}$/.test(value.token)
+      ||!Number.isSafeInteger(value.from)||value.from<6||value.from>9||value.to!==value.from-1||!Number.isSafeInteger(value.observedAt)||value.observedAt>at)throw new LaunchCursor229('invalid_selection_request');
+    confirmations.push(Object.freeze({guid:value.guid,token:value.token,from:value.from,to:value.to,observedAt:value.observedAt}));
+  }
+  const configuration=roleConfiguration229(env),secret=secret229(env);
+  if(!configuration||!secret)return {version:2,protocol:'promotion-selection-directive-v1',coverageKind:'selected-guids',actorGuid:input.actorGuid,controlId:selected.selectionId,targetGuids:selected.targetGuids,targetsDigest:await digest229(JSON.stringify(selected.targetGuids)),coveredGuids:[],page:held229(at,'promotion-seal-unconfigured')};
+  const serverSecret=JSON.stringify(['promotion-directive',1,secret,configuration.guild,configuration.token]);
+  const requestDigest=await digest229(JSON.stringify([selected,input.actorGuid,confirmations]));
+  const inner=cursor?await directiveCursor(cursor,serverSecret,requestDigest,at):null;
+  const targetsDigest=await digest229(JSON.stringify(selected.targetGuids)),selection:BatchSelection276=Object.freeze({...selected,targetsDigest});let coveredGuids:string[]=[];
+  const page=await readLaunchPage229(env,inner,selection,guids=>{coveredGuids=guids;},{actorGuid:input.actorGuid,confirmations,secret:serverSecret});
+  if(page.pageCursor){const body=encoded229(JSON.stringify({version:6,requestDigest,expiresAt:page.scan.expiresAt,inner:page.pageCursor}));page.pageCursor=body+'.'+hex(await crypto.subtle.sign('HMAC',await cursorKey229(serverSecret),new TextEncoder().encode('promotion-selection-cursor|directive1|'+body)));}
+  if(!configuration.current()||secret229(env)!==secret||!policy.current())return {version:2,protocol:'promotion-selection-directive-v1',coverageKind:'selected-guids',actorGuid:input.actorGuid,controlId:selected.selectionId,targetGuids:selected.targetGuids,targetsDigest,coveredGuids:[],page:held229(now(),'promotion-seal-source-changed')};
+  return {version:2,protocol:'promotion-selection-directive-v1',coverageKind:'selected-guids',actorGuid:input.actorGuid,controlId:selected.selectionId,targetGuids:selected.targetGuids,targetsDigest,coveredGuids,page};
+}
 export async function handleLaunchOperations229(request: Request, env: Env, watcher = false): Promise<Response> {
-  const q=new URL(request.url).searchParams,selected=['selectionId','targetGuid','targetGuids','snapshotId','snapshotAt'],hasSelection=selected.some(key=>q.has(key)),many=q.has('targetGuids'),allowed=watcher?['keyVersion','cursor',...selected]:['cursor'];
+  if(!watcher)return handleDiscoveryOperations235(request,env,false);
+  const q=new URL(request.url).searchParams,selected=['selectionId','targetGuids','snapshotId','snapshotAt','actorGuid','confirmations'],hasSelection=selected.some(key=>q.has(key)),allowed=watcher?['keyVersion','cursor',...selected]:['cursor'];
   if(request.method!=='GET'||[...q.keys()].some(k=>!allowed.includes(k))||[...new Set(q.keys())].some(k=>q.getAll(k).length!==1)
     ||watcher&&q.get('keyVersion')!==LAUNCH_OPERATIONS_PROTOCOL229||q.has('cursor')&&!q.get('cursor')
-    ||hasSelection&&(!watcher||q.has('targetGuid')===many||['selectionId','snapshotId','snapshotAt',many?'targetGuids':'targetGuid'].some(key=>!q.get(key))||!/^\d{1,16}$/.test(q.get('snapshotId')!)||!/^\d{1,16}$/.test(q.get('snapshotAt')!)))return apiJson({error:'invalid_launch_query'},400);
-  let targetGuids:unknown;
-  if(many){try{if(q.get('targetGuids')!.length>1024)throw Error();targetGuids=JSON.parse(q.get('targetGuids')!);}catch{return apiJson({error:'invalid_launch_query'},400);}}
-  try{return apiJson(many?await readPromotionSelections276(env,{selectionId:q.get('selectionId'),targetGuids,snapshotId:Number(q.get('snapshotId')),snapshotAt:Number(q.get('snapshotAt'))},q.get('cursor')):hasSelection?await readPromotionSelection273(env,{selectionId:q.get('selectionId'),targetGuid:q.get('targetGuid'),snapshotId:Number(q.get('snapshotId')),snapshotAt:Number(q.get('snapshotAt'))},q.get('cursor')):await readLaunchOperations229(env,q.get('cursor')),200,{'Cache-Control':'private, no-store, no-transform'});}
-  catch(error){if(error instanceof LaunchCursor229)return apiJson({error:error.code},error.status);throw error;}
+    ||hasSelection&&(!watcher||selected.some(key=>!q.get(key))||!/^\d{1,16}$/.test(q.get('snapshotId')!)||!/^\d{1,16}$/.test(q.get('snapshotAt')!)))return apiJson({error:'invalid_launch_query'},400);
+  try{
+    if((q.get('targetGuids')?.length??0)>1024||(q.get('confirmations')?.length??0)>65536)return apiJson({error:'invalid_launch_query'},400);
+    const result=hasSelection?await readDirectivePromotions(env,{selectionId:q.get('selectionId'),targetGuids:JSON.parse(q.get('targetGuids')!),snapshotId:Number(q.get('snapshotId')),snapshotAt:Number(q.get('snapshotAt')),actorGuid:q.get('actorGuid'),confirmations:JSON.parse(q.get('confirmations')!)},q.get('cursor')):await readLaunchOperations229(env,q.get('cursor'));
+    return apiJson(result,200,{'Cache-Control':'private, no-store, no-transform'});
+  }catch(error){if(error instanceof LaunchCursor229)return apiJson({error:error.code},error.status);if(error instanceof SyntaxError)return apiJson({error:'invalid_launch_query'},400);throw error;}
+}
+
+// Discovery235 never changes the selected234 reader, seal or cursor vocabulary.
+const DISCOVERY_CURSOR_LIMIT235=8192;
+type DiscoveryCursor235={version:6;purpose:'officer-discovery-v235';snapshotId:number;snapshotAt:number;scopeHash:string;
+ nativeDigest:string;offset:number;issuedAt:number;expiresAt:number;cutoff:number;rankMode:'qualified'|'held';roleScope:string;innerCursor:string|null};
+const held235=(at:number,reason:string)=>({...held229(at,reason),protocol:DISCOVERY_OPERATIONS_PROTOCOL235});
+async function writeDiscoveryCursor235(value:DiscoveryCursor235,secret:string){
+ const body=encoded229(JSON.stringify(value)),mac=hex(await crypto.subtle.sign('HMAC',await cursorKey229(secret),new TextEncoder().encode('officer-discovery-cursor|235|'+body)));
+ const cursor=body+'.'+mac;if(cursor.length>DISCOVERY_CURSOR_LIMIT235)throw new LaunchCursor229('discovery_cursor_capacity');return cursor;
+}
+async function readDiscoveryCursor235(raw:string,secret:string,at:number):Promise<DiscoveryCursor235>{
+ if(raw.length>DISCOVERY_CURSOR_LIMIT235||!/^[-_A-Za-z0-9]+\.[a-f0-9]{64}$/.test(raw))throw new LaunchCursor229('invalid_discovery_cursor');
+ const [body,mac]=raw.split('.');let value:DiscoveryCursor235;
+ try{value=JSON.parse(atob(body.replace(/-/g,'+').replace(/_/g,'/')));if(encoded229(JSON.stringify(value))!==body)throw Error();}catch{throw new LaunchCursor229('invalid_discovery_cursor');}
+ if(!await crypto.subtle.verify('HMAC',await cursorKey229(secret),bytes229(mac),new TextEncoder().encode('officer-discovery-cursor|235|'+body)))throw new LaunchCursor229('invalid_discovery_cursor');
+ if(!value||Object.keys(value).sort().join(',')!=='cutoff,expiresAt,innerCursor,issuedAt,nativeDigest,offset,purpose,rankMode,roleScope,scopeHash,snapshotAt,snapshotId,version'
+  ||value.version!==6||value.purpose!=='officer-discovery-v235'||!Number.isSafeInteger(value.snapshotId)||value.snapshotId<1
+  ||!Number.isSafeInteger(value.snapshotAt)||value.snapshotAt<1||value.snapshotAt>at
+  ||!Number.isSafeInteger(value.issuedAt)||value.issuedAt<value.snapshotAt||value.issuedAt>at
+  ||!Number.isSafeInteger(value.expiresAt)||value.expiresAt!==Math.min(value.issuedAt+600,value.snapshotAt+600)||value.expiresAt<=at
+  ||!Number.isSafeInteger(value.offset)||value.offset<0||value.offset>980||value.offset%20!==0
+  ||!Number.isSafeInteger(value.cutoff)||value.cutoff<0||!/^[a-f0-9]{16}$/.test(value.scopeHash)||!/^[a-f0-9]{64}$/.test(value.nativeDigest)||!/^[a-f0-9]{64}$/.test(value.roleScope)
+  ||!['qualified','held'].includes(value.rankMode)||(value.rankMode==='held'?value.innerCursor!==null:typeof value.innerCursor!=='string'||!value.innerCursor||value.innerCursor.length>4096))throw new LaunchCursor229('invalid_discovery_cursor');
+ return value;
+}
+async function membershipRows235(env:Env,launch:LaunchVerificationCapture,at:number,cutoff:number):Promise<SourceRow229[]>{
+ const source=launch.scope!.provenance;
+ const rows=await env.DB.prepare(`SELECT s.id AS snapshotId,s.exported_at AS snapshotAt,s.member_count AS memberCount,
+  s.source AS nativeSource,s.content_hash AS nativeContentHash,rm.name_key AS nativeNameKey,
+  rm.name,rm.guid,rm.rank,rm.rank_index AS currentSlot,rm.level,rm.last_online AS lastOnlineSeconds,
+  rm.class AS nativeClass,rm.public_note AS publicNote,rm.officer_note AS officerNote,
+  'unknown' AS verification,NULL AS discordId,NULL AS linkedGuid,NULL AS linkStatus,NULL AS linkSource,
+  NULL AS verifiedAt,NULL AS boundAt,NULL AS guidLinks,0 AS banned,0 AS denied,
+  NULL AS privacyGeneration,NULL AS privacyState,NULL AS privacyRevision,NULL AS lineageAnchorId
+ FROM roster_snapshots s JOIN roster_members rm ON rm.snapshot_id=s.id
+ WHERE s.id=(SELECT MAX(id) FROM roster_snapshots) AND ${nativeMembershipSourceSql('s.source','?1')}
+  AND s.complete=1 AND s.trusted=1 AND s.member_count BETWEEN 1 AND 1000
+  AND s.exported_at BETWEEN MAX(?3,?2-599) AND ?2
+  AND s.member_count=(SELECT COUNT(*) FROM roster_members WHERE snapshot_id=s.id)
+ ORDER BY rm.name_key LIMIT 1000`).bind(source,at,cutoff).all<SourceRow229>();
+ if(!rows.success)throw Error('discovery_native_source_read_unavailable');
+ if(rows.results.some(row=>!nativeMembershipSourceMatches(row.nativeSource,launch.scope!.guild,launch.scope!.realm)))return [];
+ return rows.results;
+}
+export async function readDiscoveryOperations235(env:Env,cursor:string|null=null){
+ const at=now(),launch=captureLaunchVerification(env),secret=secret229(env),cutoff=linksNotBefore(env),configuration=roleConfiguration229(env),policy=captureCanonicalRankConfig233(env);
+ if(launch.mode!=='members-only'||!launch.scope||!launch.current()||canonicalOlympusGuildName(launch.scope.guild)!==FLAGSHIP_GUILD_NAME)return held235(at,'flagship-native-scope-unconfirmed');
+ if(!secret)return held235(at,'native-secret-unconfigured');
+ if(!configuration)return held235(at,'discovery-seal-unconfigured');
+ if(!policy.current())return held235(at,'directive-rank-policy-source-unconfirmed');
+ // Officers know VERIFY_SECRET. The current server token/policy bind this NEW domain.
+ const sealSecret=JSON.stringify(['officer-discovery-seal',235,secret,configuration.guild,configuration.token,policy.present,policy.mode,policy.raw]);
+ const current=()=>{if(!launch.current()||!policy.current()||secret229(env)!==secret||linksNotBefore(env)!==cutoff||!configuration.current())throw new LaunchCursor229('launch_cursor_source_changed',409);};
+ const captured=cursor?await readDiscoveryCursor235(cursor,sealSecret,at):null;current();
+ const rows=await membershipRows235(env,launch,at,cutoff);current();const first=rows[0];
+ if(!first||rows.length!==first.memberCount){if(captured)throw new LaunchCursor229('launch_cursor_source_changed',409);return held235(at,'native-snapshot-unavailable');}
+ const nativeDigest=await digest229(JSON.stringify(nativeRows272(rows))),scopeHash=(await digest229('native-scope|1|'+launch.scope.guild+'|'+launch.scope.realm)).slice(0,16);
+ const roleScope=await digest229('launch-role-scope|271|'+(configuration?.guild??'')+'|'+(configuration?.token??''));current();
+ const table=nativeRankTableFromSource(first.nativeSource);
+ const qualified=!!table&&rows.every(row=>Number.isInteger(row.currentSlot)&&row.currentSlot!==null&&row.currentSlot>=0&&row.currentSlot<10&&row.rank===table.names[row.currentSlot])
+   &&currentDirectiveCanonicalPolicy233(policy.policy)&&policy.current();
+ const rankMode=qualified?'qualified' as const:'held' as const;
+ const reason:DiscoveryRankHold235=!currentDirectiveCanonicalPolicy233(policy.policy)||!policy.current()?'directive-rank-policy-held':'native-rank-scheme-unconfirmed';
+ if(captured&&(captured.snapshotId!==first.snapshotId||captured.snapshotAt!==first.snapshotAt||captured.scopeHash!==scopeHash||captured.nativeDigest!==nativeDigest||captured.cutoff!==cutoff||captured.rankMode!==rankMode||captured.roleScope!==roleScope))throw new LaunchCursor229('launch_cursor_source_changed',409);
+ const issuedAt=captured?.issuedAt??at,scanExpiresAt=captured?.expiresAt??Math.min(at+600,first.snapshotAt+600),offset=captured?.offset??0;
+ const witness={version:6 as const,purpose:'officer-discovery-v235' as const,snapshotId:first.snapshotId,snapshotAt:first.snapshotAt,scopeHash,nativeDigest,issuedAt,expiresAt:scanExpiresAt,cutoff,rankMode,roleScope};
+ if(qualified){
+  const prior=await readLaunchPage229(env,captured?.innerCursor??null);current();
+  if(prior.status==='held')return {...prior,protocol:DISCOVERY_OPERATIONS_PROTOCOL235};
+  if(prior.snapshotId!==first.snapshotId||prior.snapshotAt!==first.snapshotAt||prior.memberCount!==first.memberCount||prior.entitlements.offset!==offset)throw new LaunchCursor229('launch_cursor_source_changed',409);
+  if(prior.scan.startedAt===null||prior.scan.expiresAt===null||captured&&(captured.issuedAt!==prior.scan.startedAt||captured.expiresAt!==prior.scan.expiresAt))throw new LaunchCursor229('launch_cursor_source_changed',409);
+  // The outer purpose retains the inner scan's exact original clocks.
+  const qualifiedWitness={...witness,issuedAt:prior.scan.startedAt,expiresAt:prior.scan.expiresAt};
+  const pageCursor=prior.pageCursor?await writeDiscoveryCursor235({...qualifiedWitness,offset,innerCursor:prior.pageCursor},sealSecret):null;
+  const nextCursor=prior.nextCursor?await writeDiscoveryCursor235({...qualifiedWitness,offset:offset+20,innerCursor:prior.nextCursor},sealSecret):null;current();
+  const after=await membershipRows235(env,launch,now(),cutoff);current();if(await digest229(JSON.stringify(nativeRows272(after)))!==nativeDigest)throw new LaunchCursor229('launch_cursor_source_changed',409);
+  return {...prior,protocol:DISCOVERY_OPERATIONS_PROTOCOL235,pageCursor,nextCursor};
+ }
+ const expiresAt=Math.min(at+60,scanExpiresAt),dto=projectRankHeldDiscovery235({snapshotId:first.snapshotId,snapshotAt:first.snapshotAt,memberCount:first.memberCount,guild:launch.scope.guild,realm:launch.scope.realm,scopeHash},rows,at,expiresAt,reason);
+ if(dto.status==='held')return dto;
+ const page=rows.slice(offset,offset+20);dto.held=dto.held.filter(row=>page.some(value=>value.guid===row.guid));
+ const scanId=(await digest229(JSON.stringify(['officer-discovery',235,scopeHash,nativeDigest,issuedAt,scanExpiresAt,rankMode]))).slice(0,32);current();
+ dto.scan={id:scanId,startedAt:issuedAt,expiresAt:scanExpiresAt};dto.entitlements={offset,pageSize:20,scanned:page.length,total:rows.length,unscanned:Math.max(0,rows.length-offset-page.length),retryAfterSeconds:null};
+ if(offset===0){
+  const pacer=new LaunchRolePacer271(roleScope),readDeadline=Math.min(Date.now()/1000+10,expiresAt,scanExpiresAt);
+  const invites=await readOfficerInvites233(env,{limit:3,attempts:0,retries:0},3,at,{before:()=>pacer.wait(readDeadline,current),observe:async response=>{if(response.status===429)await pacer.limited(response);else if(response.ok)pacer.success(response);current();}});current();
+  dto.invites.push(...invites.invites.filter(row=>row.expiresAt>now()&&row.observedAt<=at+5));dto.heldReasons.push(...invites.heldReasons);
+  if(dto.invites.length)dto.heldReasons=dto.heldReasons.filter(value=>value!=='native-unguilded-proof-required');
+  if(pacer.cooling()){dto.heldReasons.push('discord-rate-limited');dto.entitlements.retryAfterSeconds=pacer.delay();}
+ }
+ dto.pageCursor=await writeDiscoveryCursor235({...witness,offset,innerCursor:null},sealSecret);
+ if(offset+page.length<rows.length)dto.nextCursor=await writeDiscoveryCursor235({...witness,offset:offset+page.length,innerCursor:null},sealSecret);current();
+ const after=await membershipRows235(env,launch,now(),cutoff);current();if(await digest229(JSON.stringify(nativeRows272(after)))!==nativeDigest)throw new LaunchCursor229('launch_cursor_source_changed',409);
+ if(now()>=expiresAt)return held235(now(),'launch-read-window-exhausted');return dto;
+}
+export async function handleDiscoveryOperations235(request:Request,env:Env,watcher=false):Promise<Response>{
+ const q=new URL(request.url).searchParams,allowed=watcher?['keyVersion','cursor']:['cursor'];
+ if(request.method!=='GET'||[...q.keys()].some(key=>!allowed.includes(key))||[...new Set(q.keys())].some(key=>q.getAll(key).length!==1)
+  ||watcher&&q.get('keyVersion')!==DISCOVERY_OPERATIONS_PROTOCOL235||q.has('cursor')&&(!q.get('cursor')||q.get('cursor')!.length>DISCOVERY_CURSOR_LIMIT235))return apiJson({error:'invalid_launch_query'},400);
+ try{return apiJson(await readDiscoveryOperations235(env,q.get('cursor')),200,{'Cache-Control':'private, no-store, no-transform'});}
+ catch(error){if(error instanceof LaunchCursor229)return apiJson({error:error.code},error.status);throw error;}
 }

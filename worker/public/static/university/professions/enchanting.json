@@ -1,0 +1,362 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "profession",
+ "id": "enchanting",
+ "name": "Enchanting",
+ "type": "primary",
+ "status": "complete",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json professions[2] (2026-11-04), rewritten into a full course on 2026-11-12",
+ "factFiles": [
+  "common",
+  "profession-enchanting"
+ ],
+ "quizFiles": [
+  "profession-enchanting"
+ ],
+ "pairsWith": [
+  "tailoring"
+ ],
+ "overview": {
+  "lead": "Enchanters add stats to gear, and in Forever they can also craft wands, staves and relics.",
+  "points": [
+   {
+    "text": "Recipes for the new necklace and two-hand enchants cost Merchant's Favor.",
+    "facts": [
+     "profession-enchanting.favor-recipes"
+    ]
+   }
+  ],
+  "facts": [
+   "profession-enchanting.wands-staves-and-relics",
+   "profession-enchanting.necklace-enchants"
+  ]
+ },
+ "heldBack": [
+  {
+   "from": "professions[2].goldNote",
+   "text": "If enchants still cannot be listed on the Auction House in the live game, income comes from customers you meet in game and from tradeable crafts such as camp features.",
+   "reason": "Whether enchants can be listed is an open question (see 301), and no graded fact says camp features are tradeable."
+  }
+ ],
+ "tracks": {
+  "101": {
+   "summary": "What Enchanting makes in Forever, its camp objects and how to level it.",
+   "chapters": [
+    {
+     "id": "enchanting-101-changes",
+     "section": "overview",
+     "title": "What Forever changes for Enchanting",
+     "theory": [
+      "profession-enchanting.wands-staves-and-relics",
+      "profession-enchanting.camp-objects",
+      "profession-enchanting.enchanted-lute",
+      "profession-enchanting.camp-rules",
+      "profession-enchanting.campsite-size",
+      "profession-enchanting.professions-window"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Open the professions window with K, then search or filter the recipe list and track a recipe in the objectives frame.",
+        "facts": [
+         "profession-enchanting.professions-window"
+        ]
+       },
+       {
+        "text": "Look for wand, staff and relic recipes as you level: enchanters can now craft all three.",
+        "facts": [
+         "profession-enchanting.wands-staves-and-relics"
+        ]
+       },
+       {
+        "text": "Place an Enchanted Lute at skill 20, an Arcane Salvager at 140 and an Arcane Forge at 300.",
+        "facts": [
+         "profession-enchanting.camp-objects"
+        ]
+       },
+       {
+        "text": "Put the Lute down only when no Druid buff is up: its buff matches Mark of the Wild and does not stack with it.",
+        "facts": [
+         "profession-enchanting.enchanted-lute"
+        ]
+       },
+       {
+        "text": "Sit at the camp for at least 1 minute to get its buff. A basic campsite holds 3 camp features, one per player, so agree in the group who places what.",
+        "facts": [
+         "profession-enchanting.camp-rules",
+         "profession-enchanting.campsite-size"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Placing the Enchanted Lute while a Druid's Mark of the Wild is up.",
+        "fix": "The Lute's buff matches Mark of the Wild and does not stack with it, so it only helps when no Druid buff is up.",
+        "facts": [
+         "profession-enchanting.enchanted-lute"
+        ]
+       },
+       {
+        "mistake": "Treating Rath'mael in the Ruins of Lordaeron as the settled source of the Arcane Salvager blueprint.",
+        "fix": "Icy Veins puts it there, but another guide disagrees.",
+        "facts": [
+         "profession-enchanting.camp-objects"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "enchanting-101-leveling",
+     "section": "overview",
+     "title": "Skill ranks, Favor and Legacy",
+     "theory": [
+      "profession-enchanting.skill-ranks",
+      "profession-enchanting.favor-recipes",
+      "profession-enchanting.earning-favor",
+      "profession-enchanting.legacy",
+      "profession-enchanting.profession-title"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Train Journeyman at skill 50 and level 10, Expert at skill 125 and level 20, and Artisan at skill 200 and level 35. 300 is the cap.",
+        "facts": [
+         "profession-enchanting.skill-ranks"
+        ]
+       },
+       {
+        "text": "Build Merchant's Favor by filling Waylaid Crates and handing the sealed crates to Marcy Baker at Three Corners in western Redridge. Craftsman's Writs add reputation.",
+        "facts": [
+         "profession-enchanting.earning-favor"
+        ]
+       },
+       {
+        "text": "Necklace enchants need Enchanting 210, Friendly and 120 Merchant's Favor. The two-hand caster enchants need 300, Honored and 240 Favor.",
+        "facts": [
+         "profession-enchanting.favor-recipes"
+        ]
+       },
+       {
+        "text": "Reaching 150, 225 and 300 for the first time in a craft each earns 1 Legacy point. Dedicated Study gives a daily skill-up, or Elemental Essences once all your skills are 300.",
+        "facts": [
+         "profession-enchanting.legacy"
+        ]
+       },
+       {
+        "text": "At 300, earn the certification item that unlocks your profession title. Alliance players get it from the Azeroth Commerce Authority.",
+        "facts": [
+         "profession-enchanting.profession-title"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Waiting at the Journeyman cap of 150 before training Expert.",
+        "fix": "Expert needs skill 125 and level 20, so train it between 125 and 150.",
+        "facts": [
+         "profession-enchanting.skill-ranks"
+        ]
+       },
+       {
+        "mistake": "Saving Favor for the two-hand caster enchants before you are Honored.",
+        "fix": "They need Enchanting 300, Honored and 240 Favor. The necklace enchants open earlier, at 210 and Friendly for 120 Favor.",
+        "facts": [
+         "profession-enchanting.favor-recipes"
+        ]
+       }
+      ]
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "consumables",
+     "reason": "No reviewed fact covers enchanting oils in Forever yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in 201."
+    }
+   ]
+  },
+  "201": {
+   "summary": "The new enchants and caster crafts raiders want, and the market.",
+   "chapters": [
+    {
+     "id": "enchanting-201-gear",
+     "section": "gear",
+     "title": "Enchants and caster crafts for raiders",
+     "theory": [
+      "profession-enchanting.necklace-enchants",
+      "profession-enchanting.two-hand-caster-enchants",
+      "profession-enchanting.wands-staves-and-relics"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Learn the new necklace enchants: they add Agility, Deflection, Healing Power, Spell Power or Strength.",
+        "facts": [
+         "profession-enchanting.necklace-enchants"
+        ]
+       },
+       {
+        "text": "For casters and healers on two-hand weapons, offer Mighty Spell Power, Mighty Healing Power or Spellblasting.",
+        "facts": [
+         "profession-enchanting.two-hand-caster-enchants"
+        ]
+       },
+       {
+        "text": "Craft the Brilliant Wand for your own use: it is Bind on Pickup for the enchanter.",
+        "facts": [
+         "profession-enchanting.wands-staves-and-relics"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Promising a raider a Brilliant Wand.",
+        "fix": "It is Bind on Pickup for the enchanter, so only you can use the one you make.",
+        "facts": [
+         "profession-enchanting.wands-staves-and-relics"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "enchanting-201-market",
+     "section": "praxis",
+     "title": "Gold and your enchanting services",
+     "theory": [
+      "profession-enchanting.necklace-enchants",
+      "profession-enchanting.two-hand-caster-enchants",
+      "profession-enchanting.favor-recipes",
+      "profession-enchanting.vendor-prices"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "The necklace and two-hand enchants are new and cost Merchant's Favor to learn, so they are the services to offer raiders first. Trading is subject to Blizzard policy.",
+        "facts": [
+         "profession-enchanting.necklace-enchants",
+         "profession-enchanting.two-hand-caster-enchants",
+         "profession-enchanting.favor-recipes"
+        ]
+       },
+       {
+        "text": "Check the Auction House before you sell surplus crafts to a vendor: Blizzard's beta notes say many profession-made items sell to vendors for less.",
+        "facts": [
+         "profession-enchanting.vendor-prices"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Selling surplus crafts to a vendor out of Classic habit.",
+        "fix": "Many profession-made items sell to vendors for less in Forever, so compare the Auction House first.",
+        "facts": [
+         "profession-enchanting.vendor-prices"
+        ]
+       }
+      ]
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "The 101 overview covers this."
+    },
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "consumables",
+     "reason": "No reviewed fact covers enchanting oils in Forever yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Skill-by-skill routes, trainer lists and recipe sources need reviewed data the site does not have yet.",
+   "chapters": [
+    {
+     "id": "enchanting-301-routes",
+     "section": "overview",
+     "title": "Leveling routes and recipe sources",
+     "theory": [
+      "profession-enchanting.unknown-1",
+      "profession-enchanting.unknown-2",
+      "profession-enchanting.unknown-3",
+      "profession-enchanting.unknown-4"
+     ],
+     "unavailable": "No reviewed skill-by-skill route, trainer list or recipe-source list exists for Forever yet. The site holds rank thresholds, camp objects and Favor recipes (see 101 and 201), and these questions are open."
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Nothing beyond 201 has been reviewed yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "No reviewed fact covers enchanting oils in Forever yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Nothing beyond 201 has been reviewed yet."
+    }
+   ]
+  }
+ }
+}

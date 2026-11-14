@@ -4,9 +4,8 @@
   different, their display name, with rank, level and when they were last seen. Filter by typing (character or Discord
   name), by status, rank and class, or online only; click a column heading to sort by it, again to reverse.
 
-  Where the data comes from: the client's own guild roster (live), the unverified list and the verified list the watcher
-  writes into OlympusQueue.lua (Worker build .41 sends the verified list with the Discord names). Like every other part
-  of that file, the lists are as fresh as the last /reload.
+  Where the data comes from: the client's current native guild roster and the loaded Watcher verification lists.
+  Watcher query/roster clocks are shown separately; repainting this window does not load a newer file or renew evidence.
 
   Reads OlympusVerifyAPI.Roster. A current unverified member's status opens one editable whisper; it never sends it.
   Promotion buttons use the existing dated launch queue and recheck one exact GUID per hardware click. Nothing here
@@ -284,7 +283,7 @@ local function PromotionCandidates()
 end
 
 local function Eligible(m, candidates)
-  return type(m.guid) == "string" and candidates[m.guid] == true and type(m.rankIndex)=="number" and m.rankIndex>=7 and m.rankIndex<=9
+  return type(m.guid) == "string" and candidates[m.guid] == true and type(m.rankIndex)=="number" and m.rankIndex>=6 and m.rankIndex<=9
 end
 
 local function CurrentRank()
@@ -473,8 +472,10 @@ function W.Refresh()
   end
   local sync=OlympusVerifyAutoSync and OlympusVerifyAutoSync.Status and OlympusVerifyAutoSync.Status()
   snapshotText:SetText(GREY.."Local Sync request: "..Stamp(sync and sync.lastRequestedAt).." | Loaded server query: "..Stamp(loadedAt).." ("..Age(loadedAt)..") | Server roster: "..Stamp(snapshotAt).." ("..Age(snapshotAt)..")|r")
-  footer:SetText(GREY..string.format("Showing %d of %d members%s. Refresh view rereads the native roster and loaded evidence; it cannot fetch a changed disk file.",shown,info.total or 0,
-    #list>ROWS and string.format(" | rows %d-%d, scroll",offset+1,math.min(#list,offset+ROWS)) or "").."|r")
+  local namesHint=info.hasNames and "Refresh view rereads the native roster and loaded evidence; it cannot fetch a changed disk file."
+    or "No current Discord names loaded. Use Sync & reload, then inspect the Watcher result."
+  footer:SetText(GREY..string.format("Showing %d of %d members%s. ",shown,info.total or 0,
+    #list>ROWS and string.format(" | rows %d-%d, scroll",offset+1,math.min(#list,offset+ROWS)) or "")..namesHint.."|r")
   SetButtonText(statusBtn,STATUS_FILTERS[view.status][2].." v")
   SetButtonText(rankBtn,(CurrentRank() or "All ranks").." v")
   SetButtonText(classBtn,(CurrentClass() and className(CurrentClass()) or "All classes").." v")
@@ -668,8 +669,8 @@ local function Build()
   local copy=Button(frame,"Copy table",104,24,CopyTable,"Copy filtered table","Open a read-only tab-separated copy of the current filtered/sorted rows. No codes, request bodies or account IDs are exported.")
   copy:SetPoint("LEFT",refresh,"RIGHT",6,0)
   W.selectButton:SetPoint("LEFT",copy,"RIGHT",6,0)
-  W.batchButton=Button(frame,"Check verified Initiates",176,24,function() W.RequestVerifiedInitiates() end,
-    "Check verified Initiates", "Request fresh promotion checks for all currently verified native Initiates, up to twenty exact GUIDs, then reload. This clears display filters and never promotes anyone.")
+  W.batchButton=Button(frame,"Check first 20 shown",176,24,function() W.RequestVerifiedInitiates() end,
+    "Check verified Initiates", "Request fresh promotion checks for the shown verified native Initiates, up to twenty exact GUIDs, then reload. Current display filters are preserved; this never promotes anyone.")
   W.batchButton:SetPoint("LEFT",W.selectButton,"RIGHT",6,0)
   W.refreshButton,W.copyButton=refresh,copy
   local sourceTip=CreateFrame("Frame",nil,frame)
@@ -774,6 +775,12 @@ local function Build()
   W.initiateButton, W.readyButton, W.nextButton = initiateBtn, readyBtn, nextBtn
   W.statusButton, W.rankButton, W.classButton, W.onlineButton, W.clearButton = statusBtn, rankBtn, classBtn, onlineBtn, clear
   W.actionFilterButton=actionFilterBtn
+  -- CL2-003 (13 Nov 2026): this frame parents secure promotion buttons, so it
+  -- cannot be hidden by addon code once combat lockdown starts. The launch
+  -- module closes it with W.Hide at PLAYER_REGEN_DISABLED and registers the
+  -- secure combat backstop; without that module the event fallback below runs.
+  local launch=OlympusLaunch229
+  W.combatGuarded=type(launch)=="table" and type(launch.CloseInCombat)=="function" and launch.CloseInCombat(frame,W.Hide)==true
 end
 
 -- ---------------------------------------------------------------- public
@@ -792,7 +799,13 @@ function W.Show(text)
 end
 
 function W.Hide()
-  if InCombatLockdown and InCombatLockdown() then return end
+  if InCombatLockdown and InCombatLockdown() then
+    -- Round 5 item 1 (13 Nov 2026): the X, Toggle and the combat closer never hide this protected frame in
+    -- lockdown. Without the secure handler the launch module closes it once when combat ends.
+    local launch=OlympusLaunch229
+    if frame and type(launch)=="table" and type(launch.DeferCombatClose)=="function" then pcall(launch.DeferCombatClose,frame) end
+    return
+  end
   if frame then frame:Hide() end
   CloseMenu();if copyBox then copyBox:Hide() end
   HideTip()
@@ -807,7 +820,10 @@ end
 local watcher = CreateFrame("Frame")
 local lastRead = 0
 watcher:RegisterEvent("GUILD_ROSTER_UPDATE")
-watcher:SetScript("OnEvent", function()
+watcher:RegisterEvent("PLAYER_REGEN_DISABLED")
+watcher:SetScript("OnEvent", function(_, event)
+  -- W.Hide refuses once lockdown has begun, so this makes no forbidden call.
+  if event == "PLAYER_REGEN_DISABLED" then if frame and frame:IsShown() and not W.combatGuarded then W.Hide() end return end
   if not frame or not frame:IsShown() then return end
   local t = time()
   if t - lastRead < 5 then return end
@@ -828,19 +844,23 @@ W.RequestSelected=function()
 end
 W.RequestVerifiedInitiates=function()
   Reload()
-  local targets,seen={},{}
-  for _,row in ipairs(cache.list) do
+  local shown=Visible()
+  local targets,seen,eligible={},{},0
+  for _,row in ipairs(shown) do
     if row.rankIndex==9 and row.status=="verified" and not row.historicalLinked then
-      if type(row.guid)~="string" or seen[row.guid] then Say("A verified Initiate GUID is missing or ambiguous; no check requested.");return false end
-      seen[row.guid]=true;targets[#targets+1]=row.guid
+      local ok,valid=pcall(function()
+        if type(issecretvalue)=="function" and issecretvalue(row.guid) then return false end
+        return type(row.guid)=="string" and #row.guid<=40 and row.guid:match("^Player%-%d+%-%x+$")~=nil
+      end)
+      if not ok or not valid or seen[row.guid] then Say("A verified Initiate GUID is missing or ambiguous; no check requested.");return false end
+      seen[row.guid]=true;eligible=eligible+1
+      if #targets<20 then targets[#targets+1]=row.guid end
     end
   end
-  if #targets<1 then Say("No verified native Initiates are present in the current loaded display. Refresh verification data first.");return false end
-  if #targets>20 then Say("More than twenty verified Initiates are present. Use individual selected checks; no partial batch was requested.");return false end
+  if #targets<1 then Say("No verified native Initiates match the current shown filters. Refresh verification data or adjust the view first.");return false end
   local launch=OlympusLaunch229
   if type(launch)~="table" or type(launch.SelectMany)~="function" then Say("The bounded Initiate checker is unavailable; no check requested.");return false end
-  view.initiates,view.rank,view.status,view.action,view.class,view.online,view.presence,view.text=true,0,2,4,0,false,1,""
-  if search then search:SetText("") end
+  Say("Selected the first "..#targets.." shown verified Initiate(s) for this explicit check; "..(eligible-#targets).." additional shown candidate(s). No automatic next batch or promotion.")
   offset=0;W.Refresh()
   return launch.SelectMany(targets)
 end

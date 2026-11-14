@@ -112,9 +112,10 @@ async function noDispatch(label,kind){const before=JSON.stringify(debt()),out=aw
   }
   for(const initiallyV1 of [false,true])for(const cause of ['ban','hold']){
    await fresh(layout,initiallyV1?'v1':'absent');if(cause==='ban')await write('UPDATE members SET banned=1 WHERE discord_id=?',subject);else await hold();clearTrace();
-   readHook=sql=>{if(sql.startsWith('SELECT discord_id FROM (SELECT m.discord_id')){readHook=null;if(initiallyV1)delete env[modeKey];else env[modeKey]='v1';}};
+   // Passive cursor references now select generation columns at this same pre-provider seam.
+   readHook=sql=>{if(sql.startsWith('SELECT selected.discord_id,p.generation AS privacy_generation,p.state AS privacy_state,p.revision AS privacy_revision')&&sql.includes("FROM (SELECT m.discord_id FROM members m WHERE m.banned = 1 UNION SELECT h.discord_id FROM rename_holds h WHERE h.state = 'reapply') selected")){readHook=null;if(initiallyV1)delete env[modeKey];else env[modeKey]='v1';}};
    const out=await R.reconcileBanned(env,'',10,budget());
-   check(layout+' sweep retains first capture for '+cause+' '+(initiallyV1?'v1-to-absent':'absent-to-v1'),out.failed.includes(subject)&&out.revoked.length===0&&out.held.length===0&&deletes().length===0&&debt().length===0);
+   check(layout+' sweep retains first capture for '+cause+' '+(initiallyV1?'v1-to-absent':'absent-to-v1'),readHook===null&&out.failed.includes(subject)&&out.revoked.length===0&&out.held.length===0&&deletes().length===0&&debt().length===0);
   }
   for(const kind of ['ban','reapply','blocking']){
    await fresh(layout);env.MEMBERSHIP_ROLE_SETTLEMENT_ENABLED='true';const pending=invoke(kind);env[modeKey]='v1';

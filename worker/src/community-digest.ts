@@ -3,7 +3,7 @@
  * src/officer-digest.ts, src/officer-queue.ts and src/coverage.ts, frozen candidate manifest 296db2c8…), translated to
  * the keeper's own queue and roster state: no donor role job, no donor query, no new grant, no DM path, no new table.
  *
- * THE DIGEST. Once a day, after 15:00 UTC (the cron runs every half hour), the bot posts to the keeper's staff channel
+ * THE DIGEST. Once a day, after 15:00 UTC (the cron runs every 15 minutes), the bot posts to the keeper's staff channel
  * (`staffChannel`: CHANNEL_MOD_ALERTS, else the review channel) HOW MANY things wait for an officer, as counts and nothing
  * else: invites queued or written, trial reviews due, departure items open, restriction cases due for review, private
  * requests open, character claims to review, dues weeks past their final review date; each only while its feature is on
@@ -101,7 +101,8 @@ export function digestContent(c: DigestCounts): string {
     ...some(c.duesPastReview, "dues week has passed its final review date", "dues weeks have passed their final review date"),
   ];
   if (parts.length === 0) return "**Officer digest:** nothing is waiting for an officer today.";
-  return `**Officer digest:** ${parts.join("; ")}. Review on the site's admin pages.`;
+  // CL2-136 (Evergreen 12 Nov 2026): say who acts. These items are handled by site administrators on the admin pages.
+  return `**Officer digest:** ${parts.join("; ")}. Site administrators handle these on the website's admin pages.`;
 }
 
 // ---------- the fenced state ----------
@@ -160,7 +161,7 @@ const definitive = (status: number | null) => status !== null && status >= 400 &
 export const digestEnabled = (env: Env): boolean => env.OFFICER_DIGEST_ENABLED === "true" && SNOWFLAKE.test(staffChannel(env));
 export type DigestOutcome = "off" | "not_due" | "done_today" | "waiting" | "busy" | "superseded" | "halted" | "posted" | "transient" | "uncertain" | "refused" | "cleaned_up";
 
-/** One cron attempt (every half hour). `at` is the invocation's time, in seconds. */
+/** One cron attempt (every 15 minutes). `at` is the invocation's time, in seconds. */
 export async function runOfficerDigest(env: Env, at = now()): Promise<DigestOutcome> {
   const on = digestEnabled(env);
   const channel = staffChannel(env);

@@ -82,14 +82,19 @@ async function guildCommands219(){
   if(sub==='class'){
    const arms=guide219.classes.find(c=>c.id==='warrior').specs.find(s=>s.id==='arms');
    check('CC-015 guide paragraphs preserve their trusted blank line',embed?.description===arms.beginner.summary.slice(0,2).map(p=>clean219(p)).join('\n\n'));
-   check('CC-005 class preset links share one dated beta notice and current Blizzard reference',
-    embed?.fields?.filter(row=>row.name==='16 October beta builds').length===1
-    &&embed.fields.some(row=>row.value.includes('https://us.forums.blizzard.com/en/wow/t/2360696/9'))
-    &&embed.fields.some(row=>row.value.includes('/#/talents/warrior/ot1.')));
+   // Owner ruling of 12 Nov 2026 (talent data moved to the 10 November export; df7e646, CL2-087): the one dated notice
+   // now names the 10 November data, and every preset link is encoded against the current snapshot revision.
+   const talentRevision=load('./talent-build-contract').TALENT_SNAPSHOT_REVISION;
+   check('CC-005 class preset links share one dated talent-data notice and current Blizzard reference',
+    embed?.fields?.filter(row=>/10 November talent data/.test(row.value)).length===1
+    &&embed.fields.some(row=>row.name==='Talent builds'&&row.value.includes('https://us.forums.blizzard.com/en/wow/t/2360696/9'))
+    &&embed.fields.filter(row=>row.value.includes('/#/talents/warrior/ot1.')).length>0
+    &&embed.fields.filter(row=>row.value.includes('/#/talents/warrior/ot1.')).every(row=>row.value.includes('/#/talents/warrior/ot1.'+talentRevision+'.'))
+    &&!JSON.stringify(embed).includes('16 October'),JSON.stringify(embed?.fields?.map(row=>row.name)));
   }
-  if(sub==='talent')check('CC-005 signed talent preview shows its beta snapshot date and newer Blizzard notes',
-   embed?.description.includes('16 October beta talent snapshot')
-   &&embed.fields?.some(row=>row.name==='Blizzard’s 2 November notes'&&row.value==='https://us.forums.blizzard.com/en/wow/t/2360696/9'));
+  if(sub==='talent')check('CC-005 signed talent preview shows its talent-data date and newer Blizzard notes',
+   embed?.description.includes('10 November talent data')&&!embed.description.includes('16 October')
+   &&embed.fields?.some(row=>row.name==='Blizzard’s 2 November notes'&&row.value==='https://us.forums.blizzard.com/en/wow/t/2360696/9'),embed?.description);
   if(sub==='attunement'&&v.raid==='onyxia'){
    const raid=guide219.tools.attunements.find(a=>a.id==='onyxias-lair');
    check('CC-015 Onyxia opening and requirement retain one separate line',embed?.description===[raid.opens,raid.requirement.value].map(p=>clean219(p)).join('\n'));
@@ -110,7 +115,8 @@ async function guildCommands219(){
   }
   if(name==='branches')check('CC-018 no Army snapshots gives one plain empty state and retains capacity, history and authority boundaries',
    embed?.description.includes('No published capacity snapshot for OLYMPUS PRIME / Olympus II–X yet. Live capacity is unknown.')&&
-   embed.description.includes('October Beta 1000/1000 +247 queued is historical only.')&&
+   embed.description.includes('not proof of current free guild slots or an invitation.')&&embed.description.includes('Automatic branch updates are off.')&&
+   embed.description.includes('October Beta counts are historical only.')&&
    !embed.fields?.length&&embed.footer?.text.includes('No automatic invitation, transfer, ranking or Link action.'));
   if(name==='treasury')check('Treasury identifies the Discord treasurer and the exact separate game recipient',r.answer.embeds[0].title.includes('Fernmelder')&&r.answer.embeds[0].description.includes('mail or trade to Fern Melder')&&r.answer.embeds[0].fields.some(f=>f.value.includes('100g standard bail remain available')));
   if(name==='stockades')check('Stockades offers the private MEE6 appeal while preserving the conditional bail and exact mail recipient',r.answer.embeds[0].description.includes('Ordinary appeals are free')&&r.answer.embeds[0].description.includes('private MEE6 ticket')&&r.answer.embeds[0].fields.some(f=>f.value.includes('100g standard')&&f.value.includes('Fern Melder')&&f.value.includes('Payment never guarantees an unban')));
@@ -123,11 +129,11 @@ async function guildCommands219(){
  r=await send219('branches',null,{},MEMBER);
  check('CC-018 validated snapshots retain dated branch rows, low-count suppression and unknown-capacity context',
   r.answer.embeds?.[0]?.fields?.length===10&&r.answer.embeds[0].fields[0].value.includes('fewer than 5')&&
-  r.answer.embeds[0].fields[0].value.includes('not current free-slot proof')&&!r.answer.embeds[0].description.includes('No published capacity snapshot'));
+  r.answer.embeds[0].fields[0].value.includes('This report may be out of date and does not confirm free guild slots.')&&!r.answer.embeds[0].description.includes('No published capacity snapshot'));
  await fixtureRun('UPDATE site_settings SET value=? WHERE key=?','{}',armyKey219);
  r=await send219('branches',null,{},MEMBER);
  check('CC-018 invalid stored snapshots retain validation-held disclosure without claiming no published snapshot',
-  r.answer.embeds?.[0]?.fields?.every(row=>row.value.includes('stored aggregate validation is held.'))&&
+  r.answer.embeds?.[0]?.fields?.length===10&&r.answer.embeds[0].fields.every(row=>row.value.includes('Live capacity unknown; the saved report needs review.'))&&
   !r.answer.embeds[0].description.includes('No published capacity snapshot'));
  await fixtureRun('DELETE FROM site_settings WHERE key=?',armyKey219);
  const warrior219=guide219.classes.find(c=>c.id==='warrior');

@@ -21,7 +21,7 @@ import { identifyNativeProfile } from './native-rank-adapter';
 import { privacyCaptureFromColumns,privacyGenerationExpressionFenceSql,readPrivacySubject } from './privacy-serving-authority';
 import { DB_NOW,randomGeneration } from './account-generation-contracts';
 import { FRESH_CAUSE_CHILD_CAP,FRESH_GRANT_CHILD_CAP,FRESH_REMOVAL_CHILD_CAP,STAFF_CHILD_CAP,laneChildBudget,laneRoom } from './lane-budget';
-import {captureCanonicalRankConfig233} from './canonical-ranks233';
+import {captureCanonicalRankConfig233,currentOriginalCanonicalPolicy233} from './canonical-ranks233';
 import { room,type Admission,type StatementCount } from './roster-effects';
 import { ROSTER_INGEST_STATEMENTS } from './scheduled-budget';
 import * as L from './full-release-roles';
@@ -103,7 +103,7 @@ export const FRESH_DEPARTURE_EVENTS_SELECT=`WITH ev AS (SELECT id,subject_id FRO
  sel AS (SELECT w.id,w.subject_id FROM w WHERE typeof(w.subject_id)='text' AND ${L.departureOwedSql('w.subject_id','?4')} ORDER BY w.id LIMIT ?2)
 SELECT sel.id,sel.subject_id,bounds.window_end,bounds.window_size FROM bounds LEFT JOIN sel ON 1=1 ORDER BY sel.id`;
 /** The first watermark: just before the audits of the last FRESH_DEPARTURE_EVENTS_LOOKBACK_SECONDS. Binds: ?1 since. */
-export const FRESH_DEPARTURE_EVENTS_START='SELECT COALESCE((SELECT MIN(id) FROM audit WHERE ts>=?1),(SELECT MAX(id) FROM audit)+1,1)-1 AS id';
+export const FRESH_DEPARTURE_EVENTS_START="SELECT COALESCE((SELECT MIN(id) FROM audit WHERE ts>=?1 AND action<>'treasury.erased_replay280'),(SELECT MAX(id) FROM audit)+1,1)-1 AS id";
 /** How many spent lane rows the reader would read (LANE_SPENT_ROWS' filter, bounded). Binds: ?1 subject ?2 guild. */
 export const FRESH_SPENT_COUNT=`SELECT COUNT(*) AS n FROM (SELECT 1 FROM role_settlements WHERE subject=?1 AND guild_id=?2 AND attempts=1 AND state IN('dispatching','unknown')
  AND expires_at<=${DB_NOW} AND (purpose IN(${quoted(L.LANE_PURPOSES)}) OR (purpose='grant_compensation' AND EXISTS(SELECT 1 FROM role_settlements pp
@@ -577,7 +577,8 @@ async function runNative232Pass(env:Env,io:Readonly<{calls:CallBudget;adm?:Admis
     return !!await writer.DB.prepare("SELECT 1 AS recorded FROM audit WHERE actor='system' AND action='role.native232_attempt' AND subject=?1 AND json_extract(CASE WHEN json_valid(details) THEN details ELSE '{}' END,'$.walk')=?2 LIMIT 1").bind(subject,walkId).first();
    };
   const canonical=captureCanonicalRankConfig233(env);
-   const window=(await env.DB.prepare(canonical.present?L.CANONICAL233_SWEEP249_SELECT:L.NATIVE232_SWEEP249_SELECT).bind(cap.guild,st.g,L.FRESH_WALK_WINDOW,canonical.present?0:selected.policy.privileged?1:0,nativeSweep.id).all<{subject:string;top_rank:number|null;urgent:number}>()).results;
+   const rankSelector=canonical.present?(currentOriginalCanonicalPolicy233(canonical.policy)?L.ORIGINAL_CANONICAL_SWEEP280_SELECT:L.DIRECTIVE_CANONICAL_SWEEP280_SELECT):L.NATIVE232_SWEEP249_SELECT;
+   const window=(await env.DB.prepare(rankSelector).bind(cap.guild,st.g,L.FRESH_WALK_WINDOW,canonical.present?0:selected.policy.privileged?1:0,nativeSweep.id).all<{subject:string;top_rank:number|null;urgent:number}>()).results;
    const refs:PrivacyReference[]=[];let visited=0,stop='',progressHeld=false;
   // Each subject is admitted against physical SQL and HTTP room, rather than a fixed two-account quota.
   const subjectLimit=10; // Re-evaluate live SQL/HTTP room before each visit; a cheap held account must not consume a worst-case slot.

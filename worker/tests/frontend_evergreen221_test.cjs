@@ -35,9 +35,10 @@ async function evergreen221(){
  const groups=page.app.querySelectorAll('[data-role-section201]').map(el=>el.getAttribute('data-role-section201'));
  check('role catalogue uses the six prescribed sections in order',JSON.stringify(groups)===JSON.stringify(['council','officers','raid','workshop','members','royal']));
  const cards=page.app.querySelectorAll('[data-role-family203]');
+ // Evergreen 12 Nov 2026 (CL2-100): the per-card reference row is a plain group, not a navigation landmark.
  check('all canonical role cards link to organization and a statutory Title',cards.length===72&&cards.every(card=>
-  card.querySelectorAll('.role-primary203 nav[aria-label="Role references"] a').some(a=>a.getAttribute('href').startsWith('#/organization/'))&&
-  card.querySelectorAll('.role-primary203 nav[aria-label="Role references"] a').some(a=>a.getAttribute('href').startsWith('#/governance/title-'))));
+  card.querySelectorAll('.role-primary203 .role-reference-links228 a').some(a=>a.getAttribute('href').startsWith('#/organization/'))&&
+  card.querySelectorAll('.role-primary203 .role-reference-links228 a').some(a=>a.getAttribute('href').startsWith('#/governance/title-'))));
  const councilCards=page.app.querySelector('[data-role-section201="council"]').querySelectorAll('[data-role-family203]');
  check('the chair and Co-Guild Master precede twelve canonically ordered portfolios',JSON.stringify(councilCards.slice(0,14).map(card=>card.getAttribute('data-role-family203')))===JSON.stringify(['leader',...page.boot.meta.roleDirectory203.councilOrder])&&councilCards[13].getAttribute('data-role-family203')==='systems_heraldry'&&!councilCards[13].querySelector('[data-family-apply203]'));
  check('ordinary readers see ten crosswalk role links without a staff planner link',page.app.querySelectorAll('[data-rank-crosswalk]').every(row=>row.querySelectorAll('a').some(a=>a.getAttribute('href').startsWith('#/roles/'))&&!row.querySelectorAll('a').some(a=>a.getAttribute('href').startsWith('/admin/ranks'))));

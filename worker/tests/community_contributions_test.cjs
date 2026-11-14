@@ -27,7 +27,7 @@ function d1(db, hooks = {}) {
   // authentication. Every physical guard remains in nativeTrace/nativeGroups.
   // Observe original logical payloads for the old race positions. The full
   // physical guard/header/terminal statements remain in nativeTrace/nativeGroups.
-  const sourcePlan = plan => /^UPDATE privacy_write_admission SET entry_changes=/.test(plan[0]?.statement ?? "") ? plan.slice(2,-2) : /^WITH business AS MATERIALIZED/.test(plan[0]?.statement ?? "") ? plan.slice(1) : plan;
+  const sourcePlan = plan => /^UPDATE privacy_write_admission SET entry_changes=/.test(plan[0]?.statement ?? "") ? plan.slice(2,-2) : (plan[0]?.statement ?? "") === load('./privacy-write-admission').PRIVACY_ADMISSION_SCHEMA_PROOF_SQL ? plan.slice(1) : plan;
   const payloadBatch = plan => { const source=sourcePlan(plan); return source.length > 1 && !(source.length === 2 && source[0].statement.includes("privacy_site_request_refused")); };
   return entry.originalNativePort(db, {...hooks,
     readStatement: (statement,params) => lossy(big => { statement.setReadBigInts(big); return statement.all(...params).map(asNumbers); }),

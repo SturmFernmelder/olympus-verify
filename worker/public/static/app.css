@@ -58,7 +58,9 @@ b, strong { color: var(--white); font-weight: 400; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 :focus-visible { outline: 2px solid rgba(255, 209, 0, 0.75); outline-offset: 2px; }
 
-.boot-fallback { max-width: 40rem; margin: 20vh auto; text-align: center; padding: 0 16px; }
+/* Evergreen 12 Nov 2026 (CL2-244): fixed, so its 20vh offset is not a margin that collapses through <body>; replacing
+   it with the shell then moves nothing (it was a 0.126 layout shift on every signed-in load at 1440 px). */
+.boot-fallback { position: fixed; top: 20vh; bottom: 0; left: 0; right: 0; max-width: 40rem; margin: 0 auto; overflow-y: auto; text-align: center; padding: 0 16px; }
 
 /* ---------- layout ---------- */
 .shell { max-width: 1120px; min-height: calc(100vh - 84px); margin: 0 auto; padding: 0 16px 40px; }
@@ -77,7 +79,7 @@ main.shell[tabindex="-1"]:focus { outline: none; }
 .brand img { width: 44px; height: 44px; flex: none; } /* .111: the Olympus crest (olympus-icon.png), the one non-game image, at the header size */
 .brand span { display: flex; flex-direction: column; line-height: 1; }
 .brand b { font-family: var(--title); font-size: 1.35rem; letter-spacing: 0.06em; color: var(--gold); text-shadow: 1px 1px 0 #000; }
-.brand small { font-size: 0.62rem; letter-spacing: 0.32em; color: var(--brass); margin-top: 3px; padding-left: 2px; }
+.brand small { font-size: 0.75rem; letter-spacing: 0.28em; color: var(--muted); margin-top: 3px; padding-left: 2px; } /* CL2-096: brass at 9.9 px measured 4.30:1 */
 .nav { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; align-items: center; }
 .nav-group { position: relative; margin: 0; padding: 0; }
 .nav-group > summary { list-style: none; white-space: nowrap; cursor: pointer; }
@@ -161,7 +163,7 @@ a.card:hover { filter: brightness(1.2); }
   text-shadow: none;
 }
 .parchment h3, .parchment h4 { font-family: var(--title); color: #1d0f05; text-shadow: none; margin: 0 0 0.4em; font-weight: 400; }
-.parchment h4 { font-family: var(--font); font-size: 0.78rem; line-height: 1.35; letter-spacing: 0.06em; text-transform: uppercase; color: #4a1204; margin-top: 1em; }
+.parchment :is(h4, h3.role-subhead) { font-family: var(--font); font-size: 0.78rem; line-height: 1.35; letter-spacing: 0.06em; text-transform: uppercase; color: #4a1204; margin-top: 1em; }
 .parchment b, .parchment strong { color: #000; }
 .parchment a { color: #5a1a08; }
 .parchment .muted { color: #3b2816; }
@@ -225,6 +227,8 @@ a.card:hover { filter: brightness(1.2); }
 .btn:active:not(:disabled) { border-image-source: url("/static/wow/button-down.png"); padding-top: 5px; padding-bottom: 1px; }
 .btn:disabled, .btn[aria-disabled="true"] { border-image-source: url("/static/wow/button-disabled.png"); color: #7c7c7c; cursor: not-allowed; }
 .btn.small { min-height: 30px; padding: 1px 11px; font-size: 13px; }
+/* REV-SITEA-1 (12 Nov 2026): the read-failure "Try again" (CL2-017) is the one way out of a failed read: a 44 px target at every width. */
+.btn.small.read-retry { min-height: 44px; }
 /* Navigation stays in place while pressed; only its texture changes. */
 .nav .btn:active { padding: 1px 11px; }
 .btn.big { min-height: 48px; padding: 5px 24px; font-size: 17px; }
@@ -279,7 +283,8 @@ select {
 }
 select option, select optgroup { background: #14120e; color: var(--text); font-family: var(--font); }
 input[type="search"] { padding-left: 28px; background: url("/static/wow/search.png") 5px 50% / 16px 16px no-repeat; }
-input:focus, select:focus, textarea:focus { outline: none; filter: brightness(1.25); box-shadow: 0 0 0 1px rgba(255, 209, 0, 0.55), 0 0 10px rgba(255, 209, 0, 0.18); }
+/* CL2-098 (12 Nov 2026): a 2 px ring that survives forced colours (an outline, not only a shadow). */
+input:focus, select:focus, textarea:focus { outline: 2px solid rgba(255, 209, 0, 0.9); outline-offset: 1px; filter: brightness(1.25); box-shadow: 0 0 10px rgba(255, 209, 0, 0.18); }
 input:disabled, textarea:disabled, select:disabled { opacity: 0.55; }
 .field.invalid input, .field.invalid select, .field.invalid textarea, .field.invalid .grid-avail { box-shadow: 0 0 0 1px var(--red), 0 0 10px rgba(255, 59, 48, 0.3); }
 .field .err { color: var(--red-soft); font-size: 0.88rem; margin-top: 5px; display: block; }
@@ -316,7 +321,10 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 legend { padding: 0; }
 .group-label { font-family: var(--title); color: var(--gold); font-size: 1.05rem; margin: 16px 0 8px; text-shadow: 1px 1px 0 #000; }
 .section-title { display: flex; align-items: center; gap: 10px; margin: 6px 0 12px; }
-.section-title h3 { margin: 0; }
+.section-title :is(h2, h3) { margin: 0; }
+.section-title h2 { font-size: 1.2rem; } /* CL2-099: form sections are H2 siblings, sized as before */
+/* Round 4 item 2 (13 Nov 2026): the Apply talent builds section has its H2 outside .section-title; same size as its siblings. */
+section.field[data-field="talentBuilds"] > h2 { font-size: 1.2rem; }
 
 /* Position choices: tooltip cards with the role's icon. */
 .options { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); }
@@ -343,6 +351,12 @@ legend { padding: 0; }
 .appointed-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 18px; }
 .appointed-row { margin: 0; }
 .appointed-row .lab { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+/* CL2-015 (Evergreen 12 Nov 2026): who a stored holder value is, beside the field. */
+.appointed-holder { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 4px 0 0; min-width: 0; overflow-wrap: anywhere; }
+.appointed-holder img.av { margin-right: 0; }
+.appointed-holder .btn.small { min-height: 44px; }
+/* CL2-123: the Discord message previews wrap through a class; the CSP (style-src 'self') blocks inline styles. */
+pre.pre-wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* ---------- the weekly availability grid ---------- */
 .avail-wrap { overflow-x: auto; }
@@ -726,7 +740,7 @@ dialog h2 { padding-right: 30px; }
   .appointed-grid { grid-template-columns: minmax(0, 1fr); }
   .grid.two, .grid.three, .grid.four, .backups, .hero { grid-template-columns: minmax(0, 1fr); }
   .topbar-in { flex-wrap: wrap; gap: 8px 12px; }
-  .nav { order: 3; flex-basis: 100%; flex-wrap: wrap; overflow: visible; padding-bottom: 4px; position: relative; }
+  .nav { flex-basis: 100%; flex-wrap: wrap; overflow: visible; padding-bottom: 4px; position: relative; } /* CL2-102: no CSS order, so focus follows what is seen */
   .nav-group { position: static; }
   .nav-group .nav-menu { left: 0; right: 0; top: calc(100% + 8px); width: auto; min-width: 0; max-width: none; }
   .nav .btn { flex: none; }
@@ -798,6 +812,14 @@ code.case-value { font-size: 1.05rem; letter-spacing: 0.04em; word-break: break-
 .card.event .card-head { flex-wrap: wrap; }
 .dues table.data td.wrap { min-width: 200px; }
 .dues .case-value { user-select: all; }
+/* Round 5 (calendar, 13 Nov 2026): on touch screens and phones every calendar, event, roster and scheduling control is a
+   44 x 44 px target (WCAG 2.5.8). Scoped to the calendar pages (app.js adds .calendar-view); desktop pointers keep their density. */
+@media (pointer: coarse), (max-width: 720px) {
+  .calendar-view .btn, .calendar-view button, .calendar-view select, .calendar-view textarea,
+  .calendar-view input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-height: 44px; }
+  .calendar-view .btn, .calendar-view button { min-width: 44px; }
+  .calendar-view input[type="checkbox"], .calendar-view input[type="radio"] { min-width: 44px; min-height: 44px; }
+}
 
 /* ---------- community (.98): the organizer and staff pages ---------- */
 .card.muted-card { opacity: 0.8; }
@@ -1004,6 +1026,10 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
 @media(max-width:370px){.topbar-in{gap:8px}.topbar-actions{gap:6px}.beta-epoch-figures{grid-template-columns:1fr}.beta-epoch-figures dd{margin-bottom:8px}}
 @media (max-width: 180px) {
   .brand { gap: 6px; }
+  /* CL2-323: at 320 px and 200% zoom (160 CSS px, 145 px beside a scrollbar) the brand pushed the page 5 px wide. */
+  .brand small { display: none; }
+  .brand img { width: 36px; height: 36px; }
+  .brand b { font-size: 1.1rem; }
 }
 @media(forced-colors:active){.stream-shield-toggle[aria-pressed="true"]{outline:3px solid Highlight;box-shadow:none}.stream-shield-toggle[aria-pressed="true"] .ico{filter:none}}
 
@@ -1113,7 +1139,7 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
 .application-chooser200 .application-expectations200 .role-info { padding: 10px; }
 .application-chooser200 .application-expectations200 .role-facts { grid-template-columns: minmax(0, 1fr); }
 .application-chooser200 .application-expectations200 .role-facts dd { margin-bottom: 6px; }
-.application-chooser200 .application-expectations200 .role-info h4 { margin-top: 10px; }
+.application-chooser200 .application-expectations200 .role-info :is(h4, h3.role-subhead) { margin-top: 10px; }
 .application-chooser200 .application-expectations200 .role-info ul { padding-left: 18px; }
 .application-chooser200 .application-track-quick200 { margin-top: 20px; }
 .application-chooser200 .application-office-picker200 { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); min-width: 0; }
@@ -1162,7 +1188,20 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
 /* .203: one card per role family; scoped duties and records stay inside native disclosures. */
 .role-ranks203 { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 6px 14px; list-style: none; padding: 0; margin: 14px 0 0; }
 .role-ranks203 > li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 8px; min-width: 0; padding: 5px 0; border-bottom: 1px solid var(--line); }
-.role-ranks203 > li > a { display: inline-flex; align-items: baseline; gap: 7px; min-height: 32px; min-width: 0; overflow-wrap: anywhere; }
+.role-ranks203 > li > a { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0 7px; min-height: 32px; min-width: 0; overflow-wrap: normal; }
+/* Round 4 (13 Nov 2026): the CL2-197 slot label takes its own line and rank names break only between words, so a
+   narrow two-column ladder no longer splits "Officer" or "Slot 0" mid-word. */
+.role-ranks203 > li > a > span:not(.role-rank-number203) { flex: 1 1 0; min-width: min-content; }
+.role-rank-slot1112 { flex-basis: 100%; white-space: nowrap; font-size: .8rem; color: var(--muted); }
+/* Round 4 (13 Nov 2026): the Rosetta Stone's family, office-key and Apply links and the directory's Rosetta link are
+   44 px touch targets on phones and touch screens (they measured 16 to 23 px). */
+@media (pointer: coarse), (max-width: 767px) {
+  .application-directory201 > .plaque > a:not(.btn), .rosetta199 li:is([data-rosetta-family1112], [data-rosetta-key1112]) > a,
+  .rosetta199 tr[data-rank-crosswalk] > td:last-child a { display: inline-flex; align-items: center; min-height: 44px; }
+  /* The key's department and reporting line go under the link instead of stretching the link's line. */
+  .rosetta199 .rosetta-key-scope1112 { display: block; margin-bottom: 6px; }
+  .rosetta199 .rosetta-sep1112 { display: none; }
+}
 .role-rank-number203 { flex: none; font-variant-numeric: tabular-nums; color: var(--muted); }
 .rosetta199 > summary { min-height: 44px; padding: 6px 0; font-family: var(--title); font-size: 1.2rem; line-height: 1.4; color: var(--gold); cursor: pointer; }
 .role-family-grid203 { align-items: start; }
@@ -1223,7 +1262,9 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
 .role-reporting218{font-size:.85rem;color:#d6bc7b;border-left:2px solid #8e763f;padding:.35rem .7rem;line-height:1.6}
 .application-reporting218{flex-basis:100%;overflow-wrap:anywhere}
 .role-primary203 .role-info{border:0;background:transparent;padding:0;color:var(--text);box-shadow:none}
-.role-primary203 .role-info>h4{margin-top:1.2rem;letter-spacing:.035em;color:var(--gold-soft)}
+/* Round 4 (13 Nov 2026): the guide subheads became h3.role-subhead (CL2-099); they keep the live build's gold here,
+   where the guide has no parchment behind it (dark red on near-black measured 1.2:1). */
+.role-primary203 .role-info>:is(h4,h3.role-subhead){margin-top:1.2rem;letter-spacing:.035em;color:var(--gold-soft)}
 .role-primary203 .role-info dt,.role-primary203 .role-info :is(b,strong,a){color:var(--gold-soft)}
 .role-primary203 .role-info .muted{color:var(--muted)}
 .role-primary203 .role-info li{margin-bottom:.5rem;line-height:1.65}
@@ -1253,4 +1294,192 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
   .filters > .field { min-width: 0; flex: 1 1 100%; }
   .olympus-rank-planner .filter-row > label { min-width: 0; flex-wrap: wrap; }
   .olympus-rank-planner .filter-row select { max-width: 100%; }
+}
+
+/* ---------- Evergreen 12 Nov 2026 (lane siteui-b): shell, focus and narrow-width fixes ---------- */
+/* CL2-102: the skip link is the first stop and appears when focused. */
+.skip-link { position: absolute; left: 8px; top: -60px; z-index: 10002; padding: 10px 14px; background: #11140f; color: var(--gold); border: 2px solid var(--gold); border-radius: 4px; text-decoration: none; }
+.skip-link:focus, .skip-link:focus-visible { top: 8px; outline: 2px solid var(--gold); outline-offset: 2px; }
+main.shell:focus-visible { outline: none; }
+/* CL2-095 and CL2-271: an authored page title outside a frame, and an H1 on a frame plaque. */
+.page-title { margin: 24px 0 4px; }
+.plaque h1 { font-size: 1.55rem; overflow-wrap: anywhere; min-width: 0; }
+/* CL2-098: form fields keep a visible ring in forced colours. */
+@media (forced-colors: active) {
+  :focus-visible, input:focus, select:focus, textarea:focus { outline: 3px solid Highlight; outline-offset: 2px; }
+}
+/* CL2-280: the stack never swallows taps around its toasts; each toast has a 44 px dismiss control. */
+.toasts { pointer-events: none; }
+.toast { pointer-events: auto; display: flex; align-items: flex-start; gap: 10px; }
+.toast > span { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.toast-x { flex: none; width: 44px; height: 44px; margin: -10px -10px -10px 0; border: 0; background: transparent; color: inherit; font: inherit; font-size: 1.4rem; line-height: 1; cursor: pointer; }
+.toast-x::before { content: "\00d7"; }
+/* CL2-321: phone menus have 44 px rows and scroll inside themselves (the height is set when a menu opens). */
+.nav-menu { overflow-y: auto; overscroll-behavior: contain; }
+@media (pointer: coarse), (max-width: 720px) { .nav-menu > a.btn { min-height: 44px; display: flex; align-items: center; } }
+/* CL2-272: Community sections are one scrolling row on phones and tablets. */
+.community-scroll-hint { display: none; }
+@media (max-width: 767px) {
+  .community-tabs > nav { flex-wrap: nowrap; gap: 6px; overflow-x: auto; padding: 4px 4px 10px; scroll-padding-inline: 4px; overscroll-behavior-x: contain; scrollbar-color: var(--brass) #11140f; }
+  .community-tabs > nav > .btn { flex: 0 0 auto; min-height: 44px; }
+  .community-scroll-hint { display: block; color: var(--muted); font-size: .76rem; margin: 2px 0 0; }
+}
+/* CL2-277: rank and title links on Roles are at least 32 px tall. */
+.role-reference-links228 a, .role-reference-links228 strong { display: inline-flex; align-items: center; min-height: 32px; }
+/* CL2-322, REV-SITEB-2 (12 Nov 2026): every "Role guide" link (beside application badges, and in the See-also strip on
+   Vote, Roles and the chart) shares one 44 px touch target. The See-also strip also sets it through CSSOM (seeAlso1112). */
+.application-intent199 > a.role-guide-link1112, .role-see-also1112 > a { display: inline-flex; align-items: center; min-height: 44px; }
+.application-intent199 > a.role-guide-link1112 { padding: 2px 4px; }
+/* CL2-281: at 200% zoom on a phone the badge row and the governance hero wrap instead of being clipped. */
+.inline:has(> .badge-slot) { flex-wrap: wrap; }
+/* Round 3 (12 Nov 2026, CL2-281): since name entry closed, the names panel lists recorded names as rows (name, status
+   badge, Remove). At 200% zoom on a phone they were 377 px wide in a 145 px window; they wrap instead. */
+#names .person { flex-wrap: wrap; max-width: 100%; }
+#names .person .nm { flex: 1 1 8em; }
+#names .person .nm b { white-space: normal; overflow-wrap: anywhere; }
+#names .person .badge { white-space: normal; }
+.badge-slot { min-width: 0; max-width: 100%; }
+.badge { max-width: 100%; }
+.governance-hero { flex-wrap: wrap; }
+.governance-hero > div { min-width: 0; flex: 1 1 14rem; }
+/* CL2-105: notes about an address that was not understood sit above the page. */
+.address-notice { margin: 16px 0 0; }
+/* CL2-102 follow-up: at 1000 px and below the brand and the actions share the first row and the menu takes the full row
+   under them; app.js puts the actions before the menu in the DOM at the same width, so focus follows what is seen. */
+@media (max-width: 1000px) {
+  .topbar-in { flex-wrap: wrap; }
+  .topbar-in > .nav { flex-basis: 100%; }
+  .topbar-actions { margin-left: auto; }
+}
+/* Touch targets: header buttons and menu labels are 44 px tall on touch screens and phones (the rows above stay two). */
+@media (pointer: coarse), (max-width: 720px) {
+  .topbar .btn.small, .topbar .nav-group > summary.btn { min-height: 44px; display: inline-flex; align-items: center; }
+  .topbar .nav { padding-bottom: 0; }
+}
+/* Community overview cards are H2s under the page H1, sized as card titles. */
+.card-head h2.card-title { margin: 0; font-size: 1.2rem; min-width: 0; overflow-wrap: anywhere; }
+/* Round 5 (13 Nov 2026, area touch): Codex asked to close the phone-control gap before signatures. On touch screens and
+   phones every standalone control is at least 44 by 44 CSS px; desktop pointers keep their density, since every rule
+   sits inside the lane's query. Links inside a sentence keep their line (WCAG 2.5.8 inline exception). The #app prefix
+   lets a minimum win over the tool stylesheets loaded after app.css (organization, rank planner, talents) without
+   !important; it is used only where no rule sets a larger minimum, so .btn.big and the role summaries keep theirs.
+   Measured by worker/tests/evergreen1112_touch_browser.mjs (receipts round5-touch). */
+@media (pointer: coarse), (max-width: 720px) {
+  /* Buttons, button links and the tools' own buttons. */
+  #app .btn:not(.big), #app .olympus-rank-planner .button, #app .prof, #app .s60-sort { min-height: 44px; min-width: 44px; }
+  #app .btn.big { min-height: 48px; }
+  #app .olympus-rank-planner .icon-button, #app .olympus-rank-planner .close-button, #app .x { min-width: 44px; width: 44px; height: 44px; background-position: center; }
+  #app .olympus-rank-planner .rank-choice { min-height: 44px; }
+  #app .org-office-card .organization-term { min-height: 44px; min-width: 44px; }
+  /* The availability grid keeps seven 44 px days; its own box scrolls sideways (.avail-wrap) and the hours stay in view. */
+  #app .grid-avail button { width: 44px; height: 44px; }
+  #app .grid-avail th.t { position: sticky; left: 0; z-index: 1; background: #0b0d0a; }
+  /* A fade on the right edge shows that more days lie beyond it (round 5 review, 13 Nov 2026). It sits after the grid, so at the
+     end of the week it covers nothing, and taps pass through it. */
+  #app .avail-wrap { display: flex; }
+  #app .avail-wrap > .grid-avail { flex: none; }
+  #app .avail-wrap::after { content: ""; flex: 0 0 24px; position: sticky; right: 0; z-index: 2; pointer-events: none; background: linear-gradient(to right, rgba(11, 13, 10, 0), #0b0d0a); }
+  /* Fields: height only. */
+  #app :is(input:not([type]), input[type="text"], input[type="search"], input[type="url"], input[type="number"], input[type="email"],
+    input[type="tel"], input[type="datetime-local"], input[type="password"], input[type="date"], select) { min-height: 44px; }
+  /* Check boxes and radios: the label that activates them is the target; a box without a label grows itself. */
+  #app label:has(> input:is([type="checkbox"], [type="radio"])) { min-height: 44px; }
+  #app label:not([class]):has(> input[type="checkbox"]) { display: flex; align-items: center; gap: 8px; }
+  #app .talents-compare-switch, #app .s60-check { align-items: center; }
+  #app :is(th, td) > input[type="checkbox"] { width: 44px; height: 44px; margin: -6px; background-size: 32px 32px; }
+  /* Disclosures. */
+  :where(.shell) summary { min-height: 44px; padding-block: 10px; box-sizing: border-box; }
+  #app .talents-change-tree > summary { min-height: 44px; }
+  /* Links that stand alone: lists of links, a link that is a whole line, links in table cells and card titles. */
+  .role-reference-links228 a, .role-reference-links228 strong, #app .org-alliance-seat-link, .footer-in .brand,
+  .governance-article-links228 > a, #app .tp207-links > a, #app .talents-guide-heading a,
+  nav[aria-label="Book chapters"] li > a, .legal-paper196 .policy-contents li > a, #app .org-alliance-guide-group218 li > a,
+  #app .org-alliance-council-references li > a, .card.event .card-head h3 > a, .launch-notice218 > p:only-child > a:only-child,
+  .launch-notice218 > p:not([class]) > a:only-child, td > a:is(.summary-role-open, .prof-tag, .application-open),
+  #application-track-chooser228 > p.small > a:only-child, #app section.frame > ul > li > a:only-child, #app .tp207-source-links li > a,
+  #app .tp207-chapter-section h3 > a, #app .olympus-rank-planner .reference-note a[href*="GuildControlUI"],
+  /* Link strips and link lists whose other text is a separator or a short label (round 5 review, 13 Nov 2026): the track
+     chooser's guide links, the Vote strip, the rank lists on Organization and in the rank planner, the planner's Council
+     list and its reference strip, and the member legal view's account strip. */
+  #app #application-track-chooser228 li > a:not(.btn), #app section.frame > p.small > a:is([href="#/roles"], [href="#/apply"]),
+  /* News, "Leadership directory": the text before this link is three or four words depending on the data, so it is a
+     standalone target in every state (third round 5 review, 13 Nov 2026). */
+  #app section.frame > p > a[href="#/community/leadership"],
+  #app .org-rank-guide .organization-ranks li > a, #app .current-rank-guide li > a, #app .current-council218 li > a,
+  #app .current-council218 details > p > a, #app .legal-view196 .data-controls p > a,
+  /* A link placed directly in a section, on a line of its own between blocks (second round 5 review, 13 Nov 2026): the Apply
+     form's "Open the talent calculator" and the Organization Council summary's reference link. */
+  #app section.field > a:not(.btn), #app .org-alliance-current-council > a {
+    /* Width as well as height: the text of some of these links is data (an event title may be one character), and a
+       standalone target is 44 px both ways whatever it says (Codex, 13 Nov 2026 20:15 UTC; measured 6 px before). */
+    display: inline-flex; align-items: center; min-height: 44px; min-width: 44px;
+  }
+  #app .org-rank-guide .organization-ranks li > a, #app .current-rank-guide li > a { min-width: 44px; }
+  .role-see-also1112 > a, .role-reference-links228 a, .rosetta199 li:is([data-rosetta-family1112], [data-rosetta-key1112]) > a,
+  .rosetta199 tr[data-rank-crosswalk] > td:last-child a { min-width: 44px; justify-content: center; }
+  /* The remaining standalone text links found by the one-character probe (13 Nov 2026). Their texts are fixed words today;
+     the rule is the same for every standalone link: 44 px both ways whatever the text says. */
+  .skip-link, .application-intent199 > a.role-guide-link1112, .application-directory201 > .plaque > a:not(.btn) { min-width: 44px; }
+}
+/* ---------- launch operations v234 (owner ladder 12 Nov 2026; /static/launch-operations234.js) ---------- */
+[data-launch234] .btn, [data-launch234] .btn.small { min-height: 44px; }
+[data-launch234] table { width: 100%; border-collapse: collapse; }
+[data-launch234] table caption { text-align: left; padding: 6px 10px; }
+[data-launch234] :is(th, td) { padding: 8px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+[data-launch234] tbody th { font-weight: 600; }
+.launch234-ranks { max-width: 28rem; }
+.launch234-path ol { margin: 0 0 4px; padding-left: 1.4em; }
+.launch234-path li { white-space: nowrap; }
+.launch234-holds { margin: 4px 0 0; padding-left: 1.2em; }
+.launch234-holds li + li { margin-top: 4px; }
+.launch234-source { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; margin: 12px 0; }
+.launch234-source dt { color: var(--gold); }
+.launch234-source dd { margin: 0; min-width: 0; }
+.launch234-source code { overflow-wrap: anywhere; word-break: break-all; }
+.launch234-digest > summary { display: inline-flex; align-items: center; min-height: 44px; cursor: pointer; text-decoration: underline; }
+.launch234-digest > code { display: block; padding: 4px 0; }
+@media (max-width: 640px) {
+  .launch234-source { grid-template-columns: minmax(0, 1fr); }
+  .launch234-path li { white-space: normal; }
+  /* Narrow screens: each promotion becomes a card so every step stays visible without sideways scrolling. */
+  .launch234-promotions :is(table, thead, tbody, tr, th, td) { display: block; }
+  .launch234-promotions thead tr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .launch234-promotions tbody tr { padding: 6px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.12); }
+  .launch234-promotions tbody :is(th, td) { border-bottom: 0; padding: 4px 10px; }
+  .launch234-promotions td[data-label]::before { content: attr(data-label) / ""; display: block; color: var(--gold); font-size: 0.78rem; }
+}
+@media (forced-colors: active) {
+  [data-launch234] :is(th, td) { border-bottom: 1px solid CanvasText; }
+  .launch234-digest > summary:focus-visible, [data-launch234] .table-wrap:focus-visible { outline: 2px solid Highlight; }
+}
+/* ui280 piece 2: the News activity table (/static/activity280.js). It wraps instead of scrolling sideways at 320 px. */
+[data-activity-comparison] table.data th, [data-activity-comparison] table.data td { white-space: normal; overflow-wrap: anywhere; vertical-align: top; }
+[data-activity-comparison] table.data td > span { display: block; font-variant-numeric: tabular-nums; }
+[data-activity-comparison] meter { display: block; width: 100%; max-width: 10rem; height: 0.8rem; margin-top: 4px; }
+@media (max-width: 420px) { [data-activity-comparison] table.data :is(th, td) { padding: 6px; } }
+/* ui280 piece 3: the owner's one-time receipt-note cleanup on Admin, Donation ledger (/static/note-redaction280.js). */
+.note-redaction280 { border: 1px solid #3a3326; background: rgba(0, 0, 0, 0.35); padding: 12px 14px; }
+.note-redaction280 h2 { margin: 0; }
+.note-redaction280 h3 { margin: 4px 0 0; }
+.note-redaction280 .btn { min-height: 44px; min-width: 44px; }
+.note-redaction280-counts { margin: 0; padding-left: 1.2em; }
+.note-redaction280-counts strong { font-variant-numeric: tabular-nums; }
+.note-redaction280-check { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
+.note-redaction280-check input[type="checkbox"] { flex: none; width: 24px; height: 24px; margin: 0; }
+.note-redaction280 textarea { width: 100%; max-width: 100%; box-sizing: border-box; font-family: ui-monospace, Consolas, monospace; font-size: 0.8rem; overflow-wrap: anywhere; word-break: break-all; }
+@media (forced-colors: active) {
+  .note-redaction280 { border-color: CanvasText; }
+  .note-redaction280 :is(button, input, textarea, h3):focus-visible { outline: 2px solid Highlight; }
+}
+/* ui280 round 2, CL2-258: the site-profile filter row in the shared member picker (administrators only) is a 44 px target. */
+.picker .list-tools { min-height: 44px; box-sizing: border-box; }
+.picker .list-tools input[type="checkbox"]:focus-visible { outline: 2px solid rgba(255, 209, 0, 0.75); outline-offset: 2px; }
+@media (forced-colors: active) { .picker .list-tools input[type="checkbox"]:focus-visible { outline-color: Highlight; } }
+/* ui280 round 3: the launch invite queue (v233 and v242 evidence) becomes one card per invite on narrow screens, so no column scrolls sideways. */
+@media (max-width: 640px) {
+  .launch234-invites :is(table, thead, tbody, tr, th, td) { display: block; }
+  .launch234-invites thead tr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .launch234-invites tbody tr { padding: 6px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.12); }
+  .launch234-invites tbody td { border-bottom: 0; padding: 4px 10px; }
+  .launch234-invites td[data-label]::before { content: attr(data-label) / ""; display: block; color: var(--gold); font-size: 0.78rem; }
 }

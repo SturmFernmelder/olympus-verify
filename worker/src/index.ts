@@ -1,8 +1,11 @@
+import {consumeAddressRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 // Optional .242 features are lazy boundaries: preserve the original Core/QR initialization order.
 async function handleRoleContinuation242(...args:Parameters<typeof import('./role-reconcile242').handleRoleContinuation242>){return (await import('./role-reconcile242')).handleRoleContinuation242(...args);}
 async function kickRoleWork242(...args:Parameters<typeof import('./role-reconcile242').kickRoleWork242>){return (await import('./role-reconcile242')).kickRoleWork242(...args);}
 async function kickRoleWorkGroups266(...args:Parameters<typeof import('./role-reconcile242').kickRoleWorkGroups266>){return (await import('./role-reconcile242')).kickRoleWorkGroups266(...args);}
 async function postIntake242(...args:Parameters<typeof import('./intake242').postIntake242>){return (await import('./intake242')).postIntake242(...args);}
+async function intakeCreatedRoleRequest280(response:Response){return (await import('./intake242')).intakeCreatedRoleRequest280(response);}
+async function purgeReceipt242(...args:Parameters<typeof import('./intake242').purgeReceipt242>){return (await import('./intake242')).purgeReceipt242(...args);}
 import './treasury-data242';
 import { isGuildCommand219, guildCommandReadOnly219, handleGuildCommand219 } from './guild-commands219';
 /**
@@ -32,7 +35,7 @@ import { captureLaunchVerification,launchVerificationEnv } from './launch-verifi
 import type { Env } from "./env";
 import {nativeErasureMode,nativeServingEnvironment} from './privacy-native-mode';
 import { STRICT_ROSTER_DISPLAY_PROTOCOL, STRICT_ROSTER_DISPLAY_PROTOCOL_V2, strictRosterDisplay, unverifiedReport } from "./unverified";
-import { handleLaunchOperations229 } from './site-launch229';
+import { handleLaunchOperations229,handleDiscoveryOperations235 } from './site-launch229';
 import { handleInteraction, USER_MENU_LOOKUP } from "./interactions";
 import { DiscordError, INTERACTION_FAILED, json, readInteractionBody, reply, verifyInteraction, type Interaction } from "./discord";
 import { errorRef, idNamespace, logPath } from "./log";
@@ -45,13 +48,14 @@ import { sweepMemberRoles } from "./restore";
 import { continueRosterEffects } from "./roster";
 import {runServingErasureJob} from './privacy-serving-jobs';
 import {captureServingRetentionSchedule,sweepServingRetention} from './privacy-retention';
-import {captureMembershipDecisionOrigin,captureRejectionExpiryInvocation,sweepRejectionExpiry} from './privacy-rejection-decision';
+import {captureMembershipDecisionOrigin,captureRejectionExpiryInvocation,sweepRejectionExpiry,MembershipDecisionSignedOut} from './privacy-rejection-decision';
 import { bnetLinkCallback, linkedRoleCallback, startLinkedRole } from "./oauth";
 import { bnetLoginState } from "./bnet-switch";
 import { sweepRenameHolds } from "./rename-review";
 import { policyResponse } from "./policies";
 import { memberLegalNavigation } from "./member-legal-navigation";
 import { CAMERA_PAGE_PATH, fetchCanonicalHtmlAsset, memberSiteGate, privateCameraPageAsset, privateSiteAsset } from './site-access';
+import { memberApiTransport, memberSiteAsset } from './member-transport';
 import { forwardPrivateProductionControl } from './privacy-private-control-adapter';
 import { LOGIN_ASSETS, POLICY_ASSETS, policyHeaders } from "./policy-render";
 import { verifyAddonDownload } from './verify-addon-download';
@@ -60,7 +64,8 @@ import { ensureSchema } from "./schema";
 import { recordRelay, relayReportFromQuery, relayStatus, ticketsReady } from "./relays";
 import { handleIntros, INTROS, INTROS_COMMAND, parseChannels } from "./intros";
 import { handleSite } from "./site";
-import { rateLimited, siteAdmins, siteHost, siteLegacyHosts, securityHeaders } from "./site-core";
+import { apiJson, rateLimited, siteAdmins, siteHost, siteLegacyHosts, securityHeaders } from "./site-core";
+import {botResponse280} from "./bot-response280";
 import { handleLookup, isAsmongoldLookup, LOOKUP_COMMAND } from "./lookup";
 import { recordNames, refreshNames, verifiedOnRoster } from "./names";
 import {captureSiteOAuthOrigin,type SiteOAuthOrigin} from './privacy-serving-site-oauth';
@@ -84,7 +89,7 @@ import {BETA_RESET_CRON,BETA_RESET_SCHEDULE_QUALIFIED,runBetaResetSlice} from '.
 import {resetGuardEnabled,captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy';
 import {createPrivacyWriteAdmissionDatabase,isPrivacyWriteAdmissionDatabase,PrivacyWriteAdmissionHeld} from './privacy-write-admission';
 import {captureHandlerServingOrigin,registerHandlerInteractionNames,type HandlerServingOrigin} from './privacy-serving-production-origin';
-import {EPOCH2_SCHEDULE_QUALIFIED,CANONICAL_RANK_SCHEDULE_QUALIFIED,CANONICAL_RANK_CHILD_STATEMENTS,CANONICAL_RANK_SCHEDULE_HTTP,captureOriginalRosterSchedule,originalRosterScheduleFacts,type OriginalRosterSchedule} from './scheduled-budget';
+import {EPOCH2_SCHEDULE_QUALIFIED,CANONICAL_RANK_SCHEDULE_QUALIFIED,CANONICAL_RANK_CHILD_STATEMENTS,CANONICAL_RANK_SCHEDULE_HTTP,captureOriginalRosterSchedule,originalRosterScheduleFacts,roleSweepLane1112,type OriginalRosterSchedule,type RoleSweepLane1112} from './scheduled-budget';
 import {captureCanonicalRankConfig233} from './canonical-ranks233';
 import {RecoveryFloorHeld} from './privacy-recovery-floor';
 import {originalRecoveryClockMilliseconds} from './privacy-recovery-original-clock';
@@ -225,7 +230,7 @@ export default {
     let globalEntry:ReturnType<typeof captureGlobalServingEntry>;try{globalEntry=captureGlobalServingEntry(env,ctx,'fetch',request);}catch{return json({error:'original_serving_held'},503); }env=globalEntry.env;request=globalEntry.request!;
     // Capture native/host/version/method custody before any facade substitution or await.
     // Only this Names boundary is managed; missing bindings hold Names without a legacy fallback.
-    try{captureMembershipDecisionOrigin(request,env);}catch{return new Response(JSON.stringify({error:'original_membership_decision_held'}),{status:409,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});}
+    try{captureMembershipDecisionOrigin(request,env);}catch(e){if(e instanceof MembershipDecisionSignedOut)return apiJson({error:'signed_out',message:'Sign in with Discord before using staff decisions.'},401);return new Response(JSON.stringify({error:'original_membership_decision_held'}),{status:409,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});}
     let namesOrigin:HandlerServingOrigin|undefined;
     if(host==="bot"&&request.method==="POST"&&path==="/interactions"){try{namesOrigin=captureHandlerServingOrigin(request,env,ctx);}catch{}}
     let siteOAuthOrigin:SiteOAuthOrigin|undefined;
@@ -258,7 +263,8 @@ export default {
         if (treasuryPrivate) return treasuryPrivate;
         if ((request.method === 'GET' || request.method === 'HEAD') && path.startsWith('/static/')) {
           if (path === CAMERA_PAGE_PATH) return privateCameraPageAsset(await fetchCanonicalHtmlAsset(request, env.ASSETS, path));
-          return privateSiteAsset(await env.ASSETS.fetch(request));
+          // CL2-076 (owner ruling of 13 Nov 2026): app.js and app.css of this build are kept in the member's browser.
+          return memberSiteAsset(request, await env.ASSETS.fetch(request), BUILD);
         }
       }
       // This build's columns and tables (schema.ts); a no-op once done in this isolate, retried on the next request
@@ -277,11 +283,12 @@ export default {
       // public one (a site run on the workers.dev address), in which case the bot's routes below still apply.
       if (host === "site") {
         const r = await handleSite(request, env, path, schemaReady, BUILD, (work) => deferOriginalServing(ctx,'site_callback',work),siteOAuthOrigin,roleDispatch);
-        if (r) return r;
+        if (r) return memberApiTransport(path, r); // CL2-076: member JSON may be compressed by the edge
         if (siteHost(env) !== hostOf(env.PUBLIC_BASE_URL)) return new Response("not found", { status: 404 });
       }
       const res = await route(request, env, path, schemaReady, ctx, namesOrigin,roleDispatch);
-      if(request.method==='POST'&&res.ok&&['/ingest/verify','/ingest/roster','/ingest/intake242'].includes(path)){
+      if(request.method==='POST'&&res.ok&&['/ingest/verify','/ingest/roster','/ingest/intake242'].includes(path)
+        &&(path!=='/ingest/intake242'||await intakeCreatedRoleRequest280(res))){
        const verification242=captureLaunchVerification(env);
        if(verification242.mode==='members-only'&&verification242.scope&&verification242.current()){
         deferOriginalServing(ctx,'roles242_requests',()=>kickRoleWork242(env,'requests'));
@@ -293,11 +300,14 @@ export default {
         // Revision 4 (A1, A4 entry 1): the lane configuration is captured here, synchronously. Unconfigured keeps the
         // original statement exactly; configured shares one Discord-call allowance between the sweep and the fresh pass.
         const lane = captureLaneConfig(env);
-        if (!lane.configured) deferOriginalServing(ctx,'queue_member_roles',()=>sweepMemberRoles(env, "watcher",undefined,roleDispatch));
+        // Ban lane successor (12 Nov 2026): one role-sweep lane from this request's own quarter-hour phase, captured here
+        // before any await; a held clock leaves no lane, and a canonical sweep then holds. Codex replaces this wiring.
+        let roleLane: RoleSweepLane1112 | undefined; try { roleLane = roleSweepLane1112(originalRosterScheduleFacts(captureOriginalRosterSchedule()).phase); } catch { roleLane = undefined; }
+        if (!lane.configured) deferOriginalServing(ctx,'queue_member_roles',()=>sweepMemberRoles(env, "watcher",undefined,roleDispatch,roleLane));
         // A refused registration is audited, then propagates exactly as .160's did: the legacy sweep rides on this deferral.
-        else { const parent = callBudget(env); try { deferOriginalServing(ctx,'queue_member_roles',()=>queueFreshRoles(env,lane,parent,roleDispatch)); } catch (e) { await freshRegistrationRefused(env,'watcher'); throw e; } }
+        else { const parent = callBudget(env); try { deferOriginalServing(ctx,'queue_member_roles',()=>queueFreshRoles(env,lane,parent,roleDispatch,roleLane)); } catch (e) { await freshRegistrationRefused(env,'watcher'); throw e; } }
       }
-      return res;
+      return botResponse280(res);
     } catch (e) {
       if(e instanceof RecoveryFloorHeld)throw e;
       if(e instanceof PrivacyWriteAdmissionHeld)return json({error:'write_admission_held',message:'The current source installation or transaction outcome is not confirmed.'},503);
@@ -345,7 +355,11 @@ export default {
         const facts=originalScheduledCallbackPhysicalCostObservation(event,ctx),row=facts.jobs.find(job=>job.job==='newsCron');
         return row?Object.freeze({state:row.state,statements:row.statements,pendingGroups:row.pendingGroups,failedGroups:row.failedGroups}):null;
       };
-      await dispatchGlobalServingEntry(globalEntry,()=>{originalScheduledCallback(original,event,ctx);return canonicalMinute?runSourceCanonicalRankScheduledBody(globalEntry.env,ctx,check):resetMinute?runSourceBetaResetScheduledBody(globalEntry.env,ctx,roleDispatch):runSourceEpoch2ScheduledBody(globalEntry.env,ctx,undefined,roleDispatch,roleSliceCost,newsSliceCost);});
+      const retentionSliceCost = (): OriginalScheduledSliceCost | null => {
+        const facts=originalScheduledCallbackPhysicalCostObservation(event,ctx),row=facts.jobs.find(job=>job.job==='sweepServingRetention');
+        return row?Object.freeze({state:row.state,statements:row.statements,pendingGroups:row.pendingGroups,failedGroups:row.failedGroups}):null;
+      };
+      await dispatchGlobalServingEntry(globalEntry,()=>{originalScheduledCallback(original,event,ctx);return canonicalMinute?runSourceCanonicalRankScheduledBody(globalEntry.env,ctx,check):resetMinute?runSourceBetaResetScheduledBody(globalEntry.env,ctx,roleDispatch):runSourceEpoch2ScheduledBody(globalEntry.env,ctx,undefined,roleDispatch,roleSliceCost,newsSliceCost,retentionSliceCost);});
     } catch(e) {
       console.error("cron entry held; skipping this run",errorRef(e));
     }
@@ -386,7 +400,10 @@ async function runSourceBetaResetScheduledBody(env:Env,ctx:ExecutionContext,orig
 /** Source-owned whole-schedule measurement seam. The real handler checks the installed Epoch2 qualification guard.
  * Native fixture calls this same schema and complete dispatch body; no source loader replacement or activation proof. */
 type OriginalScheduledSliceCost = Readonly<{state:string;statements:number;pendingGroups:number;failedGroups:number}>;
-export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionContext,originalSchedule?:OriginalRosterSchedule,originalDispatch?:BetaRoleDispatch,readOriginalRoleCost?:()=>OriginalScheduledSliceCost|null,readOriginalNewsCost?:()=>OriginalScheduledSliceCost|null): Promise<void> {
+// The installed retention slice is25 physical statements; the existing Native
+// receipt purge costs5. It may use only their difference, never another job's reserve.
+const RETENTION_SLICE_STATEMENTS280=25,RECEIPT_PURGE_STATEMENTS280=5;
+export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionContext,originalSchedule?:OriginalRosterSchedule,originalDispatch?:BetaRoleDispatch,readOriginalRoleCost?:()=>OriginalScheduledSliceCost|null,readOriginalNewsCost?:()=>OriginalScheduledSliceCost|null,readOriginalRetentionCost?:()=>OriginalScheduledSliceCost|null): Promise<void> {
     const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
     const originalRetentionSchedule=captureServingRetentionSchedule(),rosterSchedule=originalSchedule??captureOriginalRosterSchedule();
     const rosterCadence=originalRosterScheduleFacts(rosterSchedule);
@@ -401,7 +418,7 @@ export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionConte
     deferOriginalServing(ctx,'sweepInviteQueue',()=>sweepInviteQueue(env)); // re-queues invites nobody accepted, retires the hopeless ones
     deferOriginalServing(ctx,'sweepMemberRoles',async()=>{
       const calls=callBudget(env);
-      await sweepMemberRoles(env,"cron",calls,roleDispatch);
+      await sweepMemberRoles(env,"cron",calls,roleDispatch,roleSweepLane1112(rosterCadence.phase)); // ban lane successor, 12 Nov 2026
       // Cosmetic expiry may use only the unused part of this original 120-statement
       // role slice. Its numeric observation is not account or dispatch authority.
       // Missing/failed Native observation means no cleanup, never an assumed reserve.
@@ -449,7 +466,18 @@ export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionConte
     });
     deferOriginalServing(ctx,'runOfficerDigest',()=>runOfficerDigest(env).catch((e) => console.error("officer digest failed", errorRef(e)))); // .85: the daily officer digest (counts only) behind its own switch; off, it only removes what it posted
     deferOriginalServing(ctx,'runServingErasureJob',()=>runServingErasureJob(env).then(out=>{if(nativeErasureMode(env))console.log('native erasure tick',{attempted:out.attempted,completed:out.completed,held:out.held});}).catch(e=>console.error('serving erasure continuation failed',errorRef(e))));
-    deferOriginalServing(ctx,'sweepServingRetention',()=>sweepServingRetention(env,originalRetentionSchedule).catch(e=>console.error('serving retention failed',errorRef(e))));
+    deferOriginalServing(ctx,'sweepServingRetention',async()=>{
+      try{await sweepServingRetention(env,originalRetentionSchedule);}
+      catch(e){console.error('serving retention failed',errorRef(e));return;}
+      // Receipt expiry shares only observed spare in this original25-statement
+      // slice. A saturated/failed/unknown observation defers; it never borrows
+      // another job's budget or supplies identity/deletion authority.
+      let cost:OriginalScheduledSliceCost|null=null;
+      try{cost=readOriginalRetentionCost?.()??null;}catch{return;}
+      if(!cost||cost.state!=='running'||cost.pendingGroups!==0||cost.failedGroups!==0||!Number.isSafeInteger(cost.statements)||cost.statements<0||cost.statements>RETENTION_SLICE_STATEMENTS280-RECEIPT_PURGE_STATEMENTS280)return;
+      try{await purgeReceipt242(env);}
+      catch(e){console.error('receipt retention held',errorRef(e));}
+    });
   const rejectionExpiry=captureRejectionExpiryInvocation(env);
   deferOriginalServing(ctx,'sweepRejectionExpiry',()=>sweepRejectionExpiry(env,rejectionExpiry).catch(e=>console.error('rejection expiry held',errorRef(e))));
 }
@@ -560,7 +588,9 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
     if (body === null) return new Response("payload too large", { status: 413 });
     if (!(await verifyInteraction(env, request, body))) return new Response("bad signature", { status: 401 });
     const i = JSON.parse(body) as Interaction;
-    if (env.DISCORD_APP_ID && i.application_id !== env.DISCORD_APP_ID) return new Response("wrong application", { status: 400 });
+    if (typeof env.DISCORD_APP_ID !== 'string' || !/^[0-9]{17,20}$/.test(env.DISCORD_APP_ID))
+      return json({error:'interaction_application_unconfigured'},503);
+    if (i.application_id !== env.DISCORD_APP_ID) return new Response("wrong application", { status: 400 });
     const interactionGuild = env.SITE_GUILD_ID || env.GUILD_ID;
     if (i.type !== 1 && (!interactionGuild || i.guild_id !== interactionGuild)) return new Response(null, { status: 204 });
     if (!schemaReady && i.type !== 1) return reply("The bot is updating its database \u2014 please try again in a minute.");
@@ -617,8 +647,9 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
     return res;
   }
   // .90 (P-17): the OAuth entry points on the bot host, limited per client address, in memory (a first filter)
-  if ((path === "/linked-role" || path === "/oauth/callback" || path === "/bnet/link") && rateLimited(`oauth:${path}:${request.headers.get("CF-Connecting-IP") ?? ""}`, 20, 60)) {
-    return new Response(JSON.stringify({ error: "rate_limited" }), { status: 429, headers: { "Content-Type": "application/json; charset=utf-8", "Retry-After": "60", "Cache-Control": "no-store" } });
+  if (path === "/linked-role" || path === "/oauth/callback" || path === "/bnet/link") {
+    const limit=await consumeAddressRateLimit280('oauth:'+path,request.headers.get('CF-Connecting-IP')??'',20,60);
+    if(limit.limited)return new Response(JSON.stringify({error:'rate_limited'}),{status:429,headers:{'Content-Type':'application/json; charset=utf-8',...rateLimitHeaders280(limit),'Cache-Control':'no-store'}});
   }
   if (request.method === "GET" && path === "/linked-role") return await startLinkedRole(env);
   if (request.method === "GET" && path === "/oauth/callback") return await linkedRoleCallback(env, request);
@@ -645,7 +676,13 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
     }
     if (query.has("cacheOnly242") || query.has("keyVersion") || (body !== null && typeof body === "object" && "keyVersion" in body)) {
       const versions=query.getAll('keyVersion');
-      if(request.method==='GET'&&path==='/queue/launch-operations'&&versions.length===1&&versions[0]==='officer-operations-v233')return handleLaunchOperations229(request,env,true);
+      if(request.method==='POST'&&path==='/ingest/roster'&&versions.length===1&&versions[0]==='native-roster-v2'&&query.size===1&&body!==null&&!('keyVersion'in body)){
+        const launch=captureLaunchVerification(env);
+        if(launch.mode!=='members-only'||!launch.scope||!launch.current())return json({error:'unsupported_protocol',message:'The native roster protocol requires the current members-only configuration.'},400);
+        return await postRoster(launchVerificationEnv(env,launch),body,ctx?(label,work)=>deferOriginalServing(ctx,label,work):undefined,roleDispatch,true);
+      }
+      if(request.method==='GET'&&path==='/queue/launch-operations'&&versions.length===1&&versions[0]==='officer-operations-v234')return handleLaunchOperations229(request,env,true);
+      if(request.method==='GET'&&path==='/queue/launch-operations'&&versions.length===1&&versions[0]==='officer-operations-v235')return handleDiscoveryOperations235(request,env,true);
       if(request.method==='POST'&&path==='/ingest/officer-invite'&&versions.length===1&&versions[0]==='officer-operations-v233'&&query.size===1&&body!==null&&!('keyVersion'in body))return postOfficerInvite233(env,body);
       if (versions.length === 1 && (versions[0] === STRICT_ROSTER_DISPLAY_PROTOCOL || versions[0] === STRICT_ROSTER_DISPLAY_PROTOCOL_V2)
           && request.method === "GET" && path === "/queue/unverified" && query.size === 1) {
@@ -690,8 +727,8 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
     }
     if (request.method === "POST" && path === "/queue/written") return await postQueueWritten(env, body);
   }
-  // Read-only server inspection. Same bearer token as the watcher: it is already a trusted-operator credential,
-  // and what this exposes -- role and channel structure -- is visible to any member of the server anyway.
+  // Trusted-operator inspection and an explicit POST-only backfill apply. GET
+  // remains read-only, including old bookmarked apply URLs.
   if (path.startsWith("/admin/")) {
     if (!(await watcherAuthorized(env, request))) return new Response("unauthorized", { status: 401 });
     // The build is stamped into the map itself. A deploy is live at Cloudflare before every edge is serving it, so
@@ -706,7 +743,13 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
         throw error;
       }
     }
-    if (request.method === "GET" && path === "/admin/backfill-roles") return json(await backfillRoles(env, backfillOptions(query),roleDispatch));
+    if (path === '/admin/backfill-roles') {
+      if (!['GET','POST'].includes(request.method) || request.method === 'GET' && query.get('apply') === '1')
+        return new Response('Use an explicit POST to apply a backfill.',{status:405,headers:{Allow:'GET, POST'}});
+      if (request.method === 'POST' && (query.getAll('apply').length !== 1 || query.get('apply') !== '1'))
+        return json({error:'explicit_apply_required'},400);
+      return json(await backfillRoles(env,backfillOptions(query),roleDispatch));
+    }
   }
   // .186 Olympus Link (link.ts): POST /proof and POST /api/link/keys on the bot host only, never under /admin/ (that
   // prefix takes WATCHER_TOKEN). While Link is off routeLink answers null and these reach the 404 below unchanged.
@@ -726,8 +769,8 @@ const QUEUE_ROUTE_STATEMENTS = 26;
  * throttled, had no ROLE_GUILD_MEMBER or failed), then one fresh-role pass on the same Discord-call allowance. Its statements
  * are admitted against what this invocation counts when the env can count them; otherwise the pass reserves its own bounds,
  * less this route's QUEUE_ROUTE_STATEMENTS. */
-async function queueFreshRoles(env: Env, lane: LaneCapture, parent: CallBudget,roleDispatch:BetaRoleDispatch): Promise<void> {
-  try { await sweepMemberRoles(env, "watcher", parent,roleDispatch); } catch { /* never thrown; the pass still runs */ }
+async function queueFreshRoles(env: Env, lane: LaneCapture, parent: CallBudget,roleDispatch:BetaRoleDispatch,roleLane?:RoleSweepLane1112): Promise<void> {
+  try { await sweepMemberRoles(env, "watcher", parent,roleDispatch,roleLane); } catch { /* never thrown; the pass still runs */ }
   const pass = await import('./full-release-pass');
   let counted = env, adm: Admission | undefined;
   try { const count = { used: 0 }; counted = countStatements(env, count); adm = lane.native232?.present ? pass.nativeAdmission232(count, pass.FRESH_SWEEP_STATEMENTS - QUEUE_ROUTE_STATEMENTS) : pass.freshAdmission(count, pass.FRESH_SWEEP_STATEMENTS - QUEUE_ROUTE_STATEMENTS); }
@@ -742,7 +785,7 @@ async function freshRegistrationRefused(env: Env, trigger: string): Promise<void
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-11-12.279 Promotion history and Guild controls";
+const BUILD = "2026-11-13.280 Evergreen guild tools and privacy";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a
@@ -750,7 +793,7 @@ const BUILD = "2026-11-12.279 Promotion history and Guild controls";
  */
 function launchVerificationHealth(env: Env) {
   const verification = captureLaunchVerification(env);
-  return { mode: verification.mode, nativeScopePinned: !!verification.scope, nativeMembershipProofVersion: 1 };
+  return { mode: verification.mode, nativeScopePinned: !!verification.scope, nativeMembershipProofVersion: 1, nativeRosterProtocolVersion: 2 };
 }
 
 async function health(env: Env, full: boolean) {

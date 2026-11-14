@@ -236,13 +236,14 @@ Preview first — this changes nothing:
 
 Look at `wouldGrant`. That is how many people are about to get their role back. If the number looks sane, do it:
 
-    curl.exe -H "Authorization: Bearer PASTE_TOKEN_HERE" "https://olympus-verify.roach-council.workers.dev/admin/backfill-roles?apply=1&limit=25"
+    curl.exe -X POST -H "Authorization: Bearer PASTE_TOKEN_HERE" "https://olympus-verify.roach-council.workers.dev/admin/backfill-roles?apply=1&limit=25"
 
 It works 25 people at a time. At the end of the output there is a `"next"` line with a web address. Run the same
-command again with that address until you see `"finished": true`.
+command with `-X POST` and that address until you see `"finished": true`. An apply URL opened with `GET` is refused.
+If a reply is lost or unreadable, stop and inspect current roles before an attended retry.
 
 If it stops and says something about **403**, the bot's role is sitting too low — go back to step 3.2, move it up,
-and run it again. Running it more than once is safe; it skips anyone who already has the role.
+and review the current roles before an attended retry. Members already holding the role are skipped.
 
 ---
 

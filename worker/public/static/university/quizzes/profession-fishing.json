@@ -1,0 +1,136 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "profession-fishing",
+ "questions": [
+  {
+   "id": "profession-fishing.fishing-rack",
+   "scope": "profession:fishing",
+   "tier": 101,
+   "chapter": "fishing-101-camp",
+   "type": "mcq",
+   "stem": "Which Fishing camp object unlocks at skill 140?",
+   "choices": [
+    "Fishing Rack",
+    "Fish Bowl",
+    "Fishing Hut"
+   ],
+   "answer": 0,
+   "explanation": "The Fish Bowl comes at skill 20, the Fishing Rack at 140 and the Fishing Hut at 300.",
+   "facts": [
+    "profession-fishing.camp-objects"
+   ]
+  },
+  {
+   "id": "profession-fishing.artisan",
+   "scope": "profession:fishing",
+   "tier": 101,
+   "chapter": "fishing-101-leveling",
+   "type": "mcq",
+   "stem": "How do you get Artisan Fishing?",
+   "choices": [
+    "from Nat Pagle at level 35",
+    "from the Clamlette Surprise quest at level 35"
+   ],
+   "answer": 0,
+   "explanation": "Nat Pagle teaches Artisan Fishing at level 35. The Clamlette Surprise quest is how you get Artisan Cooking.",
+   "facts": [
+    "profession-fishing.artisan-step"
+   ],
+   "distractorFacts": [
+    "profession-cooking.skill-ranks"
+   ]
+  },
+  {
+   "id": "profession-fishing.luremaster",
+   "scope": "profession:fishing",
+   "tier": 101,
+   "chapter": "fishing-101-leveling",
+   "type": "mcq",
+   "stem": "Which Legacy perk gives a chance of an extra fish?",
+   "choices": [
+    "Luremaster",
+    "Master Chef",
+    "Gourmand"
+   ],
+   "answer": 0,
+   "explanation": "Luremaster gives a chance of an extra fish. Master Chef gives extra cooking results, and Gourmand makes food buffs last longer.",
+   "facts": [
+    "profession-fishing.luremaster"
+   ],
+   "distractorFacts": [
+    "profession-cooking.legacy-perks"
+   ]
+  },
+  {
+   "id": "profession-fishing.bowl-stats",
+   "scope": "profession:fishing",
+   "tier": 201,
+   "chapter": "fishing-201-raid",
+   "type": "mcq",
+   "stem": "How much does the Fish Bowl add to all stats?",
+   "choices": [
+    "8%",
+    "10%"
+   ],
+   "answer": 0,
+   "explanation": "The Fish Bowl gives 8% to all stats. The 10% is Blessing of Kings, which it does not stack with.",
+   "facts": [
+    "profession-fishing.fish-bowl"
+   ]
+  },
+  {
+   "id": "profession-fishing.bowl-object",
+   "scope": "profession:fishing",
+   "tier": 201,
+   "chapter": "fishing-201-raid",
+   "type": "scenario",
+   "stem": "Your group has no Paladin. Which Fishing camp object gives 8% to all stats?",
+   "choices": [
+    "Fish Bowl",
+    "Fishing Rack",
+    "Fishing Hut"
+   ],
+   "answer": 0,
+   "explanation": "The Fish Bowl gives 8% to all stats, so it helps most in groups without a Paladin.",
+   "facts": [
+    "profession-fishing.fish-bowl",
+    "profession-fishing.camp-objects"
+   ]
+  },
+  {
+   "id": "profession-fishing.bowl-kings",
+   "scope": "profession:fishing",
+   "tier": 201,
+   "chapter": "fishing-201-raid",
+   "type": "scenario",
+   "stem": "Your group has Blessing of Kings and you place a Fish Bowl. Which of the two gives the bigger bonus to all stats?",
+   "choices": [
+    "Blessing of Kings",
+    "Fish Bowl"
+   ],
+   "answer": 0,
+   "explanation": "Blessing of Kings gives 10% and the Fish Bowl 8%, and the two do not stack.",
+   "facts": [
+    "profession-fishing.fish-bowl"
+   ]
+  },
+  {
+   "id": "profession-fishing.grilled-squid",
+   "scope": "profession:fishing",
+   "tier": 201,
+   "chapter": "fishing-201-gold",
+   "type": "mcq",
+   "stem": "Grilled Squid is one of the seafood raid foods. What does it give in Forever?",
+   "choices": [
+    "+1% crit",
+    "+22 spell damage",
+    "+40 attack power"
+   ],
+   "answer": 0,
+   "explanation": "Grilled Squid now gives +1% crit. Nightfin Soup gives +22 spell damage and Mightfish Steak +40 attack power.",
+   "facts": [
+    "profession-cooking.reworked-raid-foods"
+   ]
+  }
+ ]
+}

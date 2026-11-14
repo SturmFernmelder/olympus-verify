@@ -14,11 +14,12 @@ import {captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy
  * until the in-game kick reaches the roster.
  */
 import { intVar, type Env } from "./env";
-import { audit, now } from "./db";
+import { audit, now, type PrivacyReference } from "./db";
 import { DiscordError, explainDiscordError, guildMember, logLine } from "./discord";
-import { grantMemberRole, heldBlockingRole, reconcileBanned, removeIfBlocked, budgetExhausted, callBudget, takeCall, affords, reserve, inventoryCalls, GRANT_CALLS, type CallBudget } from "./roles";
-import { SCHEDULED_CAPS } from "./scheduled-budget";
-import { privacyCaptureFromColumns,privacyProviderCustodyDatabase,type PrivacySubject } from './privacy-serving-authority';
+import { grantMemberRole, heldBlockingRole, reconcileBanned, readBannedSweepReferences280, removeIfBlocked, budgetExhausted, callBudget, takeCall, affords, reserve, inventoryCalls, GRANT_CALLS, type CallBudget } from "./roles";
+import { SCHEDULED_CAPS, type RoleSweepLane1112 } from "./scheduled-budget";
+import { captureCanonicalRankConfig233 } from "./canonical-ranks233";
+import { privacyCaptureFromColumns,privacyGenerationFenceSql,privacyProviderCustodyDatabase,type PrivacySubject } from './privacy-serving-authority';
 import { continueRosterRanks,RANK_CONTINUATION_HTTP_RESERVE } from './role-rank-continuation';
 import { isPrivacyWriteAdmissionDatabase } from './privacy-write-admission';
 import { membershipSettlementEnabled,membershipTransitionEnabled } from './membership-role-transition';
@@ -108,6 +109,90 @@ interface SweepState {
   b?: string; // .60: banned-reconciliation cursor
 }
 
+type Progress280=Readonly<{state:'recorded'|'held'|'unknown';reason:string}>;
+type ProgressMode280='ordinary'|'ban'|'combined';
+type ProgressHead280=Readonly<{id:number|null;ts:number|null;details:string|null;work:Partial<SweepState>|null;valid:boolean;reference:PrivacyReference|null}>;
+type ProgressRow280={ac_id:number|null;ac_ts:number|null;ac_details:string|null;ac_valid:number;b_id:number|null;b_ts:number|null;b_details:string|null;b_valid:number;
+ ac_generation:string|null;ac_state:string|null;ac_revision:number|null;b_generation:string|null;b_state:string|null;b_revision:number|null};
+const cursor280=(value:unknown):value is string=>typeof value==='string'&&(value===''||/^[0-9]{17,20}$/.test(value));
+// Malformed/unknown records are relevant to both heads, so they cannot be
+// silently skipped in favour of an older apparently usable progress record.
+const object280=(alias:string)=>`CASE WHEN json_valid(${alias}.details) THEN CASE WHEN json_type(${alias}.details)='object'
+ AND (SELECT COUNT(*) FROM json_each(${alias}.details))=(SELECT COUNT(DISTINCT key) FROM json_each(${alias}.details)) THEN 1 ELSE 0 END ELSE 0 END`;
+const relevant280=(lane:'ordinary'|'ban',alias='s')=>`CASE WHEN (${object280(alias)})=1 THEN CASE
+ WHEN json_type(${alias}.details,'$.lane') IS NULL THEN 1
+ WHEN json_type(${alias}.details,'$.lane')='text' AND json_extract(${alias}.details,'$.lane') IN('ordinary','ban')
+ THEN json_extract(${alias}.details,'$.lane')='${lane}' ELSE 1 END ELSE 1 END=1`;
+const headId280=(lane:'ordinary'|'ban')=>`(SELECT s.id FROM audit s WHERE s.action='role.sweep' AND (${relevant280(lane)}) ORDER BY s.id DESC LIMIT 1)`;
+const field280=(alias:string,key:'c'|'b')=>`CASE WHEN json_valid(${alias}.details) THEN CASE WHEN json_type(${alias}.details,'$.${key}')='text' THEN json_extract(${alias}.details,'$.${key}') ELSE NULL END ELSE NULL END`;
+const progressRead280=`SELECT ac.id AS ac_id,ac.ts AS ac_ts,ac.details AS ac_details,${object280('ac')} AS ac_valid,
+ b.id AS b_id,b.ts AS b_ts,b.details AS b_details,${object280('b')} AS b_valid,
+ (SELECT generation FROM privacy_subjects WHERE subject_id=${field280('ac','c')}) AS ac_generation,
+ (SELECT state FROM privacy_subjects WHERE subject_id=${field280('ac','c')}) AS ac_state,
+ (SELECT revision FROM privacy_subjects WHERE subject_id=${field280('ac','c')}) AS ac_revision,
+ (SELECT generation FROM privacy_subjects WHERE subject_id=${field280('b','b')}) AS b_generation,
+ (SELECT state FROM privacy_subjects WHERE subject_id=${field280('b','b')}) AS b_state,
+ (SELECT revision FROM privacy_subjects WHERE subject_id=${field280('b','b')}) AS b_revision
+ FROM (SELECT ${headId280('ordinary')} AS ac,${headId280('ban')} AS b) h
+ LEFT JOIN audit ac ON ac.id=h.ac LEFT JOIN audit b ON b.id=h.b`;
+function parseProgress280(row:ProgressRow280,lane:'ordinary'|'ban'):ProgressHead280{
+ const ordinary=lane==='ordinary',id=ordinary?row.ac_id:row.b_id,ts=ordinary?row.ac_ts:row.b_ts,details=ordinary?row.ac_details:row.b_details;
+ if(id===null)return Object.freeze({id:null,ts:null,details:null,work:{},valid:true,reference:null});
+ let work:Partial<SweepState>|null=null,valid=(ordinary?row.ac_valid:row.b_valid)===1,reference:PrivacyReference|null=null;
+ try{
+  const value=JSON.parse(details!) as Record<string,unknown>,legacy=!Object.hasOwn(value,'lane');
+  valid=valid&&(legacy||value.lane===lane);
+  if(ordinary){valid=valid&&(!Object.hasOwn(value,'a')?legacy:Number.isSafeInteger(value.a)&&Number(value.a)>=0)&&(!Object.hasOwn(value,'c')?legacy:cursor280(value.c));
+   if(valid)work={...(Object.hasOwn(value,'a')?{a:Number(value.a)}:{}),...(Object.hasOwn(value,'c')?{c:value.c as string}:{})};
+  }else{valid=valid&&(!Object.hasOwn(value,'b')?legacy:cursor280(value.b));if(valid)work={...(Object.hasOwn(value,'b')?{b:value.b as string}:{})};}
+  const cursor=ordinary?work?.c:work?.b;
+  if(cursor){try{reference=Object.freeze({subject:cursor,capture:privacyCaptureFromColumns(cursor,{privacy_generation:ordinary?row.ac_generation:row.b_generation,privacy_state:ordinary?row.ac_state:row.b_state,privacy_revision:ordinary?row.ac_revision:row.b_revision})});}catch{valid=false;}}
+ }catch{valid=false;}
+ return Object.freeze({id,ts,details,work,valid,reference});
+}
+function progressContext280(env:Env,canonical:ReturnType<typeof captureCanonicalRankConfig233>){
+ const proto=Object.getPrototypeOf(env),descriptor=Object.getOwnPropertyDescriptor(env,'DB');
+ return()=>{const current=Object.getOwnPropertyDescriptor(env,'DB');
+  if(Object.getPrototypeOf(env)!==proto||!descriptor||!current||!Object.hasOwn(descriptor,'value')||!Object.hasOwn(current,'value')||
+   ['value','get','set','writable','enumerable','configurable'].some(key=>!Object.is(descriptor[key as keyof PropertyDescriptor],current[key as keyof PropertyDescriptor]))||!canonical.current())throw Error('role_sweep_progress_source_held');
+ };
+}
+// A fixed passive audit writer, never role/effect authority. The same-statement
+// CAS is lane-local; a different lane's append cannot overwrite this lane.
+async function recordProgress280(env:Env,mode:ProgressMode280,trigger:string,details:Record<string,unknown>,heads:{ac:ProgressHead280;b:ProgressHead280},references:readonly PrivacyReference[],check:()=>void,referenceHeld=false):Promise<Progress280>{
+ const own=mode==='ordinary'?[heads.ac]:mode==='ban'?[heads.b]:[heads.ac,heads.b];
+ try{check();}catch{return Object.freeze({state:'held',reason:'original_progress_source_held'});}
+ if(referenceHeld||own.some(h=>!h.valid)){
+  // Keep the malformed head unchanged until attended repair. Use this run's
+  // single reserved publication statement for an ID-free failure instead: a
+  // fresh isolate must see the hold and respect the durable watcher throttle.
+  try{
+   const result=await env.DB.prepare('INSERT INTO audit(ts,actor,action,subject,details) VALUES(?1,?2,?3,?4,?5)')
+    .bind(now(),'system','role.sweep_failed',trigger,JSON.stringify({lane:mode,reason:'original_progress_or_reference_held'})).run();check();
+   if(result.success!==true||result.meta?.changes!==1)return Object.freeze({state:'unknown',reason:'original_progress_response_unknown'});
+   return Object.freeze({state:'held',reason:'original_progress_or_reference_held'});
+  }catch{return Object.freeze({state:'unknown',reason:'original_progress_response_unknown'});}
+ }
+ const refs=[...references],seen=new Map<string,string|null>();
+ for(const r of refs){if(!/^[0-9]{17,20}$/.test(r.subject))return Object.freeze({state:'held',reason:'original_progress_reference_invalid'});
+  const g=r.capture?.subjectGeneration??null;if(seen.has(r.subject)&&seen.get(r.subject)!==g)return Object.freeze({state:'held',reason:'original_progress_reference_changed'});seen.set(r.subject,g);}
+ const recorded={...details,...(seen.size?{_privacySubjectIds:[...seen.keys()]}:{})};
+ const values:(string|number|null)[]=[now(),'system','role.sweep',trigger,JSON.stringify(recorded)],guards:string[]=[];
+ for(const [subject,generation]of seen){const at=values.length+1;values.push(subject,generation);guards.push(privacyGenerationFenceSql(at,at+1));}
+ for(const lane of mode==='combined'?['ordinary','ban'] as const:[mode] as readonly ('ordinary'|'ban')[]){
+  const h=lane==='ordinary'?heads.ac:heads.b;
+  if(h.id===null)guards.push(`${headId280(lane)} IS NULL`);
+  else{const at=values.length+1;values.push(h.id,h.ts,h.details);guards.push(`EXISTS(SELECT 1 FROM audit original WHERE original.id=?${at} AND original.ts IS ?${at+1} AND original.details IS ?${at+2} AND original.action='role.sweep' AND original.id=${headId280(lane)})`);}
+ }
+ try{
+  check();const result=await env.DB.prepare(`INSERT INTO audit(ts,actor,action,subject,details) SELECT ?1,?2,?3,?4,?5 WHERE ${guards.map(g=>'('+g+')').join(' AND ')}`).bind(...values).run();check();
+  const success=Object.getOwnPropertyDescriptor(result,'success'),meta=Object.getOwnPropertyDescriptor(result,'meta');
+  const changes=meta&&Object.hasOwn(meta,'value')&&meta.value&&typeof meta.value==='object'?Object.getOwnPropertyDescriptor(meta.value,'changes'):undefined;
+  if(success?.value!==true||!changes||!Object.hasOwn(changes,'value')||!Number.isSafeInteger(changes.value)||changes.value<0||changes.value>1)return Object.freeze({state:'unknown',reason:'original_progress_response_unknown'});
+  return Object.freeze(changes.value===1?{state:'recorded',reason:'original_progress_recorded'}:{state:'held',reason:'original_progress_changed'});
+ }catch{return Object.freeze({state:'unknown',reason:'original_progress_response_unknown'});}
+}
+
 export interface SweepResult {
   checked: number;
   restored: string[];
@@ -127,14 +212,26 @@ export interface SweepResult {
   retries: number;
   /** .99: accounts whose member lookup Discord did not answer: not finished, not passed by the watermark or the cursor, retried next run */
   unfinished: string[];
+  /** Ban lane successor (12 Nov 2026): the lane a canonical-mode run took; absent on the legacy combined run */
+  lane?: RoleSweepLane1112;
+  /** After a canonical "ban" lane run: the banned rotation's cursor and its observation count (never authority) */
+  bannedCursor?: string;
+  observed?: number;
+  /** Passive audit persistence only; never authority to repeat a provider effect. */
+  progress?: Progress280;
 }
 
 /** Never throws: it runs inside waitUntil, where an error would only vanish. `parent` (Revision 4, configured mode only): the
- * /queue invocation's Discord-call budget, shared with the fresh-role pass that follows; without it the run makes its own. */
-export async function sweepMemberRoles(env: Env, trigger: "cron" | "watcher", parent?: CallBudget,originalDispatch?:BetaRoleDispatch): Promise<SweepResult | null> {
+ * /queue invocation's Discord-call budget, shared with the fresh-role pass that follows; without it the run makes its own.
+ * `lane` (ban lane successor, 12 Nov 2026, agreed with Codex): with the canonical ranks selected the caller must name
+ * exactly one lane, chosen before any lane-specific read: "ordinary" runs only the promotion and member walk, "ban" only
+ * the banned rotation (at most one banned, held or debt account). A run never falls through to the other lane when its
+ * own is empty, failed or held, and it never changes the other lane's cursor. Without a lane in canonical mode the run
+ * holds (role.sweep_failed). Without the canonical ranks the lane is ignored and the legacy combined run is unchanged. */
+export async function sweepMemberRoles(env: Env, trigger: "cron" | "watcher", parent?: CallBudget,originalDispatch?:BetaRoleDispatch,lane?:RoleSweepLane1112): Promise<SweepResult | null> {
   const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
   try {
-    return await sweepInner(env, trigger, parent,roleDispatch);
+    return await sweepInner(env, trigger, parent,roleDispatch,lane);
   } catch (e) {
     try {
       await audit(env, "system", "role.sweep_failed", trigger, { error: String(e).slice(0, 300) });
@@ -152,7 +249,8 @@ export const forgetLocalThrottle = () => {
   lastLocal = 0;
 };
 
-async function sweepInner(env: Env, trigger: "cron" | "watcher", parent:CallBudget|undefined,roleDispatch:BetaRoleDispatch): Promise<SweepResult | null> {
+async function sweepInner(env: Env, trigger: "cron" | "watcher", parent:CallBudget|undefined,roleDispatch:BetaRoleDispatch,lane:RoleSweepLane1112|undefined): Promise<SweepResult | null> {
+  const canonicalProgress280=captureCanonicalRankConfig233(env),progressCheck280=progressContext280(env,canonicalProgress280);progressCheck280();
   const role = env.ROLE_GUILD_MEMBER;
   if (!role) return null;
   const t = now();
@@ -166,19 +264,24 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher", parent:CallBudg
     return null;
   }
   lastLocal = t;
-  const last = await env.DB.prepare("SELECT details,(SELECT generation FROM privacy_subjects WHERE subject_id=json_extract(details,'$.c')) AS cursor_generation,(SELECT state FROM privacy_subjects WHERE subject_id=json_extract(details,'$.c')) AS cursor_state,(SELECT revision FROM privacy_subjects WHERE subject_id=json_extract(details,'$.c')) AS cursor_revision FROM audit WHERE action = 'role.sweep' ORDER BY id DESC LIMIT 1")
-    .first<{ details: string | null;cursor_generation:string|null;cursor_state:string|null;cursor_revision:number|null }>();
-
-  let state: SweepState | null = null;
-  try {
-    state = last?.details ? (JSON.parse(last.details) as SweepState) : null;
-  } catch {
-    state = null;
-  }
+  // Ban lane successor (12 Nov 2026): the lane is checked before any lane-specific read and before any Discord request.
+  // The installed role slice is 120 statements and the ordinary walk alone reaches 117/118, so a banned visit of up to
+  // 50 cannot follow it in the same run. Repair round (13 Nov 2026): after the Watcher's throttle, so a Watcher call
+  // without a lane writes at most one role.sweep_failed row per throttle window instead of one per poll.
+  const canonicalLanes = canonicalProgress280.present;
+  if (canonicalLanes && lane !== "ordinary" && lane !== "ban") throw Error("role_sweep_lane_required");
+  progressCheck280();
+  const originalProgress280=await env.DB.prepare(progressRead280).first<ProgressRow280>();progressCheck280();
+  if(!originalProgress280)throw Error('role_sweep_progress_read_unknown');
+  const heads280={ac:parseProgress280(originalProgress280,'ordinary'),b:parseProgress280(originalProgress280,'ban')};
+  let state:SweepState|null=(canonicalLanes?(lane==='ban'?heads280.b.work:heads280.ac.work):{...heads280.ac.work,...heads280.b.work}) as SweepState|null;
+  const originalCursorReference=heads280.ac.reference;
+  if (canonicalLanes && lane === "ban") return sweepBannedLane(env, trigger, parent ?? callBudget(env), state, heads280,progressCheck280, roleDispatch);
   if (!state || typeof state.a !== "number") {
-    // First sweep: start with the last day's promotions (the audit_ts index makes this cheap).
-    const first = await env.DB.prepare("SELECT MIN(id) AS id FROM audit WHERE ts >= ?1").bind(t - 86400).first<{ id: number | null }>();
-    state = { a: Math.max(0, (first?.id ?? 1) - 1), c: "" };
+    // First sweep: start with the last day's promotions (the audit_ts index makes this cheap). Successor (12 Nov 2026):
+    // in canonical mode the banned rotation's cursor survives this start.
+    const first = await env.DB.prepare("SELECT MIN(id) AS id FROM audit WHERE ts >= ?1 AND action<>'treasury.erased_replay280'").bind(t - 86400).first<{ id: number | null }>();
+    state = { a: Math.max(0, (first?.id ?? 1) - 1), c: "", ...(typeof state?.b === "string" ? { b: state.b } : {}) };
   }
   const budget = Math.min(SCHEDULED_CAPS.roleSweepAccounts, Math.max(1, intVar(env.ROLE_SWEEP_PER_RUN, SWEEP_DEFAULT))); // .115: the scheduled D1 budget's cap (scheduled-budget.ts)
   const calls = parent ?? callBudget(env); // .90 (P-20): this run's Discord-call budget, shared with the banned reconciliation below
@@ -202,7 +305,6 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher", parent:CallBudg
   const captures=new Map<string,PrivacySubject|null>();
   const rankSnapshots=new Map<string,number|null>();
   const rankMapping=env.QR_RANK_MAPPING_ENABLED==='true'||env.QR_PRIVILEGED_RANK_MAPPING_ENABLED==='true';
-  const originalCursorReference=last&&typeof state.c==='string'&&/^\d{17,20}$/.test(state.c)?{subject:state.c,capture:privacyCaptureFromColumns(state.c,{privacy_generation:last.cursor_generation??null,privacy_state:last.cursor_state??null,privacy_revision:last.cursor_revision??null})}:null;
   if (fresh.length) {
     const ph = fresh.map((_, k) => `?${k + 1}`).join(",");
     const still = await env.DB.prepare(
@@ -376,14 +478,48 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher", parent:CallBudg
   // 3. .60: banned accounts still holding Guild Member (a late grant that landed after the ban, or a removal that failed)
   //    lose it; up to BANNED_PER_RUN per run, in a rotation of their own. .63: every banned account, whatever its
   //    characters' status, and with the ban re-read after the member GET (Codex's review of .60).
+  //    Successor (12 Nov 2026): in canonical mode this runs only in the "ban" lane (sweepBannedLane); the ordinary lane
+  //    leaves the banned rotation and its cursor exactly as they were.
+  if (canonicalLanes) {
+    const progress=await recordProgress280(env,'ordinary',trigger,{ a, c: cursor, checked, restored: restored.length, failed: failed.length, unfinished: unfinished.length, absent, blocked: blocked.length, revoked: 0, calls: calls.calls, attempts: calls.attempts, retries: calls.retries, stopped: stopped || calls.exhausted, lane: "ordinary" },heads280,[...captures].map(([subject,capture])=>({subject,capture})).concat(originalCursorReference?[originalCursorReference]:[]),progressCheck280);
+    return { checked, restored, failed, absent, blocked, revoked: [], budgetExhausted: stopped || calls.exhausted, calls: calls.calls, attempts: calls.attempts, retries: calls.retries, unfinished, lane: "ordinary",progress };
+  }
   const banned = await reconcileBanned(env, typeof state.b === "string" ? state.b : "", BANNED_PER_RUN, calls,roleDispatch);
   for (const id of banned.failed) failed.push({ id, error: "revoke failed" });
+  await logBanned(env, banned);
+  let passive:ReturnType<typeof readBannedSweepReferences280>|null=null;
+  try{passive=readBannedSweepReferences280(env,banned);}catch{/* Progress only; never retry a provider operation. */}
+  const references=[...captures].map(([subject,capture])=>({subject,capture})).concat(originalCursorReference?[originalCursorReference]:[],passive?.references??[],passive?.retained&&banned.cursor&&heads280.b.reference?[heads280.b.reference]:[]);
+  const progress=await recordProgress280(env,'combined',trigger,{ a, c: cursor, b: banned.cursor, checked, restored: restored.length, failed: failed.length, unfinished: unfinished.length, absent, blocked: blocked.length, revoked: banned.revoked.length, calls: calls.calls, attempts: calls.attempts, retries: calls.retries, stopped: stopped || calls.exhausted },heads280,references,progressCheck280,!passive||passive.held);
+  return { checked, restored, failed, absent, blocked, revoked: banned.revoked, budgetExhausted: stopped || calls.exhausted, calls: calls.calls, attempts: calls.attempts, retries: calls.retries, unfinished,progress };
+}
+
+/** The banned rotation's server-log lines, shared by the legacy combined run and the canonical "ban" lane. */
+async function logBanned(env: Env, banned: Awaited<ReturnType<typeof reconcileBanned>>): Promise<void> {
   if (banned.revoked.length) {
-    await logLine(env, `🚫 role sweep: Guild Member removed from ${banned.revoked.map((d) => `<@${d}>`).join(", ")}: banned from verifying.`);
+    // REV-BAN-1 (12 Nov 2026): a removal that leaves rank roles for later runs says so here instead of as a failure.
+    // Successor (12 Nov 2026): the sweep is only the safety net, and its banned lane gets a run about every 30 minutes.
+    const left = banned.remaining > 0 ? ` ${banned.remaining} more rank ${banned.remaining === 1 ? "role is" : "roles are"} left; the role sweep removes one per run, about every 30 minutes.` : "";
+    await logLine(env, `🚫 role sweep: ${banned.rank ? "Olympus rank role removed from" : "Guild Member removed from"} ${banned.revoked.map((d) => `<@${d}>`).join(", ")}: banned from verifying.${left}`);
   }
   if (banned.held.length) {
     await logLine(env, `⏸️ role sweep: Guild Member removed from ${banned.held.map((d) => `<@${d}>`).join(", ")}: applying again after a rename Blizzard required.`); // .114
   }
-  await audit(env, "system", "role.sweep", trigger, { a, c: cursor, b: banned.cursor, checked, restored: restored.length, failed: failed.length, unfinished: unfinished.length, absent, blocked: blocked.length, revoked: banned.revoked.length, calls: calls.calls, attempts: calls.attempts, retries: calls.retries, stopped: stopped || calls.exhausted },[...captures].map(([subject,capture])=>({subject,capture})).concat(originalCursorReference?[originalCursorReference]:[]));
-  return { checked, restored, failed, absent, blocked, revoked: banned.revoked, budgetExhausted: stopped || calls.exhausted, calls: calls.calls, attempts: calls.attempts, retries: calls.retries, unfinished };
+}
+
+/**
+ * Ban lane successor (12 Nov 2026, agreed with Codex): the canonical "ban" lane. Only the banned rotation runs (at most
+ * BANNED_PER_RUN, one banned, held or debt account); no promotion, linked-member or rotation query is made. The ordinary
+ * lane alone records `b`; it never copies another lane's IDs. Nothing falls through to the ordinary walk when this
+ * lane is empty, failed or held. Progress publication is source/generation fenced and lane-CAS guarded.
+ */
+async function sweepBannedLane(env: Env, trigger: "cron" | "watcher", calls: CallBudget, state: SweepState | null, heads280:{ac:ProgressHead280;b:ProgressHead280},progressCheck280:()=>void, roleDispatch: BetaRoleDispatch): Promise<SweepResult> {
+  const banned = await reconcileBanned(env, typeof state?.b === "string" ? state.b : "", BANNED_PER_RUN, calls, roleDispatch);
+  const failed = banned.failed.map((id) => ({ id, error: "revoke failed" }));
+  await logBanned(env, banned);
+  let passive:ReturnType<typeof readBannedSweepReferences280>|null=null;
+  try{passive=readBannedSweepReferences280(env,banned);}catch{/* Progress only; never retry a provider operation. */}
+  const references=[...passive?.references??[],...passive?.retained&&banned.cursor&&heads280.b.reference?[heads280.b.reference]:[]];
+  const progress=await recordProgress280(env,'ban',trigger,{ b: banned.cursor, checked: banned.checked.length, restored: 0, failed: failed.length, unfinished: 0, absent: 0, blocked: 0, revoked: banned.revoked.length, observed: banned.observed, calls: calls.calls, attempts: calls.attempts, retries: calls.retries, stopped: calls.exhausted, lane: "ban" },heads280,references,progressCheck280,!passive||passive.held);
+  return { checked: banned.checked.length, restored: [], failed, absent: 0, blocked: [], revoked: banned.revoked, budgetExhausted: calls.exhausted, calls: calls.calls, attempts: calls.attempts, retries: calls.retries, unfinished: [], lane: "ban", bannedCursor: banned.cursor, observed: banned.observed,progress };
 }

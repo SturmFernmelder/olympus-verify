@@ -16,7 +16,7 @@
         {
           "type": 6,
           "name": "member",
-          "description": "High Council: check a server member",
+          "description": "Authorized guild staff: check a server member",
           "required": false
         }
       ]

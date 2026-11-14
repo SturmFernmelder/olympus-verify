@@ -1,0 +1,618 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "class-warrior",
+ "questions": [
+  {
+   "id": "class-warrior.victory-rush-level",
+   "scope": "class:warrior",
+   "tier": 101,
+   "chapter": "warrior-101-forever-changes",
+   "type": "mcq",
+   "stem": "Which baseline ability do Warriors learn at level 20 in Forever?",
+   "choices": [
+    "Victory Rush",
+    "Tactical Mastery",
+    "Thunder Clap"
+   ],
+   "answer": 0,
+   "explanation": "Victory Rush is learned at level 20 and heals 10% of your maximum health after a kill. Tactical Mastery comes at level 14.",
+   "facts": [
+    "class-warrior.change-2"
+   ],
+   "distractorFacts": [
+    "class-warrior.change-5"
+   ]
+  },
+  {
+   "id": "class-warrior.cooldowns-15",
+   "scope": "class:warrior",
+   "tier": 101,
+   "chapter": "warrior-101-forever-changes",
+   "type": "mcq",
+   "stem": "How long are the Retaliation and Shield Wall cooldowns now?",
+   "choices": [
+    "15-minute cooldowns",
+    "6-second cooldown",
+    "20 seconds"
+   ],
+   "answer": 0,
+   "explanation": "Retaliation and Shield Wall are now 15-minute cooldowns and no longer share a timer with Recklessness.",
+   "facts": [
+    "class-warrior.change-3"
+   ],
+   "distractorFacts": [
+    "class-warrior.change-5",
+    "class-warrior.change-2"
+   ]
+  },
+  {
+   "id": "class-warrior.affray",
+   "scope": "class:warrior",
+   "tier": 101,
+   "chapter": "warrior-101-class-quests",
+   "type": "mcq",
+   "stem": "Which quest grants Berserker Stance?",
+   "choices": [
+    "The Affray",
+    "Defensive Stance quest",
+    "Race armor quests"
+   ],
+   "answer": 0,
+   "explanation": "The Affray, at level 30, grants Berserker Stance and leads into the Whirlwind Weapon quest chain.",
+   "facts": [
+    "class-warrior.quest-the-affray-berserker-stance"
+   ],
+   "distractorFacts": [
+    "class-warrior.quest-defensive-stance-quest",
+    "class-warrior.quest-race-armor-quests"
+   ]
+  },
+  {
+   "id": "class-warrior.defensive-level",
+   "scope": "class:warrior",
+   "tier": 101,
+   "chapter": "warrior-101-class-quests",
+   "type": "mcq",
+   "stem": "At what level is the Defensive Stance quest?",
+   "choices": [
+    "Level 10",
+    "Level 20",
+    "Level 30"
+   ],
+   "answer": 0,
+   "explanation": "The race-specific Defensive Stance quest comes at level 10; Taunt and Sunder Armor are trained after it.",
+   "facts": [
+    "class-warrior.quest-defensive-stance-quest"
+   ],
+   "distractorFacts": [
+    "class-warrior.quest-race-armor-quests",
+    "class-warrior.quest-the-affray-berserker-stance"
+   ]
+  },
+  {
+   "id": "class-warrior.artisans-precision",
+   "scope": "class:warrior",
+   "tier": 101,
+   "chapter": "warrior-101-race",
+   "type": "mcq",
+   "stem": "Which Alliance racial gives +1% hit with spells and attacks?",
+   "choices": [
+    "Artisan's Precision",
+    "Ruthless",
+    "Wind-Blessed"
+   ],
+   "answer": 0,
+   "explanation": "Dwarf Artisan's Precision gives +1% hit with spells and attacks. Human Ruthless gives +1% crit and Skyborne Wind-Blessed +2% haste.",
+   "facts": [
+    "common.racial-dwarf-artisans-precision"
+   ],
+   "distractorFacts": [
+    "common.racial-human-ruthless",
+    "common.racial-skyborne-wind-blessed"
+   ]
+  },
+  {
+   "id": "class-warrior.ruthless",
+   "scope": "class:warrior",
+   "tier": 101,
+   "chapter": "warrior-101-race",
+   "type": "mcq",
+   "stem": "Since the 26 October notes, what does Human Ruthless give?",
+   "choices": [
+    "+1% crit",
+    "+1% hit",
+    "+2% haste"
+   ],
+   "answer": 0,
+   "explanation": "Ruthless was cut from 2% to +1% crit on 26 October.",
+   "facts": [
+    "common.racial-human-ruthless"
+   ],
+   "distractorFacts": [
+    "common.racial-dwarf-artisans-precision",
+    "common.racial-skyborne-wind-blessed"
+   ]
+  },
+  {
+   "id": "class-warrior.onyxia-size",
+   "scope": "class:warrior",
+   "tier": 201,
+   "chapter": "warrior-201-raid-utility",
+   "type": "mcq",
+   "stem": "Which launch raid is the 40-player raid?",
+   "choices": [
+    "Onyxia's Lair",
+    "Hyjal Summit",
+    "Barrow Deeps"
+   ],
+   "answer": 0,
+   "explanation": "Barrow Deeps is for 10 players, Hyjal Summit for 20 and Onyxia's Lair for 40. Raid unlock date for all three: 9 December 2026.",
+   "facts": [
+    "class-warrior.launch-raids"
+   ]
+  },
+  {
+   "id": "class-warrior.bloodthrill-rend",
+   "scope": "spec:warrior-arms",
+   "tier": 101,
+   "chapter": "warrior-arms-101-rotation",
+   "type": "mcq",
+   "stem": "Bloodthrill gives Overpower chances against targets afflicted by which of your abilities?",
+   "choices": [
+    "Rend",
+    "Slam"
+   ],
+   "answer": 0,
+   "explanation": "Bloodthrill works on main-hand attacks against your Rend target.",
+   "facts": [
+    "class-warrior.bloodthrill"
+   ],
+   "distractorFacts": [
+    "class-warrior.slam"
+   ]
+  },
+  {
+   "id": "class-warrior.slam-cooldown",
+   "scope": "spec:warrior-arms",
+   "tier": 101,
+   "chapter": "warrior-arms-101-rotation",
+   "type": "mcq",
+   "stem": "What is Slam's base cooldown in Forever?",
+   "choices": [
+    "15 seconds",
+    "5 seconds"
+   ],
+   "answer": 0,
+   "explanation": "Slam's base cooldown is 15 seconds; Improved Slam cuts it by 2.5 or 5 seconds.",
+   "facts": [
+    "class-warrior.slam"
+   ]
+  },
+  {
+   "id": "class-warrior.crit-rage",
+   "scope": "spec:warrior-arms",
+   "tier": 101,
+   "chapter": "warrior-arms-101-rage",
+   "type": "mcq",
+   "stem": "Since 1 October, how much bonus Rage do basic-attack crits give?",
+   "choices": [
+    "100%",
+    "75%"
+   ],
+   "answer": 0,
+   "explanation": "Basic-attack crits give 100% bonus Rage since 1 October; the 30 September deep dive said 75%.",
+   "facts": [
+    "class-warrior.crit-and-rage"
+   ]
+  },
+  {
+   "id": "class-warrior.only-hit-talent",
+   "scope": "spec:warrior-arms",
+   "tier": 201,
+   "chapter": "warrior-arms-201-priorities",
+   "type": "mcq",
+   "stem": "Which Warrior talent adds hit?",
+   "choices": [
+    "Furious Precision",
+    "Weaponmaster",
+    "Bloodthrill"
+   ],
+   "answer": 0,
+   "explanation": "Furious Precision (Fury) is the only Warrior talent that adds hit, and only for off-hand attacks.",
+   "facts": [
+    "class-warrior.main-hand-hit-from-talents"
+   ],
+   "distractorFacts": [
+    "class-warrior.weaponmaster-at-5-5",
+    "class-warrior.bloodthrill"
+   ]
+  },
+  {
+   "id": "class-warrior.dwarf-hit",
+   "scope": "spec:warrior-arms",
+   "tier": 201,
+   "chapter": "warrior-arms-201-priorities",
+   "type": "mcq",
+   "stem": "What does the Dwarf racial Artisan's Precision add?",
+   "choices": [
+    "+1% hit with spells and attacks",
+    "+1% crit"
+   ],
+   "answer": 0,
+   "explanation": "Artisan's Precision adds +1% hit with spells and attacks; Human Ruthless adds +1% crit.",
+   "facts": [
+    "class-warrior.dwarf-and-human-racials"
+   ]
+  },
+  {
+   "id": "class-warrior.grizzly",
+   "scope": "spec:warrior-arms",
+   "tier": 201,
+   "chapter": "warrior-arms-201-consumables",
+   "type": "mcq",
+   "stem": "What does Elixir of the Grizzly give in Forever?",
+   "choices": [
+    "+25 Strength and +2% crit for 30 minutes",
+    "+20 Strength",
+    "+1% crit"
+   ],
+   "answer": 0,
+   "explanation": "Elixir of the Grizzly is a new Alchemy recipe (skill 300): +25 Strength and +2% crit for 30 minutes.",
+   "facts": [
+    "class-warrior.elixir-of-the-grizzly"
+   ],
+   "distractorFacts": [
+    "class-warrior.food"
+   ]
+  },
+  {
+   "id": "class-warrior.potions-first-aid",
+   "scope": "spec:warrior-arms",
+   "tier": 201,
+   "chapter": "warrior-arms-201-consumables",
+   "type": "mcq",
+   "stem": "Which profession makes healing potions in Forever?",
+   "choices": [
+    "First Aid",
+    "Alchemy",
+    "Cooking"
+   ],
+   "answer": 0,
+   "explanation": "Healing potions are made with First Aid instead of Alchemy in Forever.",
+   "facts": [
+    "class-warrior.healing-potions"
+   ],
+   "distractorFacts": [
+    "class-warrior.food"
+   ]
+  },
+  {
+   "id": "class-warrior.pve-spec",
+   "scope": "spec:warrior-arms",
+   "tier": 201,
+   "chapter": "warrior-arms-201-raid",
+   "type": "mcq",
+   "stem": "Which Warrior spec does Warcraft Tavern name as the PvE spec?",
+   "choices": [
+    "Fury",
+    "Arms"
+   ],
+   "answer": 0,
+   "explanation": "Warcraft Tavern presents Arms as a battleground spec that is still viable in PvE, and names Fury as the PvE spec.",
+   "facts": [
+    "class-warrior.raid-role"
+   ]
+  },
+  {
+   "id": "class-warrior.healing-cut",
+   "scope": "spec:warrior-arms",
+   "tier": 201,
+   "chapter": "warrior-arms-201-pvp",
+   "type": "mcq",
+   "stem": "Which Arms ability reduces the effectiveness of healing on its target by 50%?",
+   "choices": [
+    "Mortal Strike",
+    "Sweeping Strikes",
+    "Improved Hamstring"
+   ],
+   "answer": 0,
+   "explanation": "Mortal Strike wounds the target, reducing the effectiveness of any healing by 50% for 10 sec.",
+   "facts": [
+    "talents-warrior.arms-mortal-strike.r1",
+    "talents-warrior.arms-mortal-strike"
+   ],
+   "distractorFacts": [
+    "talents-warrior.arms-sweeping-strikes",
+    "talents-warrior.arms-improved-hamstring"
+   ]
+  },
+  {
+   "id": "class-warrior.death-wish-damage",
+   "scope": "spec:warrior-fury",
+   "tier": 101,
+   "chapter": "warrior-fury-101-rotation",
+   "type": "mcq",
+   "stem": "How much does Death Wish increase your Physical damage?",
+   "choices": [
+    "by 20%",
+    "by 5%"
+   ],
+   "answer": 0,
+   "explanation": "Death Wish increases your Physical damage done by 20% for 30 sec, but increases all damage you take by 5%.",
+   "facts": [
+    "talents-warrior.fury-death-wish.r1"
+   ]
+  },
+  {
+   "id": "class-warrior.fury-hit",
+   "scope": "spec:warrior-fury",
+   "tier": 101,
+   "chapter": "warrior-fury-101-dual-wield",
+   "type": "mcq",
+   "stem": "Which talent is the only Warrior source of hit?",
+   "choices": [
+    "Furious Precision",
+    "Weaponmaster",
+    "Bloodthrill"
+   ],
+   "answer": 0,
+   "explanation": "Furious Precision is the only Warrior talent that adds hit, and it covers off-hand attacks only.",
+   "facts": [
+    "class-warrior.main-hand-hit-from-talents"
+   ],
+   "distractorFacts": [
+    "class-warrior.weaponmaster-at-5-5",
+    "class-warrior.bloodthrill"
+   ]
+  },
+  {
+   "id": "class-warrior.raging-blows-gone",
+   "scope": "spec:warrior-fury",
+   "tier": 201,
+   "chapter": "warrior-fury-201-talents",
+   "type": "mcq",
+   "stem": "Which Fury talent from the 16 October data is not in the 10 November data?",
+   "choices": [
+    "Raging Blows",
+    "Death Wish"
+   ],
+   "answer": 0,
+   "explanation": "Raging Blows is not in the 10 November data; Death Wish still leads to Bloodthirst.",
+   "facts": [
+    "class-warrior.raging-blows"
+   ],
+   "distractorFacts": [
+    "class-warrior.death-wish"
+   ]
+  },
+  {
+   "id": "class-warrior.flurry-max",
+   "scope": "spec:warrior-fury",
+   "tier": 201,
+   "chapter": "warrior-fury-201-priorities",
+   "type": "mcq",
+   "stem": "How much faster do you attack with Flurry at its highest rank?",
+   "choices": [
+    "30%",
+    "20%",
+    "10%"
+   ],
+   "answer": 0,
+   "explanation": "Flurry grants 10%, 20% or 30% faster attacks for the next three swings after a critical strike.",
+   "facts": [
+    "class-warrior.flurry"
+   ]
+  },
+  {
+   "id": "class-warrior.bloodthirst-ap",
+   "scope": "spec:warrior-fury",
+   "tier": 201,
+   "chapter": "warrior-fury-201-priorities",
+   "type": "mcq",
+   "stem": "Since 1 October, what share of your Attack Power does Bloodthirst deal?",
+   "choices": [
+    "45%",
+    "35%"
+   ],
+   "answer": 0,
+   "explanation": "Bloodthirst deals 45% of Attack Power plus a flat amount since 1 October; the deep dive had 35%.",
+   "facts": [
+    "class-warrior.bloodthirst-scaling"
+   ]
+  },
+  {
+   "id": "class-warrior.fury-potions",
+   "scope": "spec:warrior-fury",
+   "tier": 201,
+   "chapter": "warrior-fury-201-consumables",
+   "type": "scenario",
+   "stem": "Your Fury Warrior needs healing potions. Who makes them in Forever?",
+   "choices": [
+    "First Aid",
+    "Alchemy",
+    "Cooking"
+   ],
+   "answer": 0,
+   "explanation": "Healing potions are made with First Aid instead of Alchemy in Forever.",
+   "facts": [
+    "class-warrior.healing-potions"
+   ],
+   "distractorFacts": [
+    "class-warrior.food"
+   ]
+  },
+  {
+   "id": "class-warrior.death-wish-timing",
+   "scope": "spec:warrior-fury",
+   "tier": 201,
+   "chapter": "warrior-fury-201-raid",
+   "type": "mcq",
+   "stem": "What does Death Wish now raise?",
+   "choices": [
+    "all damage taken",
+    "armor and resistances"
+   ],
+   "answer": 0,
+   "explanation": "Death Wish now raises all damage taken instead of lowering armor and resistances, so time it away from heavy raid damage.",
+   "facts": [
+    "class-warrior.death-wish"
+   ]
+  },
+  {
+   "id": "class-warrior.piercing-howl",
+   "scope": "spec:warrior-fury",
+   "tier": 201,
+   "chapter": "warrior-fury-201-pvp",
+   "type": "mcq",
+   "stem": "Which Fury talent dazes every enemy within 10 yards?",
+   "choices": [
+    "Piercing Howl",
+    "Blood Craze",
+    "Enrage"
+   ],
+   "answer": 0,
+   "explanation": "Piercing Howl causes all enemies within 10 yds to be Dazed, reducing movement speed by 50% for 6 sec.",
+   "facts": [
+    "talents-warrior.fury-piercing-howl.r1",
+    "talents-warrior.fury-piercing-howl"
+   ],
+   "distractorFacts": [
+    "talents-warrior.fury-blood-craze",
+    "talents-warrior.fury-enrage"
+   ]
+  },
+  {
+   "id": "class-warrior.vanguard",
+   "scope": "spec:warrior-protection",
+   "tier": 101,
+   "chapter": "warrior-protection-101-rotation",
+   "type": "mcq",
+   "stem": "Which talent lets you Charge while in Defensive Stance?",
+   "choices": [
+    "Vanguard",
+    "Concussion Blow",
+    "Defiance"
+   ],
+   "answer": 0,
+   "explanation": "Vanguard makes Charge usable while in Defensive Stance.",
+   "facts": [
+    "talents-warrior.protection-vanguard.r1",
+    "talents-warrior.protection-vanguard"
+   ],
+   "distractorFacts": [
+    "talents-warrior.protection-concussion-blow",
+    "talents-warrior.protection-defiance"
+   ]
+  },
+  {
+   "id": "class-warrior.last-stand",
+   "scope": "spec:warrior-protection",
+   "tier": 101,
+   "chapter": "warrior-protection-101-tips",
+   "type": "mcq",
+   "stem": "How long does Last Stand's extra health last?",
+   "choices": [
+    "20 sec",
+    "3 min"
+   ],
+   "answer": 0,
+   "explanation": "Last Stand grants 30% of your maximum health for 20 sec; 3 min is its cooldown. The health is lost when it ends.",
+   "facts": [
+    "talents-warrior.protection-last-stand.r1",
+    "talents-warrior.protection-last-stand"
+   ]
+  },
+  {
+   "id": "class-warrior.stance-threat",
+   "scope": "spec:warrior-protection",
+   "tier": 201,
+   "chapter": "warrior-protection-201-priorities",
+   "type": "mcq",
+   "stem": "What threat bonus does Blizzard list for Defensive Stance?",
+   "choices": [
+    "80%",
+    "20%",
+    "13%"
+   ],
+   "answer": 0,
+   "explanation": "Blizzard lists an 80% threat bonus for Defensive Stance and 7%, 13% or 20% for Defiance.",
+   "facts": [
+    "class-warrior.use-a-shield"
+   ]
+  },
+  {
+   "id": "class-warrior.tank-flask",
+   "scope": "spec:warrior-protection",
+   "tier": 201,
+   "chapter": "warrior-protection-201-consumables",
+   "type": "mcq",
+   "stem": "In Classic 1.12, which flask was a tank staple?",
+   "choices": [
+    "Flask of the Titans",
+    "Dirge's Chops",
+    "Grilled Squid"
+   ],
+   "answer": 0,
+   "explanation": "Flask of the Titans heads the Classic 1.12 tank staples. Dirge's Chops and Grilled Squid are foods.",
+   "facts": [
+    "class-warrior.classic-tank-staples"
+   ],
+   "distractorFacts": [
+    "class-warrior.food-in-forever"
+   ]
+  },
+  {
+   "id": "class-warrior.shield-wall",
+   "scope": "spec:warrior-protection",
+   "tier": 201,
+   "chapter": "warrior-protection-201-raid",
+   "type": "mcq",
+   "stem": "How much less damage does Shield Wall give in the talentsforever data?",
+   "choices": [
+    "60%",
+    "75%"
+   ],
+   "answer": 0,
+   "explanation": "The talentsforever data gives Shield Wall 60% less damage taken for 12 seconds; Classic 1.12 Shield Wall was 75% for 10 seconds.",
+   "facts": [
+    "class-warrior.shield-wall-talentsforever-data"
+   ]
+  },
+  {
+   "id": "class-warrior.hyjal-size",
+   "scope": "spec:warrior-protection",
+   "tier": 201,
+   "chapter": "warrior-protection-201-raid",
+   "type": "mcq",
+   "stem": "How many players does Hyjal Summit hold?",
+   "choices": [
+    "20",
+    "10",
+    "40"
+   ],
+   "answer": 0,
+   "explanation": "Barrow Deeps holds 10, Hyjal Summit 20 and Onyxia's Lair 40.",
+   "facts": [
+    "class-warrior.raid-sizes"
+   ]
+  },
+  {
+   "id": "class-warrior.concussion",
+   "scope": "spec:warrior-protection",
+   "tier": 201,
+   "chapter": "warrior-protection-201-pvp",
+   "type": "mcq",
+   "stem": "How long does Concussion Blow stun?",
+   "choices": [
+    "5 sec",
+    "45 sec"
+   ],
+   "answer": 0,
+   "explanation": "Concussion Blow stuns for 5 sec; 45 sec is its cooldown.",
+   "facts": [
+    "talents-warrior.protection-concussion-blow.r1",
+    "talents-warrior.protection-concussion-blow"
+   ]
+  }
+ ]
+}

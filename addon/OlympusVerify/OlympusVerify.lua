@@ -1,6 +1,10 @@
 --[[ OlympusVerify — officer-side addon for the Olympus Discord verification pipeline.
 
-  What it does:
+  In the default verification-only configuration, codes and native observations are saved for the existing
+  Watcher exchange. Local code acceptance never confirms a Discord role, queues a legacy invite, or reloads by itself.
+  The retained invite/presence behavior below applies only when that legacy mode is explicitly selected.
+
+  What it retains:
     * validates `!verify CODE` whispers (and mailed codes when a mailbox is open) offline with the shared secret,
       whispers back, and queues the guild invite
     * merges OlympusQueue.lua (written by the watcher from Discord approvals) into the same queue at login / reload
@@ -37,7 +41,7 @@ local SECRET = cfg.secret
 -- 0.6.12: the example's placeholder is public, so a Config.lua copied without replacing it must not accept codes made from it.
 if type(SECRET) ~= "string" or SECRET == "" or string.find(SECRET, "^REPLACE_WITH_") then SECRET = nil end
 local secretWarned = false  -- 0.6.12: say once per session, not on every whisper, that codes cannot be checked
-local SOURCE_VERSION = "0.6.37" -- Keep this source fallback and OlympusVerify.toc aligned.
+local SOURCE_VERSION = "0.6.38" -- Keep this source fallback and OlympusVerify.toc aligned.
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
   or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or SOURCE_VERSION
 local SET_NOTES = cfg.setNotes == true  -- SetNote is forbidden for addons on the Forever beta; leave false there
@@ -208,6 +212,7 @@ end
 local function InitDB()
   OlympusVerifyDB = OlympusVerifyDB or {}
   local db = OlympusVerifyDB
+  if OlympusVerifyLocalPrivacy280 then OlympusVerifyLocalPrivacy280.Ensure(db) end
   db.version = 1
   db.events = db.events or {}
   db.queue = db.queue or {}          -- { {id=, name=, target=, discordId=, note=, status=queued|invited|joined|failed, reply=, ts=, source=} }
@@ -592,7 +597,7 @@ end
 -- so mutating an exported table cannot reuse its cached digest.
 do
   local fields = { "name", "full", "guid", "rank", "rankIndex", "level", "class", "note", "onote", "lastOnline" }
-  local rowKeys, rosterKeys = {}, { exportedAt=true, members=true, total=true, online=true, nativeGuild=true, nativeRealm=true }
+  local rowKeys, rosterKeys = {}, { exportedAt=true, members=true, total=true, online=true, nativeGuild=true, nativeRealm=true, nativeRankTable=true }
   for _, key in ipairs(fields) do rowKeys[key] = true end
   local accepted, cached, lastClock, lastPoll
   local function scalar(value)
@@ -616,7 +621,12 @@ do
     local witness = { roster=r, members=r.members, rows={}, metadata={} }
     for key in pairs(rosterKeys) do
       if key ~= "members" then
-        if not scalar(r[key]) then return end
+        if key == "nativeRankTable" and r[key] ~= nil and r[key] ~= false then
+          local ranks=OlympusVerifyNativeRanks
+          local copy=ranks and ranks.Copy(r[key])
+          if not copy then return end
+          witness.rankTable, witness.rankEncoding = r[key], ranks.Encode(copy)
+        elseif not scalar(r[key]) then return end
         witness.metadata[key] = r[key]
       end
     end
@@ -640,7 +650,12 @@ do
     end
     for key in pairs(r) do if not rosterKeys[key] then return false end end
     for key in pairs(rosterKeys) do
-      if key ~= "members" and (not scalar(r[key]) or r[key] ~= accepted.metadata[key]) then return false end
+      if key ~= "members" then
+        if key=="nativeRankTable" and accepted.rankTable then
+          local ranks=OlympusVerifyNativeRanks
+          if r[key]~=accepted.rankTable or not ranks or not ranks.Copy(r[key]) or ranks.Encode(r[key])~=accepted.rankEncoding then return false end
+        elseif not scalar(r[key]) or r[key] ~= accepted.metadata[key] then return false end
+      end
     end
     for i = 1, #accepted.rows do
       local old, row = accepted.rows[i], rawget(r.members, i)
@@ -675,7 +690,7 @@ do
     if not accepted or accepted.invalid or r ~= accepted.roster or getmetatable(r) ~= nil
       or rawget(r, "members") ~= accepted.members or getmetatable(accepted.members) ~= nil then return hold() end
     for key in pairs(rosterKeys) do
-      if key ~= "members" and not scalar(rawget(r, key)) then return hold() end
+      if key ~= "members" and key ~= "nativeRankTable" and not scalar(rawget(r, key)) then return hold() end
     end
     local guild, realm = Presence.NativeRosterScope()
     local ownGuid = UnitGUID and Presence.Readable(UnitGUID("player"))
@@ -691,7 +706,7 @@ do
       if cached.guid ~= ownGuid or cached.name ~= ownName then return hold() end
       return { strict=true, exportedAt=r.exportedAt, digest=cached.digest }
     end
-    local parts, own = { "G" .. #guild .. ":" .. guild, "R" .. #realm .. ":" .. realm, "T" .. tostring(r.total) }, 0
+    local parts, own = { "G" .. #guild .. ":" .. guild, "R" .. #realm .. ":" .. realm, "T" .. tostring(r.total), "N" .. (accepted.rankEncoding or "unavailable") }, 0
     for _, old in ipairs(accepted.rows) do
       local values, encoded = old.values, {}
       if values.guid == ownGuid then own = own + 1 end
@@ -721,6 +736,9 @@ ExportRoster = function(force, rosterAlreadyAsked, deferPendingFacts)
   if not EnsureShowOffline() then return end
   local total, online = GetNumGuildMembers()
   if not total or total == 0 then return end
+  local rankActor=UnitGUID and Presence.Readable(UnitGUID("player"))
+  local rankReader=OlympusVerifyNativeRanks
+  local beforeRanks=rankReader and rankReader.Observe()
   lastRosterExport = now
   local members = {}
   for i = 1, total do
@@ -740,6 +758,10 @@ ExportRoster = function(force, rosterAlreadyAsked, deferPendingFacts)
   if #members ~= total or not RosterVisibilityCurrent() then return nil end
   local finalGuild, finalRealm = Presence.NativeRosterScope()
   if not IsInGuild() or finalGuild ~= nativeGuild or finalRealm ~= nativeRealm then return nil end
+  local afterRanks=rankReader and rankReader.Observe()
+  local finalRankActor=UnitGUID and Presence.Readable(UnitGUID("player"))
+  local rankTable=rankReader and Presence.IsGuid(rankActor) and finalRankActor==rankActor
+    and rankReader.Same(beforeRanks,afterRanks) and rankReader.Copy(afterRanks) or false
   -- Second guard, on this side of the wire: an export far smaller than the last one is almost certainly truncated
   -- (show-offline off, or a GUILD_ROSTER_UPDATE that fired before the full list arrived). Keep the previous one.
   local prev = OlympusVerifyDB.roster
@@ -748,7 +770,7 @@ ExportRoster = function(force, rosterAlreadyAsked, deferPendingFacts)
     Print(string.format("roster export looked short (%d members vs %d last time) — kept the previous export. /olv roster forces one.", #members, prevCount))
     return nil
   end
-  local captured = { exportedAt = now, members = members, total = total, online = online, nativeGuild = nativeGuild, nativeRealm = nativeRealm }
+  local captured = { exportedAt = now, members = members, total = total, online = online, nativeGuild = nativeGuild, nativeRealm = nativeRealm, nativeRankTable=rankTable }
   Presence.CapturePendingRoster235(captured)
   OlympusVerifyDB.roster = captured
   if cfg.membershipOnly == true and OlympusVerifyAutoSync and not deferPendingFacts then OlympusVerifyAutoSync.NativeChanged() end
@@ -3258,6 +3280,10 @@ end
 
 -- What the panel reads. Everything here is a snapshot; the panel never touches the queue except through the calls below.
 OlympusVerifyAPI = {
+  Version = function()
+    local value=Presence.Readable(VERSION)
+    return type(value)=="string" and #value<=32 and value:match("^%d+%.%d+%.%d+[%w%.%-]*$") and value or SOURCE_VERSION
+  end,
   -- .227: this protocol preserves the native recipient, including its meaningful realm suffix.
   TreasuryTransport = { Name = Presence.TreasuryName, Guid = Presence.PlayerGuid, Note = function(text)
     local me = Presence.TreasuryName()
@@ -3658,12 +3684,12 @@ function Diag.Launch(scopeOnly)
     api = { SetGuildRankOrder = type(cg.SetGuildRankOrder), IsGuildRankAssignmentAllowed = type(cg.IsGuildRankAssignmentAllowed),
       Invite = type(cg.Invite), Promote = type(cg.Promote), SetMOTD = type(cg.SetMOTD),
       GuildInvite = type(GuildInvite), GuildPromote = type(GuildPromote), GuildSetMOTD = type(GuildSetMOTD) } }
-  facts.targetVeteran = readable(read(GuildControlGetRankName, 7))
-  facts.targetMember = readable(read(GuildControlGetRankName, 9))
+  facts.targetVeteran = readable(read(GuildControlGetRankName, 6))
+  facts.targetMember = readable(read(GuildControlGetRankName, 8))
   facts.metadataVersion = readable(read(C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata, ADDON, "Version"))
   if not scopeOnly then
     Print(string.format("client version=%q build=%q interface=%q", facts.version, facts.build, facts.interface))
-    Print(string.format("native targets slot0=6 name=%q; slot0=8 name=%q; rank-name API=%s",facts.targetVeteran,facts.targetMember,type(GuildControlGetRankName)))
+    Print(string.format("Directive expected targets slot0=5 name=%q; slot0=7 name=%q; rank-name API=%s; whole-table proof is separate",facts.targetVeteran,facts.targetMember,type(GuildControlGetRankName)))
     for _, name in ipairs({ "SetGuildRankOrder", "IsGuildRankAssignmentAllowed", "Invite", "Promote", "SetMOTD", "GuildInvite", "GuildPromote", "GuildSetMOTD" }) do
       Print("API " .. name .. "=" .. facts.api[name])
     end
@@ -3756,7 +3782,7 @@ frame:SetScript("OnEvent", function(self, event, ...)
   elseif event == "MAIL_CLOSED" then
     mailboxOpen = false
   elseif event == "MAIL_INBOX_UPDATE" then
-    ScanMailbox()
+    if not OlympusVerifyLive242 then ScanMailbox() end
   elseif event == "GUILD_ROSTER_UPDATE" then
     Presence.rosterVersion = Presence.rosterVersion + 1
     -- This is already the response/update we were waiting for. Reading its
@@ -3835,28 +3861,43 @@ end)
 if OlympusVerifySlash234 == nil then
   OlympusVerifySlash234 = (function()
     local entries = {}
-    local function aliasesCurrent(entry)
+    local function addAlias(catalogue,key,value)
+      catalogue.slots[key]=value
+      local group=key:match("^SLASH_([A-Z_]+)%d+$")
+      if group then catalogue.groups[group]=catalogue.groups[group] or {};catalogue.groups[group][key]=value end
+      if type(value)=="string" then
+        local normalized=string.lower(value);catalogue.owners[normalized]=catalogue.owners[normalized] or {};catalogue.owners[normalized][key]=true
+      end
+    end
+    local function aliasCatalogue()
+      local catalogue={slots={},groups={},owners={}}
+      for key,value in pairs(_G) do
+        if type(key)=="string" and key:match("^SLASH_.+%d+$") then addAlias(catalogue,key,value) end
+      end
+      return catalogue
+    end
+    local function aliasesCurrent(entry,catalogue)
       local own, wanted = {}, {}
       for i, alias in ipairs(entry.aliases) do own["SLASH_" .. entry.key .. i] = alias; wanted[string.lower(alias)] = true end
-      local prefix = "SLASH_" .. entry.key
-      for key, value in pairs(_G) do
-        if type(key) == "string" then
-          if key:match("^" .. prefix .. "%d+$") and (type(value) ~= "string" or not own[key] or string.lower(value) ~= own[key]) then return false end
-          if key:match("^SLASH_.+%d+$") and type(value) == "string" and wanted[string.lower(value)] and not own[key] then return false end
-        end
+      for key,value in pairs(catalogue.groups[entry.key] or {}) do
+        if type(value)~="string" or not own[key] or string.lower(value)~=own[key] then return false end
+      end
+      for alias in pairs(wanted) do
+        for key in pairs(catalogue.owners[alias] or {}) do if not own[key] then return false end end
       end
       return true
     end
-    local function install(entry)
+    local function install(entry,catalogue)
       local ok, ready = pcall(function()
+        catalogue=catalogue or aliasCatalogue()
         local registry = rawget(_G, "SlashCmdList")
         if type(registry) ~= "table" or not entry.chain then return false end
         local current = registry[entry.key]
         if current ~= nil and current ~= entry.dispatch then return false end
-        if not aliasesCurrent(entry) then return false end
+        if not aliasesCurrent(entry,catalogue) then return false end
         for i, alias in ipairs(entry.aliases) do
           local name = "SLASH_" .. entry.key .. i
-          if rawget(_G, name) == nil then _G[name] = alias end
+          if rawget(_G, name) == nil then _G[name] = alias;addAlias(catalogue,name,alias) end
         end
         if current == nil then registry[entry.key] = entry.dispatch end
         return registry[entry.key] == entry.dispatch
@@ -3899,8 +3940,10 @@ if OlympusVerifySlash234 == nil then
     end
     function R.Snapshot(key) return entries[key] and entries[key].chain end
     function R.Retry()
+      local ok,catalogue=pcall(aliasCatalogue)
+      if not ok then return false end
       local ready = true
-      for _, entry in pairs(entries) do if not install(entry) then ready = false end end
+      for _, entry in pairs(entries) do if not install(entry,catalogue) then ready = false end end
       return ready
     end
     local events = CreateFrame("Frame")

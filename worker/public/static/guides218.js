@@ -1,10 +1,11 @@
-/* .218 Olympus guides and tools: in-house class, spec and profession guides, raid-preparation tools and the Resources hub.
- * Original Olympus text. Every Forever fact carries a grade and a source; Classic numbers are labelled, unknowns say
+/* .218 Olympus guide tools: the raid-preparation tools linked from Olympus University (#/guides/tools/<id>).
+ * Since Evergreen Stage 2 (12 Nov 2026) the class, spec, race and profession courses are rendered by
+ * university/university.js; this file keeps the four tools and the closed validation of guides218.json. Original Olympus text. Every Forever fact carries a grade and a source; Classic numbers are labelled, unknowns say
  * "Unavailable" and never 0. Built with createElement and textContent only: no HTML strings, inline styles or eval. */
 (function (root) {
   "use strict";
   const DATA_URL = "/static/guides218.json";
-  const GUIDES_TITLE = "Class & profession guides";
+  const GUIDES_TITLE = "Olympus University";
   const TALENT_LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/";
   const HOSTS = new Set(["worldofwarcraft.blizzard.com", "news.blizzard.com", "us.forums.blizzard.com", "eu.forums.blizzard.com", "warcraft.wiki.gg",
     "www.wowhead.com", "wowhead.com", "www.icy-veins.com", "icy-veins.com", "www.method.gg", "method.gg", "www.warcrafttavern.com", "warcrafttavern.com",
@@ -17,10 +18,10 @@
   const ROLE_ICON = { tank: "role-tank", healer: "role-healer", melee: "role-dps", ranged: "role-dps", caster: "role-dps" };
   const BUFF_ROLES = [["tank", "Tank"], ["healer", "Healer"], ["melee", "Melee"], ["ranged", "Ranged"], ["caster", "Caster"]];
   const TOOLS = [
-    ["attunements", "Attunements & pre-raid checklist", "Raid access, what Blizzard has announced, and a slot-by-slot gearing checklist."],
+    ["attunements", "Attunements & pre-raid checklist", "Raid unlock dates, what each raid requires, and a slot-by-slot gearing checklist."],
     ["buffs", "World buffs & consumables", "Pick a role and compare recorded effects for different encounters, with every Classic number labelled."],
     ["raid-structure", "Raid team structure & leadership", "Fox’s guide to organizing one roster for 10-, 20- and 40-player raids."],
-    ["changes", "What changed in Forever", "The systems Forever changes, and the talent snapshot's changes for every class."],
+    ["changes", "What changed in Forever", "The systems Forever changes, and each class's talent changes in the calculator's data."],
   ];
   const STAT_LABEL = { strength: "Strength", agility: "Agility", stamina: "Stamina", intellect: "Intellect", spirit: "Spirit", attackPower: "Attack power",
     spellPower: "Spell power", healing: "Healing", crit: "Critical strike %", spellCrit: "Spell critical %", hit: "Hit %", spellHit: "Spell hit %", armor: "Armor",
@@ -64,7 +65,7 @@
     }
     for (const c of data.classes) {
       if (!c || !/^[a-z]+$/.test(c.id) || !isText(c.name, 40) || !textsOk(c.overview, 4) || !isList(c.changes, 8) || !isList(c.classQuests, 6) || !isList(c.specs, 3) || c.specs.length !== 3) fail("class");
-      if (c.changes.some(x => !x || !isText(x.text) || !["announced", "pinned-data", "pending"].includes(x.status) || !sourceOk(x.sources))) fail("class changes");
+      if (c.changes.some(x => !x || !isText(x.text) || !["live", "announced", "pinned-data", "pending"].includes(x.status) || !sourceOk(x.sources))) fail("class changes");
       if (c.classQuests.some(q => !q || !isText(q.title, 120) || !isText(q.levelHint, 60) || !isText(q.note) || !GRADES.includes(q.grade) || !sourceOk(q.sources))) fail("class quests");
       for (const s of c.specs) {
         if (!s || !/^[a-z-]+$/.test(s.id) || !isText(s.name, 40) || !isList(s.roles, 2) || !s.roles.every(r => ROLE_ICON[r]) || !s.beginner || !s.pro || !s.pvp || !s.whatChanged) fail("spec");
@@ -99,7 +100,7 @@
         flaskSpells.add(spell);
       }
     }
-    if (t.whatChanged.some(x => !x || !isText(x.topic, 60) || !isText(x.text) || !["announced", "pinned-data", "pending"].includes(x.status) || !sourceOk(x.sources))) fail("compendium");
+    if (t.whatChanged.some(x => !x || !isText(x.topic, 60) || !isText(x.text) || !["live", "announced", "pinned-data", "pending"].includes(x.status) || !sourceOk(x.sources))) fail("compendium");
     if (!isList(data.classSummary, 9) || data.classSummary.some(x => !x || !isText(x.name, 40) || ["changed", "same", "moved", "new", "classicOnly"].some(k => !Number.isInteger(x[k])))) fail("summary");
     return data;
   }
@@ -154,7 +155,7 @@
         [...citations.values()].map(({ url, publisher, labels }, i) =>
           [i ? " · " : "", external(url, publisher + " — " + [...labels].join(" / "))]));
     }
-    const talentCredit = () => el("p", { class: "muted small guides218-talent-credit" }, "Beta talent data from ",
+    const talentCredit = () => el("p", { class: "muted small guides218-talent-credit" }, "Talent data from ",
       external("https://talentsforever.com/", "Talents Forever"), " by Chris Baldwin, summarized by Olympus under ",
       external(TALENT_LICENSE_URL, "CC BY 4.0"), ".");
     function grade(data, g, described = false) {
@@ -186,98 +187,7 @@
     function crumbs(...pairs) {
       return el("nav", { class: "guides218-crumbs", "aria-label": "Breadcrumb" }, pairs.map(([href, text], i) => [i ? " › " : "", href ? link(href, text) : el("span", { "aria-current": "page", text })]));
     }
-    function presetCard(data, p) {
-      const cls = data.classes.find(c => c.id === p.classId), trees = cls ? cls.specs.map(s => s.name) : ["", "", ""];
-      const href = "#/talents/" + p.classId + "/" + encodeURIComponent(p.code);
-      const context = p.context === "pvp" ? "PvP" : p.context[0].toUpperCase() + p.context.slice(1);
-      const title = p.label.replace(/^Olympus starting point · /, "");
-      const pointsSuffix = " (" + p.treePoints.join("/") + ")";
-      const label = (title.endsWith(pointsSuffix) ? title.slice(0, -pointsSuffix.length) : title) || p.label;
-      const status = el("p", { class: "muted small", role: "status" });
-      let attach = null;
-      if (typeof options.onAttach === "function") {
-        attach = el("button", { type: "button", class: "btn", text: "Attach to my application", disabled: options.canAttach === false,
-          onclick: () => { status.textContent = "Opening your application with this build…"; options.onAttach(Object.freeze({ presetId: p.id, label: p.label, classId: p.classId, level: p.level, code: p.code })); } });
-      }
-      return el("article", { class: "guides218-preset", "data-preset": p.id },
-        el("h3", { text: label.charAt(0).toUpperCase() + label.slice(1) }),
-        el("p", { class: "muted small", text: "Beta snapshot build · Level " + p.level + " · " + context + " · " + p.treePoints.map((n, i) => trees[i] + " " + n).join(" / ") }),
-        list(p.why),
-        el("div", { class: "btn-row" }, link(href, "Load this build in the talent calculator", "btn"), attach),
-        status);
-    }
-
     const byName = (a, b) => a.name.localeCompare(b.name, "en");
-    function hub(data) {
-      const frag = [header(data, GUIDES_TITLE, null, "Class, spec and profession guides written for Olympus, plus raid-preparation tools.")];
-      frag.push(section("Class guides", el("div", { class: "guides218-grid" }, [...data.classes].sort(byName).map(c => el("article", { class: "guides218-card guides222-class", "data-theme": c.id },
-        el("h3", null, icon("class-" + c.id), " ", link("#/guides/class/" + c.id, c.name)),
-        el("p", { class: "small" }, c.specs.map((s, i) => [i ? " · " : "", link("#/guides/class/" + c.id + "/" + s.id, s.name)])))))));
-      const professionGroups = [["primary", "Primary crafting"], ["gathering", "Gathering"], ["secondary", "Secondary"]];
-      frag.push(section("Profession guides", professionGroups.map(([type, title]) => [
-        el("h3", { text: title }),
-        el("div", { class: "guides218-grid" }, data.professions.filter(p => p.type === type).sort(byName).map(p =>
-          el("article", { class: "guides218-card guides222-profession", "data-theme": p.key },
-            el("h4", null, icon("prof-" + p.key.replace("-", "_")), " ", link("#/guides/profession/" + p.key, p.name)))))
-      ])));
-      frag.push(section("Raid preparation tools", el("div", { class: "guides218-grid" }, TOOLS.map(([id, name, text]) => el("article", { class: "guides218-card guides222-tool", "data-theme": id },
-        el("h3", null, link("#/guides/tools/" + id, name)), el("p", { class: "small", text }))))));
-      frag.push(section("More resources", el("ul", { class: "guides218-list" },
-        el("li", null, link("#/talents", "Talent calculator"), " — plan a build and compare it with Classic."),
-        el("li", null, link("#/addons", "Addons for Forever"), " — the curated addon directory."),
-        el("li", null, link("#/guides", "Guide library"), " — reviewed guides from other publishers."),
-        el("li", null, link("#/updates", "Game updates"), " — Blizzard news and patch notes."),
-        el("li", null, link("#/guide/member", "Member guide"), " — how Olympus works."))));
-      return frag;
-    }
-
-    function classView(data, cls, spec) {
-      const used = new Set();
-      const frag = [crumbs(["#/resources", GUIDES_TITLE], [null, cls.name + (spec ? " · " + spec.name : "")]), header(data, cls.name + " guide", "class-" + cls.id, cls.overview[0])];
-      frag.push(el("nav", { class: "guides218-tabs", "aria-label": cls.name + " specs" }, cls.specs.map(s => el("a", { href: "#/guides/class/" + cls.id + "/" + s.id,
-        class: "btn small" + (spec && s.id === spec.id ? " active" : ""), "aria-current": spec && s.id === spec.id ? "page" : null }, icon(ROLE_ICON[s.roles[0]]), " " + s.name))));
-      if (cls.overview.length > 1) frag.push(section("Class overview", list(cls.overview.slice(1))));
-      if (cls.changes.length) frag.push(section("What Forever changes for " + cls.name, el("ul", { class: "guides218-list" }, cls.changes.map(x =>
-        el("li", null, el("span", { class: "guides218-status", "data-status": x.status, text: x.status === "announced" ? "Announced" : x.status === "pinned-data" ? "Talent snapshot" : "Pending" }), " ",
-          x.status === "pinned-data" ? x.text.replace(/^Talent snapshot, /, "") : x.text, " ", sourcesLine(data, x.sources))))));
-      if (cls.classQuests.length) { collect(used, cls.classQuests); frag.push(section("Class quests", el("ul", { class: "guides218-claims" }, cls.classQuests.map(q =>
-        el("li", { class: "guides218-claim" }, el("strong", { text: q.title }), " (" + q.levelHint + ") ", grade(data, q.grade), " ", q.note, " ", sourcesLine(data, q.sources)))))); }
-      const s = spec || cls.specs[0];
-      collect(used, [...s.pro.priorities, ...s.pro.raid, ...s.pro.consumables]);
-      frag.push(section(s.name + ": quick start", el("div", { class: "guides218-columns" },
-        el("div", null, el("h3", { text: "What it does" }), list(s.beginner.summary)),
-        el("div", null, el("h3", { text: "Rotation and priorities" }), list(s.beginner.rotation, true))),
-        s.beginner.leveling.length ? [el("h3", { text: "Leveling" }), list(s.beginner.leveling)] : null,
-        s.beginner.tips.length ? [el("h3", { text: "Tips" }), list(s.beginner.tips)] : null));
-      frag.push(section(s.name + ": advanced",
-        el("h3", { text: "Priorities" }), claims(data, s.pro.priorities), el("h3", { text: "In the raid" }), claims(data, s.pro.raid),
-        el("h3", { text: "Consumables" }), claims(data, s.pro.consumables)));
-      frag.push(section(s.name + ": PvP", s.pvp.overview.length ? list(s.pvp.overview) : el("p", { class: "muted", text: "No PvP notes yet." }),
-        s.pvp.matchups.length ? el("dl", { class: "guides218-matchups" }, s.pvp.matchups.map(m => [el("dt", { text: "Against " + m.vs }), el("dd", { text: m.text })])) : null));
-      const presets = s.presets.map(id => data.presets.find(p => p.id === id));
-      frag.push(section(s.name + ": talent starting points",
-        el("p", { class: "muted small" }, "Compare these saved builds with ",
-          external("https://us.forums.blizzard.com/en/wow/t/2360696/9", "Blizzard’s current talent notes"), " before using one in game or attaching it to an application."),
-        options.canAttach === false && options.attachReason ? el("p", { class: "muted small", text: options.attachReason }) : null,
-        el("div", { class: "guides218-presets" }, presets.map(p => presetCard(data, p)))));
-      const w = s.whatChanged;
-      frag.push(section(s.name + ": talent tree changes", el("p", { text: "Compared with Classic, the " + s.name + " tree in the talent snapshot has " + w.new + " new, " + w.changed + " changed, " + w.moved + " moved and " + w.same + " unchanged talents; " + w.classicOnly + " Classic talents are gone." }),
-        el("p", null, link("#/talents/" + cls.id, "Open the calculator and switch on Compare to Classic", "btn small"))));
-      frag.push(legend(data, used), talentCredit());
-      return frag;
-    }
-
-    function professionView(data, p) {
-      const used = new Set(); collect(used, [...p.changes, ...p.leveling, ...p.raidValue]);
-      const pairs = p.pairsWith.map(k => data.professions.find(x => x.key === k)).filter(Boolean);
-      return [crumbs(["#/resources", GUIDES_TITLE], [null, p.name]), header(data, p.name + " guide", "prof-" + p.key.replace("-", "_"), p.overview[0]),
-        p.overview.length > 1 ? section("Overview", list(p.overview.slice(1))) : null,
-        pairs.length ? section("Pairs well with", el("p", null, pairs.map((x, i) => [i ? " · " : "", link("#/guides/profession/" + x.key, x.name)]))) : null,
-        section("What Forever changes", claims(data, p.changes)), section("Leveling", claims(data, p.leveling)),
-        section("Value for the raid", claims(data, p.raidValue)), section("Gold", el("p", { text: p.goldNote })),
-        p.unknowns.length ? section("Still unknown", list(p.unknowns)) : null, legend(data, used)];
-    }
-
     function checklist(data, rows) {
       const done = new Set(), count = el("p", { class: "muted small", role: "status" }), listId = "guides218-check-" + (++sequence);
       const update = () => { count.textContent = done.size + " of " + rows.length + " done."; };
@@ -310,7 +220,7 @@
         section("One roster, three raid sizes",
           el("p", { text: "Adapted from Fox (akaFoxSlayer)’s raid leadership guidelines for Olympus. Use this as a planning framework and adjust it to the encounter, roster and availability." }),
           el("p", { text: "Start with eight groups of five. Keep the smaller groups familiar with one another and give each team comparable leadership, preparation and support." }),
-          el("p", null, "Blizzard announced December 9 for the first three Forever raids. See ", external("https://worldofwarcraft.blizzard.com/en-us/news/24303009", "Blizzard Entertainment — raid sizes and attunements"), "."),
+          el("p", null, "Blizzard set 9 December 2026 as the unlock date for the first three Forever raids. See ", external("https://worldofwarcraft.blizzard.com/en-us/news/24303009", "Blizzard Entertainment — raid sizes and attunements"), "."),
           el("table", { class: "guides218-table" },
             el("caption", { text: "How the eight groups combine" }),
             el("thead", null, el("tr", null, ["Forever raid", "Group assignments"].map(text => el("th", { scope: "col", text })))),
@@ -338,12 +248,12 @@
 
     function toolView(data, id) {
       const t = data.tools, used = new Set(), title = (TOOLS.find(x => x[0] === id) || [])[1];
-      const frag = [crumbs(["#/resources", GUIDES_TITLE], [null, title]), header(data, title, null, (TOOLS.find(x => x[0] === id) || [])[2])];
+      const frag = [crumbs(["#/guides", GUIDES_TITLE], [null, title]), header(data, title, null, (TOOLS.find(x => x[0] === id) || [])[2])];
       if (id === "attunements") {
         frag.push(el("p", { class: "muted small", text: "Ticks stay on this page only and reset when you reopen it." }));
         for (const a of t.attunements) {
           collect(used, [a.requirement, ...a.steps]);
-          frag.push(section(a.raid + " (" + a.size + " players)", el("p", { text: "Opens: " + a.opens }), el("ul", { class: "guides218-claims" }, claim(data, a.requirement)),
+          frag.push(section(a.raid + " (" + a.size + " players)", el("p", { text: "Unlock date: " + a.opens }), el("ul", { class: "guides218-claims" }, claim(data, a.requirement)),
             checklistSections(data, a.steps, "Attunement steps", "Raid details")));
         }
         collect(used, [...t.preBis.slots.map(s => s.guidance), ...t.preBis.checklist]);
@@ -357,19 +267,30 @@
       } else if (id === "raid-structure") {
         frag.push(...raidStructure());
       } else if (id === "changes") {
-        const groups = [["announced", "Announced by Blizzard"], ["pinned-data", "From the talent snapshot"], ["pending", "Not settled yet"]];
+        // CL2-173 (12 Nov 2026): what is already live in the game comes first, then what Blizzard has announced.
+        const groups = [["live", "Live in the game"], ["announced", "Announced by Blizzard"], ["pinned-data", "From the talent data"], ["pending", "Not settled yet"]];
         for (const [status, name] of groups) {
           const rows = t.whatChanged.filter(x => x.status === status);
           if (rows.length) frag.push(section(name, el("dl", { class: "guides218-compendium" }, rows.map(x => [el("dt", { text: x.topic }), el("dd", null, x.text, " ", sourcesLine(data, x.sources))]))));
         }
         frag.push(section("Talent changes by class", el("table", { class: "guides218-table" },
-          el("caption", { text: "Beta talents compared with Classic 1.12 (rank-one text)" }),
+          el("caption", { text: "Talents compared with Classic 1.12 (rank-one text)" }),
           el("thead", null, el("tr", null, ["Class", "New", "Changed", "Moved", "Unchanged", "Removed"].map(h => el("th", { scope: "col", text: h })))),
           el("tbody", null, [...data.classSummary].sort(byName).map(x => el("tr", null, el("th", { scope: "row" }, link("#/talents/" + x.id, x.name)),
             [x.new, x.changed, x.moved, x.same, x.classicOnly].map(n => el("td", { text: String(n) }))))))));
       }
-      frag.push(legend(data, used), id === "changes" ? talentCredit() : null);
+      frag.push(legend(data, used), id === "changes" ? talentCredit() : null, related(id));
       return frag;
+    }
+
+    // CL2-207 (12 Nov 2026): every tool links to the other tools, the courses and the guides that make what it lists.
+    function related(id) {
+      const items = TOOLS.filter(t => t[0] !== id).map(([tid, name]) => ["#/guides/tools/" + tid, name]);
+      if (id === "buffs") items.push(["#/guides/profession/alchemy", "Alchemy guide"], ["#/guides/profession/cooking", "Cooking guide"], ["#/guides/profession/first-aid", "First Aid guide"]);
+      // The raid team guide names the leaders; their offices are on the Roles page (integrator, 12 Nov 2026).
+      if (id === "raid-structure") items.push(["#/roles/raid_leader", "Raid Leader office"], ["#/roles/class_lead", "Class Lead offices"]);      items.push(["#/talents", "Talent calculator"], ["#/addons", "Addons for Forever"], ["#/guides", "Olympus University"]);
+      return el("nav", { class: "card guides218-section", "aria-label": "Related" }, el("h2", { text: "Related" }),
+        el("ul", { class: "guides218-list" }, items.map(([href, text]) => el("li", null, link(href, text)))));
     }
 
     function buffCalculator(data, used) {
@@ -451,24 +372,18 @@
       }
       draw();
       return section("Choose what you will bring", el("label", { for: "guides218-role", text: "Show consumables for " }), role,
-        el("p", { class: "muted small", text: "Encounter previews add recorded values for visible selections. Check beta values, item availability, faction and stacking in game. Camp buffs have no raid estimate." }),
+        el("p", { class: "muted small", text: "Encounter previews add recorded values for visible selections. Check each value, item availability, faction and stacking in game. Camp buffs have no raid estimate." }),
         box, total, flaskComparison);
     }
 
+    // CL2-105 (12 Nov 2026): an address that matches no guide or tool still gets the page H1 and a way back.
+    function notFound(title, text) {
+      return [el("header", { class: "guides218-head" }, el("div", null, el("h1", { text: title }), el("p", { role: "status", text }))),
+        el("p", null, link("#/guides", "Back to " + GUIDES_TITLE, "btn"))];
+    }
     function render(data) {
-      const view = options.view, frag = [];
-      if (view === "class") {
-        const cls = data.classes.find(c => c.id === options.classId), spec = cls && options.specId ? cls.specs.find(s => s.id === options.specId) : null;
-        if (!cls || (options.specId && !spec)) frag.push(el("p", { text: "There is no such guide." }), link("#/resources", "Back to " + GUIDES_TITLE, "btn"));
-        else frag.push(...classView(data, cls, spec));
-      } else if (view === "profession") {
-        const p = data.professions.find(x => x.key === options.profession);
-        if (!p) frag.push(el("p", { text: "There is no such guide." }), link("#/resources", "Back to " + GUIDES_TITLE, "btn"));
-        else frag.push(...professionView(data, p));
-      } else if (view === "tool") {
-        if (!TOOLS.some(x => x[0] === options.tool)) frag.push(el("p", { text: "There is no such tool." }), link("#/resources", "Back to " + GUIDES_TITLE, "btn"));
-        else frag.push(...toolView(data, options.tool));
-      } else frag.push(...hub(data));
+      const frag = options.view === "tool" && TOOLS.some(x => x[0] === options.tool) ? toolView(data, options.tool)
+        : notFound("Tool not found", "There is no such tool.");
       shell.replaceChildren(...frag.filter(Boolean));
     }
 

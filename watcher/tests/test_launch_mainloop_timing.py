@@ -33,7 +33,9 @@ class MainLoopTiming(unittest.TestCase):
                 stop_when_complete=False, consume=True, read_stop_file=False):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
-        instance = watcher.Watcher.__new__(watcher.Watcher)
+        instance = watcher.Watcher(dict(wow_dir=temporary.name, account='synthetic', worker_url='https://test.invalid',
+            watcher_token='synthetic-token', verify_secret='synthetic-secret', officer_character='Fern Melder',
+            membership_only=membership, state_file=str(Path(temporary.name)/'state.json')))
         instance.membership_only = membership
         instance.poll = poll
         instance._custody_halted = False
@@ -42,7 +44,7 @@ class MainLoopTiming(unittest.TestCase):
         instance.state = SimpleNamespace(d={'lag': {}, 'sv_mtime': 0})
         instance.chat_log = Path(temporary.name)/'synthetic-chat.log'
         instance.sv_file = Path(temporary.name)/'synthetic-savedvariables.lua'
-        instance.sv_file.write_text('consumed synthetic source', encoding='utf-8')
+        instance.sv_file.write_text('OlympusVerifyDB = { events = {} }', encoding='utf-8')
         instance._launch_consumed_sv_witness = None
         scan = launch.Scan(lambda: self.clock)
         if active:
@@ -380,7 +382,9 @@ class MainLoopTiming(unittest.TestCase):
 class CompletedIntakeWitness(unittest.TestCase):
     def fixture(self):
         temporary = tempfile.TemporaryDirectory(); self.addCleanup(temporary.cleanup)
-        instance = watcher.Watcher.__new__(watcher.Watcher)
+        instance = watcher.Watcher(dict(wow_dir=temporary.name, account='synthetic', worker_url='https://test.invalid',
+            watcher_token='synthetic-token', verify_secret='synthetic-secret', officer_character='Fern Melder',
+            membership_only=True, state_file=str(Path(temporary.name)/'state.json')))
         instance.membership_only = True
         instance.sv_file = Path(temporary.name)/'SavedVariables.lua'
         instance.sv_file.write_text('OlympusVerifyDB = { events = {} }', encoding='utf-8')
@@ -496,9 +500,14 @@ class CompletedIntakeWitness(unittest.TestCase):
                 else:
                     actual = instance.sv_file.lstat()
                     bad = SimpleNamespace(**{name: getattr(actual, name) for name in ('st_mode', 'st_dev', 'st_mtime_ns', 'st_ctime_ns', 'st_size')}, st_ino=0)
-                    with patch.object(Path, 'lstat', return_value=bad): self.read(instance)
+                    with patch.object(Path, 'lstat', return_value=bad), self.assertRaises(watcher.SavedVariablesSourceUnavailable):
+                        self.read(instance)
                     self.assertIsNone(instance._launch_consumed_sv_witness); continue
-                with patch.object(watcher, 'log'): self.read(instance)
+                with patch.object(watcher, 'log'):
+                    if mode in ('missing','parse'):
+                        with self.assertRaises(watcher.SavedVariablesSourceUnavailable): self.read(instance)
+                    else:
+                        self.read(instance)
                 self.assertIsNone(instance._launch_consumed_sv_witness)
 
 

@@ -103,23 +103,23 @@ class TreasuryJournal:
         at = int(time.time()) if at is None else at
         if source not in ("signed-chat", "savedvariables"):
             raise ValueError("invalid treasury source")
+        # The v1 decoder is historical, not authority for a new local payment.
+        # A staged commit still has an unknown outcome: do not complete, replace
+        # or erase it merely because prospective capture has been retired.
+        if self._staged_path().exists():
+            raise ValueError("treasury staged receipt requires attended recovery")
+        data = self._read()
         e = validated_receipt(event, secret, self.recipient, at, self.retention_days)
         if e is None:
             return "refused"
-        data = self._read()
-        rows = {key: row for key, row in data["receipts"].items() if row["retainUntil"] > at}
+        rows = data["receipts"]
         prior = rows.get(e["id"])
         canonical = {key: value for key, value in e.items() if key != "mac"}
         if prior:
             if any(prior.get(key) != value for key, value in canonical.items()):
                 raise ValueError("treasury receipt id conflicts; original retained")
             return "duplicate"
-        if len(rows) >= MAX_ROWS:
-            raise ValueError("treasury journal full; source must stay stopped")
-        rows[e["id"]] = {**canonical, "classification": "unclassified_receipt", "netCopper": e["incomingCopper"] - e["outgoingCopper"], "firstSource": source, "recordedAt": at, "retainUntil": e["ts"] + self.retention_days * 86400}
-        data["receipts"] = rows
-        self._write(data)
-        return "recorded"
+        return "policy-held"  # new v1 observations have no native TITHE-reference proof
 
     def purge(self, at: int | None = None) -> int:
         """Independent of new transfers: quiet journals also lose expired names."""

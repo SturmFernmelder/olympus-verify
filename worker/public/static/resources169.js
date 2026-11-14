@@ -19,6 +19,12 @@
     try { const u = new URL(raw); return u.protocol === "https:" && !u.username && !u.password && !u.port && (sourceHosts.has(u.hostname) || foreverTrackers.some(source => source.url === u.href)) ? u.href : null; }
     catch (_) { return null; }
   }
+  // CL2-172 (12 Nov 2026): review dates read as plain dates, never as a raw ISO timestamp.
+  function plainDate(raw) {
+    const match = typeof raw === "string" && /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+    if (!match) return String(raw);
+    return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(+match[1], +match[2] - 1, +match[3])));
+  }
   function link(label, raw) {
     const url = safeUrl(raw);
     if (!url) return el("span", label);
@@ -30,7 +36,7 @@
     const text = (v, max) => typeof v === "string" && v.length > 0 && v.length <= max;
     const fields = (v, keys) => v && typeof v === "object" && !Array.isArray(v) && Object.keys(v).sort().join() === keys.sort().join();
     const links = rows => Array.isArray(rows) && rows.length <= 12 && rows.every(row => fields(row, ["label", "url"]) && text(row.label, 200) && safeUrl(row.url));
-    if (!fields(value, ["version", "title", "sourceCheckedAt", "reconciledAt", "scopeNote", "sections", "corrections"]) || value.version !== 1 || !text(value.title, 200) || value.sourceCheckedAt !== "2026-10-18" || !text(value.reconciledAt, 40) || !/^2026-10-\d{2}(?:T[^\s]{1,25})?$/.test(value.reconciledAt) || !text(value.scopeNote, 4000) || !Array.isArray(value.sections) || value.sections.length !== 5 || !Array.isArray(value.corrections) || value.corrections.length > 20) throw Error("owner directory");
+    if (!fields(value, ["version", "title", "sourceCheckedAt", "reconciledAt", "scopeNote", "sections", "corrections"]) || value.version !== 1 || !text(value.title, 200) || value.sourceCheckedAt !== "2026-10-18" || !text(value.reconciledAt, 40) || !/^2026-1[01]-\d{2}(?:T[^\s]{1,25})?$/.test(value.reconciledAt) || !text(value.scopeNote, 4000) || !Array.isArray(value.sections) || value.sections.length !== 5 || !Array.isArray(value.corrections) || value.corrections.length > 20) throw Error("owner directory");
     const ids = new Set();
     for (const section of value.sections) {
       if (!fields(section, ["id", "title", "intro", "blocks"]) || !text(section.id, 60) || !/^[a-z][a-z0-9-]*$/.test(section.id) || ids.has(section.id) || !text(section.title, 240) || !text(section.intro, 4000) || !Array.isArray(section.blocks) || section.blocks.length < 1 || section.blocks.length > 12) throw Error("owner directory section");
@@ -75,7 +81,7 @@
     const section = el("section", undefined, "resources169-owner-directory"); section.setAttribute("aria-label", value.title);
     const evidence = el("details", undefined, "resources169-provenance");
     evidence.append(el("summary", "How these sources were checked"),
-      el("p", `Review dated ${value.sourceCheckedAt}. Follow-up dated ${value.reconciledAt.slice(0, 10)}.`, "resources169-meta"),
+      el("p", `Review dated ${plainDate(value.sourceCheckedAt)}. Follow-up dated ${plainDate(value.reconciledAt)}.`, "resources169-meta"),
       el("p", value.scopeNote, "resources169-note"));
     section.append(el("h2", value.title), evidence);
     const sourceLinks = rows => { const list = el("ul"); for (const row of rows) { const li = el("li"); li.append(link(row.label, row.url)); list.append(li); } return list; };
@@ -171,7 +177,8 @@
         if (typeof url === "string") { const row = el("p"); row.append(link(label, url)); provenance.append(row); }
       }
       if (typeof item.integrationNote === "string") provenance.append(el("p", item.integrationNote, "resources169-meta"));
-      for (const [label, value] of [["Published file", item.version], ["Publisher release date", item.releasedAt], ["Advertised client", item.gameBuild], ["Guide scope", item.scope]]) {
+      // An entry that names only a floor (Olympus Guild, 12 Nov 2026) says so, instead of calling it the published file.
+      for (const [label, value] of [["Published file", item.version], ["Minimum version", item.minimumVersion], ["Publisher release date", item.releasedAt], ["Advertised client", item.gameBuild], ["Guide scope", item.scope]]) {
         if (typeof value === "string") provenance.append(el("p", `${label}: ${value}`, "resources169-meta"));
       }
       if (Array.isArray(item.limitations)) {
@@ -204,7 +211,7 @@
           wrap.replaceChildren(heading, ...(fullDirectory ? [ownerDirectory(fullDirectory)] : []), curated);
         }
         const provenance = el("details", undefined, "resources169-provenance");
-        provenance.append(el("summary", "About these sources"), el("p", `Last reviewed: ${catalog.checkedAt}. ${catalog.disclaimer}`, "resources169-note"));
+        provenance.append(el("summary", "About these sources"), el("p", `Last reviewed: ${plainDate(catalog.checkedAt)}. ${catalog.disclaimer}`, "resources169-note"));
         if (catalog.viewNotes && typeof catalog.viewNotes[view] === "string") provenance.append(el("p", catalog.viewNotes[view], "resources169-note"));
         (curated || heading).append(provenance);
         const searchLabel = el("label", "Search sources "), search = el("input"); search.type = "search"; search.placeholder = "Name, purpose or limitation"; searchLabel.append(search);
@@ -252,7 +259,7 @@
         for (const entries of groups.values()) {
           const li = el("li"), first = entries[0].item;
           if (entries.length > 1) {
-            li.append(keep(source.sourceId + "|" + first.url, link(first.title, first.url)), el("span", `${entries.length} posts from this development-notes thread`, "resources169-meta"));
+            li.append(keep(source.sourceId + "|" + first.url, link(first.title, first.url)), el("span", `${entries.length} posts in this thread`, "resources169-meta"));
             const posts = el("ul", undefined, "resources169-thread-posts");
             for (const { item, post } of entries) { const row = el("li"); row.append(keep(source.sourceId + "|thread-post|" + item.url, link(`Thread post ${post}`, item.url)), el("span", `Published: ${time(item.publishedAt)}`, "resources169-meta")); posts.append(row); }
             li.append(posts);

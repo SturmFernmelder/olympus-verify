@@ -955,7 +955,7 @@ and in the guild". `/olympus-admin sync` doesn't help either: it only promotes r
   old, because that is when MEE6 strikes. Whatever budget is left goes to a rotation through every member, which
   finds older cases like Magnus, or someone who left the Discord and came back. Restores are audited as
   `role.restored` and posted as one ♻️ line in #server-log per sweep. Banned accounts, characters that left the guild
-  and people no longer in the Discord are never touched. The sweep's state is the newest `role.sweep` audit row. 10
+  and people no longer in the Discord are never touched. Historical note: current .280 uses the newest relevant `role.sweep` head independently for each lane; it no longer takes both cursors from the newest single row. 10
   accounts is at most about 22 Discord calls, which fits the free plan's 50 per request; `ROLE_SWEEP_PER_RUN` in
   wrangler.toml raises it on a paid plan. With the watcher running, the rotation covers a few hundred members in a
   couple of hours.
@@ -7698,6 +7698,15 @@ Addon0.6.15 and Watcher0.6.12 prepare unclassified incoming trade/collected-mail
 
 Release requires focused/local Native/Lua checks, exact-head review, original13 PR jobs, one final qualification, main CI and a fresh443-live442-portable restored backup before a single protected deployment. Preserve all original rollout and OFF gates. Install public host/client files separately with hashes and protected configuration readback; do not replay old outboxes or infer native acceptance from an install. See docs/launch227-feed-contract.md and docs/launch227-verification-readiness.md for blockers.
 
+**Configuration and rollback (docs-only note added 12 November 2026).** This entry first recorded neither. From the
+committed configuration: `worker/wrangler.toml` at `36c3dfd` (.227) sets `VERIFY_MEMBERSHIP_ONLY = "true"` (no new
+link, role or invite without a fresh native roster and a matching GUID) and `REQUEST_CODES = "on"` (Get my code always
+hands out request codes); the .226 file at `4035063` had no `VERIFY_MEMBERSHIP_ONLY` and `REQUEST_CODES = "auto"`.
+These are the committed source values, not a readback of the deployed variables. Rollback is the .226 Worker from
+`4035063` through `bash scripts/deploy-commit.sh 4035063 --keep-vars` by Codex Root after a fresh restore-verified backup;
+it switches membership-only verification off again, so prefer a roll-forward unless .227 itself is the fault. No DDL
+was added, so no schema step is needed; keep the local receipt outboxes on officer hosts, and never replay them.
+
 ## Worker .228 — Evergreen guild site and raid tools (prepared 4 November 2026)
 
 The starting point is .227 at `36c3dfd`. Qualify the final integrated commit and tree through independent Claude Code and Codex review, matching primary and counter-signatures, the full local suites, browser and native acceptance, all thirteen hosted PR checks, and the current automated review. Keep the Stage 2 finding and receipt register with the exact candidate.
@@ -8522,3 +8531,40 @@ Qualify the changed history recovery/conflict paths and public slash route, cont
 Root performs exactcommit CI/review/backup/deploy and standard postchecks. Watcher0.6.37 and the held live bridge are unchanged. Rollback restores public code/package without reverting native ranks or deleting history, observations or holds. Native results and release receipts belong in the append-only shared log and QA report after the actions.
 
 The explicit /olv launch hold <GUID> action can record a restrictive staff-review hold for a known missing older receipt after reading the exact current native GUID. It records no historical command, creates no confirmed receipt and never clears an existing unknown. Root uses it for the externally preserved Andolf blocked case before requesting remaining promotions; a missing canonical row must not silently remove a known hold.
+
+
+## 2026-11-13 .280 — evergreen guild tools and scoped privacy
+
+Release candidate: Worker .280, Olympus Verify0.6.38 and Watcher0.6.38. Update the addon and Watcher together: general roster discovery now uses officer-operations-v235, while selected promotion checks retain their own sealed protocol. Discovery with held rank evidence is data only; it cannot grant a rank or a promotion. The public package contains22 explicit public inputs, including native rank definitions and local privacy logic. Preserve private Config.lua, exchange files and SavedVariables when installing.
+
+The existing original canonical-rank policy remains active; this rollout does not activate the 12 November rank policy or rename the in-game ranks. The new transport checks that rows match their observed ten-name table. Under the original policy, only accounts linked to a name/index pair that policy does not recognize are held: the production `Steward` at1 and `Alt` at7 are not aliases for `Stewart` or `Raider`. Unrelated known ranks can still follow the original policy. Duplicate observed rank names are unsupported and refuse the whole table rather than guessing slots. A Directive-qualified source under the original policy remains held as a whole for rank conversion. For that separately authorized activation, switch the site's rank settings before or together with the complete in-game rank rename. Standing cleanup retains its separate paths. An account with an unknown linked rank remains held on the routine path even after a ban or departure, as on the previous version; the separately tested staff `/ban` path removes all configured rank roles. A rank hold is not proof of removal. Do not bypass these holds or treat the discovery page as permission to change ranks.
+
+Treasury access preserves the two canonical appointment seats (`office_19`, `office_86`) and their existing live keys (`co_gm`, `treasurer`). The separately published historical `rank_treasurer` record grants no Treasury access. No stored appointment or publication proof is migrated or re-signed. The native-rank route accepts the original policy's existing officer pairs on exact scoped v1 or validated observed-v2 sources, with the officer's own row matching its observed table. Its existing12-hour freshness, GUID, account and final readmission checks remain; this read does not authorize a rank conversion. Renaming the in-game ranks to the Directive ladder before updating the site's rank settings holds this native Treasury route, including for Guild Master. The Discord-role and published-appointment routes remain independent; switch the settings before or together with the separately authorized rank rename.
+
+Keep Native erasure and the existing layout selected; rollback means the prior Worker version, not a serving-mode switch. The older configured Floor serving mode's full account read now uses its original sequential read order and unchanged privacy fence; this repair does not authorize activating that mode. Ordinary Native serving and the page boot keep their batched reads. The relay, Link and separate Treasury dispatch remain held.
+
+Local cleanup blanks recognized legacy financial correspondence, including the old bridged shape, without changing original IDs, structured facts, hashes, clocks or delivery outcomes. Unsupported items remain exact and individually held while recognized neighbors may still be blanked. Structural, invalid-counter and unsafe generated-metadata publication failures preserve the original candidate and report incomplete cleanup. Previously oversized unrelated Watcher history can remain while bounded recognized rows are cleaned. Stale Watcher staging files hold minimization without changing the existing normal save lifecycle; they are never adopted as proof. No private backups or unrelated journals are scrubbed.
+
+Member downloads omit both mail receipt formats even when a row has an own GUID. Erasure attribution remains unchanged; only an opaque receipt key and its original expiry can remain for replay protection. A fresh proof for an existing link preserves its original source and every existing clock and requires exact neutral lineage for downstream eligibility. A note-created Member with no verification timestamp can record its first timestamp only from the actual consumed fresh native proof. With generation capture enabled, retired subjects cannot stall the ban rotation; malformed sweep progress stays held, visible and durably throttled instead of resetting itself.
+
+Keep at least one generation-capture feature enabled (`MEMBERSHIP_ROLE_SETTLEMENT_ENABLED`, `QR_PHASE1_ENABLED` or `PRIVACY_ERASURE_ENABLED`, exact value `true`) while retired privacy subjects remain. Turning all three off reverts the old selector behavior, which can stall at a retired account. This candidate does not claim to repair that disabled configuration.
+
+For a held sweep head, inspect `SELECT id,ts,subject,details FROM audit WHERE action='role.sweep_failed' ORDER BY id DESC LIMIT 20` and the original `role.sweep` rows. A failure with reason `original_progress_or_reference_held` means the original lane progress or its privacy reference could not be confirmed. Unknown lane tags or malformed JSON conservatively hold both lane heads. Other-lane activity cannot repair it. Preserve the original raw row and failure evidence; do not edit/delete it or reset role settlements, nonces or unknown attempts.
+
+Attended Root repair, after identifying the corrupt head and preserving a fresh backup, may append an id-free restart head: ordinary `{"lane":"ordinary","a":0,"c":""}` or ban `{"lane":"ban","b":""}`. This restarts passive scheduling only; every effect still requires its existing fresh authority and custody guards. Bind the exact saved raw corrupt row, its id and the observed newest progress id; do not interpolate malformed JSON into SQL. The conservative compare-and-set template below refuses any intervening progress append. If the unknown/malformed head affects both lanes, inspect and append each lane separately, refreshing the observed newest id between them. A zero-change or uncertain reply is held; never retry it blindly.
+
+```sql
+INSERT INTO audit(ts,actor,action,subject,details)
+SELECT CAST(strftime('%s','now') AS INTEGER),'system','role.sweep','attended_progress_repair',?1
+WHERE ?1 IN ('{"lane":"ordinary","a":0,"c":""}','{"lane":"ban","b":""}')
+AND EXISTS(SELECT 1 FROM audit WHERE id=?2 AND action='role.sweep' AND details IS ?3)
+AND (SELECT MAX(id) FROM audit WHERE action='role.sweep')=?4;
+```
+
+After an acknowledged single insert, read the actual relevant lane heads, observe the next normal cron's original progress result and check that failures stop recurring. The old malformed row stays preserved. This is an operator procedure, not automatic cleanup and not an action performed by this release's tests.
+
+Qualification and rollout are recorded in the external QA pair and append-only shared log, not inferred from this candidate note. Root deploys only after actual Claude/Codex Primary Sign-Offs and Mutual Counter-Signatures on the same final commit/tree, current required CI, and a fresh production export restored locally with integrity, foreign-key and444live/443portable catalogue checks (audit_reconcile266 retained). Use the exact-commit deployment entrypoint with --keep-vars. Keep the relay, Link and separate Treasury activation gates unchanged. Do not initialize D1, register commands indiscriminately, clear unknown effects or manufacture historical receipts.
+
+After rollout verify shipping identity, all92 public probes, the first original healthy cron tick, served package/source parity, installation and the attended RT-16 empty-note save/readback on the oldest suitable open application. Preserve nonempty notes. Client code requires one safe normal reload before claiming it is running. Per the owner's timing answer relayed by Claude on13November, actual iPhone/iOS Safari acceptance follows rollout using the owner's device checklist; Chromium phone emulation is separate evidence.
+
+Rollback restores the prior exact public Worker and addon/Watcher code as a reviewed compatible set. It does not restore erased correspondence, reverse native ranks, remove replay markers, reset original deadlines, delete custody/history or settle unknown operations. Use the verified backup for recovery only under its own attended authority; never silently restore production data as a code rollback.

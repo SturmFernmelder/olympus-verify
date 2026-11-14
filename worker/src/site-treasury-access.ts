@@ -1,6 +1,7 @@
+import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 /** .218 officer-tier Treasury plan (owner rulings, 31 Oct 2026: officers and above only; "Either source").
  * Admits a site admin, a currently published Co-Guild Master or Treasurer appointment proved again inside the same
- * admitted read, an officer rank on a CURRENT roster export (the configured ten-rank profile only, after the launch cut,
+ * admitted read, an officer rank on a CURRENT roster export (the active policy's own ten-rank ladder only, after the launch cut,
  * fresh, complete, trusted and GUID-pinned; see currentLadder and ROSTER_SQL), or a configured Discord leader/officer/
  * raid-leader role read once from Discord. Display names, application tracks and beta-era ranks grant nothing.
  * Never caches a role, never writes, never retries. */
@@ -11,19 +12,35 @@ import { communityContext, captureCommunitySubject, admittedRead, FENCE_REFUSED 
 import { checkOriginalNativeRequest, checkOriginalNativeHeaders } from "./privacy-native-http-intrinsics";
 import { capturePublishedOfficeAuthority, publishedOfficeAuthorityCondition } from "./site-appointed-identities";
 import { rest, DiscordError } from "./discord";
-import { parseNativeRoleMap, namesFor } from "./native-rank-adapter";
 import { linksNotBefore } from "./db";
 import { ROSTER_CURRENT_FOR } from "./roster";
 import { DB_NOW } from "./account-generation-contracts";
 import { privateSiteAsset } from "./site-access";
-import { captureCanonicalRankConfig233, NATIVE_NAMES233 } from './canonical-ranks233';
-import { captureLaunchVerification } from './launch-verification227';
+import { captureCanonicalRankConfig233, currentDirectiveCanonicalPolicy233, canonicalNativeRole233, CANONICAL_PROFILE233, NATIVE_NAMES233, type CanonicalRankPolicy233 } from './canonical-ranks233';
+import { captureLaunchVerification, parseLaunchNativeScope } from './launch-verification227';
 import { canonicalOlympusGuildName, FLAGSHIP_GUILD_NAME } from './guild-affiliation229';
+import { DIRECTIVE_RANK_NAMES, qualifiedNativeSnapshotSource, nativeMembershipSourceSql } from './native-rank-schemes';
+import { originalObservedCanonicalTable280 } from './canonical-native-authority280';
 
 /** The planning programme's renderer, financial model, content and stylesheet. Royal Writs stay member-readable. */
 export const TREASURY_PLAN_ASSETS = Object.freeze(["/static/treasury-plan207.js", "/static/treasury-plan-model207.js", "/static/treasury-plan-content207.js", "/static/treasury-plan207.css"]);
 export const TREASURY_ACCESS_PATH = "/api/treasury-plan/access";
-const OFFICER_RANKS = new Set(["Guild Master", "Stewart", "High Council", "Treasurer", "Officer", "Officer Alt", "Raid Leader"]);
+/** CL2-091: the two canonical seats and the two owner-preserved legacy keys.
+ * Other catalogue keys, including rank_treasurer, remain separately publishable
+ * data and do not confer Treasury plan access. Each admitted key keeps its own
+ * original publication proof; no signature, stored map or native rank is retargeted.
+ * Final raw-map, account/session and privacy-generation readmission is unchanged. */
+export const TREASURY_APPOINTMENT_SEATS = Object.freeze(["office_19", "office_86", "co_gm", "treasurer"] as const);
+/** Officer tier on the Directive ladder (DIRECTIVE_RANK_NAMES, owner ladder of 12 Nov 2026, slots 0-4). */
+// Private, frozen lists: nothing outside this module can reach or change them (Codex Root's review of 98dc690, 13 Nov
+// 2026: a Set handed out through currentLadder stayed mutable, whatever its TypeScript type said).
+const OFFICER_RANKS: readonly string[] = Object.freeze(["Guild Master", "High Council", "Officer", "Officer Alt", "Raid Leader"]);
+/** Officer tier on the ORIGINAL v1 ladder (NATIVE_NAMES233), exactly the names dfca7a2 admitted there: its seven-name set
+ * intersected with that ladder. "Treasurer" is not on NATIVE_NAMES233, so dfca7a2 could never match it and it is left
+ * out. "Stewart" exists only on this ladder (slot 1) and is never offered to the Directive ladder (round 5, 13 Nov 2026). */
+const ORIGINAL_OFFICER_RANKS233: readonly string[] = Object.freeze(["Guild Master", "Stewart", "High Council", "Officer", "Officer Alt", "Raid Leader"]);
+export type TreasuryLadderPolicy = "original233" | "directive";
+const officersOf = (policy: TreasuryLadderPolicy): readonly string[] => policy === "original233" ? ORIGINAL_OFFICER_RANKS233 : policy === "directive" ? OFFICER_RANKS : [];
 const HEADER_NAMES = ["Cookie", "Origin", "Sec-Fetch-Site", "X-Olympus"];
 const DISCORD_KEYS = ["SITE_GUILD_ID", "GUILD_ID", "DISCORD_BOT_TOKEN", "ROLE_GUILD_MASTER", "ROLE_GUILD_LEADER", "ROLE_OFFICER", "ROLE_RAID_LEADER", "CANONICAL_RANKS233"] as const;
 const ROSTER_KEYS = ["QR_NATIVE_ROLE_MAP", "LINKS_NOT_BEFORE", "LINKS_NOT_BEFORE_CLOCK_GATED", "CANONICAL_RANKS233", "VERIFY_MEMBERSHIP_ONLY", "VERIFY_NATIVE_SCOPE", "GUILD_ID"] as const;
@@ -47,25 +64,42 @@ export function assertSameConfig(env: Env, keys: readonly string[], snapshot: re
 export const TREASURY_DISCORD_READS_PER_MINUTE = 20;
 const ID = /^\d{17,20}$/;
 
-/** An officer-tier rank name at exactly its index in the configured current ladder (no fallback ladder). */
-export function officerRank(rank: unknown, index: unknown, names: readonly string[]): boolean {
-  return typeof rank === "string" && Number.isInteger(index) && OFFICER_RANKS.has(rank) && names[index as number] === rank;
+/** An officer-tier rank name at exactly its index in the given ladder, judged by THAT ladder's officer set (no fallback
+ * ladder). The policy names the ladder (default: Directive); the officer names for it stay inside this module, so a
+ * name/index pair from one ladder is never read under the other and no caller can alter either list. */
+export function officerRank(rank: unknown, index: unknown, names: readonly string[], policy: TreasuryLadderPolicy = "directive"): boolean {
+  return typeof rank === "string" && Number.isInteger(index) && officersOf(policy).includes(rank) && names[index as number] === rank;
 }
 
-/** The configured current native ladder and launch cut, or null while native authority is beta-era or prelaunch: the
- * beta-five profile never carries into this read, and a clock-gated cut that has not opened yet (0) withholds the path. */
-export function currentLadder(env: Env): { names: readonly string[]; cutoff: number; source?: string } | null {
+/** The original .233 policy, by the parser's own closed pair (version 1 with CANONICAL_PROFILE233, never "not version 2")
+ * and enabled. canonicalNativeRole233 answers only for a parser-issued, enabled policy whose ladder is NATIVE_NAMES233,
+ * so a non-null answer for slot 1 ("Stewart", v1-only) is the same origin witness currentDirectiveCanonicalPolicy233 uses. */
+function originalCanonicalPolicy233(policy: CanonicalRankPolicy233 | null): policy is CanonicalRankPolicy233 {
+  return !!policy && policy.enabled && policy.version === 1 && policy.profile === CANONICAL_PROFILE233
+    && canonicalNativeRole233(policy, 1, NATIVE_NAMES233[1]) !== null;
+}
+
+export type TreasuryLadder = Readonly<{ policy: TreasuryLadderPolicy; names: readonly string[]; cutoff: number; source: string }>;
+
+/** Two closed cases, nothing else (round 5, 13 Nov 2026; owner ruling of 31 Oct, "Either source"):
+ * - the current Directive policy (version 2): DIRECTIVE_RANK_NAMES on the exact qualified native-v2 source;
+ * - the ORIGINAL policy still running in production (version 1, CANONICAL_PROFILE233): historical NATIVE_NAMES233
+ *   officer pairs within the configured membership scope. The reader below accepts exact v1 or a factory-issued
+ *   original observed-v2 source whose own officer row agrees with that table; other observed names grant nothing.
+ * Both need the same fences dfca7a2 required: enabled and current configuration, the policy's guild, members-only launch
+ * verification on the flagship scope, and an opened launch cut. Absent, disabled, held, other profiles and unknown
+ * versions give null. Neither case falls through to the other; the returned object names its policy and carries no
+ * permission list. */
+export function currentLadder(env: Env): TreasuryLadder | null {
   const canonical=captureCanonicalRankConfig233(env),cutoff=linksNotBefore(env);
-  if(canonical.present){
-    const launch=captureLaunchVerification(env);
-    return canonical.mode==='enabled'&&canonical.policy&&canonical.current()&&env.GUILD_ID===canonical.policy.guildId
-      &&launch.mode==='members-only'&&launch.scope&&launch.current()&&canonicalOlympusGuildName(launch.scope.guild)===FLAGSHIP_GUILD_NAME&&Number.isSafeInteger(cutoff)&&cutoff>0
-      ?{names:NATIVE_NAMES233,cutoff,source:launch.scope.provenance}:null;
-  }
-  let profile: ReturnType<typeof parseNativeRoleMap>["profile"];
-  try { profile = parseNativeRoleMap(env.QR_NATIVE_ROLE_MAP).profile; } catch { return null; }
-  if (profile === "beta-five") return null;
-  return Number.isSafeInteger(cutoff) && cutoff > 0 ? { names: namesFor(profile), cutoff } : null;
+  const launch=captureLaunchVerification(env),policy=canonical.policy;
+  if(!policy||canonical.mode!=='enabled'||!canonical.current()||env.GUILD_ID!==policy.guildId
+    ||launch.mode!=='members-only'||!launch.scope||!launch.current()||canonicalOlympusGuildName(launch.scope.guild)!==FLAGSHIP_GUILD_NAME||!Number.isSafeInteger(cutoff)||cutoff<=0)return null;
+  if(currentDirectiveCanonicalPolicy233(policy))
+    return Object.freeze({policy:'directive',names:DIRECTIVE_RANK_NAMES,cutoff,source:qualifiedNativeSnapshotSource(launch.scope.guild,launch.scope.realm)});
+  if(originalCanonicalPolicy233(policy))
+    return Object.freeze({policy:'original233',names:NATIVE_NAMES233,cutoff,source:launch.scope.provenance});
+  return null;
 }
 
 export type TreasurySource = "admin" | "appointment" | "roster" | "discord";
@@ -77,7 +111,7 @@ const refusal = (error: string, status: number, message?: string) => privateSite
 // future, at most ROSTER_CURRENT_FOR old and at or after the launch cut; the character is GUID-pinned, its GUID is unique
 // on the export and among bound characters, and the account is neither banned nor under a rename re-apply hold.
 // Binds: ?1 subject, ?2 launch cut, ?3 freshness seconds; the closed current ladder supplies officer name/index pairs below.
-const ROSTER_SQL = `SELECT r.rank AS rank, r.rank_index AS rank_index FROM roster_snapshots s
+const ROSTER_SQL = `SELECT r.rank AS rank, r.rank_index AS rank_index, s.source AS native_source FROM roster_snapshots s
   JOIN roster_members r ON r.snapshot_id = s.id
   JOIN characters c ON c.guid IS NOT NULL AND c.guid = r.guid AND c.discord_id = ?1 AND c.status = 'member'
   WHERE s.id = (SELECT MAX(id) FROM roster_snapshots) AND s.complete = 1 AND s.trusted = 1
@@ -90,28 +124,88 @@ const ROSTER_SQL = `SELECT r.rank AS rank, r.rank_index AS rank_index FROM roste
 
 /** Any independently valid officer character admits its account. Filter before limiting: lower-rank alts and a second
  * valid officer do not disqualify the first, while every candidate still has its own unique exported and bound GUID. */
-function rosterOfficerStatement(env: Env, discordId: string, ladder: { names: readonly string[]; cutoff: number; source?: string }): D1PreparedStatement {
-  const officers = ladder.names.flatMap((rank, index) => officerRank(rank, index, ladder.names) ? [{ rank, index }] : []);
-  const pairs = officers.map((_, i) => `(r.rank=?${4 + i * 2} AND r.rank_index=?${5 + i * 2})`).join(" OR ") || "0";
+function rosterOfficerStatement(env: Env, discordId: string, ladder: TreasuryLadder): D1PreparedStatement {
+  const officers = ladder.names.flatMap((rank, index) => officerRank(rank, index, ladder.names, ladder.policy) ? [{ rank, index }] : []);
   const values=[discordId,ladder.cutoff,ROSTER_CURRENT_FOR,...officers.flatMap(({rank,index})=>[rank,index])];
-  const source=ladder.source===undefined?'':` AND s.source=?${values.length+1}`;
-  return env.DB.prepare(`${ROSTER_SQL} AND (${pairs})${source} LIMIT 1`)
-    .bind(...values,...(ladder.source===undefined?[]:[ladder.source]));
+  const sourceParameter=`?${values.length+1}`,body="CASE WHEN json_valid(substr(s.source,17)) THEN substr(s.source,17) ELSE '{}' END";
+  // Necessary own-row filtering precedes LIMIT; only the unchanged exact factory validator below can admit it.
+  // Each JSON path is a fixed historical index, and the exact v1 source bypass preserves its original semantics.
+  const pairs = officers.map(({index}, i) => `(r.rank=?${4 + i * 2} AND r.rank_index=?${5 + i * 2}${ladder.policy==='original233'?` AND (s.source=${sourceParameter} OR json_extract(${body},'$.rankNames[${index}]')=?${4 + i * 2})`:''})`).join(" OR ") || "0";
+  const source=ladder.policy==='original233'?nativeMembershipSourceSql('s.source',sourceParameter):`s.source=${sourceParameter}`;
+  return env.DB.prepare(`${ROSTER_SQL} AND (${pairs}) AND (${source}) LIMIT 1`)
+    .bind(...values,ladder.source);
 }
-function rosterOfficerResult(out: D1Result | undefined, names: readonly string[]): boolean {
+function rosterOfficerResult(out: D1Result | undefined, ladder: TreasuryLadder): boolean {
   const rows = out?.results ?? [];
-  return rows.length === 1 && officerRank((rows[0] as { rank?: unknown }).rank, (rows[0] as { rank_index?: unknown }).rank_index, names);
+  if(rows.length!==1)return false;
+  const row=rows[0] as {rank?:unknown;rank_index?:unknown;native_source?:unknown};
+  if(!officerRank(row.rank,row.rank_index,ladder.names,ladder.policy))return false;
+  if(ladder.policy==='directive'||row.native_source===ladder.source)return row.native_source===ladder.source;
+  if(!ladder.source.startsWith('addon-native-v1:'))return false;
+  const scope=parseLaunchNativeScope(ladder.source.slice(16));
+  if(!scope||scope.provenance!==ladder.source)return false;
+  // This is the reader's original 12-hour proof, not the writer's 600-second guard.
+  // Observed table labels attest this row only; the historical officer pairs above still decide access.
+  const table=originalObservedCanonicalTable280(row.native_source,scope.guild,scope.realm);
+  return !!table&&table.names[row.rank_index as number]===row.rank;
 }
 
-async function discordOfficerRole(env: Env, discordId: string, check: () => void): Promise<boolean> {
+/** The Discord roles whose holders the Discord path admits under this configuration, or null when that path admits
+ * nobody (no bot token, a guild mismatch, or canonical rank roles present but not enabled and current). The gate below
+ * and treasuryGateDescription both read this one function (REV-SITEA-3, 12 Nov 2026), so the refusal text cannot name a
+ * role the gate does not accept. */
+export function treasuryDiscordRoles(env: Env): { guild: string; wanted: string[] } | null {
   const guild = env.SITE_GUILD_ID;
   const wanted = [env.ROLE_GUILD_MASTER, env.ROLE_GUILD_LEADER, env.ROLE_OFFICER, env.ROLE_RAID_LEADER].filter((id): id is string => typeof id === "string" && ID.test(id));
   const canonical=captureCanonicalRankConfig233(env);
   if(canonical.present){
-    if(canonical.mode!=='enabled'||!canonical.policy||!canonical.current()||guild!==canonical.policy.guildId)return false;
+    if(canonical.mode!=='enabled'||!canonical.policy||!canonical.current()||guild!==canonical.policy.guildId)return null;
     for(const rank of canonical.policy.ranks.slice(0,5))if(!wanted.includes(rank.roleId))wanted.push(rank.roleId);
   }
-  if (!env.DISCORD_BOT_TOKEN || !ID.test(guild ?? "") || env.GUILD_ID !== guild || !wanted.length) return false;
+  if (!env.DISCORD_BOT_TOKEN || !ID.test(guild ?? "") || env.GUILD_ID !== guild || !wanted.length) return null;
+  return { guild: guild as string, wanted };
+}
+
+// Member-facing names follow the owner's ten-rank ladder (12 Nov 2026): the runtime's "Guild Master" rank is shown as
+// Leader, and runtime-only names (Stewart, Treasurer) are not named. On the original v1 ladder the in-game "Stewart" slot
+// is the High Council rank (NATIVE_CANONICAL_INDEX233[1] is canonical high-council), so it is shown as High Council.
+const ROSTER_LABELS: Readonly<Record<string, string>> = Object.freeze({ "Guild Master": "Leader", "High Council": "High Council", "Officer": "Officer", "Officer Alt": "Officer Alt", "Raid Leader": "Raid Leader" });
+const ORIGINAL_ROSTER_LABELS233: Readonly<Record<string, string>> = Object.freeze({ ...ROSTER_LABELS, "Stewart": "High Council" });
+const DISCORD_LABELS: Readonly<Record<string, string>> = Object.freeze({ "guild-master": "Guild Master", "high-council": "High Council", "officer": "Officer", "officer-alt": "Officer Alt", "raid-leader": "Raid Leader" });
+const listOf = (items: readonly string[]) => items.length < 2 ? items.join("") : items.slice(0, -1).join(", ") + " and " + items[items.length - 1];
+
+/** REV-SITEA-3 (12 Nov 2026): who the gate admits under THIS configuration, in one sentence for the refusal page. Each
+ * clause is built from the same reads the gate uses (currentLadder with officerRank, treasuryDiscordRoles), so a path
+ * the configuration closes is not named. Appointments and site administrators are configuration-independent paths. */
+export function treasuryGateDescription(env: Env): string {
+  const clauses: string[] = [];
+  const ladder = currentLadder(env);
+  if (ladder) {
+    const labels = ladder.policy === "original233" ? ORIGINAL_ROSTER_LABELS233 : ROSTER_LABELS;
+    const ranks = [...new Set(ladder.names.flatMap((rank, index) => officerRank(rank, index, ladder.names, ladder.policy) && labels[rank] ? [labels[rank]!] : []))];
+    if (ranks.length) clauses.push(`${listOf(ranks)} rank on the latest verified roster`);
+  }
+  const discord = treasuryDiscordRoles(env);
+  if (discord) {
+    const canonical = captureCanonicalRankConfig233(env);
+    const named = (canonical.present && canonical.policy ? canonical.policy.ranks.slice(0, 5) : []).filter(rank => discord.wanted.includes(rank.roleId)).map(rank => DISCORD_LABELS[rank.key] ?? rank.name);
+    // Without canonical rank roles, the configured legacy keys name their own roles (ROLE_GUILD_LEADER is the Guild Master ID).
+    const legacy: Array<[unknown, string]> = [[env.ROLE_GUILD_MASTER, "Guild Master"], [env.ROLE_GUILD_LEADER, "Guild Master"], [env.ROLE_OFFICER, "Officer"], [env.ROLE_RAID_LEADER, "Raid Leader"]];
+    const extra = legacy.filter(([id, label]) => typeof id === "string" && discord.wanted.includes(id) && !named.includes(label)
+      && !(canonical.policy?.ranks.slice(0, 5).some(rank => rank.roleId === id))).map(([, label]) => label);
+    const roles = [...new Set([...named, ...extra])];
+    if (roles.length) clauses.push(`the Discord ${listOf(roles)} role${roles.length > 1 ? "s" : ""}`);
+  }
+  clauses.push("the holders of the published Co-Guild Master and Lord High Treasurer seats", "site administrators");
+  // Round 3 (12 Nov 2026): with only the two configuration-independent paths left, the sentence is a plain pair, not a list.
+  if (clauses.length === 2) return `The treasury programme and financial model are open to ${clauses[0]} and to ${clauses[1]}.`;
+  return `The treasury programme and financial model are open to: ${clauses.slice(0, -1).join("; ")}; and ${clauses[clauses.length - 1]}.`;
+}
+
+async function discordOfficerRole(env: Env, discordId: string, check: () => void): Promise<boolean> {
+  const roles = treasuryDiscordRoles(env);
+  if (!roles) return false;
+  const { guild, wanted } = roles;
   // The guild and role configuration that chose this read must still be the configuration that judges its answer.
   const config = configSnapshot(env, DISCORD_KEYS), same = () => { check(); assertSameConfig(env, DISCORD_KEYS, config); };
   same();
@@ -164,7 +258,7 @@ export async function treasuryAccess(request: Request, env: Env): Promise<Access
     return !proof || proof.allows(out[1]) ? null : refusal("officer_only", 403, OFFICER_ONLY);
   };
   if (isSiteAdmin(env, subject.discordId)) return { canRead: true, source: "admin", check, readmit };
-  const authority = await capturePublishedOfficeAuthority(env, subject.discordId, ["co_gm", "treasurer"]);
+  const authority = await capturePublishedOfficeAuthority(env, subject.discordId, TREASURY_APPOINTMENT_SEATS);
   check();
   if (authority) {
     const condition = publishedOfficeAuthorityCondition(authority, 1);
@@ -177,7 +271,7 @@ export async function treasuryAccess(request: Request, env: Env): Promise<Access
   const rosterConfig = configSnapshot(env, ROSTER_KEYS), ladder = currentLadder(env);
   if (ladder) {
     const proof = { statement: () => rosterOfficerStatement(env, subject.discordId, ladder),
-      allows: (out: D1Result | undefined) => rosterOfficerResult(out, ladder.names),
+      allows: (out: D1Result | undefined) => rosterOfficerResult(out, ladder),
       check: () => assertSameConfig(env, ROSTER_KEYS, rosterConfig) };
     const roster = await admittedRead(env, ctx, "applicantWrite", [proof.statement()]);
     check(); proof.check();
@@ -185,7 +279,8 @@ export async function treasuryAccess(request: Request, env: Env): Promise<Access
     if (proof.allows(roster[0])) return { canRead: true, source: "roster", check, readmit: () => readmit(proof) };
   }
   // Only the Discord path costs a provider call, so only it is limited (per isolate, per account).
-  if (rateLimited(`tpd:${subject.discordId}`, TREASURY_DISCORD_READS_PER_MINUTE, 60)) return privateSiteAsset(apiJson({ error: "slow_down", message: "Too many checks. Wait a minute and try again." }, 429, { "Retry-After": "60" }));
+  const rateLimitAt188280=consumeRateLimit280(`tpd:${subject.discordId}`,TREASURY_DISCORD_READS_PER_MINUTE,60);
+  if (rateLimitAt188280.limited) return privateSiteAsset(apiJson({ error: "slow_down", message: "Too many checks. Wait a minute and try again." }, 429, rateLimitHeaders280(rateLimitAt188280)));
   // Discord authority is one fresh provider-response snapshot per request, before asset storage.
   // A caller whose role changes during that asset await can still receive that one response. Later requests
   // check a new provider response; no cross-request result cache or strong upstream consistency
@@ -195,7 +290,7 @@ export async function treasuryAccess(request: Request, env: Env): Promise<Access
   return { canRead: false, source: null, check, readmit };
 }
 
-const OFFICER_ONLY = "The treasury programme is for officers and above: Guild Master, High Council, Officers, Officer Alts, Raid Leaders, the Treasurer and the Co-Guild Master.";
+const OFFICER_ONLY = "The treasury programme is for officers and above: Guild Master, High Council, Officers, Officer Alts, Raid Leaders, the Lord High Treasurer and the Co-Guild Master.";
 const methodRefused = () => privateSiteAsset(apiJson({ error: "method_not_allowed" }, 405, { Allow: "GET, HEAD" }));
 const bodyless = (request: Request, response: Response) => request.method === "HEAD" ? new Response(null, { status: response.status, statusText: response.statusText, headers: response.headers }) : response;
 
@@ -211,7 +306,9 @@ export async function treasuryAfterMemberGate(request: Request, env: Env, path: 
     // The Discord read (or any earlier await) is over: the answer is given only to the still-admitted original caller.
     const held = await access.readmit(); if (held) return bodyless(request, held);
     access.check();
-    return bodyless(request, privateSiteAsset(apiJson({ format: "olympus-treasury-access-v1", canRead: access.canRead })));
+    // REV-SITEA-3 (12 Nov 2026): a refused caller also gets the gate's own description, which the refusal page shows.
+    return bodyless(request, privateSiteAsset(apiJson(access.canRead ? { format: "olympus-treasury-access-v1", canRead: true }
+      : { format: "olympus-treasury-access-v1", canRead: false, admits: treasuryGateDescription(env) })));
   }
   if (!access.canRead) return bodyless(request, refusal("officer_only", 403, OFFICER_ONLY));
   const response = await env.ASSETS.fetch(request);

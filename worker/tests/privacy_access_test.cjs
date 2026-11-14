@@ -57,9 +57,14 @@ function oauthProvider(id=A,scope='identify'){provider=(url,init)=>{
  if(url==='https://discord.com/api/oauth2/token'){assert.equal(init.redirect,'manual');assert.equal(init.method,'POST');eq('provider callback is allowlisted',init.body.get('redirect_uri'),BASE+'/privacy/callback');return new Response(JSON.stringify({access_token:'test-access-token',token_type:'Bearer',scope}));}
  if(url==='https://discord.com/api/v10/users/@me'){assert.equal(init.redirect,'manual');assert.equal(new Headers(init.headers).get('Authorization'),'Bearer test-access-token');return new Response(JSON.stringify({id,username:'ignored-new-name'}));}
  throw Error('unexpected provider endpoint '+url);};}
+// Independent OAuth fixtures use distinct valid trusted-address inputs. Malformed
+// addresses intentionally share one production limiter bucket; their coalescing
+// and same-address refusal remain covered by soft_limiter280_workerd_fixture.mjs.
+let syntheticAddressSequence=0;
+function independentPrivacyAddress(){return '2001:db8::'+(++syntheticAddressSequence).toString(16);}
 async function start(f){const page=await access.privacyAccessPage(new Request(BASE+'/privacy/access'),f.env),html=await page.text(),section=/<form method="post" action="\/privacy\/signin">([\s\S]*?)<\/form>/.exec(html);assert.ok(section,'actual privacy initiation form');
  const csrf=/name="csrf" value="([^"]+)"/.exec(section[1])[1],cookie=page.headers.get('Set-Cookie').split(';')[0];
- const r=await access.beginPrivacyAccess(new Request(BASE+'/privacy/signin',{method:'POST',headers:{Cookie:cookie,Origin:BASE,'Content-Type':'application/x-www-form-urlencoded','CF-Connecting-IP':access.privacyAccessRandomId()},body:new URLSearchParams({csrf})}),f.env);const u=new URL(r.headers.get('Location'));
+ const r=await access.beginPrivacyAccess(new Request(BASE+'/privacy/signin',{method:'POST',headers:{Cookie:cookie,Origin:BASE,'Content-Type':'application/x-www-form-urlencoded','CF-Connecting-IP':independentPrivacyAddress()},body:new URLSearchParams({csrf})}),f.env);const u=new URL(r.headers.get('Location'));
  eq('OAuth scope is identify only',u.searchParams.get('scope'),'identify');eq('OAuth uses registered privacy callback',u.searchParams.get('redirect_uri'),BASE+'/privacy/callback');
  eq('OAuth still requests active consent',u.searchParams.get('prompt'),'consent');
  return {state:u.searchParams.get('state'),flowCookie:r.headers.get('Set-Cookie').split(';')[0]};}
@@ -500,7 +505,7 @@ async function main(){
   const csrf=/name="csrf" value="([^"]+)"/.exec(markup[1])[1],cookie=get.headers.get('Set-Cookie').split(';')[0];
   ok('.217 entry cookie is the original privacy form nonce only',cookie.startsWith(forms.FORM_COOKIE+'='));
   const head=await route(new Request(BASE+'/privacy/signin',{method:'HEAD'}));eq('.217 privacy sign-in HEAD is non-allocating',head.status,200);eq('.217 HEAD has no body',await head.text(),'');
-  const post=(fields={csrf},over={},url=BASE+'/privacy/signin')=>{const headers=new Headers({Cookie:cookie,Origin:BASE,'Content-Type':'application/x-www-form-urlencoded','CF-Connecting-IP':access.privacyAccessRandomId()});for(const [key,value]of Object.entries(over)){if(value===null)headers.delete(key);else headers.set(key,value);}return new Request(url,{method:'POST',headers,body:new URLSearchParams(fields)});};
+  const post=(fields={csrf},over={},url=BASE+'/privacy/signin')=>{const headers=new Headers({Cookie:cookie,Origin:BASE,'Content-Type':'application/x-www-form-urlencoded','CF-Connecting-IP':independentPrivacyAddress()});for(const [key,value]of Object.entries(over)){if(value===null)headers.delete(key);else headers.set(key,value);}return new Request(url,{method:'POST',headers,body:new URLSearchParams(fields)});};
   const wrongPurpose=await forms.formToken(f.env,cookie.slice(cookie.indexOf('=')+1),'copy-export');
   for(const [name,request]of [['missing origin',post({csrf},{Origin:null})],['foreign origin',post({csrf},{Origin:'https://other.invalid'})],['missing nonce',post({csrf},{Cookie:''})],['duplicate nonce',post({csrf},{Cookie:cookie+'; '+cookie})],['wrong purpose',post({csrf:wrongPurpose})],['missing token',post({})],['unknown field',post({csrf,extra:'not-an-initiation-field'})],['query',post({csrf},{},BASE+'/privacy/signin?extra=1')],['wrong media',post({csrf},{'Content-Type':'application/json'})]]){
    const response=await route(request);ok('.217 '+name+' initiation refuses',response.status>=400);eq('.217 '+name+' leaves flow state empty',count(f,'privacy_access_oauth'),0);

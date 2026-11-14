@@ -109,7 +109,7 @@ export async function denyPending(env: Env, pendingId: number, actor: string): P
     env.DB.prepare("UPDATE invite_queue SET status = 'cancelled' WHERE name_key = ?1 AND status IN ('queued','written')").bind(p.name_key),
   ]);
   await audit(env, actor, "review.denied", p.name, { discordId: p.discord_id },{subject:p.discord_id,capture});
-  await safeDm(env, p.discord_id, `Your application for **${p.name}** was not approved. You can ask in #help-desk if you want to know why.`,capture);
+  await safeDm(env, p.discord_id, `Your application for **${p.name}** was not approved. You can ask an Olympus officer if you want to know why.`,capture);
   return { ok: true, message: `❌ **${p.name}** (<@${p.discord_id}>) denied by <@${actor}> <t:${now()}:R>.` };
 }
 

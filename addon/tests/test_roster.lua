@@ -151,13 +151,16 @@ local list, info = API.Roster.Members()
 local m = {}
 for _, x in ipairs(list) do m[x.name] = x end
 check("every roster member is listed", #list, 6)
-check("linked by name: verified with Discord names", m["Grace Hope"].status == "verified" and m["Grace Hope"].discord == "grace_new", true)
-check("  an empty display name reads as none", m["Grace Hope"].display, nil)
+-- Evergreen 12 Nov 2026 (CL2-183): since .268 only an exact native GUID match is green (OlympusVerifyGuild.lua,
+-- Verification). Grace Hope's legacy link has no GUID, so she is unknown and carries no Discord names; a new character
+-- reusing a linked name must not inherit that link.
+check("linked by name only: unknown, with no Discord names", m["Grace Hope"].status == "unknown" and m["Grace Hope"].discord == nil and m["Grace Hope"].display == nil, true)
+check("linked by GUID: Discord names come from the exact match", m["Fern Melder"].status == "verified" and m["Fern Melder"].discord == "fernmelder" and m["Fern Melder"].display == "Fern", true)
 check("linked by GUID: a renamed character keeps its Discord", m["Renamed Rita"].status == "verified" and m["Renamed Rita"].discord == "rita" and m["Renamed Rita"].display == "Rita the Red", true)
 check("a code out: verifying", m["Pending Pat"].status, "pending")
 check("on the unverified list: not verified", m["Plain Paul"].status, "unverified")
 check("in neither list (joined since): not in list", m["Newbie Nell"].status, "unknown")
-check("summary counts", string.format("%d/%d/%d/%d/%d", info.total, info.verified, info.pending, info.unverified, info.unknown), "6/3/1/1/1")
+check("summary counts", string.format("%d/%d/%d/%d/%d", info.total, info.verified, info.pending, info.unverified, info.unknown), "6/2/1/1/2")
 check("  with the list's date and the ranks, highest first", info.hasNames and info.listAt == T - 600 and info.ranks[1].rank == "Guild Master", true)
 -- A display name with WoW escape codes in it (|c colour, |T texture) is drawn as written, not interpreted.
 OlympusQueue.verified.members[3].displayName = "Rita |cffff0000Red|r |TInterface\\Icons\\X:0|t\nTwo"
@@ -169,21 +172,35 @@ OlympusQueue.verified.members[3].displayName = "Rita the Red"
 
 print("\n== filter and sort ==")
 local names = function(l) local o = {} for _, x in ipairs(l) do o[#o + 1] = x.name end return table.concat(o, ",") end
-check("text matches a Discord username", names(API.Roster.Filter(list, { text = "GRACE_" })), "Grace Hope")
+check("text matches a Discord username", names(API.Roster.Filter(list, { text = "FERNMELDER" })), "Fern Melder")
+check("a name-only legacy username is not searchable", names(API.Roster.Filter(list, { text = "GRACE_" })), "")
 check("text matches a display name", names(API.Roster.Filter(list, { text = "the red" })), "Renamed Rita")
-check("status 'not' = everyone not verified", names(API.Roster.Sort(API.Roster.Filter(list, { status = "not" }), "name")), "Newbie Nell,Pending Pat,Plain Paul")
+check("status 'not' = everyone not verified", names(API.Roster.Sort(API.Roster.Filter(list, { status = "not" }), "name")), "Grace Hope,Newbie Nell,Pending Pat,Plain Paul")
 check("rank filter", #API.Roster.Filter(list, { rank = "Member" }), 2)
 check("class filter", names(API.Roster.Sort(API.Roster.Filter(list, { class = "PRIEST" }), "name")), "Fern Melder,Newbie Nell")
 check("online only", names(API.Roster.Sort(API.Roster.Filter(list, { online = true }), "name")), "Fern Melder,Newbie Nell")
-check("sort by Discord name puts the blanks last", names(API.Roster.Sort(API.Roster.Filter(list, {}), "discord")), "Fern Melder,Grace Hope,Renamed Rita,Newbie Nell,Pending Pat,Plain Paul")
-check("  and reversed, the blanks stay last", names(API.Roster.Sort(API.Roster.Filter(list, {}), "discord", true)), "Renamed Rita,Grace Hope,Fern Melder,Newbie Nell,Pending Pat,Plain Paul")
-check("sort by status: verified, verifying, not verified, not in list", names(API.Roster.Sort(API.Roster.Filter(list, {}), "status")), "Fern Melder,Grace Hope,Renamed Rita,Pending Pat,Plain Paul,Newbie Nell")
+check("sort by Discord name puts the blanks last", names(API.Roster.Sort(API.Roster.Filter(list, {}), "discord")), "Fern Melder,Renamed Rita,Grace Hope,Newbie Nell,Pending Pat,Plain Paul")
+check("  and reversed, the blanks stay last", names(API.Roster.Sort(API.Roster.Filter(list, {}), "discord", true)), "Renamed Rita,Fern Melder,Grace Hope,Newbie Nell,Pending Pat,Plain Paul")
+check("sort by status: verified, verifying, not verified, not in list", names(API.Roster.Sort(API.Roster.Filter(list, {}), "status")), "Fern Melder,Renamed Rita,Pending Pat,Plain Paul,Grace Hope,Newbie Nell")
 check("sort by last seen: online first, then the most recent", names(API.Roster.Sort(API.Roster.Filter(list, {}), "seen")), "Fern Melder,Newbie Nell,Renamed Rita,Grace Hope,Pending Pat,Plain Paul")
 
+print("\n== an exact-GUID loaded update ==")
+OlympusQueue.verified.members[2].guid = "Player-1-B"
+do local loaded={};for key,value in pairs(OlympusQueue.verified) do loaded[key]=value end;OlympusQueue.verified=loaded end
+local matched, matchedInfo = API.Roster.Members()
+local matchedByName = {}
+for _, x in ipairs(matched) do matchedByName[x.name] = x end
+check("matching native GUID: verified with Discord names", matchedByName["Grace Hope"].status == "verified" and matchedByName["Grace Hope"].discord == "grace_new", true)
+check("  an empty display name reads as none", matchedByName["Grace Hope"].display, nil)
+check("updated summary counts", string.format("%d/%d/%d/%d/%d", matchedInfo.total, matchedInfo.verified, matchedInfo.pending, matchedInfo.unverified, matchedInfo.unknown), "6/3/1/1/1")
+
 print("\n== the window ==")
+OlympusQueue.verified.members[2].guid = "" -- The UI must withhold a name-only account again.
+do local loaded={};for key,value in pairs(OlympusQueue.verified) do loaded[key]=value end;OlympusQueue.verified=loaded end
 SlashCmdList.OLYMPUSVERIFY("members grace")
 local W = OlympusVerifyRoster
 check("/olv members opens the window with the search filled in", W.frame and W.frame:IsShown() and W.view.text == "grace", true)
+check("loaded-list footer explains the local view boundary", (function() for _, fs in ipairs(FONTS) do if fs._parent == W.frame and plain(fs._text):find("rereads the native roster and loaded evidence", 1, true) then return true end end return false end)(), true)
 check("  the placeholder belongs to the search box (drawn above its backdrop)", W.search.hint and W.search.hint._parent == W.search, true)
 check("  and is hidden while the box has text", W.search.hint:IsShown(), false)
 local shownRows = {}
@@ -208,8 +225,17 @@ print("\n== an older Worker: no verified list ==")
 OlympusQueue.verified = nil
 list, info = API.Roster.Members()
 check("no Discord names, and the window says so", info.hasNames, false)
+-- .268 removed the "No Discord names yet" footer: without a verified list every row stays unverified or unknown, no row
+-- shows a Discord name, and the footer says the view only rereads loaded evidence.
+local noneVerified, noneNamed = true, true
+for _, x in ipairs(list) do
+  if x.status == "verified" then noneVerified = false end
+  if x.discord ~= nil or x.display ~= nil then noneNamed = false end
+end
+check("  nobody is verified without the list", noneVerified, true)
+check("  and no row shows a Discord name", noneNamed, true)
 W.Show()
-check("  footer explains where names come from", plain(W.frame and select(1, (function() for _, fs in ipairs(FONTS) do if fs._parent == W.frame and plain(fs._text):find("No Discord names yet", 1, true) then return true end end return false end)())), "true")
+check("  footer explains where names come from", plain(W.frame and select(1, (function() for _, fs in ipairs(FONTS) do if fs._parent == W.frame and plain(fs._text):find("No current Discord names loaded", 1, true) then return true end end return false end)())), "true")
 
 print("\n== strict read-only roster display ==")
 OlympusVerifyConfig.membershipOnly = true

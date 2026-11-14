@@ -31,14 +31,14 @@ contact with the API docs).
 >   required; in Asmongold's server it is a separate approval, and Manage Nicknames is not needed there either
 >   (`SET_NICKNAME = "false"` in the cutover profile).
 > - **Installing and deploying.** The Worker, its D1 database and its secrets already exist. Do not create a
->   database, run `npm run db:init`, reset secrets or deploy from a working folder. The canonical procedure is
->   `docs/launch-runbook.md`: the owner takes and verifies a private D1 backup before a deploy that migrates the
->   database (its step 1), then deploys an exact jointly signed commit from its `git archive` with
+>   database, run `npm run db:init`, reset secrets or deploy from a working folder. Who deploys, and what must be
+>   reviewed and qualified first, is in `CLAUDE.md` ("Release qualification and production rollout"): Codex Root alone
+>   takes and verifies a fresh private D1 backup and deploys the exact qualified commit from its `git archive` with
 >   `bash scripts/deploy-commit.sh <sha>`.
 
 ## Current release qualification
 
-The owner's permanent 10 November 2026 mandate replaces the old full-suite and projection-pin gates. Use `npm run qualify` from `worker/` for pure TypeScript checking plus targeted genuine Workerd/D1 behavior, then the Lua 1,000-member performance benchmark. Before an authorized production deployment, verify a fresh private D1 backup with SQLite integrity and foreign-key checks. CI runs the bounded policy; historical suite counts, source/hash fixtures and operator helper loops are retired. See [the current commands and evidence boundaries](docs/release-qualification.md).
+The owner's permanent 10 November 2026 mandate replaces the old full-suite and projection-pin gates, and the 12 November 2026 directive names the gate. Use `npm run qualify` from `worker/` for pure TypeScript checking plus targeted genuine Workerd/D1 behavior (with D1 statement ceilings and query plans on a 1,000-member fixture), then every offline Lua suite (`python addon/tests/run_lua_suites.py --all-offline`) and the complete Watcher suite (`python -m unittest discover -s watcher/tests`). Before an authorized production deployment, verify a fresh private D1 backup with SQLite integrity and foreign-key checks. CI runs the bounded policy; historical suite counts, source/hash fixtures and operator helper loops are retired. See [the current commands and evidence boundaries](docs/release-qualification.md).
 
 ## Current owner-host verification setup
 
@@ -276,7 +276,8 @@ spare places, and a hold that goes unrefreshed for the TTL is offered to someone
 (10, build .41) lets reserved names from the guild site go on top of a full hand, so they are never stuck behind rows
 an officer cannot invite yet. With one officer nothing else changes.
 
-The guild site (build .41): `SITE_HOST` (`guild.roachcouncil.com`), `SITE_GUILD_ID` (the server whose members may
+The guild site (build .41): `SITE_HOST` (`olympus.roachcouncil.com`; the first host, `guild.roachcouncil.com`, is
+now `SITE_LEGACY_HOSTS` and redirects to it), `SITE_GUILD_ID` (the server whose members may
 sign in: Asmongold's), `SITE_ADMINS` (Discord ids that see the admin pages: results, applications, reserved names),
 `SITE_JOIN_URL` (an invite link shown to people who are not in that server; empty shows none),
 `NAME_RESERVATION_AT` and `LAUNCH_AT` (defaults for the countdown and for queueing reserved names; the admin
@@ -302,7 +303,8 @@ anything already invited, is left alone, and a missing or unparseable queue file
 
 ## The guild site (build .41, .43, .44, .45, .46)
 
-`https://guild.roachcouncil.com` is served by the same Worker (`SITE_HOST`; the page and its API in `src/site*.ts`,
+`https://olympus.roachcouncil.com` (first served at `guild.roachcouncil.com`, now a legacy host that redirects) is
+served by the same Worker (`SITE_HOST`; the page and its API in `src/site*.ts`,
 the script, styles, logo and game art in `worker/public/static/`). People sign in with Discord (`identify
 guilds.members.read`, nothing else) and only members of Asmongold's server get past the door. There they apply for a
 position (twenty, from Co-Guild Master and Guild Master of a later Olympus through Officer, Raid Leader and Raid
@@ -407,12 +409,14 @@ Not yet tested, because it needs the beta client and a live Discord app: `docs/b
 Since the consolidation with Olympus Forever began, this folder is a git repository (`main`; the .46 tree as found is
 commit `0a29611`). `CLAUDE.md` (and `AGENTS.md`, which points to it) holds the rules for the two agents: commands,
 what never to run, conventions, ownership and the owner gates. The task log is
-`Olympus/consolidation-2026-09-30/claude_code_x_codex.md`.
+`Olympus/claude_code_x_chatgpt_codex.md` (the earlier `Olympus/consolidation-2026-09-30/claude_code_x_codex.md` keeps
+its dated history).
 
 - **Checks:** this dated section formerly listed the retired aggregate. The permanent current commands are in [release-qualification.md](docs/release-qualification.md). `npm test` and `npm run test:all` now mean the same bounded qualification as `npm run qualify`; neither invokes the historical chain. Individual old suites are diagnostic history, not a release gate.
-- **Deploys** are the owner's, from an exact commit both agents signed: `bash scripts/deploy-commit.sh <sha>` from the
-  repository root exports that commit and runs the project's wrangler against the export, so the working folder is
-  never uploaded. `/health` then names the build (since .49 the public answer is `ok`, `build` and `d1` only; the
+- **Deploys** (current rule in `CLAUDE.md`, "Release qualification and production rollout"): Codex Root alone deploys
+  the exact qualified commit; `bash scripts/deploy-commit.sh <sha>` from the repository root exports that commit and
+  runs the project's wrangler against the export, so the working folder is never uploaded. This dated section first
+  said the owner deployed a commit both agents signed; that rule is superseded. `/health` then names the build (since .49 the public answer is `ok`, `build` and `d1` only; the
   inventory of secrets, config and online officers needs the watcher's bearer). `npm run deploy` still exists but
   deploys whatever is on disk.
 - **Secrets** and where they live: `SECURITY.md`. `worker/.dev.vars.example` is the only template; `.dev.vars`,

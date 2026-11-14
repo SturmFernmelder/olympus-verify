@@ -151,6 +151,8 @@ The login still worker/public/static/wow/login/olympus-dark-portal.png is a cust
 
 The owner-approved expanded wide and portrait login PNGs are custom AI-generated outpainted variants produced with the built-in image_gen tool from the prior custom Olympus portal scene. They are not untouched game extractions or official Blizzard-published images. Their exact file identities and classification are recorded in scripts/official_asset_reference.json; prior game artwork/font attribution and retained .171/.172 provenance remain unchanged. The custom shield crests are illustrated interpretations of the supplied Olympus emblem; pixel-identical reproduction and native4K are not claimed.
 
+On 13 November 2026 the owner approved WebP copies of these two PNGs for browsers that support WebP: `olympus-dark-portal-wide.webp` and `olympus-dark-portal-portrait.webp`, the same pixel dimensions, encoded lossy at quality 0.82 with Microsoft Edge's canvas encoder. They are re-encodings of the same approved images, visually near-identical but not bit-identical, and they do not carry the PNGs' embedded content-credential (caBX) chunk. The PNGs are unchanged and remain the fallback.
+
 
 ### Method leveling guide allocations (.185, kept by the owner's decision of 21 October 2026)
 

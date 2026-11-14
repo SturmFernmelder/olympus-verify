@@ -1,7 +1,9 @@
+import {NEUTRAL_IDENTITY_PURPOSE280,NEUTRAL_IDENTITY_PROFILE280,NEUTRAL_IDENTITY_REASON280,NEUTRAL_IDENTITY_GUILD280,NEUTRAL_IDENTITY_CARRIER280} from './consumed-identity280';
 import { readPrivacySubject, admittedPrivacySubjectWrite, pendingPrivacyCapture,privacyBoundSubjectEnv,PrivacySiteRequestHeld,privacyCaptureFromColumns,privacyGenerationFenceSql,privacyProviderCustodyDatabase,type PrivacySubject } from './privacy-serving-authority';
 /** Endpoints for the officer-side watcher (bearer WATCHER_TOKEN). */
 import { intVar, staffChannel, type Env } from "./env";
-import { audit, getCharacter, getMember, linksNotBefore, now, openPendingFor, openTicket, type PendingRow,type PrivacyReference } from "./db";
+import { nativeSnapshotSource } from './native-rank-schemes';
+import { audit, getCharacter, linksNotBefore, now, openPendingFor, openTicket, type PendingRow,type PrivacyReference } from "./db";
 import { codeFor, dayBucket, isValidCode, isValidTicket, normalizeCharacter, normalizeCodeInput, TICKET_LENGTH, ticketFor, ticketNonce } from "./codes";
 import { json, logLine, postMessage, staffNotice } from "./discord";
 import { onVerified } from "./review";
@@ -30,11 +32,20 @@ function queueMutation(env:Env,row:CapturedQueue,set:string,values:unknown[]):D1
     .bind(...values,row.id,row.discord_id,row.name_key,row.name,row.created_at,row.status,row.attempts,row.retry_after,row.last_reason,
       row.claimed_by,row.claimed_at,row.last_reason_at,row.note,row.written_at,row.invited_at,row.joined_at,row.approved_by,row.priority);
 }
-function pendingFingerprintFence(env:Env,p:PendingRow):D1PreparedStatement {
+function pendingFingerprintFence(env:Env,p:PendingRow,identity?:IdentityIntent280):D1PreparedStatement {
+  const original=identity?identityIntents280.get(identity):null;if(identity&&!original)consumed230Held();original?.check();
+  // The same original guard precedes every business write. An already linked
+  // row may keep its old source and may have its GUID updated by this batch;
+  // neither permits adopting a replacement row read after the claim.
+  const holder=original?.holder;
+  const binding=holder?` AND EXISTS(SELECT 1 FROM characters c LEFT JOIN privacy_subjects hs ON hs.subject_id=c.discord_id
+    WHERE c.name_key=?8 AND c.name=?9 AND c.discord_id=?10 AND c.guid IS ?11 AND c.status=?12
+    AND c.bound_at IS ?13 AND typeof(c.bound_at)=?19 AND c.verified_at IS ?14 AND typeof(c.verified_at)=?20
+    AND c.source IS ?15 AND hs.generation IS ?16 AND hs.state IS ?17 AND hs.revision IS ?18)`:'';
   return env.DB.prepare(`SELECT CASE WHEN EXISTS(SELECT 1 FROM pending WHERE id=?1 AND discord_id=?2
     AND created_at=?3 AND name_key=?4 AND name=?5 AND expires_at=?6 AND nonce IS ?7 AND consumed_at IS NULL
-    AND expires_at>CAST(strftime('%s','now') AS INTEGER)) THEN 1 ELSE json_extract('privacy_pending_proof_refused','$') END AS admitted`)
-    .bind(p.id,p.discord_id,p.created_at,p.name_key,p.name,p.expires_at,p.nonce??null);
+    AND expires_at>CAST(strftime('%s','now') AS INTEGER))${binding} THEN 1 ELSE json_extract('privacy_pending_proof_refused','$') END AS admitted`)
+    .bind(p.id,p.discord_id,p.created_at,p.name_key,p.name,p.expires_at,p.nonce??null,...(holder??[]));
 }
 function bindWatcher(env:Env,subject:string,capture:PrivacySubject|null,context:WatcherCapture):Env {
   context.references.push({subject,capture});
@@ -152,12 +163,13 @@ function captureConsumed230Config(env:Env) {
  * actual admitted batch returns; it does not accept a caller-asserted ACK flag. */
 async function mintConsumed230(env:Env,selection:ReturnType<typeof captureConsumed230Config>,pending:PendingRow,
   pendingCheck:()=>void,capture:PrivacySubject|null,source:LaunchMembershipSource,allDone:D1Result[],consumeIndex:number,
-  consumedAt:number,nameKey:string,name:string,via:'whisper'|'mail'):Promise<OriginalConsumedMembership230> {
+  consumedAt:number,nameKey:string,name:string,via:'whisper'|'mail',identity:IdentityIntent280,identityIndex:number):Promise<OriginalConsumedMembership230> {
   selection.check();pendingCheck();assertLaunchMembershipMode(env,source);
   if(!Array.isArray(allDone))consumed230Held();const length=Object.getOwnPropertyDescriptor(allDone,'length')?.value;
   if(!Number.isSafeInteger(length)||length<4||length>10)consumed230Held();
   const graphChecks:(()=>void)[]=[original230Slots(allDone,['length',...Array.from({length},(_v,n)=>String(n))])];
   for(const item of allDone){graphChecks.push(original230Slots(item,['success','results','meta']));if(item.success!==true)consumed230Held();}
+  graphChecks.push(assertIdentityReceipt280(env,identity,allDone,identityIndex));
   const consumed=allDone[consumeIndex];if(!consumed||!consumed.meta||typeof consumed.meta!=='object'||!Array.isArray(consumed.results))consumed230Held();
   graphChecks.push(original230Slots(consumed.meta,['changes']),original230Slots(consumed.results,['length','0']));
   if(consumed.meta.changes!==1||consumed.results.length!==1)consumed230Held();
@@ -198,6 +210,78 @@ export function consumed230Predicate(env:Env,cap:OriginalConsumedMembership230,s
     AND ?${start+18}>CAST(strftime('%s','now') AS INTEGER) AND (${launch.sql})`,
     values:Object.freeze([...saved.pendingValues,...launch.values,saved.facts.source.guid,saved.facts.deadline]),next:start+19});
 }
+/** Separate private PREWRITE intent. It cannot satisfy OriginalConsumed230 or any role API. */
+declare const identityIntent280Brand:unique symbol;
+type IdentityIntent280=Readonly<{[identityIntent280Brand]:true}>;
+type OriginalHolder280={name_key:string;name:string;discord_id:string;guid:string|null;status:string;bound_at:number;verified_at:number|null;source:string|null;privacy_generation:string|null;privacy_state:string|null;privacy_revision:number|null;bound_type:string;verified_type:string};
+const HOLDER280_FIELDS=Object.freeze(['name_key','name','discord_id','guid','status','bound_at','verified_at','source','privacy_generation','privacy_state','privacy_revision','bound_type','verified_type']);
+type IdentityIntentRecord280={db:D1Database;check:()=>void;holder:readonly (string|number|null)[]|null;values:readonly (string|number|null)[];source:LaunchMembershipSource;used:boolean};
+const identityIntents280=new WeakMap<IdentityIntent280,IdentityIntentRecord280>();
+async function captureIdentityIntent280(env:Env,selection:ReturnType<typeof captureConsumed230Config>,pending:PendingRow,pendingCheck:()=>void,
+ capture:PrivacySubject|null,source:LaunchMembershipSource,t:number,nameKey:string,name:string,via:'whisper'|'mail',holder:OriginalHolder280|null,holderCheck:()=>void):Promise<IdentityIntent280>{
+ selection.check();pendingCheck();assertLaunchMembershipMode(env,source);
+ const captureCheck=capture?original230Slots(capture,['subject','subjectGeneration','state','revision']):()=>{};
+ const deadline=Math.min(t+300,source.exportedAt+600,source.nativeObservedAt+600,pending.expires_at);
+ if(!selection.enabled||pending.consumed_at!==null||!Number.isSafeInteger(t)||t<1||deadline<=t||
+   env.GUILD_ID!==NEUTRAL_IDENTITY_GUILD280||
+   source.nameKey!==nameKey||!/^Player-[0-9]{1,6}-[0-9A-Fa-f]{4,16}$/.test(source.guid)||
+   capture!==null&&(capture.subject!==pending.discord_id||capture.state!=='active'))consumed230Held();
+ const generation=capture?.subjectGeneration??null,db=privacyProviderCustodyDatabase(env);
+ const check=()=>{selection.check();selection.assertEffect(env);pendingCheck();captureCheck();holderCheck();assertLaunchMembershipMode(env,source);};check();
+ const originalHolder=holder?Object.freeze(HOLDER280_FIELDS.map(k=>holder[k as keyof OriginalHolder280])):null;
+ if(holder&&(holder.discord_id!==pending.discord_id||!holder.name_key||normalizeCharacter(holder.name)!==holder.name_key||
+  (holder.name_key===nameKey?holder.status!=='member'||holder.guid!==null&&typeof holder.guid!=='string':holder.guid!==source.guid)||
+  !['verified','queued','member','left','left_pending'].includes(holder.status)||!Number.isSafeInteger(holder.bound_at)||holder.verified_at!==null&&!Number.isSafeInteger(holder.verified_at)||
+  holder.source!==null&&typeof holder.source!=='string'||holder.privacy_generation!==generation||holder.privacy_state!==(capture?.state??null)||holder.privacy_revision!==(capture?.revision??null)))consumed230Held();
+ const tuple=Object.freeze([pending.id,pending.discord_id,pending.created_at,pending.expires_at,pending.nonce??null,t,via,nameKey,name,generation,
+  source.snapshotId,source.guid,source.provenance,source.nativeObservedAt,source.exportedAt,source.cutoff,deadline,env.GUILD_ID,NEUTRAL_IDENTITY_CARRIER280]);
+ // The versioned identity digest has no selected role/rank/profile vocabulary.
+ const digest=Array.from(await sha256(JSON.stringify(['original-identity-prewrite280-v2',pending.name_key,pending.name,...tuple.slice(0,-1),originalHolder?['original-holder',...originalHolder]:['new-name-binding']])),b=>b.toString(16).padStart(2,'0')).join('');check();
+ const cap=Object.freeze({}) as IdentityIntent280;
+ identityIntents280.set(cap,{db,check,source,holder:originalHolder,used:false,values:Object.freeze([digest.slice(0,32),digest,...tuple])});return cap;
+}
+/** One guarded INSERT in the SAME Native link batch. A refused guard throws and rolls back all original statements. */
+function identityIntentStatement280(env:Env,cap:IdentityIntent280):D1PreparedStatement {
+ const r=identityIntents280.get(cap);if(!r||r.used||privacyProviderCustodyDatabase(env)!==r.db)consumed230Held();r.check();r.used=true;
+ // Values3..12 are the original pending/consumption tuple,13..21 source/deadline/config.
+ const launch=launchMembershipPredicate(env,r.source,r.holder?35:22);
+ // Two distinct captured witnesses, never an OR over arbitrary current names.
+ // A NULL historical verification time is not a historical proof. Only a
+ // genuinely consumed fresh proof may record its first verification time;
+ // the prewrite holder fence still requires the original NULL exactly.
+ const firstVerified=r.holder!==null&&r.holder[0]===r.values[9]&&r.holder[6]===null;
+ const verified=firstVerified?"c.verified_at IS ?8 AND typeof(c.verified_at)='integer'":'c.verified_at IS ?28 AND typeof(c.verified_at)=?34';
+ const binding=r.holder?`EXISTS(SELECT 1 FROM characters c LEFT JOIN privacy_subjects hs ON hs.subject_id=c.discord_id
+   WHERE c.name_key=?22 AND c.name=?23 AND c.discord_id=?24 AND c.guid=?14 AND c.status=?26
+   AND c.bound_at IS ?27 AND typeof(c.bound_at)=?33 AND (${verified})
+   AND c.source IS ?29 AND hs.generation IS ?30 AND hs.state IS ?31 AND hs.revision IS ?32
+   AND ?24=?4 AND ?30 IS ?12)`:
+   `EXISTS(SELECT 1 FROM characters c WHERE c.discord_id=?4 AND c.name_key=?10 AND c.name=?11
+   AND c.guid=?14 AND c.status IN('verified','member') AND c.source IN('whisper','mail') AND c.bound_at<=?8 AND c.verified_at<=?8)`;
+ const claimed=`EXISTS(SELECT 1 FROM pending p WHERE p.id=?3 AND p.discord_id=?4 AND p.created_at=?5 AND p.expires_at=?6 AND p.nonce IS ?7
+  AND p.consumed_at=?8 AND p.consumed_source=?9 AND p.name_key=?10 AND p.name=?11)`;
+ const guard=`(${claimed})
+  AND ${privacyGenerationFenceSql(4,12)} AND (${binding})
+  AND (SELECT COUNT(*) FROM characters WHERE guid=?14 AND status NOT IN('unbound','denied'))=1
+  AND ?8<=CAST(strftime('%s','now') AS INTEGER) AND ?19>CAST(strftime('%s','now') AS INTEGER)
+  AND NOT EXISTS(SELECT 1 FROM members WHERE discord_id=?4 AND banned=1)
+  AND NOT EXISTS(SELECT 1 FROM site_users WHERE discord_id=?4 AND denied=1)
+  AND NOT EXISTS(SELECT 1 FROM rename_holds WHERE discord_id=?4 AND state='reapply')
+  AND NOT EXISTS(SELECT 1 FROM role_settlements duplicate WHERE duplicate.purpose='${NEUTRAL_IDENTITY_PURPOSE280}' AND duplicate.request_digest=?2) AND (${launch.sql})`;
+ return env.DB.prepare(`INSERT INTO role_settlements(id,subject,purpose,proof_id,guild_id,role_id,desired,state,reason,claim_nonce,subject_generation,request_digest,roster_id,native_guid,native_profile,native_rank,native_rank_name,created_at,expires_at,attempts,checked_at)
+  SELECT CASE WHEN (${guard}) THEN ?1 ELSE json_extract('neutral_identity_original_changed','$') END,?4,'${NEUTRAL_IDENTITY_PURPOSE280}',NULL,?20,?21,1,'settled','${NEUTRAL_IDENTITY_REASON280}',NULL,?12,?2,?13,?14,'${NEUTRAL_IDENTITY_PROFILE280}',NULL,NULL,?8,?19,0,?8
+  WHERE (${claimed}) RETURNING id`).bind(...r.values,...(r.holder??[]),...launch.values);
+}
+
+/** Source-owned post-ACK witness only. Bad or lost receipt metadata mints no role cap. */
+function assertIdentityReceipt280(env:Env,cap:IdentityIntent280,results:D1Result[],index:number):()=>void {
+ const r=identityIntents280.get(cap);if(!r||!r.used||privacyProviderCustodyDatabase(env)!==r.db||!Number.isSafeInteger(index)||index!==results.length-1)consumed230Held();r.check();
+ const receipt=results[index];if(!receipt||receipt.success!==true||!receipt.meta||receipt.meta.changes!==1||!Array.isArray(receipt.results)||receipt.results.length!==1)consumed230Held();
+ const row=receipt.results[0] as Record<string,unknown>;if(!row||typeof row!=='object'||row.id!==r.values[0])consumed230Held();
+ const checks=[original230Slots(results,['length',String(index)]),original230Slots(receipt,['success','meta','results']),original230Slots(receipt.meta,['changes']),original230Slots(receipt.results,['length','0']),original230Slots(row,['id'])];
+ const check=()=>{r.check();for(const c of checks)c();};check();return check;
+}
+
 function memberRoleResult230(outcome:GrantOutcome|undefined) {
   const roleOutcome=outcome==='granted'?'granted':outcome==='has-role'?'observed-present':outcome==='unknown'?'unknown':outcome==='no-role'||outcome===undefined?'not-attempted':'held';
   return {pendingConsumed:true,inviteQueued:false,roleOutcome,roleGranted:roleOutcome==='granted'||roleOutcome==='observed-present'};
@@ -317,14 +401,23 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
   if(privacyCapture && privacyCapture.state!=='active')return json({result:'privacy_held'},409);
   // A ban closes the account's open requests (/olympus-admin ban), but a code whispered in the moment before the ban,
   // or a request opened by an older build, must not link anything either.
-  const account = await getMember(env, pending.discord_id);
+  // Known standing refusals are not an uncertain consuming batch. Keep the
+  // same-statement fences below for a restriction that arrives after this read.
+  // These scalar facts replace the former member-only read at the same cost.
+  const account = await env.DB.prepare(`SELECT (SELECT banned FROM members WHERE discord_id=?1) AS banned,
+    EXISTS(SELECT 1 FROM site_users WHERE discord_id=?1 AND denied=1) AS denied,
+    EXISTS(SELECT 1 FROM rename_holds WHERE discord_id=?1 AND state='reapply') AS rename_held`)
+    .bind(pending.discord_id).first<{banned:number|null;denied:number;rename_held:number}>();
+  if(!account)return json({result:'outcome_unknown'},503);
   if (account?.banned) {
     await closeRequest(env, pending, "banned");
     await audit(env, "watcher", "verify.banned", name, { discordId: pending.discord_id, source: body.source, ticket },reference);
     await logLine(env, `⛔ verify: **${name}** whispered a valid code for <@${pending.discord_id}>, who is banned from verifying. Nothing was linked.`,[reference!]);
     return json({ result: "banned" });
   }
-  const existing = await getCharacter(env, nameKey);
+  if(account.denied||account.rename_held)return json({result:'verification_refused',reason:account.denied?'site_denied':'rename_review_required',pendingConsumed:false,roleGranted:false,inviteQueued:false},409);
+  const existing = await env.DB.prepare("SELECT c.*,s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision,typeof(c.bound_at) AS bound_type,typeof(c.verified_at) AS verified_type FROM characters c LEFT JOIN privacy_subjects s ON s.subject_id=c.discord_id WHERE c.name_key=?1").bind(nameKey).first<OriginalHolder280>();
+  const existingCheck280=existing?original230Slots(existing,HOLDER280_FIELDS):()=>{};
   if (existing && existing.discord_id !== pending.discord_id && !["unbound", "denied", "left"].includes(existing.status)) {
     const references=[reference!,{subject:existing.discord_id,capture:privacyCaptureFromColumns(existing.discord_id,existing)}];
     await audit(env, "watcher", "verify.bound_elsewhere", name, { pendingFor: pending.discord_id, boundTo: existing.discord_id, ticket },references);
@@ -370,11 +463,12 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
   const who = whisperGuid ?? rosterGuid;
   const holder = who
     ? await env.DB.prepare(
-        "SELECT c.name,c.discord_id,s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision FROM characters c LEFT JOIN privacy_subjects s ON s.subject_id=c.discord_id WHERE c.guid = ?1 AND c.name_key <> ?2 AND c.status IN ('verified','queued','member','left','left_pending') LIMIT 1",
+        "SELECT c.name_key,c.name,c.discord_id,c.guid,c.status,c.bound_at,c.verified_at,c.source,s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision,typeof(c.bound_at) AS bound_type,typeof(c.verified_at) AS verified_type FROM characters c LEFT JOIN privacy_subjects s ON s.subject_id=c.discord_id WHERE c.guid = ?1 AND c.name_key <> ?2 AND c.status IN ('verified','queued','member','left','left_pending') LIMIT 1",
       )
         .bind(who, nameKey)
-        .first<{ name: string; discord_id: string;privacy_generation:string|null;privacy_state:string|null;privacy_revision:number|null }>()
+        .first<OriginalHolder280>()
     : null;
+  const holderCheck280=holder?original230Slots(holder,HOLDER280_FIELDS):()=>{};
   if (holder && holder.discord_id !== pending.discord_id) {
     const references=[reference!,{subject:holder.discord_id,capture:privacyCaptureFromColumns(holder.discord_id,holder)}];
     await audit(env, "watcher", "verify.bound_elsewhere", name, { pendingFor: pending.discord_id, boundTo: holder.discord_id, as: holder.name, ticket },references);
@@ -417,19 +511,33 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
       ).bind(nameKey, name, pending.discord_id, t, body.source, pending.id, whisperGuid),
     );
   } else if (whisperGuid && !holder) {
-    // This account's member, whispering from the character that has the name now: if that is a new character (the old
-    // one deleted and the name made again), the pin moves to it, so the next export does not see a namesake.
+    // A recreated character gets its newly proved GUID. A note-created Member
+    // can also lack verified_at: record its FIRST time only from this fresh,
+    // independently proved native whisper/mail, never retime a prior proof.
+    const firstVerified=consumedSelection230.enabled&&launchSource!==null&&existing?.verified_at===null&&(body.source==='whisper'||body.source==='mail');
     stmts.push(
       env.DB.prepare(
-        `UPDATE characters SET guid = ?2 WHERE name_key = ?1 AND discord_id = ?3 AND (guid IS NULL OR guid <> ?2)
+        `UPDATE characters SET guid = ?2,verified_at=CASE WHEN ?6=1 AND verified_at IS NULL THEN ?5 ELSE verified_at END
+         WHERE name_key = ?1 AND discord_id = ?3 AND ((guid IS NULL OR guid <> ?2) OR (?6=1 AND verified_at IS NULL))
            AND EXISTS (SELECT 1 FROM pending WHERE id = ?4 AND consumed_at = ?5 AND name_key = ?1)`,
-      ).bind(nameKey, whisperGuid, pending.discord_id, pending.id, t),
+      ).bind(nameKey, whisperGuid, pending.discord_id, pending.id, t,firstVerified?1:0),
     );
+  }
+  let identityIntent280:IdentityIntent280|undefined;
+  if(consumedSelection230.enabled&&launchSource&&(body.source==='whisper'||body.source==='mail')){
+    // A same-name Member keeps its original source just like a renamed holder.
+    // This fresh proof does not rewrite the old link or manufacture its origin.
+    const originalHolder=holder??(alreadyLinked?existing:null),originalCheck=holder?holderCheck280:existingCheck280;
+    try{
+      const identity=await captureIdentityIntent280(env,consumedSelection230,pending,pendingCheck230,privacyCapture,launchSource,t,nameKey,name,body.source,originalHolder,originalCheck);
+      identityIntent280=identity;
+      stmts.push(identityIntentStatement280(env,identity));
+    }catch{return json({result:'verification_configuration_held',pendingConsumed:false,roleGranted:false,inviteQueued:false},409);}
   }
   let allDone:D1Result[];
   if (!launch.current()) return json({ result: 'verification_configuration_held', roleGranted: false, inviteQueued: false, pendingConsumed: false }, 503);
   try {
-    const guards=[pendingFingerprintFence(env,pending),...(launchSource?[launchMembershipFence(env,launchSource)]:[])];
+    const guards=[pendingFingerprintFence(env,pending,identityIntent280),...(launchSource?[launchMembershipFence(env,launchSource)]:[])];
     allDone = await admittedPrivacySubjectWrite(env,pending.discord_id,privacyCapture,[...guards,...stmts]);
   } catch {
     // A competing relay or account closure can refuse the original consuming proof. Read only
@@ -466,9 +574,10 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
     return json({ result: "no_pending" });
   }
   const resolved: PendingRow = { ...pending, name_key: nameKey, name, consumed_at: t };
+  if(identityIntent280){try{assertIdentityReceipt280(env,identityIntent280,allDone,allDone.length-1);}catch{return json({result:'outcome_unknown'},503);}}
   let originalConsumed230:OriginalConsumedMembership230|undefined;
   if(consumedSelection230.enabled&&launchSource&&(body.source==='whisper'||body.source==='mail')){
-    try{originalConsumed230=await mintConsumed230(env,consumedSelection230,pending,pendingCheck230,privacyCapture,launchSource,allDone,3,t,nameKey,name,body.source);}
+    try{if(!identityIntent280)consumed230Held();originalConsumed230=await mintConsumed230(env,consumedSelection230,pending,pendingCheck230,privacyCapture,launchSource,allDone,3,t,nameKey,name,body.source,identityIntent280,allDone.length-1);}
     catch{/* The link may be acknowledged while new role authority is held. Never adopt a later pending row or ACK. */}
   }
   if (alreadyLinked) {
@@ -893,7 +1002,7 @@ async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: N
   return json({ applied });
 }
 
-export async function postRoster(env: Env, body: { exportedAt: number; members: RosterMemberIn[];nativeGuild?:string;nativeRealm?:string }, defer?: (label: string, work: () => Promise<unknown>) => void,originalDispatch?:BetaRoleDispatch): Promise<Response> {
+export async function postRoster(env: Env, body: { exportedAt: number; members: RosterMemberIn[];nativeGuild?:string;nativeRealm?:string;nativeRankTable?:unknown }, defer?: (label: string, work: () => Promise<unknown>) => void,originalDispatch?:BetaRoleDispatch,rankProtocol=false): Promise<Response> {
   const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
   const launch=captureLaunchVerification(env);
   if(launch.mode==='held')return json({error:'verification_native_scope_unconfirmed'},503);
@@ -905,7 +1014,10 @@ export async function postRoster(env: Env, body: { exportedAt: number; members: 
   // (roster.ts cannot import the lane module: full-release-roles reaches roster.ts, so that would be a module-load cycle).
   const lane = captureLaneConfig(env);
   if (!Array.isArray(body.members) || !body.exportedAt) return json({ error: "exportedAt and members[] required" }, 400);
-  const summary = await ingestRoster(env, body.exportedAt, body.members, launch.mode==='members-only'?launch.scope!.provenance:"addon", lane.configured && defer ? { cap: lane, defer } : undefined,roleDispatch);
+  const source=launch.mode==='members-only' ? rankProtocol
+    ? nativeSnapshotSource(launch.scope!.guild,launch.scope!.realm,body.nativeRankTable,body.members)
+    : launch.scope!.provenance : "addon";
+  const summary = await ingestRoster(env, body.exportedAt, body.members, source, lane.configured && defer ? { cap: lane, defer } : undefined,roleDispatch);
   // .115 (Codex's review of f975, 3 Oct 2026, 13:15 UTC, finding 2): an export refused for duplicate names is a 422, which
   // the watcher takes as final (watcher.py Worker.call: a 4xx is not retried, since sending it again changes nothing).
   // The review of 3 Oct 2026 added "unusable" (every batch committed, and the stored rows still fell short of the count):

@@ -3,7 +3,7 @@ import type { Env } from "./env";
 import { securityHeaders } from "./site-core";
 
 const policyDigests = Object.freeze({
-  "/static/policies.css": "2384e42f0a23337c9fde34242d3292838429606aea523cf0f0f3abfbc335d42a",
+  "/static/policies.css": "490c52bc213f7c8d55b17b5e24ad4fa53e8b31d5b12f7d7edbfc5bba26f1e1d4",
   "/static/olympus-icon.png": "6363b15aff31a623aef0a6d7e52104fc44066f64852a328da788c84c325874eb",
   "/static/wow-cursor.css": "90146d7844b925b88187a11279798340e2afb63a3d82cb8b60aaaae77c2447d9",
   "/static/wow/cursor-point.png": "e0c2e4058da870eba331be9c2aff62895b1afefc3b3ee3ed9ab24c63771fc42c",
@@ -22,6 +22,9 @@ const loginDigests = Object.freeze({
   "/static/wow/login/dark-portal-poster.jpg": "c2c0820f50c6cf1944e88e5fd54f2b421df1955ebe7842cb976ac5599f191050",
   "/static/wow/login/olympus-dark-portal-wide.png": "17661fd0184e3a20fd6ed366673e64fc66baef41ed378bfdf5ab9f3ed0a16dc6",
   "/static/wow/login/olympus-dark-portal-portrait.png": "218063b8ba4e5496c659a310cb46cd26d5c14d4784a7e66f9497d968e1679659",
+  // Owner ruling of 13 Nov 2026 (CL2-074): WebP copies of the two stills above (quality 0.82); the PNGs stay the fallback.
+  "/static/wow/login/olympus-dark-portal-wide.webp": "3898651551731cd1585a5682636d457e8200183504c23c633c8aaa1dd3fddbc9",
+  "/static/wow/login/olympus-dark-portal-portrait.webp": "cd908960637f06c5dc509bf4315ba55859f984bb7e523f73dfdc47cd40462fe1",
 });
 
 export const POLICY_ASSETS = Object.freeze(Object.keys(policyDigests));

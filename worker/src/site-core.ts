@@ -152,6 +152,21 @@ export async function currentUser(env: Env, request: Request): Promise<SiteUser 
 }
 
 /**
+ * The account the member gate admitted for one request (Evergreen 12 Nov 2026, CL2-073). The gate (site-access.ts)
+ * reads the signed-in row before the page is built, and the page used to read the same row again a few milliseconds
+ * later. The gate leaves the row here only when its hourly Discord check did not run (so nothing rewrote the row), and
+ * the page takes it once. Keyed by the Request object itself, so it can never reach another request; nothing outlives
+ * the request.
+ */
+const gateUsers = new WeakMap<Request, SiteUser>();
+export function rememberGateUser(request: Request, user: SiteUser): void { gateUsers.set(request, user); }
+export function gateUser(request: Request): SiteUser | null {
+  const user = gateUsers.get(request) ?? null;
+  gateUsers.delete(request);
+  return user;
+}
+
+/**
  * A state-changing request from this site's own page: the custom header plus a same-origin Origin. The header's value
  * is the page's version: "2" since .43. A page loaded before that still sends "1"; it is ours, but out of date.
  */
@@ -404,19 +419,7 @@ export async function readJson(request: Request): Promise<Record<string, unknown
   }
 }
 
-const buckets = new Map<string, { n: number; reset: number }>();
-/** Per isolate, so a soft limit: enough to stop a stuck script or a held-down key, not a determined attacker. */
-export function rateLimited(key: string, max: number, windowSeconds: number): boolean {
-  const t = now();
-  let b = buckets.get(key);
-  if (!b || b.reset <= t) {
-    if (buckets.size > 5000) buckets.clear();
-    b = { n: 0, reset: t + windowSeconds };
-    buckets.set(key, b);
-  }
-  b.n++;
-  return b.n > max;
-}
+export {rateLimited,consumeRateLimit280,consumeAddressRateLimit280,rateLimitHeaders280,type RateLimitResult280} from './soft-rate-limit280';
 
 // How many applicants each role has on the board: the same for everyone, so an isolate keeps it for half a minute.
 // Anything that moves an application on or off the board clears it (in the isolate that made the change).

@@ -37,10 +37,17 @@ both rows share by talent rank (.193): a rank change on the same modifier shows 
 4/5 against 3/5 on a Skyborne Druid: Intellect +1.9% (modifier)), and a row it reaches only through another total
 (Mana, Spell crit) shows Unavailable.
 
-- Talent modifiers: 141 components in 130 talents (tiers A 63, B 34, C 10, M 34), each equal to its Talents Forever rank
-  text for client 1.60.1.70425. 135 also equal the client's TraitDefinitionEffectPoints and CurvePoint curves in
-  1.60.1.70425 and 1.60.1.70450 (grade A). Six carry a semantic reading of client data (grade B): Anger Management,
-  Lone Wolf, Leader of the Pack, the fixed Spirit Tap Spirit bonus and the added Spirit Tap casting regen are read from
+- Talent modifiers (re-pinned to the 10 November 2026 talent data, revision 02e1e101d1a5, client 1.60.1.70755 plus the
+  hotfixes of 3, 4, 6 and 10 November, on 12 November 2026): 136 components in 125 talents (tiers A 63, B 32, C 10,
+  M 31; grades A 130, B 6). The rank texts were re-hashed against the new data: 112 components match byte for byte and
+  keep the DB2 checks of the client builds named below, 4 moved tree with identical texts and were re-keyed, 5 were
+  removed with their talents, and 24 have changed rank text, so the sheet withholds them until they are reviewed again
+  (`stat-effects186.json` `source.textRecheck` and `counts`). No DB2 export of 1.60.1.70755 was checked.
+- Historical (16 October 2026 snapshot, revision 260cf99b52db): 141 components in 130 talents (tiers A 63, B 34, C 10,
+  M 34), each equal to its Talents Forever rank text for client 1.60.1.70425. 135 also equalled the client's
+  TraitDefinitionEffectPoints and CurvePoint curves in 1.60.1.70425 and 1.60.1.70450 (grade A).
+- Six components carry a semantic reading of client data (grade B), then and now: Anger Management, Lone Wolf,
+  Leader of the Pack, the fixed Spirit Tap Spirit bonus and the added Spirit Tap casting regen are read from
   SpellEffect, and Careful Aim's ranged attack power is an exact curve whose stat is read from its aura (aura 580 occurs
   only on Careful Aim; aura 598, the melee attack power aura of Mental Dexterity and Cat Form, is its melee component).
   Each component pins the SHA-256 of every rank text; the browser re-hashes the shipped `data.json` texts and withholds
@@ -130,12 +137,14 @@ and assumptions only, so point edits never repaint them.
   published value), their points at maximum rank, prerequisites outside that set, the extra points the tier rule needs
   and the minimum legal total under the calculator's rules (5 points per earlier row, prerequisites at maximum rank,
   51 points at level 60). Extra points go to the lowest open row first, which gives the minimum; every tree's
-  allocation passes the calculator's own `validateBuild`, and all 27 trees are reachable in this snapshot. A second
+  allocation passes the calculator's own `validateBuild` (all 27 trees were reachable in the 16 October snapshot; that
+  count was not re-checked on the 10 November data). A second
   table shows each tree's **upper bound**: the selected race's level-60 sheet plus every stat talent of that tree at
   maximum rank. It is labelled as a bound on that tree's stat talents, not a recommended, checked or complete build (in
   the caption and the paragraph above it; each column keeps a short "Not a build" note so narrow columns stay
   readable); points in other trees are not counted. Checked guide builds stand beside the tree that holds most of their
-  points (beside each tied tree on a tie), and a tree without one says so (Priest and Shaman have none); a guide build
+  points (beside each tied tree on a tie), and a tree without one says so (since the 12 November re-pin only three
+  Warlock builds remain checked, so every other class has none); a guide build
   whose ranks cannot be evaluated reads Unavailable (U), never 0. Brackets show the change against no talents with the
   existing spec comparison rule; where a total is Unavailable the change stays in modifier terms and its own grade is
   named in the cell note. That is the rule of the sheet's Talents column and the existing spec comparison; the chart is
@@ -172,16 +181,19 @@ Classic-reference parts of a change.
 
 - `worker/public/static/talents/stats60.js` (runtime), `naked60-186.json` and `stat-effects186.json` (data) are three
   exact non-art required public resources (43 in total, 555 public paths). `stats60.js` is a reviewed runtime path.
-- The data files were produced by the stdlib-only generator `gen_stats60.py` (`--generated-at 2026-10-21T19:46:00Z`
-  reproduces the pinned bytes from hash-listed copies of every input) and checked by the independent `check_stats60.py`
-  (66/66). Both stay with the release evidence outside the repository; the public files carry every DB2 export hash
-  they use.
+- The data files were produced by the stdlib-only generator `gen_stats60.py` and checked by the independent
+  `check_stats60.py`; both stay with the release evidence outside the repository, and the public files carry every DB2
+  export hash they use. Historical: `--generated-at 2026-10-21T19:46:00Z` reproduced the .193 bytes and the checker
+  passed 66/66 on the 16 October data. The 12 November re-pin to the 10 November data is a rank-text recheck recorded in
+  `source.textRecheck`, not a new generator run.
 - Tests: `worker/tests/talents_stats60_186_test.cjs` (data validation against an independent Classic fixture, worked
   examples, conditional exclusion, optional loading and retry, CSP rules, DOM rendering, chart comparisons with
   Unavailable totals, and the .196 views: tree reachability against the calculator's rules, upper bounds and grades,
   the all-classes table, per-talent impact, sorting, accessible table markup and unchanged loading);
   `worker/tests/frontend169_test.cjs` (lazy loading from the talent route and the settled retry of a failed or silent
-  `stats60.js`).
+  `stats60.js`). Historical: `talents_stats60_186_test.cjs` pins the 16 October counts (141 components), so most of its
+  checks fail on the re-pinned files; `worker/tests/evergreen1112_talents_test.cjs` checks the re-pin against the
+  current `data.json`.
 
 ## Measurement protocol
 

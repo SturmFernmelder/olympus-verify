@@ -19,7 +19,7 @@ class SelectedBatch276(unittest.TestCase):
         f = self.f
         targets = [row['guid'] for row in f.roster['members'][2::2]][:17]
         f.control = {key: value for key, value in f.control.items() if key not in ('targetGuid', 'mac')}
-        f.control.update(version=3, action='select-many', targetGuids=targets)
+        f.control.update(version=4, action='select-directive', targetGuids=targets)
         f.control['mac'] = launch.selected_control_mac('synthetic-secret', f.control)
         f.reply = self.reply
         f.selected.request(f.control, f.accepted, f.roster, f.clock)
@@ -33,13 +33,11 @@ class SelectedBatch276(unittest.TestCase):
         p['scan'].update(startedAt=f.at, expiresAt=f.at+600)
         p['entitlements'].update(scanned=len(f.control['targetGuids']),
                                  unscanned=40-len(f.control['targetGuids']), retryAfterSeconds=retry)
-        p['promotions'] = [dict(guid=guid, name='Member '+str(i), currentSlot=9, targetSlot=8,
-                                targetName='Member', reason='verified-initiate')
-                           for i, guid in enumerate(f.control['targetGuids'])]
+        p['promotions'] = [f.promotion(guid) for guid in f.control['targetGuids']]
         if retry is not None:
             p['heldReasons'].append('discord-rate-limited')
-        return dict(version=1, protocol=launch.SELECTED_BATCH_PROTOCOL, coverageKind='selected-guids',
-                    controlId=f.control['id'], targetGuids=list(f.control['targetGuids']),
+        return dict(version=2, protocol=launch.DIRECTIVE_PROTOCOL, coverageKind='selected-guids',
+                    actorGuid=f.control['guid'],controlId=f.control['id'], targetGuids=list(f.control['targetGuids']),
                     targetsDigest=launch.targets_digest276(f.control['targetGuids']),
                     coveredGuids=list(f.control['targetGuids']), page=p)
 
@@ -224,7 +222,7 @@ class SelectedBatch276(unittest.TestCase):
                 if outcome == 'same-second':
                     import hashlib
                     w.state.d['roster_sent'] = f.at
-                    scope = {key: f.roster[key] for key in ('nativeGuild', 'nativeRealm')}
+                    scope = {key: f.roster[key] for key in ('nativeGuild', 'nativeRealm', 'nativeRankTable')}
                     w.state.d['roster_scope_hash'] = hashlib.sha256(json.dumps(scope, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
                 else:
                     w.worker.call = lambda *args, **kwargs: (False, 'unknown')

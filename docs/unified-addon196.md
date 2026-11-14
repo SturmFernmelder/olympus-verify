@@ -2,6 +2,15 @@
 
 Owner: Codex subagent `master196_recovery_inventory`. Source ownership is limited to the `/olv invite` alias and native verification-column tooltip in `addon/OlympusVerify`, the new compatibility candidate in `addon/OlympusGuildCompatibility196`, Army page/report assets, this document, and new pure parser/module tests. Expanded delegation includes Army artifact retirement/build/reference entries, `site-army.ts`, projection checks and Army-focused expectations. Root owns other backend routes, `app.js`, remaining asset/build manifests, CI and provider operations. This is local implementation evidence, not upstream, game-client, peer or production acceptance.
 
+## Current author release (12 November 2026)
+
+The current author release is **Olympus Guild 1.5.8**. The 1.3.2 and 1.3.3 statements below are dated records. Per Codex's record of 12 November 2026, the 1.5.8 package still carries the separate `OlympusSiteAggregate` folder and its guild list includes `OLYMPUS PRIME`; Verify has not qualified that exporter on a live client. [The integration record](dan155-integration.md#current-status-12-november-2026) lists every activation limit. The limits that concern this document:
+
+| Off now | Before it is switched on | Who switches it |
+|---|---|---|
+| Website reporting (Army aggregate previews and publications): held unless `ARMY_SITE_AGGREGATE_ENABLED` is exactly `"true"`; the accepted configuration leaves it unset. | The owner verifies the dedicated exporter of the current release on a live Forever client, and publication passes its own gate ([Army publication](army-qr-publishing.md)). | The owner decides; Codex Root alone deploys the configuration that sets it. |
+| The automatic five-minute aggregate relay (`site-feed-v1`): unmounted. | The evidence in [the feed contract](launch227-feed-contract.md#required-evidence-before-mounting-or-enabling). | Mounting is a code change, reviewed and deployed by Codex Root with the owner's authorization. |
+
 ## Publication status checked 28 October 2026
 
 [PR #72](https://github.com/dnl-gentile/olympus-addon/pull/72) merged on 26 October 2026 as

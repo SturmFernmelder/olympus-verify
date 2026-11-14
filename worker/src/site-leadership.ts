@@ -1,3 +1,4 @@
+import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 /**
  * .114 (2 Oct 2026, Viktor's items 8 and 10): the leadership of every Olympus guild, and the end-of-beta reset.
  *
@@ -225,7 +226,8 @@ async function saveQualifiedLeadership(env:Env,actor:string,body:Record<string,u
 export async function qualifiedLeadershipPage(request:Request,env:Env):Promise<Response>{
   const secret=env.COOKIE_SECRET,guild=env.SITE_GUILD_ID,botToken=env.DISCORD_BOT_TOKEN;
   const ctx=await communityContext(env,request,{guildRoleRead:true});if(!ctx.subject)return apiJson({error:'signed_out'},401);
-  if(rateLimited('leadership-read:'+ctx.subject.discordId,20,60))return apiJson({error:'slow_down'},429);
+  const rateLimitAt228280=consumeRateLimit280('leadership-read:'+ctx.subject.discordId,20,60);
+  if(rateLimitAt228280.limited)return apiJson({error:'slow_down'},429,rateLimitHeaders280(rateLimitAt228280));
   const q=new URL(request.url).searchParams,after=q.get('after'),revision=q.get('revision');
   if((after===null)!==(revision===null)||after!==null&&(!LEADERSHIP_POSITION_KEYS.includes(after)||!/^[A-Za-z0-9_-]{43}$/.test(revision!))||[...q.keys()].some(k=>!['after','revision'].includes(k))||[...q.keys()].length!==new Set(q.keys()).size)return apiJson({error:'invalid_leadership_cursor'},400);
   const before=await snapshot(env,ctx);if(before===FENCE_REFUSED)return communityReadRefusal(env,request);

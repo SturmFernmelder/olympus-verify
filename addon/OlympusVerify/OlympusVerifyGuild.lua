@@ -14,6 +14,8 @@ local COLOR = { verified = "|cff8ac69a", unverified = "|cffe57572", pending = "|
 local nativeNames, nativeGuids, nativeAliases, nativeAt, loadedIdentity, changedGuild = {}, {}, {}, nil, nil, false
 local sourceIndex, historyIndex
 local hosts, bridgeEnabled = {}, false -- session-only opt-in, never SavedVariables
+-- Round 5 item 2 (13 Nov 2026): set when combat skipped a layout change; PLAYER_REGEN_ENABLED applies it at once.
+local layoutPending = false
 
 local function Text(v, limit)
   if type(issecretvalue) == "function" then
@@ -359,7 +361,7 @@ local function LayerColumn(h)
   if type(level) == "number" then h.column:SetFrameLevel(level) end
 end
 -- Secure promotion children cannot be relaid out or hidden by insecure paint in combat.
-local function HideAll() if Combat() then return end;for _, h in ipairs(hosts) do if h.column then h.column:Hide() end; if h.fallback then h.fallback:Hide() end end end
+local function HideAll() if Combat() then layoutPending = true; return end;for _, h in ipairs(hosts) do if h.column then h.column:Hide() end; if h.fallback then h.fallback:Hide() end end end
 local function RowCurrent(button)
   local row,list,host=button.nativeRow,button.memberList,button.nativeHost
   if not button:IsShown() or button.IsVisible and not button:IsVisible() or not Text(button.rowGuid,40)
@@ -387,21 +389,23 @@ end
 -- This only withholds a new read from a row with unresolved native history. It
 -- cannot clear history or make a promotion eligible; the launch dispatcher owns
 -- all action admission and the selected read remains a separate reload workflow.
-local function CheckCustodyClear(launch,id)
+local function CheckCustodyClear(launch,id,current,nativeSlot)
   if type(launch)~="table" or type(launch.AttemptHeld)~="function" then return false end
-  local ok,held=pcall(launch.AttemptHeld,id)
+  local ok,held=pcall(launch.AttemptHeld,id,current,nativeSlot)
   return ok and held==false -- Shared journal/save-conflict admission, never a second authority policy.
 end
-local function PromotionControl(input,result,ready,detail,bound)
+local function PromotionControl(input,result,ready,detail,bound,current)
   local launch=OlympusLaunch229
   if ready and bound then return "Promote",true,"promote" end
-  if input.rankIndex==8 then return "Member",false,nil end -- Native rank and attempt history are separate facts.
+  if input.rankIndex==7 and OlympusVerifyNativeRanks and OlympusVerifyNativeRanks.Qualified(OlympusVerifyNativeRanks.Observe()) then return "Member",false,nil end -- Native rank and attempt history are separate facts.
   if not bound then return "Unavailable",false,nil end
+  if detail and detail.state=="recheck" and type(launch.Select)=="function" then return "Check next",true,"check" end
+  if detail and detail.label=="Target rank observed (history retained)" then return "Observed",false,nil end
   if detail and (detail.state=="pending" or detail.state=="held")
-    or input.guid and not CheckCustodyClear(launch,input.guid) then return "Held",false,nil end
+    or input.guid and not CheckCustodyClear(launch,input.guid,current,input.rankIndex) then return "Held",false,nil end
   if result.status=="verified" and not result.historicalLinked and input.rankIndex==9
     and Text(input.guid,40) and type(launch.Select)=="function"
-    and (not detail or detail.state=="expired" or detail.state=="no_recommendation" or detail.state=="unavailable") then
+    and (not detail or detail.state=="check" or detail.state=="expired" or detail.state=="no_recommendation" or detail.state=="unavailable") then
     return "Check",true,"check"
   end
   return "—",false,nil
@@ -448,7 +452,7 @@ local function NewButton(parent)
     local result=G.Verification(b.rowName,b.rowGuid)
     local input=PromotionInput(b.rowName,b.rowGuid,result)
     local ready,details=PromotionState({input})
-    local _,_,mode=PromotionControl(input,result,ready[b.rowGuid],details.byGuid and details.byGuid[b.rowGuid],self.bound)
+    local _,_,mode=PromotionControl(input,result,ready[b.rowGuid],details.byGuid and details.byGuid[b.rowGuid],self.bound,details.current)
     if mode=="check" then self.guildRecheck={guid=b.rowGuid,name=b.rowName};return end
     if mode~="promote" then
       local detail=details.byGuid and details.byGuid[b.rowGuid]
@@ -466,7 +470,7 @@ local function NewButton(parent)
       local result=G.Verification(b.rowName,b.rowGuid)
       local input=PromotionInput(b.rowName,b.rowGuid,result)
       local ready,details=PromotionState({input})
-      local _,_,mode=PromotionControl(input,result,ready[b.rowGuid],details.byGuid and details.byGuid[b.rowGuid],self.bound)
+      local _,_,mode=PromotionControl(input,result,ready[b.rowGuid],details.byGuid and details.byGuid[b.rowGuid],self.bound,details.current)
       if mode=="check" then launch.Select(check.guid) end
     end
   end) end
@@ -476,9 +480,20 @@ local function NewButton(parent)
   b.displayName:SetWidth(NAME_WIDTH);b.displayName:SetPoint("LEFT",b.username,"RIGHT",8,0);b.displayName:SetJustifyH("LEFT");b.displayName:SetWordWrap(false)
   return b
 end
+-- Round 5 item 2 (13 Nov 2026): the column parents secure promotion buttons, so it is protected. As with the
+-- officer windows (CL2-003), a secure state handler registered out of combat hides it on [combat], which covers
+-- lockdown arriving before PLAYER_REGEN_DISABLED. Without that mechanism nothing in this file shows, hides,
+-- re-anchors, resizes or re-parents the column or its buttons in combat; the skipped layout waits for
+-- PLAYER_REGEN_ENABLED. Registration is retried out of combat until the launch module is loaded.
+local function GuardColumn(h)
+  local launch = OlympusLaunch229
+  if h.secureHide or Combat() or type(launch) ~= "table" or type(launch.SecureCombatHide) ~= "function" then return end
+  local ok, secure = pcall(launch.SecureCombatHide, h.column)
+  h.secureHide = ok and secure == true
+end
 local function Discover()
-  if Combat() or Gamepad() then return end
-  local known = {}; for _, h in ipairs(hosts) do known[h.frame] = true end
+  if Combat() or Gamepad() then if Combat() then layoutPending = true end; return end
+  local known = {}; for _, h in ipairs(hosts) do known[h.frame] = true; if h.column and h.secureAttempted ~= OlympusLaunch229 then h.secureAttempted = OlympusLaunch229; GuardColumn(h) end end
   for _, f in ipairs({ CommunitiesFrame or false, GuildFrame or false, ClassicUIForeverGuildPanel or false }) do
     if f and not known[f] and type(f.IsShown) == "function" then
       local h = { frame = f, rows = {} }; hosts[#hosts + 1] = h; known[f] = true
@@ -504,12 +519,13 @@ local function Discover()
       h.fallback = CreateFrame("Button", nil, UIParent, "UIPanelButtonTemplate")
       h.fallback:SetSize(116, 22); h.fallback:SetPoint("TOPRIGHT", f, "TOPRIGHT", -44, -28); h.fallback:SetText("Verify members")
       h.fallback:SetScript("OnClick", function() if not Combat() and not Preview() and OlympusVerifyRoster then OlympusVerifyRoster.Show() end end)
-      if f.HookScript then f:HookScript("OnHide", function() if not Combat() then h.column:Hide(); h.fallback:Hide() end end) end
+      if f.HookScript then f:HookScript("OnHide", function() if not Combat() then h.column:Hide(); h.fallback:Hide() else layoutPending = true end end) end
       local detail = f.GuildMemberDetailFrame
       if detail and detail.HookScript then
-        detail:HookScript("OnShow", function() if not Combat() then h.column:Hide(); h.fallback:Hide() end end)
+        detail:HookScript("OnShow", function() if not Combat() then h.column:Hide(); h.fallback:Hide() else layoutPending = true end end)
       end
       h.column:Hide(); h.fallback:Hide()
+      h.secureAttempted = OlympusLaunch229; GuardColumn(h)
     end
   end
 end
@@ -561,7 +577,7 @@ local function Paint()
         local ready,details=PromotionState(inputs)
         for i,b in ipairs(painted) do
           b.promote.detail=details.byGuid and details.byGuid[b.rowGuid]
-          local text,enabled,mode=PromotionControl(inputs[i],b.result,ready[b.rowGuid],b.promote.detail,b.promote.bound)
+          local text,enabled,mode=PromotionControl(inputs[i],b.result,ready[b.rowGuid],b.promote.detail,b.promote.bound,details.current)
           b.promote.mode=mode;b.promote:SetText(text);b.promote:SetEnabled(enabled)
         end
       else h.column:Hide(); h.fallback:Show() end
@@ -587,6 +603,11 @@ events:SetScript("OnEvent", function(_, event, unit)
   end
   if event == "PLAYER_REGEN_DISABLED" then HideAll(); return end
   pcall(Discover)
+  -- Round 5 item 2: the layout combat skipped is applied once, as soon as lockdown has ended.
+  if event == "PLAYER_REGEN_ENABLED" and layoutPending and not Combat() and #hosts > 0 then
+    layoutPending = false
+    local ok = pcall(Paint); if not ok then HideAll() end
+  end
 end)
 events:SetScript("OnUpdate", function(_, dt)
   elapsed, discoveryElapsed = elapsed + dt, discoveryElapsed + dt

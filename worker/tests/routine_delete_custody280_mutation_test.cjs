@@ -1,0 +1,26 @@
+// Current actual-runtime negative mutants. Product files remain unchanged.
+'use strict';
+const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
+const replace=(s,a,b)=>{if(!s.includes(a))throw Error('mutation_site_missing');return s.split(a).join(b);};
+const sourceOnly=fn=>s=>{const a=s.indexOf('  const sourceIntegrity=(effect:Env)=>{'),z=s.indexOf('  originals.set(cap,',a);if(a<0||z<a)throw Error('original_source_integrity_boundary');return s.slice(0,a)+fn(s.slice(a,z))+s.slice(z);};
+const definitions={
+ 'retained-db-integrity-removed':{target:'role-settlements.ts',cases:['transition-snapshot-ban','transition-source-ban','transition-table-ban','transition-link-ban','transition-guid-ban'],change:s=>replace(s,'[p.receiptSourceIntegritySql,g.sql,physical,ownParent,',"['1=1',g.sql,physical,ownParent,")},
+ 'future-dispatch-uses-receipt-variant':{target:'routine-membership-authority232.ts',cases:['transition-ban'],change:s=>replace(s,'sql:originalSourcePredicate(true)','sql:originalSourcePredicate(false)')},
+ 'historical-branch-removed':{target:'role-settlements.ts',cases:['transition-ban','transition-policy'],change:s=>replace(s,'if(canonical233&&desired===0&&acknowledged&&started&&parent!==null&&after!==null','if(false&&canonical233&&desired===0&&acknowledged&&started&&parent!==null&&after!==null')},
+ 'source-graph-check-removed':{target:'routine-membership-authority232.ts',cases:['transition-sourcegraph-ban','integrity-controls'],change:sourceOnly(s=>replace(s,'sourceIntegrityConfig();resultCheck();','sourceIntegrityConfig();'))},
+ 'source-active-check-removed':{target:'routine-membership-authority232.ts',cases:['integrity-controls'],change:sourceOnly(s=>replace(s,'if(!active||Math.floor','if(Math.floor'))},
+ 'source-deadline-check-removed':{target:'routine-membership-authority232.ts',cases:['integrity-controls'],change:sourceOnly(s=>replace(s,'Math.floor(Date.now()/1000)>=facts.deadline||',''))},
+ 'source-retained-config-check-removed':{target:'routine-membership-authority232.ts',cases:['integrity-controls'],change:sourceOnly(s=>replace(s,'sourceIntegrityConfig();resultCheck();','resultCheck();'))},
+ 'historical-nonce-check-removed':{target:'role-settlements.ts',cases:['transition-tuple-nonce-ban'],change:s=>replace(s,'const receiptTuple=canonical239And([...ownedClauses,',"const receiptTuple=canonical239And([...rowClauses,'attempts=1',")},
+ 'historical-primary-generation-fence-removed':{target:'routine-membership-authority232.ts',cases:['transition-generation-ban'],expectedSurvivor:'The retained anchor generation equality independently holds this null-generation fixture.',change:s=>replace(s,'receiptSourceIntegritySql:originalSourcePredicate(false)',"receiptSourceIntegritySql:originalSourcePredicate(false).replace(privacyGenerationFenceSql(start,start+1),'1=1')")},
+ 'historical-all-current-generation-checks-removed':{target:'routine-membership-authority232.ts',cases:['transition-generation-ban'],change:s=>replace(s,'receiptSourceIntegritySql:originalSourcePredicate(false)',"receiptSourceIntegritySql:originalSourcePredicate(false).replace(privacyGenerationFenceSql(start,start+1),'1=1').replaceAll('p.generation',q(1))")},
+ 'null404-used-as-confirmation':{target:'role-settlements.ts',cases:['transition-404-ban'],change:s=>{
+  s=replace(s,'parent!==null&&after!==null&&launch230Member(after,f.subject)&&!after.roles.includes(role)','parent!==null&&launch230Member(after,f.subject)&&!after?.roles.includes(role)');
+  return replace(s,'now()>=f.deadline||after===null||!launch230Member(after,f.subject)||after.roles.includes(role)','now()>=f.deadline||!launch230Member(after,f.subject)||!!after?.roles.includes(role)');
+ }},
+};
+module.exports={definitions};
+if(require.main===module){const args=process.argv.slice(2),at=args.indexOf('--out');if(at<0)throw Error('--out required');const out=path.resolve(args[at+1]);fs.mkdirSync(out,{recursive:true});const results=[];
+ for(const [name,d]of Object.entries(definitions)){const dir=path.join(out,name),run=cp.spawnSync(process.execPath,[path.join(__dirname,'routine_delete_custody280_workerd_test.cjs'),'--out',dir,'--only',d.cases.join(','),'--mutation',name],{encoding:'utf8',maxBuffer:4e6});fs.writeFileSync(path.join(out,name+'.log'),(run.stdout||'')+(run.stderr||''));const file=path.join(dir,'RESULT.json'),receipt=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):null,failed=receipt?.cases.filter(x=>!x.pass).map(x=>x.name)||[],killed=run.status===1&&receipt?.ok===false&&failed.length>0&&receipt.stable&&receipt.compiledStable,survived=run.status===0&&receipt?.ok===true&&receipt.stable&&receipt.compiledStable,qualified=killed||!!d.expectedSurvivor&&survived;results.push({name,killed,survived,qualified,expectedSurvivor:d.expectedSurvivor??null,exitCode:run.status,failedChecks:failed,result:file,bundleSHA256:receipt?.bundleSHA256,mutation:receipt?.mutation});console.log((killed?'KILLED ':d.expectedSurvivor&&survived?'EXPECTED DEFENSE SURVIVOR ':'NOT QUALIFIED ')+name+' '+failed.length);}
+ const report={at:new Date().toISOString(),scope:'In-memory actual-runtime mutants only; exceptions/setup failures do not count as kills.',ok:results.every(x=>x.qualified),results};fs.writeFileSync(path.join(out,'MUTATIONS.json'),JSON.stringify(report,null,2)+'\n');if(!report.ok)process.exitCode=1;
+}

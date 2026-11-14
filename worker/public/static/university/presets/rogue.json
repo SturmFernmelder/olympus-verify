@@ -1,0 +1,151 @@
+{
+ "schema": "olympus-university-presets-v1",
+ "note": "Copied from guides218.json presets by scripts/university/migrate-guides218.cjs --presets; scripts/university/validate.cjs refuses any drift.",
+ "talentRevision": "02e1e101d1a5",
+ "presets": [
+  {
+   "id": "rogue-assassination-raid-60",
+   "classId": "rogue",
+   "specId": "assassination",
+   "label": "raid (daggers)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.rogue.60.005323202515510313023030000000000000002000000000000000",
+   "points": 51,
+   "treePoints": [
+    38,
+    11,
+    2
+   ],
+   "why": [
+    "Dagger build to Mutilate: Malice, Lethality, Cold Blood and Seal Fate (3/3) turn critical strikes into extra combo points, and Puncturing Wounds and Opportunity add Backstab and Mutilate crit and damage.",
+    "Vile Poisons and Improved Poisons strengthen your poisons, Venom makes Shank raise poison damage and application chance for 6 sec, and Relentless Strikes (5/5) refunds Energy from finishers.",
+    "Murder and Improved Eviscerate are gone. Their points now go to Coup de Grace for Eviscerate damage, with Precision for 3% hit."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "rogue-assassination-leveling-30",
+   "classId": "rogue",
+   "specId": "assassination",
+   "label": "leveling to 30 (reaches Venom)",
+   "context": "leveling",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.rogue.30.025300212005010000000000000000000000000000000000000000",
+   "points": 21,
+   "treePoints": [
+    21,
+    0,
+    0
+   ],
+   "why": [
+    "Malice and Remorseless Attacks add crit, Lethality adds critical damage, and Ruthlessness can add a combo point after a finisher.",
+    "Improved Poisons and Venom on row 5 work with Shank, which Rogues learn at level 24, for more poison damage. Vigor and Blood Splatter fill the rows in between.",
+    "Mutilate now sits on row 7 and needs 30 points, so this build cannot reach it before level 40. The old “reaches Mutilate” goal no longer fits a level-30 build."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "rogue-combat-raid-60",
+   "classId": "rogue",
+   "specId": "combat",
+   "label": "raid (swords or axes)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.rogue.60.005303202010000003210330012012321551000000000000000000",
+   "points": 51,
+   "treePoints": [
+    16,
+    35,
+    0
+   ],
+   "why": [
+    "Swords or axes with Hack and Slash for extra attacks, Blade Flurry into Adrenaline Rush, and Weapon Expertise so fewer attacks are dodged or parried.",
+    "Coup de Grace, Efficient Strikes, Aggression and Flawless Execution make Sinister Strike and Eviscerate cheaper or stronger. Dual Wield Specialization (2/2) adds 50% off-hand damage, and Flash of Steel makes Shank generate more Energy.",
+    "Sixteen Assassination points take Malice, Ruthlessness, Improved Slice and Dice, Vigor, Lethality and Cold Blood. Improved Eviscerate became Coup de Grace and Improved Sinister Strike became Efficient Strikes; Murder was removed."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "rogue-combat-leveling-30",
+   "classId": "rogue",
+   "specId": "combat",
+   "label": "leveling to 30",
+   "context": "leveling",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.rogue.30.000000000000000003200331210011301000000000000000000000",
+   "points": 21,
+   "treePoints": [
+    0,
+    21,
+    0
+   ],
+   "why": [
+    "Coup de Grace, Efficient Strikes, Aggression and Flawless Execution make Sinister Strike and Eviscerate cheaper or stronger while you level.",
+    "Deflection opens Riposte, which disarms the target after you parry. Endurance shortens Sprint and Evasion, and Improved Sprint can break movement effects.",
+    "Blade Flurry at 21 points hits a second target. Dual Wield Specialization, now two ranks on row 5, is the next pick after level 30."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "rogue-subtlety-raid-60",
+   "classId": "rogue",
+   "specId": "subtlety",
+   "label": "raid (bleed style)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.rogue.60.005203011000000003200030000000000000105203031321021151",
+   "points": 51,
+   "treePoints": [
+    12,
+    8,
+    31
+   ],
+   "why": [
+    "Bleed build to Death Mark: Serrated Blades and Hemorrhage raise Rupture and Garrote damage, and Death Mark stores Garrote and Rupture damage at twice the rate for 6 sec.",
+    "Coup de Grace raises Death Mark’s damage and storage rate, Efficient Strikes discounts Hemorrhage, Blood Splatter lengthens Rupture and Garrote, and Boot Knife lets Shank add combo points.",
+    "Quietus, Thousand Cuts, Murder and Improved Eviscerate were removed. Their points now go to Opportunity, Boot Knife, Death Mark and Coup de Grace."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "rogue-subtlety-pvp-60",
+   "classId": "rogue",
+   "specId": "subtlety",
+   "label": "battlegrounds",
+   "context": "pvp",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.rogue.60.000000000000000000050332210211000000032233231321221100",
+   "points": 51,
+   "treePoints": [
+    0,
+    20,
+    31
+   ],
+   "why": [
+    "Stealth openers: Master of Deception, Camouflage, Dirty Deeds, Improved Ambush, Initiative and Premeditation, with Preparation to reset your cooldowns.",
+    "Ghostly Strike lets your next Ambush or Garrote within 7 sec skip Stealth, Elusiveness shortens Vanish and Blind, and Dirty Tricks and Quick Getaway make Sap and Blind cheaper and let you keep a second target Sapped.",
+    "Twenty Combat points take Lightning Reflexes, Deflection and Riposte, Improved Kick, Endurance and Improved Sprint. Cutthroat was removed; its points went to Camouflage and Quick Getaway."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  }
+ ]
+}

@@ -1,8 +1,8 @@
 {
   "schema": "olympus-talent-stat-effects-v1",
   "source": {
-    "talentRevision": "260cf99b52db",
-    "dataJsonSHA256": "8b174d764836675b2b759050f441e2dfe12c7bad6a5b279ef39b05d8b1288a0c",
+    "talentRevision": "02e1e101d1a5",
+    "dataJsonSHA256": "d8b516b2e29c10dead48e5f96edcea7c3f87c3af90a586dfc85f2595ecbf5e0e",
     "generatedAt": "2026-10-21T19:46:00Z",
     "generator": "gen_stats60.py",
     "researchSHA256": "93c53a998bc598338e3fd2c9bf6f3e33df23cd87290f5c69eb4c27d9e80b5356",
@@ -97,11 +97,19 @@
         "sha256": "88f0e96ad902ab1a15da366018edfc73ecf0b0ad3e02402c064527bdf9d1a912",
         "bytes": 838255
       }
-    ]
+    ],
+    "textRecheck": {
+      "checkedAt": "2026-11-12",
+      "talentRevision": "02e1e101d1a5",
+      "clientBuild": "1.60.1.70755",
+      "previousRevision": "260cf99b52db",
+      "previousDataJsonSHA256": "8b174d764836675b2b759050f441e2dfe12c7bad6a5b279ef39b05d8b1288a0c",
+      "note": "Rank texts re-hashed against the 10 November data. 112 components match byte for byte (their DB2 checks remain those of the client builds named above); 4 moved tree with identical texts and were re-keyed; 5 were removed with their talents; 24 have changed rank text and the sheet withholds them until they are reviewed again."
+    }
   },
   "status": "Per-rank talent modifiers in modifier space. They are not final character totals: the sheet combines components only under the stated stacking assumption in naked60-186.json (evaluation.stacking, Classic rule, grade E whenever two or more effects are combined), never across scopes or unmet conditions, and procs are never added to the sheet.",
   "grades": {
-    "A": "Exact from current-build client data: a DB2 trait curve equals the rank-text series.",
+    "A": "Exact client data: a DB2 trait curve (client 1.60.1.70425, cross-checked in 1.60.1.70450) equals the rank-text series, and the rank text is unchanged in the pinned 10 November talent data.",
     "B": "DB2 value with a semantic reading (no trait curve, or the curve is not the stat itself)."
   },
   "tiers": {
@@ -160,26 +168,26 @@
     "Grade U never appears here: every listed value is text-exact and DB2-checked."
   ],
   "counts": {
-    "components": 141,
-    "researchComponents": 139,
+    "components": 136,
+    "researchComponents": 134,
     "addedComponents": 2,
-    "talents": 130,
+    "talents": 125,
     "byTier": {
       "A": 63,
-      "B": 34,
+      "B": 32,
       "C": 10,
-      "M": 34
+      "M": 31
     },
     "byGrade": {
-      "A": 135,
+      "A": 130,
       "B": 6
     },
     "byOp": {
       "add_flat": 6,
-      "add_pp": 43,
+      "add_pp": 41,
       "armor_ignore_pct": 3,
       "crit_damage_bonus_pct": 10,
-      "damage_done_pct": 21,
+      "damage_done_pct": 18,
       "damage_taken_pct": 3,
       "healing_done_pct": 4,
       "mul_total_pct": 22,
@@ -188,9 +196,11 @@
       "proc": 11,
       "regen_while_casting_pct": 6
     },
-    "appliesNakedFalse": 18,
+    "appliesNakedFalse": 17,
     "curveMismatch": 4,
-    "db2CurveCorrections": 6
+    "db2CurveCorrections": 6,
+    "textMatchesCurrent": 112,
+    "withheldTextChanged": 24
   },
   "db2Corrections": [
     {
@@ -229,7 +239,7 @@
       "reason": "research curve 83181 is effect 0 (aura 107 misc 7, Searing Pain crit chance); the damage is effect 1 (aura 108 misc 0)"
     },
     {
-      "component": "druid-feral-combat-heart-of-the-wild#strength_pct_cat",
+      "component": "druid-restoration-heart-of-the-wild#strength_pct_cat",
       "researchCurveId": 85337,
       "curveId": 112808,
       "effectIndex": 2,
@@ -1027,10 +1037,10 @@
       ]
     },
     {
-      "id": "paladin-holy-divine-intellect#intellect_pct",
-      "talentId": "paladin-holy-divine-intellect",
+      "id": "paladin-protection-divine-intellect#intellect_pct",
+      "talentId": "paladin-protection-divine-intellect",
       "cls": "paladin",
-      "tree": "holy",
+      "tree": "protection",
       "name": "Divine Intellect",
       "maxRank": 5,
       "metric": "intellect_pct",
@@ -1648,58 +1658,6 @@
         "95ecd2d5e284d96f7debacd76c75e36bd79c196d54de96077fd7cb376ec8a792",
         "a53beafa8e83597cff6196313b12bbeaf01b9f69bf6d1b30c7b743f8169c6174",
         "8e3828c1eb8b3389077e2e79b8a6119c4734a62161008a5123958a5c84d6bc88"
-      ]
-    },
-    {
-      "id": "paladin-protection-one-handed-weapon-specialization#damage_done",
-      "talentId": "paladin-protection-one-handed-weapon-specialization",
-      "cls": "paladin",
-      "tree": "protection",
-      "name": "One-Handed Weapon Specialization",
-      "maxRank": 3,
-      "metric": "damage_done",
-      "op": "damage_done_pct",
-      "target": "damage_done",
-      "unit": "pct",
-      "values": [
-        3,
-        7,
-        10
-      ],
-      "tier": "M",
-      "scope": "one-handed weapon",
-      "conditions": [
-        "weapon:one_hand"
-      ],
-      "appliesNaked": false,
-      "inPriorLedger": false,
-      "grade": "A",
-      "gradeBasis": "DB2 trait curve equals the rank-text series (research curve check, re-verified exactly here).",
-      "db2": {
-        "build": "1.60.1.70425",
-        "spellId": 20196,
-        "traitDefinitionId": 135154,
-        "curveId": 82949,
-        "effectIndex": 0,
-        "curveValues": [
-          3,
-          7,
-          10
-        ],
-        "aura": 79,
-        "miscValue": [
-          1,
-          0
-        ],
-        "crossCheck": {
-          "build": "1.60.1.70450",
-          "identical": true
-        }
-      },
-      "textSHA256": [
-        "1c8da2015fa5f2474d994bfd162bdda9da2c6e7e1bc4ff9f18c70e7dc1a70212",
-        "532c27dcf510b6f7fbd90591aae00d882a3ba432564d5260ffc4ec397a4d4ee9",
-        "becd0743650fc3182339b8bb506ddcdab3e97bb306737bf68194fe7b89493b85"
       ]
     },
     {
@@ -3134,55 +3092,6 @@
         "83d55ab53a93c37bbcf1ed8238bf611237878a97830455978d119c7876229ef5",
         "90e9764290207da36b6cb3a0e3ea75f68d73ba47e2899d0aa51635780983762e",
         "2349cfa685ea56c3edadeaab13904351c17fc00c17ef67fb3d71b01e33ae2e15"
-      ]
-    },
-    {
-      "id": "rogue-assassination-murder#damage_done",
-      "talentId": "rogue-assassination-murder",
-      "cls": "rogue",
-      "tree": "assassination",
-      "name": "Murder",
-      "maxRank": 2,
-      "metric": "damage_done",
-      "op": "damage_done_pct",
-      "target": "damage_done",
-      "unit": "pct",
-      "values": [
-        2,
-        4
-      ],
-      "tier": "M",
-      "scope": "vs Humanoid/Giant",
-      "conditions": [
-        "target:humanoid|giant"
-      ],
-      "appliesNaked": true,
-      "inPriorLedger": false,
-      "grade": "A",
-      "gradeBasis": "DB2 trait curve equals the rank-text series (research curve check, re-verified exactly here).",
-      "db2": {
-        "build": "1.60.1.70425",
-        "spellId": 14158,
-        "traitDefinitionId": 135250,
-        "curveId": 83050,
-        "effectIndex": 0,
-        "curveValues": [
-          2,
-          4
-        ],
-        "aura": 168,
-        "miscValue": [
-          80,
-          0
-        ],
-        "crossCheck": {
-          "build": "1.60.1.70450",
-          "identical": true
-        }
-      },
-      "textSHA256": [
-        "0bb6af48a2e30ac62bdd82b9225e28c1fdf09ffa9068473759e0d3663b8b3eb7",
-        "103d7fa15a72b14506aa269a729e3f0fa58213fb0812f60cf339447302988c85"
       ]
     },
     {
@@ -5628,64 +5537,6 @@
       ]
     },
     {
-      "id": "mage-arcane-arcane-focus#spell_school_hit_chance",
-      "talentId": "mage-arcane-arcane-focus",
-      "cls": "mage",
-      "tree": "arcane",
-      "name": "Arcane Focus",
-      "maxRank": 5,
-      "metric": "spell_school_hit_chance",
-      "op": "add_pp",
-      "target": "hit.spell",
-      "unit": "pp",
-      "values": [
-        1,
-        2,
-        3,
-        4,
-        5
-      ],
-      "tier": "B",
-      "scope": "Arcane spells",
-      "conditions": [
-        "school:arcane"
-      ],
-      "appliesNaked": true,
-      "inPriorLedger": false,
-      "grade": "A",
-      "gradeBasis": "DB2 trait curve equals the rank-text series (research curve check, re-verified exactly here).",
-      "db2": {
-        "build": "1.60.1.70425",
-        "spellId": 11222,
-        "traitDefinitionId": 135344,
-        "curveId": 83115,
-        "effectIndex": 0,
-        "curveValues": [
-          1,
-          2,
-          3,
-          4,
-          5
-        ],
-        "aura": 107,
-        "miscValue": [
-          16,
-          0
-        ],
-        "crossCheck": {
-          "build": "1.60.1.70450",
-          "identical": true
-        }
-      },
-      "textSHA256": [
-        "51b96d9249f314bd2e398b3ed0a21d5f9fae857dd524c5e5872f54d6f242ad9c",
-        "bb2c4058f58d99a9204212c67b841aa3f4e416526afeb0ef6e05a690158477bd",
-        "59d90410b4debe84aaa75784e9d57d5d97d7728021b965d7c17e5fb2e1bb59e8",
-        "ffff39bc4606348b958354e18041ca5f038460ebad7f0abc07f0662d693389b8",
-        "47d1650eff5b8a33f24ca2645f5d4dcc89cbce7f048c2986f724502e88f3901f"
-      ]
-    },
-    {
       "id": "mage-arcane-arcane-subtlety#target_resistance_reduction",
       "talentId": "mage-arcane-arcane-subtlety",
       "cls": "mage",
@@ -6258,116 +6109,6 @@
         "952477f506f520f94e73a9f6e01d9126a3d1720e7a1723324845cd82e483827b",
         "46817d18cc320004ac60ca49036da4fa7101353eb5964bade93266ffa99aa9a8",
         "49b6e262dc91ba0f409ebbc3ba51adc94219501b402b50b481ada86b150268b7"
-      ]
-    },
-    {
-      "id": "mage-frost-elemental-precision#spell_school_hit_chance",
-      "talentId": "mage-frost-elemental-precision",
-      "cls": "mage",
-      "tree": "frost",
-      "name": "Elemental Precision",
-      "maxRank": 5,
-      "metric": "spell_school_hit_chance",
-      "op": "add_pp",
-      "target": "hit.spell",
-      "unit": "pp",
-      "values": [
-        1,
-        2,
-        3,
-        4,
-        5
-      ],
-      "tier": "B",
-      "scope": "Frost and Fire spells",
-      "conditions": [
-        "school:frost|fire"
-      ],
-      "appliesNaked": true,
-      "inPriorLedger": false,
-      "grade": "A",
-      "gradeBasis": "DB2 trait curve equals the rank-text series (research curve check, re-verified exactly here).",
-      "db2": {
-        "build": "1.60.1.70425",
-        "spellId": 29438,
-        "traitDefinitionId": 135308,
-        "curveId": 83078,
-        "effectIndex": 0,
-        "curveValues": [
-          1,
-          2,
-          3,
-          4,
-          5
-        ],
-        "aura": 107,
-        "miscValue": [
-          16,
-          0
-        ],
-        "crossCheck": {
-          "build": "1.60.1.70450",
-          "identical": true
-        }
-      },
-      "textSHA256": [
-        "7341c5581db2fc1ce9e9d9623d3b4c52eafb99421ab8616050b76d78e4eee702",
-        "ec42f2ed19c1f90147ef9d295563aa27cd9c1ea50596eebed23821ba0765ff90",
-        "62545e5967b6bda012a364ee0d95edf2a8c97c48f74b1415e7f203c947136589",
-        "bf9d00c722de32e814a4384f0478d2e18ca537caeb98562966334f3c0e735c5c",
-        "f97787d718c21b980bc5dcc087df780873ddd3f0e2df831a80ec67a0f25840d9"
-      ]
-    },
-    {
-      "id": "mage-frost-piercing-ice#frost_damage_done",
-      "talentId": "mage-frost-piercing-ice",
-      "cls": "mage",
-      "tree": "frost",
-      "name": "Piercing Ice",
-      "maxRank": 3,
-      "metric": "frost_damage_done",
-      "op": "damage_done_pct",
-      "target": "damage_done",
-      "unit": "pct",
-      "values": [
-        2,
-        4,
-        6
-      ],
-      "tier": "M",
-      "scope": "Frost spells",
-      "conditions": [
-        "school:frost"
-      ],
-      "appliesNaked": true,
-      "inPriorLedger": false,
-      "grade": "A",
-      "gradeBasis": "DB2 trait curve equals the rank-text series (research curve check, re-verified exactly here).",
-      "db2": {
-        "build": "1.60.1.70425",
-        "spellId": 11151,
-        "traitDefinitionId": 135303,
-        "curveId": 83072,
-        "effectIndex": 0,
-        "curveValues": [
-          2,
-          4,
-          6
-        ],
-        "aura": 108,
-        "miscValue": [
-          0,
-          0
-        ],
-        "crossCheck": {
-          "build": "1.60.1.70450",
-          "identical": true
-        }
-      },
-      "textSHA256": [
-        "e36858684e0338ff2fd28f11cc86365c191730faea40611eb4025643800af13c",
-        "4db476f1ea9d4e3fbed22976ba567f488779a66854d23a6f12edc7cfc347df6a",
-        "339db2c839297621f045b882b9259b40357db28ed1f0b9b45fae6b40cb15f919"
       ]
     },
     {
@@ -7477,10 +7218,10 @@
       ]
     },
     {
-      "id": "druid-feral-combat-heart-of-the-wild#intellect_pct",
-      "talentId": "druid-feral-combat-heart-of-the-wild",
+      "id": "druid-restoration-heart-of-the-wild#intellect_pct",
+      "talentId": "druid-restoration-heart-of-the-wild",
       "cls": "druid",
-      "tree": "feral-combat",
+      "tree": "restoration",
       "name": "Heart of the Wild",
       "maxRank": 5,
       "metric": "intellect_pct",
@@ -7550,10 +7291,10 @@
       ]
     },
     {
-      "id": "druid-feral-combat-heart-of-the-wild#stamina_pct_bear",
-      "talentId": "druid-feral-combat-heart-of-the-wild",
+      "id": "druid-restoration-heart-of-the-wild#stamina_pct_bear",
+      "talentId": "druid-restoration-heart-of-the-wild",
       "cls": "druid",
-      "tree": "feral-combat",
+      "tree": "restoration",
       "name": "Heart of the Wild",
       "maxRank": 5,
       "metric": "stamina_pct_bear",
@@ -7610,10 +7351,10 @@
       ]
     },
     {
-      "id": "druid-feral-combat-heart-of-the-wild#strength_pct_cat",
-      "talentId": "druid-feral-combat-heart-of-the-wild",
+      "id": "druid-restoration-heart-of-the-wild#strength_pct_cat",
+      "talentId": "druid-restoration-heart-of-the-wild",
       "cls": "druid",
-      "tree": "feral-combat",
+      "tree": "restoration",
       "name": "Heart of the Wild",
       "maxRank": 5,
       "metric": "strength_pct_cat",

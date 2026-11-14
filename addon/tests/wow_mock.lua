@@ -29,13 +29,24 @@ function FrameMT.RegisterForClicks(self, ...) self._registeredClicks={...} end
 function FrameMT.RegisterEvent(self, e) self._events = self._events or {}; self._events[e] = true end
 function FrameMT.SetText(self, t) self._text = t; if self._fontString then self._fontString._text = t end end
 function FrameMT.GetText(self) return self._text end
+-- MOCK_PROPAGATE_HIDE (opt-in, CL2-003 suite): like the client, hiding or showing
+-- a parent also runs OnHide/OnShow on its children that are shown themselves.
+local function propagate(self, event)
+  if MOCK_PROPAGATE_HIDE ~= true then return end
+  for _, child in ipairs(FRAMES or {}) do
+    if child._parent == self and child._shown == true then
+      local script = child:GetScript(event); if script then script(child) end
+      propagate(child, event)
+    end
+  end
+end
 function FrameMT.Show(self)
   local old = self._shown; self._shown = true
-  if old ~= true then local script = self:GetScript("OnShow"); if script then script(self) end end
+  if old ~= true then local script = self:GetScript("OnShow"); if script then script(self) end; propagate(self, "OnShow") end
 end
 function FrameMT.Hide(self)
   local old = self._shown; self._shown = false
-  if old == true then local script = self:GetScript("OnHide"); if script then script(self) end end
+  if old == true then local script = self:GetScript("OnHide"); if script then script(self) end; propagate(self, "OnHide") end
 end
 function FrameMT.IsShown(self) return self._shown == true end
 function FrameMT.IsVisible(self) return self._shown ~= false and (not self._parent or self._parent:IsVisible()) end
@@ -140,6 +151,13 @@ CreateFrame = function(kind, name, parent, template)
   end
   if name then _G[name] = f end
   table.insert(FRAMES, f)
+  -- MOCK_TEMPLATE_CLOSE_BUTTONS (opt-in, round 5 combat suite): a BasicFrameTemplate frame carries the client's X
+  -- button, whose default click hides its parent the way UIPanelCloseButton does.
+  if MOCK_TEMPLATE_CLOSE_BUTTONS == true and type(template) == "string" and template:find("BasicFrameTemplate", 1, true) then
+    local x = CreateFrame("Button", nil, f, "UIPanelCloseButton")
+    x:SetScript("OnClick", function(self) self._parent:Hide() end)
+    f.CloseButton = x
+  end
   return f
 end
 UIParent = CreateFrame("Frame", "UIParent")
@@ -147,7 +165,10 @@ UIParent:SetSize(1920, 1080)
 GameTooltip = CreateFrame("GameTooltip", "GameTooltip")
 GetAddOnMetadata = function() return "0.4.0" end
 C_AddOns = { GetAddOnMetadata = function() return "0.4.0" end }
-InCombatLockdown = function() return false end
+-- Lockdown is false unless a suite starts mock combat (MockCombatStart below).
+-- Suites that replace InCombatLockdown themselves keep the earlier permissive model.
+MOCK_LOCKDOWN, MOCK_COMBAT = false, false
+InCombatLockdown = function() return MOCK_LOCKDOWN == true end
 IsModifierKeyDown = function() return false end
 IsShiftKeyDown = function() return false end
 IsControlKeyDown = function() return false end
@@ -182,3 +203,148 @@ MACROS = {}
 GetMacroIndexByName = function(n) for i, m in ipairs(MACROS) do if m.name == n then return i end end return 0 end
 CreateMacro = function(name, icon, body) table.insert(MACROS, { name = name, body = body }); return #MACROS end
 EditMacro = function(i, name, icon, body) MACROS[i].name = name; MACROS[i].body = body; return i end
+
+-- Combat lockdown model (CL2-003, 13 Nov 2026). Active only while MOCK_LOCKDOWN is
+-- true, which MockCombatStart/MockCombatEnd drive. While it is true, insecure code
+-- may not show, hide, move, resize, enable or set attributes on a protected frame
+-- (one built from a Secure template, or a parent or anchor of one), may not
+-- register a state driver on one and may not create a secure frame. As in the
+-- client, a refused call does nothing; the mock records it in MOCK_BLOCKED, so a
+-- suite fails if the addon makes one. Secure code (a state driver's snippet) runs
+-- with MOCK_SECURE > 0; scripts it triggers on addon frames run insecure again.
+MOCK_SECURE, MOCK_BLOCKED, MOCK_SECURE_ERRORS, MOCK_STATE_DRIVERS = 0, {}, {}, {}
+local function region(self) return self._kind == "FontString" or self._kind == "Texture" end
+function FrameMT.IsProtected(self)
+  if region(self) then return false, false end
+  if self._protected then return true, true end
+  for _, f in ipairs(FRAMES) do
+    if f._protected and f ~= self then
+      local p = f._parent
+      while p do if p == self then return true, false end; p = p._parent end
+      for _, point in ipairs(f._points or {}) do if point[2] == self then return true, false end end
+    end
+  end
+  return false, false
+end
+local function refused(self, call)
+  if MOCK_LOCKDOWN ~= true or MOCK_SECURE > 0 then return false end
+  if self ~= nil and not self:IsProtected() then return false end
+  MOCK_BLOCKED[#MOCK_BLOCKED + 1] = { call = call, frame = self and (self._name or self._template or self._kind) or nil }
+  return true
+end
+for _, method in ipairs({ "Show", "Hide", "SetShown", "SetPoint", "ClearAllPoints", "SetAllPoints", "SetSize", "SetWidth", "SetHeight",
+  "SetParent", "SetScale", "SetAttribute", "SetEnabled", "Enable", "Disable", "RegisterForClicks", "SetFrameStrata", "SetFrameLevel" }) do
+  local original = rawget(FrameMT, method)
+  local visibility = method == "Show" or method == "Hide" or method == "SetShown"
+  FrameMT[method] = function(self, ...)
+    if refused(self, method) then return end
+    if not original then return end
+    if visibility and MOCK_SECURE > 0 then
+      -- The visibility change is secure; the frame's own OnShow/OnHide scripts are addon code.
+      local depth = MOCK_SECURE; MOCK_SECURE = 0
+      local ok, err = pcall(original, self, ...)
+      MOCK_SECURE = depth
+      if not ok then error(err, 0) end
+      return
+    end
+    return original(self, ...)
+  end
+end
+local createFrame = CreateFrame
+CreateFrame = function(kind, name, parent, template)
+  local secure = type(template) == "string" and template:find("Secure", 1, true) ~= nil
+  if secure and MOCK_LOCKDOWN == true and MOCK_SECURE == 0 then
+    MOCK_BLOCKED[#MOCK_BLOCKED + 1] = { call = "CreateFrame", frame = name or template }
+  end
+  local f = createFrame(kind, name, parent, template)
+  if secure then f._protected = true end
+  if secure and template:find("SecureHandler", 1, true) then
+    f._frameRefs = {}
+    f.SetFrameRef = function(self, label, ref)
+      if refused(self, "SetFrameRef") then return end
+      self._frameRefs[label] = ref
+    end
+  end
+  return f
+end
+SecureHandlerSetFrameRef = function(frame, label, ref) return frame:SetFrameRef(label, ref) end
+-- Restricted-environment frame handles: only these methods, and protected-only Show/Hide in combat.
+local function handle(frame)
+  if type(frame) ~= "table" then return nil end
+  local function restricted(name)
+    if MOCK_LOCKDOWN == true and not frame:IsProtected() then error("restricted " .. name .. " on an unprotected frame in combat") end
+  end
+  return {
+    GetFrameRef = function(_, label) return handle(frame._frameRefs and frame._frameRefs[label]) end,
+    IsShown = function() return frame:IsShown() end,
+    IsProtected = function() return frame:IsProtected() end,
+    Hide = function() restricted("Hide"); frame:Hide() end,
+    Show = function() restricted("Show"); frame:Show() end,
+  }
+end
+local function conditional(values)
+  for clause in (tostring(values) .. ";"):gmatch("([^;]*);") do
+    clause = clause:match("^%s*(.-)%s*$")
+    local condition, value = clause:match("^%[(.-)%]%s*(.*)$")
+    if not condition then return clause ~= "" and clause or nil end
+    if condition == "combat" and MOCK_COMBAT == true or condition == "nocombat" and MOCK_COMBAT ~= true then return value end
+  end
+end
+local function secureRun(fn)
+  MOCK_SECURE = MOCK_SECURE + 1
+  local ok, err = pcall(fn)
+  MOCK_SECURE = MOCK_SECURE - 1
+  if not ok then MOCK_SECURE_ERRORS[#MOCK_SECURE_ERRORS + 1] = tostring(err) end
+end
+function MockEvaluateStateDrivers()
+  for _, driver in ipairs(MOCK_STATE_DRIVERS) do
+    if driver.active then
+      local frame, state = driver.frame, driver.state
+      local value = conditional(driver.values)
+      if frame:GetAttribute("state-" .. state) ~= value then
+        secureRun(function()
+          frame:SetAttribute("state-" .. state, value)
+          local body = frame:GetAttribute("_onstate-" .. state)
+          if type(body) == "string" then
+            local chunk = assert(loadstring(body))
+            setfenv(chunk, { self = handle(frame), stateid = state, newstate = value })
+            chunk()
+          end
+        end)
+      end
+    end
+  end
+end
+RegisterStateDriver = function(frame, state, values)
+  if refused(frame, "RegisterStateDriver") then return end
+  if not frame or not frame._protected then error("RegisterStateDriver needs a protected frame") end
+  for _, driver in ipairs(MOCK_STATE_DRIVERS) do
+    if driver.frame == frame and driver.state == state then driver.values, driver.active = values, true; MockEvaluateStateDrivers(); return end
+  end
+  MOCK_STATE_DRIVERS[#MOCK_STATE_DRIVERS + 1] = { frame = frame, state = state, values = values, active = true }
+  MockEvaluateStateDrivers()
+end
+UnregisterStateDriver = function(frame, state)
+  if refused(frame, "UnregisterStateDriver") then return end
+  for _, driver in ipairs(MOCK_STATE_DRIVERS) do if driver.frame == frame and driver.state == state then driver.active = false end end
+end
+-- Deliver an event to every mock frame registered for it, in creation order.
+function MockFireEvent(event, ...)
+  local targets = {}
+  for _, f in ipairs(FRAMES) do if f._events and f._events[event] then targets[#targets + 1] = f end end
+  for _, f in ipairs(targets) do local script = f:GetScript("OnEvent"); if script then script(f, event, ...) end end
+end
+-- Combat start: by default the client fires PLAYER_REGEN_DISABLED before lockdown
+-- begins. lockdownFirst models the case Codex raised, where it does not.
+function MockCombatStart(lockdownFirst)
+  MOCK_COMBAT = true
+  if lockdownFirst then MOCK_LOCKDOWN = true end
+  MockFireEvent("PLAYER_REGEN_DISABLED")
+  MOCK_LOCKDOWN = true
+  MockEvaluateStateDrivers()
+end
+function MockCombatEnd()
+  MOCK_COMBAT, MOCK_LOCKDOWN = false, false
+  MockEvaluateStateDrivers()
+  MockFireEvent("PLAYER_REGEN_ENABLED")
+end

@@ -1,0 +1,2594 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "class",
+ "id": "rogue",
+ "name": "Rogue",
+ "status": "complete",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json classes[3] (2026-11-04), rewritten into the complete course",
+ "factFiles": [
+  "common",
+  "class-rogue",
+  "talents-rogue"
+ ],
+ "quizFiles": [
+  "class-rogue",
+  "talents-rogue"
+ ],
+ "overview": {
+  "lead": "Rogues are melee damage dealers who fight with Energy, combo points, stealth and poisons. Forever gives their poisons more charges and Attack Power scaling, adds one-handed axes, and lets Expose Armor stack with a Warrior's Sunder Armor.",
+  "points": [
+   {
+    "text": "Assassination builds to Mutilate with a dagger in each hand, Combat takes any one-handed weapon and owns Blade Flurry, the only Rogue cleave, and Subtlety builds to Death Mark with bleeds and stealth openers.",
+    "facts": [
+     "talents-rogue.assassination-mutilate",
+     "talents-rogue.combat-blade-flurry",
+     "class-rogue.raid-outlook-2",
+     "talents-rogue.subtlety-death-mark"
+    ]
+   },
+   {
+    "text": "Racials changed on 26 October: Human Ruthless is +1% crit and Dwarf Artisan's Precision is +1% hit with spells and attacks. No racial grants weapon skill.",
+    "facts": [
+     "common.racial-human-ruthless",
+     "common.racial-dwarf-artisans-precision",
+     "common.racial-weapon-skill"
+    ]
+   }
+  ],
+  "facts": [
+   "class-rogue.change-1",
+   "class-rogue.change-4",
+   "class-rogue.change-5"
+  ]
+ },
+ "heldBack": [
+  {
+   "from": "classes[3].overview[0]",
+   "text": "Blizzard says any Rogue spec has a place in a group thanks to stealth and control, and poisons stay a Rogue-only tool.",
+   "reason": "No reviewed fact holds this line."
+  },
+  {
+   "from": "classes[3].overview[2]",
+   "text": "(Alliance trainer: Buliwyf Stonehand in Ironforge, per Warcraft Tavern)",
+   "reason": "No reviewed fact names the axe trainer."
+  },
+  {
+   "from": "classes[3].specs[0].beginner.leveling[0]",
+   "text": "Warcraft Tavern advises against Assassination as a starter spec until you reach Mutilate at the 21-point tier.",
+   "reason": "Mutilate is on row 7 in the 10 November data, and no reviewed fact holds the advice."
+  },
+  {
+   "from": "classes[3].specs[0].beginner.tips[0]",
+   "text": "Energy now regenerates smoothly at about 10 per second instead of in 20-point ticks, so there is no tick timing to learn (talentsforever data).",
+   "reason": "No reviewed fact holds the regeneration rate."
+  },
+  {
+   "from": "classes[3].specs[0].beginner.tips[1]",
+   "text": "Rogues learn Shank at level 24 and its second rank at 44.",
+   "reason": "No reviewed fact holds either level."
+  },
+  {
+   "from": "classes[3].specs[0].beginner.tips[3]",
+   "text": "Check the current tree when planning a build from the October snapshot.",
+   "reason": "The calculator now uses the 10 November data."
+  },
+  {
+   "from": "classes[3].specs[0].pvp.overview[0]",
+   "text": "but since 24 September sapping a PvP-flagged player flags you",
+   "reason": "No reviewed fact holds the flagging rule."
+  },
+  {
+   "from": "classes[3].specs[0].pvp.overview[2]",
+   "text": "Warcraft Tavern names Human (Will to Survive breaks stuns) and Gnome (Escape Artist) as strong Alliance PvP races.",
+   "reason": "No reviewed fact holds either racial."
+  },
+  {
+   "from": "classes[3].specs[0].pvp.matchups[1], classes[3].specs[2].pvp.matchups[1]",
+   "text": "Entrapment can root you on a Frost Trap's first hit. Wyvern Sting is gone",
+   "reason": "Entrapment now follows the 10 November talent text. The Wyvern Sting removal is a Hunter fact (class-hunter.change-8) that this course does not load."
+  },
+  {
+   "from": "classes[3].specs[1].beginner.summary[2]",
+   "text": "since Puncturing Wounds and Aggression now boost Backstab too",
+   "reason": "In the 10 November data Aggression raises Sinister Strike and Eviscerate, not Backstab."
+  },
+  {
+   "from": "classes[3].specs[1].beginner.rotation[0]",
+   "text": "or Backstab from behind with a dagger",
+   "reason": "No reviewed fact holds Backstab's requirements."
+  },
+  {
+   "from": "classes[3].specs[1].beginner.rotation[1]",
+   "text": "Spend 5 combo points on Eviscerate; Flawless Execution makes it 10 Energy cheaper.",
+   "reason": "Flawless Execution saves 15 Energy in the 10 November data; the step now says so."
+  },
+  {
+   "from": "classes[3].specs[1].beginner.leveling[0]",
+   "text": "Warcraft Tavern points to Combat as the easiest leveling spec; its build takes Deflection, Riposte, Blade Flurry and Flawless Execution.",
+   "reason": "No reviewed fact holds this advice."
+  },
+  {
+   "from": "classes[3].specs[1].beginner.leveling[3]",
+   "text": "Dual Specialization unlocks at level 40, so you can keep a leveling spec beside a group spec.",
+   "reason": "No reviewed fact holds the level."
+  },
+  {
+   "from": "classes[3].specs[1].pvp.overview[0], classes[3].specs[2].pvp.overview[0]",
+   "text": "MeinMMO rates Combat's PvP as weak next to Subtlety. MeinMMO calls Subtlety the strong PvP Rogue build, though its dagger play asks you to stay behind your target.",
+   "reason": "MeinMMO is not a reviewed source."
+  },
+  {
+   "from": "classes[3].specs[2].beginner.leveling[0]",
+   "text": "Subtlety's key talents sit deep in the tree, so it is weak early, and guides point new Rogues to Combat for leveling.",
+   "reason": "No reviewed fact holds the advice; the step now names the rows."
+  },
+  {
+   "from": "classes[3].specs[2].beginner.leveling[1]",
+   "text": "(row 3)",
+   "reason": "Ghostly Strike is on row 4 in the 10 November data."
+  },
+  {
+   "from": "classes[3].specs[2].beginner.tips[2]",
+   "text": "Setup and Initiative now reach 100% at 3 points, per Blizzard.",
+   "reason": "In the 10 November data Initiative reaches 100% at rank 3 and Setup reaches 45%."
+  },
+  {
+   "from": "classes[3].specs[2].pvp.overview[1]",
+   "text": "(now 16 points deep",
+   "reason": "Premeditation is on row 3 in the 10 November data."
+  }
+ ],
+ "tracks": {
+  "101": {
+   "summary": "What every Rogue should know before choosing a spec: the Forever changes, the poisons quest and the racial choice.",
+   "chapters": [
+    {
+     "id": "rogue-101-forever-changes",
+     "section": "overview",
+     "title": "What Forever changes for Rogues",
+     "theory": [
+      "class-rogue.change-1",
+      "class-rogue.change-2",
+      "class-rogue.change-3",
+      "class-rogue.change-4",
+      "class-rogue.change-5"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Keep a sharpening stone or weightstone on your weapons as well as a poison: they no longer exclude each other, and poisons have more charges.",
+        "facts": [
+         "class-rogue.change-1"
+        ]
+       },
+       {
+        "text": "Count Malice's crit and Precision's hit toward your poisons as well as your weapon attacks.",
+        "facts": [
+         "class-rogue.change-1"
+        ]
+       },
+       {
+        "text": "Since 16 October poisons no longer proc against a target that is attacking you, so they do most for you on targets fighting someone else.",
+        "facts": [
+         "class-rogue.change-1"
+        ]
+       },
+       {
+        "text": "Put Expose Armor up even when a Warrior applies Sunder Armor: Expose Armor equals five Sunder Armor stacks and no longer blocks Sunder.",
+        "facts": [
+         "class-rogue.change-2"
+        ]
+       },
+       {
+        "text": "Check one-handed axes as well as swords, maces, daggers and fist weapons: Rogues can now equip them.",
+        "facts": [
+         "class-rogue.change-4",
+         "talents-rogue.combat-hack-and-slash.r1"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Skipping a weapon stone because a poison is on.",
+        "fix": "Poisons can now be applied alongside sharpening stones and weightstones.",
+        "facts": [
+         "class-rogue.change-1"
+        ]
+       },
+       {
+        "mistake": "Planning 5 points of Precision as in Classic.",
+        "fix": "Precision has 3 ranks for up to +3% hit; Classic had 5 ranks for 5%.",
+        "facts": [
+         "class-rogue.change-5"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "rogue-101-class-quests",
+     "section": "overview",
+     "title": "Pick Lock and the poisons quest",
+     "theory": [
+      "class-rogue.quest-pick-lock-training",
+      "class-rogue.quest-poisons-quest-klavens-tower",
+      "class-rogue.quest-poison-unlocks"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Train Pick Lock at level 16 and raise Lockpicking from then on: the poisons quest needs 80.",
+        "facts": [
+         "class-rogue.quest-pick-lock-training"
+        ]
+       },
+       {
+        "text": "The Alliance poisons chain runs from Master Mathias Shaw in Stormwind to Agent Kearnen in Westfall, then to Klaven's Tower and the elite Klaven Mortwake. Poisons are taught when you turn in at Stormwind.",
+        "facts": [
+         "class-rogue.quest-poisons-quest-klavens-tower"
+        ]
+       },
+       {
+        "text": "Warcraft Tavern suggests level 22 or a group for the tower. If you pick up Touch of Zanzil, Anti-Venom or Doc Mixilpixil's quest chain clears it.",
+        "facts": [
+         "class-rogue.quest-poisons-quest-klavens-tower"
+        ]
+       },
+       {
+        "text": "Poisons arrive in steps: Instant after the questline, Crippling at 20, Mind-numbing at 24, Deadly at 30 and Wound at 32. Reagents come from Shady Dealers.",
+        "facts": [
+         "class-rogue.quest-poison-unlocks"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Arriving at the poisons quest with low Lockpicking.",
+        "fix": "It needs 80 Lockpicking, and Pick Lock is trained at level 16, so raise the skill as you level.",
+        "facts": [
+         "class-rogue.quest-pick-lock-training",
+         "class-rogue.quest-poisons-quest-klavens-tower"
+        ]
+       },
+       {
+        "mistake": "Letting the Poisons skill fall behind.",
+        "fix": "Poisons skill caps at 5x your level (300 at 60), so keep it at the cap.",
+        "facts": [
+         "class-rogue.quest-poison-unlocks"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "rogue-101-race",
+     "section": "overview",
+     "title": "Choosing a race",
+     "theory": [
+      "common.racial-human-ruthless",
+      "common.racial-dwarf-artisans-precision",
+      "common.racial-skyborne-wind-blessed",
+      "common.racial-weapon-skill"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "A Human Rogue gets +1% crit from Ruthless, cut from 2% on 26 October.",
+        "facts": [
+         "common.racial-human-ruthless"
+        ]
+       },
+       {
+        "text": "A Dwarf Rogue gets +1% hit with spells and attacks from Artisan's Precision.",
+        "facts": [
+         "common.racial-dwarf-artisans-precision"
+        ]
+       },
+       {
+        "text": "A High Order Skyborne Rogue gets +2% haste from Wind-Blessed.",
+        "facts": [
+         "common.racial-skyborne-wind-blessed"
+        ]
+       },
+       {
+        "text": "Leave weapon skill out of the choice: no racial grants it in Forever.",
+        "facts": [
+         "common.racial-weapon-skill"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Picking Human for a sword or mace skill bonus.",
+        "fix": "No racial grants weapon skill in Forever.",
+        "facts": [
+         "common.racial-weapon-skill"
+        ]
+       },
+       {
+        "mistake": "Using an older guide that gives Ruthless 2% crit.",
+        "fix": "Ruthless is +1% crit since the 26 October notes.",
+        "facts": [
+         "common.racial-human-ruthless"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "rogue-101-macros",
+     "section": "macros",
+     "title": "Essential macros",
+     "theory": [],
+     "unavailable": "No Rogue macro has been checked in Forever yet. When one is, it will use only /cast, /use, /target and /stopattack with conditionals, because custom scripts stay disabled in the game client."
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "rotation",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in each spec's course."
+    }
+   ]
+  },
+  "201": {
+   "summary": "What a Rogue brings to a group, whatever the spec.",
+   "chapters": [
+    {
+     "id": "rogue-201-group-utility",
+     "section": "praxis",
+     "title": "What Rogues bring to a group",
+     "theory": [
+      "class-rogue.change-2",
+      "class-rogue.change-3",
+      "class-rogue.feint",
+      "class-rogue.launch-raids",
+      "class-rogue.onyxias-lair-entry"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Agree on armor reduction with your Warriors: Expose Armor equals five Sunder Armor stacks and no longer blocks Sunder, so both can go on the boss.",
+        "facts": [
+         "class-rogue.change-2"
+        ]
+       },
+       {
+        "text": "Use Feint when your threat closes in on the tank's; its threat reduction is doubled in Forever.",
+        "facts": [
+         "class-rogue.feint"
+        ]
+       },
+       {
+        "text": "Sap no longer breaks your Stealth, and Distract lowers enemy stealth detection for 10 seconds, so you can Sap part of a pull and stay hidden.",
+        "facts": [
+         "class-rogue.change-3"
+        ]
+       },
+       {
+        "text": "Carry your own Drakefire Amulet for Onyxia's Lair, and build fire resistance before the fight.",
+        "facts": [
+         "class-rogue.onyxias-lair-entry"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Holding Expose Armor back because a Warrior is applying Sunder Armor.",
+        "fix": "Expose Armor no longer blocks Sunder, so both can contribute.",
+        "facts": [
+         "class-rogue.change-2"
+        ]
+       },
+       {
+        "mistake": "Using Distract near enemy players and expecting to stay unnoticed.",
+        "fix": "Distract now warns enemy players that a Rogue is near.",
+        "facts": [
+         "class-rogue.change-3"
+        ]
+       }
+      ]
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "The 101 overview covers this."
+    },
+    {
+     "section": "talents",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "rotation",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "macros",
+     "reason": "No Rogue macro has been checked in Forever yet."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Advanced chapters live in each spec's 301 track.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "talents",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "rotation",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "gear",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "consumables",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "macros",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "praxis",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    }
+   ]
+  }
+ },
+ "specs": [
+  {
+   "id": "assassination",
+   "name": "Assassination",
+   "roles": [
+    "melee"
+   ],
+   "overview": {
+    "lead": "Assassination builds to Mutilate with a dagger in each hand and makes poisons a large share of its damage: Vile Poisons, Improved Poisons and Venom all feed them.",
+    "points": [
+     {
+      "text": "Mutilate sits on row 7 and requires Venom. It strikes with both weapons, deals 20% more damage against poisoned targets and awards 2 combo points.",
+      "facts": [
+       "talents-rogue.assassination-mutilate",
+       "talents-rogue.assassination-mutilate.r1"
+      ]
+     },
+     {
+      "text": "Blizzard's latest notes remove Murder, make Venom a passive that Shank triggers, and set Relentless Strikes at five points, Lethality at two and Seal Fate at three.",
+      "facts": [
+       "class-rogue.change-6"
+      ]
+     }
+    ],
+    "facts": [
+     "talents-rogue.assassination-summary",
+     "class-rogue.raid-outlook"
+    ]
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling as Assassination, the core rotation and poisons while you level.",
+     "chapters": [
+      {
+       "id": "rogue-assassination-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-rogue.assassination-summary",
+        "talents-rogue.assassination-malice.r1",
+        "talents-rogue.assassination-remorseless-attacks.r1",
+        "talents-rogue.assassination-venom.r1",
+        "talents-rogue.assassination-mutilate",
+        "class-rogue.change-6"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Start with Malice and Remorseless Attacks. Malice adds 1% crit with attacks and poisons per rank, and Remorseless Attacks at rank 1 of 2 gives your next Sinister Strike, Backstab, Ambush, Mutilate or Ghostly Strike 20% more crit chance after a kill.",
+          "facts": [
+           "talents-rogue.assassination-malice.r1",
+           "talents-rogue.assassination-remorseless-attacks.r1"
+          ]
+         },
+         {
+          "text": "Venom on row 5 is the first big pick: it makes Shank raise your poison damage by 30% and your chance to apply poisons by 20% for 6 sec.",
+          "facts": [
+           "talents-rogue.assassination-venom",
+           "talents-rogue.assassination-venom.r1"
+          ]
+         },
+         {
+          "text": "Mutilate sits on row 7, the last row, and requires Venom, so take Venom on the way down.",
+          "facts": [
+           "talents-rogue.assassination-mutilate"
+          ]
+         },
+         {
+          "text": "Mutilate requires daggers, so carry two daggers by the time you take it.",
+          "facts": [
+           "talents-rogue.assassination-mutilate",
+           "class-rogue.mutilate"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Planning points for Murder from a Classic or beta guide.",
+          "fix": "Murder is gone from Assassination in Forever.",
+          "facts": [
+           "class-rogue.change-6"
+          ]
+         },
+         {
+          "mistake": "Taking Mutilate with a sword or axe in one hand.",
+          "fix": "Mutilate requires daggers: a dagger in each hand.",
+          "facts": [
+           "talents-rogue.assassination-mutilate",
+           "class-rogue.mutilate"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "rogue-assassination-leveling-30"
+       ]
+      },
+      {
+       "id": "rogue-assassination-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [
+        "talents-rogue.assassination-mutilate.r1",
+        "talents-rogue.assassination-seal-fate.r3",
+        "talents-rogue.assassination-cold-blood.r1",
+        "talents-rogue.assassination-improved-poisons.r5",
+        "class-rogue.change-1"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Keep a poison on each weapon. Poisons have more charges now, and Improved Poisons at rank 5 of 5 gives each application a 50% chance not to use a charge.",
+          "facts": [
+           "class-rogue.change-1",
+           "talents-rogue.assassination-improved-poisons.r5"
+          ]
+         },
+         {
+          "text": "Build combo points with Mutilate: it awards 2 per cast and deals 20% more damage against poisoned targets.",
+          "facts": [
+           "talents-rogue.assassination-mutilate.r1"
+          ]
+         },
+         {
+          "text": "With Seal Fate at rank 3 of 3, every crit from an ability that adds combo points adds one more.",
+          "facts": [
+           "talents-rogue.assassination-seal-fate.r3"
+          ]
+         },
+         {
+          "text": "Use Shank for Energy; with Venom it also raises your poison damage for 6 sec.",
+          "facts": [
+           "talents-rogue.combat-flash-of-steel.r1",
+           "talents-rogue.assassination-venom.r1"
+          ]
+         },
+         {
+          "text": "Use Cold Blood before Mutilate or Eviscerate: it raises the crit chance of the next one by 100%.",
+          "facts": [
+           "talents-rogue.assassination-cold-blood.r1"
+          ]
+         },
+         {
+          "text": "Keep Slice and Dice up and spend spare combo points on Eviscerate."
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Opening with Mutilate on an unpoisoned target.",
+          "fix": "Mutilate deals 20% more damage against poisoned targets, so let a poison land first.",
+          "facts": [
+           "talents-rogue.assassination-mutilate.r1"
+          ]
+         },
+         {
+          "mistake": "Spending Cold Blood on a weak attack.",
+          "fix": "Cold Blood works on your next Sinister Strike, Backstab, Ambush, Eviscerate or Mutilate; save it for Mutilate or a big Eviscerate.",
+          "facts": [
+           "talents-rogue.assassination-cold-blood.r1"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "rogue-assassination-101-poisons",
+       "section": "rotation",
+       "title": "Poisons while leveling",
+       "theory": [
+        "class-rogue.quest-poison-unlocks",
+        "class-rogue.poisons-with-stones",
+        "talents-rogue.assassination-vile-poisons.r5",
+        "talents-rogue.assassination-lethality.r2"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Use Instant Poison from the questline on; Crippling comes at 20, Mind-numbing at 24, Deadly at 30 and Wound at 32.",
+          "facts": [
+           "class-rogue.quest-poison-unlocks"
+          ]
+         },
+         {
+          "text": "Vile Poisons at rank 5 of 5 raises poison damage by 20% and gives your poisons an extra 40% chance to resist dispels.",
+          "facts": [
+           "talents-rogue.assassination-vile-poisons.r5"
+          ]
+         },
+         {
+          "text": "Poisons can share a weapon with a sharpening stone or weightstone.",
+          "facts": [
+           "class-rogue.poisons-with-stones"
+          ]
+         },
+         {
+          "text": "Lethality takes two points: 10% or 20% more critical damage on Sinister Strike, Gouge, Backstab, Mutilate, Ghostly Strike and Hemorrhage.",
+          "facts": [
+           "class-rogue.change-6",
+           "talents-rogue.assassination-lethality.r1",
+           "talents-rogue.assassination-lethality.r2"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Waiting for Deadly Poison before using poisons at all.",
+          "fix": "Deadly Poison comes at 30; Instant and Crippling are there before it.",
+          "facts": [
+           "class-rogue.quest-poison-unlocks"
+          ]
+         },
+         {
+          "mistake": "Spending more than two points on Lethality.",
+          "fix": "Lethality has 2 ranks in Forever.",
+          "facts": [
+           "class-rogue.change-6",
+           "talents-rogue.assassination-lethality"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "See the class course: no Rogue macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "The level-60 build, combo points and Energy, stat priorities, consumables, the raid and PvP.",
+     "chapters": [
+      {
+       "id": "rogue-assassination-201-talents",
+       "section": "talents",
+       "title": "Level-60 build",
+       "theory": [
+        "talents-rogue.assassination-seal-fate.r3",
+        "talents-rogue.assassination-relentless-strikes.r5",
+        "talents-rogue.assassination-vile-poisons.r5",
+        "talents-rogue.combat-precision.r3",
+        "class-rogue.raid-outlook"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Seal Fate has 3 ranks in Forever; at rank 3 of 3 every crit from a combo-point ability adds an extra combo point.",
+          "facts": [
+           "talents-rogue.assassination-seal-fate",
+           "talents-rogue.assassination-seal-fate.r3"
+          ]
+         },
+         {
+          "text": "Relentless Strikes takes five points: at rank 5 of 5 your finishing moves have a 20% chance per combo point to restore 25 Energy.",
+          "facts": [
+           "class-rogue.change-6",
+           "talents-rogue.assassination-relentless-strikes.r5"
+          ]
+         },
+         {
+          "text": "Take Precision from the Combat tree: 3% hit at rank 3 of 3, and Warcraft Tavern advises it for raids.",
+          "facts": [
+           "talents-rogue.combat-precision.r3",
+           "class-rogue.raid-outlook"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Planning a five-point Seal Fate or points in Murder.",
+          "fix": "Seal Fate takes three points and Murder is gone.",
+          "facts": [
+           "class-rogue.change-6"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "rogue-assassination-raid-60"
+       ]
+      },
+      {
+       "id": "rogue-assassination-201-combo",
+       "section": "rotation",
+       "title": "Combo points and Energy",
+       "theory": [
+        "talents-rogue.assassination-ruthlessness.r3",
+        "talents-rogue.assassination-relentless-strikes.r5",
+        "talents-rogue.assassination-improved-expose-armor.r2",
+        "talents-rogue.assassination-vigor.r2"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Ruthlessness gives your finishing moves up to a 60% chance (rank 3 of 3) to add a combo point to the target, so the next finisher starts ahead.",
+          "facts": [
+           "talents-rogue.assassination-ruthlessness.r3"
+          ]
+         },
+         {
+          "text": "Relentless Strikes rolls per combo point: at rank 5 of 5 each point gives a 20% chance to restore 25 Energy, so a five-point finisher refunds Energy more often than a one-point one.",
+          "facts": [
+           "talents-rogue.assassination-relentless-strikes.r5"
+          ]
+         },
+         {
+          "text": "Vigor raises your maximum Energy by 10 at rank 2 of 2, which leaves room to pool before Cold Blood.",
+          "facts": [
+           "talents-rogue.assassination-vigor.r2"
+          ]
+         },
+         {
+          "text": "Improved Expose Armor at rank 2 of 2 cuts Expose Armor's cost by 10 Energy and refunds 2 combo points when you cast it with 5.",
+          "facts": [
+           "talents-rogue.assassination-improved-expose-armor.r2"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Casting Expose Armor with fewer than 5 combo points and expecting the refund.",
+          "fix": "Improved Expose Armor refunds combo points only when Expose Armor is cast with 5 Combo Points.",
+          "facts": [
+           "talents-rogue.assassination-improved-expose-armor.r2"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "rogue-assassination-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-rogue.precision",
+        "class-rogue.hit-cap-at-level-60",
+        "class-rogue.poison-scaling",
+        "class-rogue.venom",
+        "class-rogue.mutilate",
+        "class-rogue.racials"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Precision gives up to +3% hit over 3 ranks, and the hit applies to attacks, spells and poisons.",
+          "facts": [
+           "class-rogue.precision"
+          ]
+         },
+         {
+          "text": "Attack Power raises your poison damage as well as your weapon damage; the advanced track gives the coefficients.",
+          "facts": [
+           "class-rogue.change-1",
+           "class-rogue.poison-scaling"
+          ]
+         },
+         {
+          "text": "Venom makes each Shank worth 30% more poison damage and a 20% higher chance to apply poisons for six seconds.",
+          "facts": [
+           "class-rogue.venom"
+          ]
+         },
+         {
+          "text": "Count +1% hit for a Dwarf and +1% crit for a Human.",
+          "facts": [
+           "class-rogue.racials"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Taking Precision for weapon hit only.",
+          "fix": "Precision's hit applies to attacks, spells and poisons.",
+          "facts": [
+           "class-rogue.precision"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "rogue-assassination-201-gear",
+       "section": "gear",
+       "title": "Pre-raid and phase gear",
+       "theory": [],
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
+      },
+      {
+       "id": "rogue-assassination-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-rogue.poisons-with-stones",
+        "class-rogue.poison-supplies",
+        "class-rogue.food-in-forever",
+        "class-rogue.world-buffs-in-raids",
+        "class-rogue.classic-melee-staples"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Put a sharpening stone or weightstone on your weapons alongside your poisons; the two no longer exclude each other.",
+          "facts": [
+           "class-rogue.poisons-with-stones"
+          ]
+         },
+         {
+          "text": "Buy poison reagents from Shady Dealers, and keep Poisons skill at its cap of 5x your level (300 at 60).",
+          "facts": [
+           "class-rogue.poison-supplies"
+          ]
+         },
+         {
+          "text": "Eat Grilled Squid (+1% crit) or Mightfish Steak (+40 Attack Power). Icy Veins says both need an Iron Oven camp object (Cooking 300).",
+          "facts": [
+           "class-rogue.food-in-forever"
+          ]
+         },
+         {
+          "text": "Plan raid nights without world buffs: Icy Veins says they are removed inside raids, and Wowhead's Forever data marks Rallying Cry of the Dragonslayer 'No effect while in a raid instance'.",
+          "facts": [
+           "class-rogue.world-buffs-in-raids"
+          ]
+         },
+         {
+          "text": "Read the Classic melee list (Elixir of the Mongoose, Juju Might, Juju Power and the rest) as a Classic reference, not a list checked in Forever.",
+          "facts": [
+           "class-rogue.classic-melee-staples"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Counting on world buffs inside the raid.",
+          "fix": "Icy Veins' raid overview says world buffs are removed inside raids.",
+          "facts": [
+           "class-rogue.world-buffs-in-raids"
+          ]
+         },
+         {
+          "mistake": "Eating Grilled Squid for Agility.",
+          "fix": "Grilled Squid now gives +1% crit instead of Agility.",
+          "facts": [
+           "class-rogue.food-in-forever"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "rogue-assassination-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-rogue.raid-outlook",
+        "class-rogue.shank-and-venom",
+        "class-rogue.expose-armor",
+        "class-rogue.feint",
+        "class-rogue.onyxias-lair-entry",
+        "class-rogue.launch-raids"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Warcraft Tavern expects Assassination to do well in most fights, though there is no consensus yet, and advises Precision for raids.",
+          "facts": [
+           "class-rogue.raid-outlook"
+          ]
+         },
+         {
+          "text": "Shank with Venom lifts poison damage and poison application chance for six seconds, so line up Mutilate inside that window.",
+          "facts": [
+           "class-rogue.shank-and-venom"
+          ]
+         },
+         {
+          "text": "Keep Expose Armor up alongside your Warriors' Sunder Armor: it equals five Sunder Armor stacks and no longer blocks Sunder.",
+          "facts": [
+           "class-rogue.expose-armor"
+          ]
+         },
+         {
+          "text": "Feint when your threat climbs; its threat reduction is doubled in Forever.",
+          "facts": [
+           "class-rogue.feint"
+          ]
+         },
+         {
+          "text": "Carry your own Drakefire Amulet for Onyxia's Lair, and build fire resistance first.",
+          "facts": [
+           "class-rogue.onyxias-lair-entry"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Treating Venom as a permanent buff.",
+          "fix": "Venom is a passive that Shank triggers, and its boost lasts six seconds after each Shank.",
+          "facts": [
+           "class-rogue.shank-and-venom",
+           "class-rogue.change-6"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "rogue-assassination-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [
+        "class-rogue.change-3",
+        "talents-rogue.assassination-cold-blood.r1",
+        "talents-rogue.assassination-improved-kidney-shot.r2",
+        "class-rogue.vs-warrior-improved-berserker-rage",
+        "class-rogue.vs-warrior-mortal-strike",
+        "class-rogue.vs-warrior-victory-rush",
+        "class-rogue.vs-hunter-traps",
+        "class-rogue.vs-hunter-entrapment",
+        "class-rogue.vs-hunter-auto-shot"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Sap no longer breaks your Stealth, so you can Sap one player and stay hidden for the next.",
+          "facts": [
+           "class-rogue.change-3"
+          ]
+         },
+         {
+          "text": "Burst with Cold Blood into Mutilate on a poisoned target. Improved Kidney Shot makes a target stunned by your Kidney Shot take 5% more damage from your poisons and attacks at rank 1 of 2, and 10% at rank 2.",
+          "facts": [
+           "talents-rogue.assassination-cold-blood.r1",
+           "talents-rogue.assassination-improved-kidney-shot.r1",
+           "talents-rogue.assassination-improved-kidney-shot.r2"
+          ]
+         },
+         {
+          "text": "Against Warriors: Improved Berserker Rage at rank 2 of 2 removes every movement impairing effect when they use Berserker Rage, so your slows may not hold, and Victory Rush heals them 10% after a kill.",
+          "facts": [
+           "class-rogue.vs-warrior-improved-berserker-rage",
+           "class-rogue.vs-warrior-victory-rush"
+          ]
+         },
+         {
+          "text": "Against Arms Warriors, Mortal Strike cuts healing on you by 50% for 10 sec.",
+          "facts": [
+           "class-rogue.vs-warrior-mortal-strike"
+          ]
+         },
+         {
+          "text": "Against Hunters: they can lay traps in combat on one shared 30-second cooldown, and with Entrapment a trap can stop you moving for up to 5 sec. Auto Shot needs about half a second of standing still, so stay on them.",
+          "facts": [
+           "class-rogue.vs-hunter-traps",
+           "class-rogue.vs-hunter-entrapment",
+           "class-rogue.vs-hunter-auto-shot"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Opening on a Warrior with a slow and expecting it to stick.",
+          "fix": "Improved Berserker Rage at rank 2 of 2 gives Berserker Rage a 100% chance to remove all movement impairing effects.",
+          "facts": [
+           "class-rogue.vs-warrior-improved-berserker-rage"
+          ]
+         },
+         {
+          "mistake": "Using Distract and expecting to stay unnoticed.",
+          "fix": "Distract now warns enemy players that a Rogue is near.",
+          "facts": [
+           "class-rogue.change-3"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "macros",
+       "reason": "No Rogue macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Poison scaling is the one advanced topic the reviewed facts already cover. The rest waits for measured caps, client coefficients and raid logs, and each chapter says what is missing.",
+     "chapters": [
+      {
+       "id": "rogue-assassination-301-poison-scaling",
+       "section": "rotation",
+       "title": "Poison scaling",
+       "theory": [
+        "class-rogue.poison-scaling",
+        "class-rogue.change-1",
+        "talents-rogue.assassination-vile-poisons.r5",
+        "talents-rogue.assassination-malice.r5",
+        "talents-rogue.assassination-venom.r1"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Blizzard set the attack-power coefficients to 0.009 for Deadly Poison and 0.01 for Instant Poison, so Attack Power on your gear now adds poison damage.",
+          "facts": [
+           "class-rogue.poison-scaling"
+          ]
+         },
+         {
+          "text": "Poisons can crit, and hit chance counts for them: Malice's crit applies to them (5% at rank 5 of 5), and so does Precision's hit.",
+          "facts": [
+           "class-rogue.change-1",
+           "talents-rogue.assassination-malice.r5"
+          ]
+         },
+         {
+          "text": "Vile Poisons raises poison damage by 20% at rank 5 of 5, and Venom adds 30% for 6 sec after each Shank.",
+          "facts": [
+           "talents-rogue.assassination-vile-poisons.r5",
+           "talents-rogue.assassination-venom.r1"
+          ]
+         },
+         {
+          "text": "Since 16 October poisons no longer proc against a target that is attacking you, which costs you poison damage on anything you tank or duel.",
+          "facts": [
+           "class-rogue.change-1"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Using poison numbers from an older guide.",
+          "fix": "Blizzard increased the attack-power coefficients to 0.009 for Deadly Poison and 0.01 for Instant Poison.",
+          "facts": [
+           "class-rogue.poison-scaling"
+          ]
+         },
+         {
+          "mistake": "Expecting poison procs on a target that is hitting you.",
+          "fix": "Since 16 Oct, poisons no longer proc against targets that are attacking you.",
+          "facts": [
+           "class-rogue.change-1"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "rogue-assassination-301-coefficients",
+       "section": "rotation",
+       "title": "Attack coefficients and swing timing",
+       "theory": [],
+       "unavailable": "Forever's attack power coefficients for Rogue abilities and its swing-timer rules have not been read from client data or measured in reviewed logs. Only the Deadly and Instant Poison coefficients are known."
+      },
+      {
+       "id": "rogue-assassination-301-caps",
+       "section": "stat-caps",
+       "title": "Hit and crit breakpoints",
+       "theory": [
+        "class-rogue.hit-cap-at-level-60"
+       ],
+       "unavailable": "Blizzard has published no level-60 hit cap for Forever and community estimates conflict, so no breakpoint formula can be given yet."
+      },
+      {
+       "id": "rogue-assassination-301-bosses",
+       "section": "praxis",
+       "title": "Boss-by-boss execution",
+       "theory": [
+        "class-rogue.launch-raids"
+       ],
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
+      },
+      {
+       "id": "rogue-assassination-301-duels",
+       "section": "praxis",
+       "title": "Duels and battlegrounds against every class",
+       "theory": [],
+       "unavailable": "Reviewed matchup notes exist only for Warriors and Hunters, in 201 PvP. A plan against all nine classes waits for reviewed duel and battleground facts."
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "combat",
+   "name": "Combat",
+   "roles": [
+    "melee"
+   ],
+   "overview": {
+    "lead": "Combat takes any one-handed weapon and hits with direct strikes. Hack and Slash gives each weapon type its own bonus, and Blade Flurry is the only Rogue cleave.",
+    "points": [
+     {
+      "text": "Hack and Slash replaces Classic's Sword, Dagger, Fist Weapon and Mace Specializations: axes and swords get extra attacks, daggers and fist weapons get crit, and maces ignore armor.",
+      "facts": [
+       "class-rogue.hack-and-slash-replaces",
+       "class-rogue.hack-and-slash-at-5-5"
+      ]
+     },
+     {
+      "text": "Combat plays Sinister Strike or Backstab: Puncturing Wounds raises Backstab's crit chance, and Aggression raises Sinister Strike and Eviscerate damage.",
+      "facts": [
+       "talents-rogue.combat-puncturing-wounds.r3",
+       "talents-rogue.combat-aggression.r3"
+      ]
+     },
+     {
+      "text": "Blizzard's latest notes add Composure and Flash of Steel and give Dual Wield Specialization two ranks for 25% or 50% off-hand damage.",
+      "facts": [
+       "class-rogue.change-7"
+      ]
+     }
+    ],
+    "facts": [
+     "talents-rogue.combat-summary",
+     "class-rogue.raid-outlook-2"
+    ]
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling as Combat, the core rotation and choosing weapons.",
+     "chapters": [
+      {
+       "id": "rogue-combat-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-rogue.combat-summary",
+        "talents-rogue.combat-deflection.r1",
+        "talents-rogue.combat-riposte",
+        "talents-rogue.combat-riposte.r1",
+        "talents-rogue.combat-endurance.r1",
+        "talents-rogue.combat-blade-flurry.r1"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Take Deflection early: it adds 2% parry per rank, and Riposte requires it.",
+          "facts": [
+           "talents-rogue.combat-deflection.r1",
+           "talents-rogue.combat-riposte"
+          ]
+         },
+         {
+          "text": "Riposte becomes usable after you parry. For 10 Energy it deals 150% weapon damage and disarms the target for 6 sec.",
+          "facts": [
+           "talents-rogue.combat-riposte",
+           "talents-rogue.combat-riposte.r1"
+          ]
+         },
+         {
+          "text": "Endurance cuts the cooldowns of Sprint and Evasion by 30% at rank 1 and 60% at rank 2, which saves a pull that goes wrong.",
+          "facts": [
+           "talents-rogue.combat-endurance.r1",
+           "talents-rogue.combat-endurance.r2"
+          ]
+         },
+         {
+          "text": "Blade Flurry on row 5 lets you fight two mobs at once: 20% more attack speed, and your attacks strike an extra nearby opponent for 15 sec.",
+          "facts": [
+           "talents-rogue.combat-blade-flurry",
+           "talents-rogue.combat-blade-flurry.r1"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Looking for Dagger, Fist Weapon or Mace Specialization.",
+          "fix": "Hack and Slash replaces them; they are not in the Forever tree.",
+          "facts": [
+           "class-rogue.hack-and-slash-replaces",
+           "class-rogue.combat-removed-classic"
+          ]
+         },
+         {
+          "mistake": "Saving points for Adrenaline Rush and skipping Blade Flurry.",
+          "fix": "Adrenaline Rush now requires Blade Flurry.",
+          "facts": [
+           "talents-rogue.combat-adrenaline-rush"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "rogue-combat-leveling-30"
+       ]
+      },
+      {
+       "id": "rogue-combat-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [
+        "talents-rogue.combat-efficient-strikes.r2",
+        "talents-rogue.combat-flawless-execution.r1",
+        "talents-rogue.combat-aggression.r3",
+        "talents-rogue.combat-blade-flurry.r1",
+        "talents-rogue.combat-adrenaline-rush.r1",
+        "talents-rogue.combat-riposte.r1"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Build combo points with Sinister Strike; Efficient Strikes cuts its cost by 3 or 5 Energy.",
+          "facts": [
+           "talents-rogue.combat-efficient-strikes.r1",
+           "talents-rogue.combat-efficient-strikes.r2"
+          ]
+         },
+         {
+          "text": "Keep Slice and Dice up, then spend combo points on Eviscerate. Flawless Execution makes Eviscerate 15 Energy cheaper, and Aggression adds up to 15% to Sinister Strike and Eviscerate.",
+          "facts": [
+           "talents-rogue.combat-flawless-execution.r1",
+           "talents-rogue.combat-aggression.r3"
+          ]
+         },
+         {
+          "text": "Use Blade Flurry when two or more enemies stand close.",
+          "facts": [
+           "talents-rogue.combat-blade-flurry.r1"
+          ]
+         },
+         {
+          "text": "Use Adrenaline Rush for burst: it raises your Energy regeneration rate by 100% for 15 sec, on a 5 min cooldown.",
+          "facts": [
+           "talents-rogue.combat-adrenaline-rush",
+           "talents-rogue.combat-adrenaline-rush.r1"
+          ]
+         },
+         {
+          "text": "Press Riposte whenever it lights up after a parry.",
+          "facts": [
+           "talents-rogue.combat-riposte.r1"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Using an older guide's figure for Flawless Execution.",
+          "fix": "Flawless Execution reduces Eviscerate's cost by 15 Energy in the current talent data.",
+          "facts": [
+           "talents-rogue.combat-flawless-execution.r1"
+          ]
+         },
+         {
+          "mistake": "Starting Blade Flurry next to an enemy your group has crowd-controlled.",
+          "fix": "Blade Flurry makes your attacks strike an additional nearby opponent, and that can be the controlled one.",
+          "facts": [
+           "talents-rogue.combat-blade-flurry.r1"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "rogue-combat-101-weapons",
+       "section": "rotation",
+       "title": "Weapons and Hack and Slash",
+       "theory": [
+        "class-rogue.change-4",
+        "talents-rogue.combat-hack-and-slash.r1",
+        "talents-rogue.combat-dual-wield-specialization.r2",
+        "class-rogue.weapon-expertise",
+        "class-rogue.hack-and-slash-replaces"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Axes are new for Rogues, and Hack and Slash treats them like swords: a 1% chance per rank of an extra attack.",
+          "facts": [
+           "class-rogue.change-4",
+           "talents-rogue.combat-hack-and-slash.r1"
+          ]
+         },
+         {
+          "text": "Daggers and fist weapons get +1% crit per rank of Hack and Slash, and maces ignore 3% of armor per rank.",
+          "facts": [
+           "talents-rogue.combat-hack-and-slash.r1"
+          ]
+         },
+         {
+          "text": "Dual Wield Specialization gives 25% more off-hand damage at rank 1 and 50% at rank 2.",
+          "facts": [
+           "talents-rogue.combat-dual-wield-specialization.r1",
+           "talents-rogue.combat-dual-wield-specialization.r2"
+          ]
+         },
+         {
+          "text": "Weapon Expertise now lowers the chance your attacks are dodged or parried, by 1% or 2%, instead of adding weapon skill.",
+          "facts": [
+           "class-rogue.weapon-expertise",
+           "talents-rogue.combat-weapon-expertise.r1",
+           "talents-rogue.combat-weapon-expertise.r2"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Choosing a race or a talent for sword skill.",
+          "fix": "No racial grants weapon skill, and Weapon Expertise lowers dodge and parry instead of adding skill.",
+          "facts": [
+           "common.racial-weapon-skill",
+           "class-rogue.weapon-expertise"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "See the class course: no Rogue macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "The level-60 build, the Energy budget, stat priorities, consumables, the raid and PvP.",
+     "chapters": [
+      {
+       "id": "rogue-combat-201-talents",
+       "section": "talents",
+       "title": "Level-60 build",
+       "theory": [
+        "class-rogue.hack-and-slash-at-5-5",
+        "talents-rogue.combat-adrenaline-rush",
+        "talents-rogue.combat-dual-wield-specialization.r2",
+        "talents-rogue.combat-flash-of-steel.r5",
+        "class-rogue.combat-removed-classic"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Hack and Slash at 5/5 gives axes and swords a 5% chance of an extra attack, daggers and fist weapons +5% crit, and maces 15% armor ignore.",
+          "facts": [
+           "class-rogue.hack-and-slash-at-5-5"
+          ]
+         },
+         {
+          "text": "Adrenaline Rush sits on row 7 and requires Blade Flurry.",
+          "facts": [
+           "talents-rogue.combat-adrenaline-rush"
+          ]
+         },
+         {
+          "text": "Dual Wield Specialization at rank 2 of 2 adds 50% off-hand damage.",
+          "facts": [
+           "talents-rogue.combat-dual-wield-specialization.r2"
+          ]
+         },
+         {
+          "text": "Flash of Steel at rank 5 of 5 makes Shank generate 15 more Energy and cuts its cooldown by 2.0 sec.",
+          "facts": [
+           "talents-rogue.combat-flash-of-steel.r5"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Following a Classic build with Improved Backstab or Dagger Specialization.",
+          "fix": "Neither is in the Combat tree in the 10 November data; Puncturing Wounds and Hack and Slash cover Backstab crit and dagger crit.",
+          "facts": [
+           "class-rogue.combat-removed-classic",
+           "talents-rogue.combat-puncturing-wounds.r1",
+           "talents-rogue.combat-hack-and-slash.r1"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "rogue-combat-raid-60"
+       ]
+      },
+      {
+       "id": "rogue-combat-201-energy",
+       "section": "rotation",
+       "title": "Energy budget",
+       "theory": [
+        "talents-rogue.combat-adrenaline-rush.r1",
+        "talents-rogue.combat-efficient-strikes.r2",
+        "talents-rogue.combat-flawless-execution.r1",
+        "talents-rogue.combat-flash-of-steel.r5",
+        "talents-rogue.combat-composure.r2"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Save Adrenaline Rush for the stretch where Energy limits you most: +100% regeneration for 15 sec, on a 5 min cooldown.",
+          "facts": [
+           "talents-rogue.combat-adrenaline-rush",
+           "talents-rogue.combat-adrenaline-rush.r1"
+          ]
+         },
+         {
+          "text": "Efficient Strikes (5 Energy off Sinister Strike and Hemorrhage at rank 2 of 2) and Flawless Execution (15 off Eviscerate) lower what each cycle costs.",
+          "facts": [
+           "talents-rogue.combat-efficient-strikes.r2",
+           "talents-rogue.combat-flawless-execution.r1"
+          ]
+         },
+         {
+          "text": "Flash of Steel makes Shank a bigger Energy source: up to 15 more Energy per Shank at rank 5 of 5.",
+          "facts": [
+           "talents-rogue.combat-flash-of-steel.r5"
+          ]
+         },
+         {
+          "text": "Composure raises the Energy your Poised ability saves by 5 or 10.",
+          "facts": [
+           "talents-rogue.combat-composure.r1",
+           "talents-rogue.combat-composure.r2"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Expecting Adrenaline Rush in every fight.",
+          "fix": "It has a 5 min cooldown, so plan it for the fight that matters.",
+          "facts": [
+           "talents-rogue.combat-adrenaline-rush"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "rogue-combat-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-rogue.precision-2",
+        "class-rogue.hit-cap-at-level-60",
+        "class-rogue.hack-and-slash-at-5-5",
+        "class-rogue.weapon-expertise",
+        "class-rogue.adrenaline-rush",
+        "class-rogue.racials"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Precision gives up to +3% hit over 3 ranks, for attacks, spells and poisons.",
+          "facts": [
+           "class-rogue.precision-2"
+          ]
+         },
+         {
+          "text": "Weapon Expertise lowers the chance your attacks are dodged or parried instead of adding weapon skill.",
+          "facts": [
+           "class-rogue.weapon-expertise"
+          ]
+         },
+         {
+          "text": "Pick the weapon for its Hack and Slash bonus: extra attacks for axes and swords, crit for daggers and fist weapons, armor ignore for maces.",
+          "facts": [
+           "class-rogue.hack-and-slash-at-5-5"
+          ]
+         },
+         {
+          "text": "Count +1% hit for a Dwarf and +1% crit for a Human.",
+          "facts": [
+           "class-rogue.racials"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Reading Weapon Expertise as a weapon-skill talent.",
+          "fix": "It now lowers the chance your attacks are dodged or parried.",
+          "facts": [
+           "class-rogue.weapon-expertise"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "rogue-combat-201-gear",
+       "section": "gear",
+       "title": "Pre-raid and phase gear",
+       "theory": [],
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
+      },
+      {
+       "id": "rogue-combat-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-rogue.poisons-with-stones",
+        "class-rogue.poison-supplies",
+        "class-rogue.food-in-forever",
+        "class-rogue.world-buffs-in-raids",
+        "class-rogue.classic-melee-staples"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Put a sharpening stone or weightstone on your weapons alongside your poisons; the two no longer exclude each other.",
+          "facts": [
+           "class-rogue.poisons-with-stones"
+          ]
+         },
+         {
+          "text": "Buy poison reagents from Shady Dealers, and keep Poisons skill at its cap of 5x your level (300 at 60).",
+          "facts": [
+           "class-rogue.poison-supplies"
+          ]
+         },
+         {
+          "text": "Eat Grilled Squid (+1% crit) or Mightfish Steak (+40 Attack Power). Icy Veins says both need an Iron Oven camp object (Cooking 300).",
+          "facts": [
+           "class-rogue.food-in-forever"
+          ]
+         },
+         {
+          "text": "Plan raid nights without world buffs: Icy Veins says they are removed inside raids, and Wowhead's Forever data marks Rallying Cry of the Dragonslayer 'No effect while in a raid instance'.",
+          "facts": [
+           "class-rogue.world-buffs-in-raids"
+          ]
+         },
+         {
+          "text": "Read the Classic melee list (Elixir of the Mongoose, Juju Might, Juju Power and the rest) as a Classic reference, not a list checked in Forever.",
+          "facts": [
+           "class-rogue.classic-melee-staples"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Counting on world buffs inside the raid.",
+          "fix": "Icy Veins' raid overview says world buffs are removed inside raids.",
+          "facts": [
+           "class-rogue.world-buffs-in-raids"
+          ]
+         },
+         {
+          "mistake": "Eating Grilled Squid for Agility.",
+          "fix": "Grilled Squid now gives +1% crit instead of Agility.",
+          "facts": [
+           "class-rogue.food-in-forever"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "rogue-combat-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-rogue.raid-outlook-2",
+        "class-rogue.blade-flurry",
+        "class-rogue.expose-armor-2",
+        "class-rogue.feint",
+        "class-rogue.onyxias-lair-entry",
+        "class-rogue.launch-raids-2"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Warcraft Tavern notes Combat is the only Rogue spec with cleave, and calls every Rogue spec gear-hungry.",
+          "facts": [
+           "class-rogue.raid-outlook-2"
+          ]
+         },
+         {
+          "text": "On packs, Blade Flurry gives 20% melee attack speed and an extra nearby target for 15 seconds.",
+          "facts": [
+           "class-rogue.blade-flurry"
+          ]
+         },
+         {
+          "text": "Keep Expose Armor up alongside your Warriors' Sunder Armor; both count.",
+          "facts": [
+           "class-rogue.expose-armor-2"
+          ]
+         },
+         {
+          "text": "Feint when your threat climbs; its threat reduction is doubled.",
+          "facts": [
+           "class-rogue.feint"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Using Blade Flurry beside a crowd-controlled add.",
+          "fix": "Blade Flurry makes your melee attacks strike an additional nearby enemy, and that can be the controlled one.",
+          "facts": [
+           "class-rogue.blade-flurry"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "rogue-combat-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [
+        "talents-rogue.combat-riposte.r1",
+        "talents-rogue.combat-improved-kick.r2",
+        "talents-rogue.combat-improved-sprint.r2",
+        "talents-rogue.combat-endurance.r2",
+        "class-rogue.vs-warrior-mortal-strike",
+        "class-rogue.vs-warrior-improved-hamstring",
+        "class-rogue.vs-warrior-improved-berserker-rage",
+        "class-rogue.vs-hunter-traps"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Riposte disarms for 6 sec after a parry, and Deflection's extra parry chance makes it come up more often.",
+          "facts": [
+           "talents-rogue.combat-riposte.r1",
+           "talents-rogue.combat-deflection.r3"
+          ]
+         },
+         {
+          "text": "Improved Kick at rank 2 of 2 silences the target for 2 sec on every Kick.",
+          "facts": [
+           "talents-rogue.combat-improved-kick.r2"
+          ]
+         },
+         {
+          "text": "Improved Sprint at rank 2 of 2 removes all movement impairing effects when you Sprint, and Endurance at rank 2 cuts Sprint and Evasion cooldowns by 60%.",
+          "facts": [
+           "talents-rogue.combat-improved-sprint.r2",
+           "talents-rogue.combat-endurance.r2"
+          ]
+         },
+         {
+          "text": "Against Warriors: Mortal Strike cuts your healing by 50% for 10 sec, Improved Hamstring has up to a 15% chance to immobilize you for 5 sec, and Improved Berserker Rage at rank 2 of 2 clears your slows.",
+          "facts": [
+           "class-rogue.vs-warrior-mortal-strike",
+           "class-rogue.vs-warrior-improved-hamstring",
+           "class-rogue.vs-warrior-improved-berserker-rage"
+          ]
+         },
+         {
+          "text": "Against Hunters: traps can be laid in combat on one shared 30-second cooldown, so expect one as you close in.",
+          "facts": [
+           "class-rogue.vs-hunter-traps"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Counting on Sprint to clear a slow with Improved Sprint at rank 1.",
+          "fix": "Rank 1 gives a 50% chance; rank 2 makes it 100%.",
+          "facts": [
+           "talents-rogue.combat-improved-sprint.r1",
+           "talents-rogue.combat-improved-sprint.r2"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "macros",
+       "reason": "No Rogue macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory waits for data that does not exist yet: measured caps, client coefficients and raid logs. Each chapter says what is missing.",
+     "chapters": [
+      {
+       "id": "rogue-combat-301-coefficients",
+       "section": "rotation",
+       "title": "Coefficients and swing timing",
+       "theory": [],
+       "unavailable": "Forever's attack power coefficients for Rogue abilities and its swing-timer rules have not been read from client data or measured in reviewed logs."
+      },
+      {
+       "id": "rogue-combat-301-caps",
+       "section": "stat-caps",
+       "title": "Hit and crit breakpoints",
+       "theory": [
+        "class-rogue.hit-cap-at-level-60"
+       ],
+       "unavailable": "Blizzard has published no level-60 hit cap for Forever and community estimates conflict, so no breakpoint formula can be given yet."
+      },
+      {
+       "id": "rogue-combat-301-bosses",
+       "section": "praxis",
+       "title": "Boss-by-boss execution",
+       "theory": [
+        "class-rogue.launch-raids-2"
+       ],
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
+      },
+      {
+       "id": "rogue-combat-301-duels",
+       "section": "praxis",
+       "title": "Duels and battlegrounds against every class",
+       "theory": [],
+       "unavailable": "Reviewed matchup notes exist only for Warriors and Hunters, in 201 PvP. A plan against all nine classes waits for reviewed duel and battleground facts."
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "subtlety",
+   "name": "Subtlety",
+   "roles": [
+    "melee"
+   ],
+   "overview": {
+    "lead": "Subtlety plays from stealth openers and bleeds. It builds to Death Mark, a finisher that stores part of your damage for six seconds and counts Garrote and Rupture at twice the rate.",
+    "points": [
+     {
+      "text": "Hemorrhage makes the target take 15% more Rupture and Garrote damage from you for 15 sec, and Serrated Blades adds armor ignore and Rupture damage.",
+      "facts": [
+       "talents-rogue.subtlety-hemorrhage.r1",
+       "class-rogue.serrated-blades"
+      ]
+     },
+     {
+      "text": "Premeditation, Preparation and Dirty Deeds give strong openers and resets, and Premeditation no longer requires Stealth.",
+      "facts": [
+       "talents-rogue.subtlety-premeditation.r1",
+       "talents-rogue.subtlety-preparation.r1",
+       "talents-rogue.subtlety-dirty-deeds.r1",
+       "class-rogue.premeditation-stealth"
+      ]
+     },
+     {
+      "text": "Blizzard's latest notes remove Improved Distract, Quietus, Cutthroat and Thousand Cuts, and add Quick Getaway, Boot Knife and Death Mark.",
+      "facts": [
+       "class-rogue.change-8"
+      ]
+     }
+    ],
+    "facts": [
+     "talents-rogue.subtlety-summary",
+     "class-rogue.raid-outlook-3"
+    ]
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling as Subtlety, the bleed rotation and the stealth tools.",
+     "chapters": [
+      {
+       "id": "rogue-subtlety-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-rogue.subtlety-summary",
+        "talents-rogue.subtlety-ghostly-strike",
+        "talents-rogue.subtlety-ghostly-strike.r1",
+        "talents-rogue.subtlety-dirty-deeds.r2",
+        "talents-rogue.subtlety-initiative.r3",
+        "talents-rogue.subtlety-death-mark"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Subtlety's signature talents sit deep: Preparation on row 5, and Death Mark on row 7, which requires Preparation.",
+          "facts": [
+           "talents-rogue.subtlety-preparation",
+           "talents-rogue.subtlety-death-mark"
+          ]
+         },
+         {
+          "text": "Ghostly Strike on row 4 is a builder that adds 15% dodge for 7 sec, which helps against hard-hitting mobs.",
+          "facts": [
+           "talents-rogue.subtlety-ghostly-strike",
+           "talents-rogue.subtlety-ghostly-strike.r1"
+          ]
+         },
+         {
+          "text": "Dirty Deeds lets you Garrote from the front and makes Cheap Shot and Garrote 10 or 20 Energy cheaper.",
+          "facts": [
+           "talents-rogue.subtlety-dirty-deeds.r1",
+           "talents-rogue.subtlety-dirty-deeds.r2"
+          ]
+         },
+         {
+          "text": "Initiative gives Ambush, Garrote and Cheap Shot a 33%, 67% or 100% chance to add an extra combo point.",
+          "facts": [
+           "talents-rogue.subtlety-initiative.r1",
+           "talents-rogue.subtlety-initiative.r2",
+           "talents-rogue.subtlety-initiative.r3"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Expecting Setup to reach 100% at 3 points.",
+          "fix": "Setup gives a 45% chance at rank 3 of 3; Initiative is the one that reaches 100%.",
+          "facts": [
+           "talents-rogue.subtlety-setup.r3",
+           "talents-rogue.subtlety-initiative.r3"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "rogue-subtlety-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [
+        "talents-rogue.subtlety-initiative.r1",
+        "talents-rogue.subtlety-hemorrhage.r1",
+        "talents-rogue.subtlety-death-mark.r1",
+        "talents-rogue.subtlety-ghostly-strike.r1",
+        "talents-rogue.subtlety-premeditation.r1"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Open from Stealth with Garrote or Ambush; Initiative can add an extra combo point (33% at rank 1).",
+          "facts": [
+           "talents-rogue.subtlety-initiative.r1"
+          ]
+         },
+         {
+          "text": "Build combo points with Hemorrhage: it makes the target take 15% more Rupture and Garrote damage from you for 15 sec.",
+          "facts": [
+           "talents-rogue.subtlety-hemorrhage.r1"
+          ]
+         },
+         {
+          "text": "Keep Rupture on the target and refresh it before it falls off."
+         },
+         {
+          "text": "Use Death Mark while your bleeds tick: it stores Garrote and Rupture damage at twice the rate and deals the stored damage after 6 sec.",
+          "facts": [
+           "talents-rogue.subtlety-death-mark.r1"
+          ]
+         },
+         {
+          "text": "Ghostly Strike opens a 7 sec window in which your next Ambush or Garrote does not need Stealth.",
+          "facts": [
+           "talents-rogue.subtlety-ghostly-strike.r1"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Letting Hemorrhage's debuff drop while Rupture ticks.",
+          "fix": "Hemorrhage's increase lasts 15 sec, so reapply it to keep the bonus on your bleeds.",
+          "facts": [
+           "talents-rogue.subtlety-hemorrhage.r1"
+          ]
+         },
+         {
+          "mistake": "Using Premeditation and sitting on the points.",
+          "fix": "You must add to or use Premeditation's combo points within 20 sec or they are lost.",
+          "facts": [
+           "talents-rogue.subtlety-premeditation.r1"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "rogue-subtlety-101-stealth",
+       "section": "rotation",
+       "title": "Stealth and control",
+       "theory": [
+        "class-rogue.change-3",
+        "talents-rogue.subtlety-dirty-tricks.r2",
+        "talents-rogue.subtlety-master-of-deception.r3",
+        "talents-rogue.subtlety-camouflage.r3",
+        "talents-rogue.subtlety-elusiveness.r2",
+        "class-rogue.premeditation-stealth"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Sap no longer breaks Stealth, and Dirty Tricks makes Sap and Blind 25% or 50% cheaper.",
+          "facts": [
+           "class-rogue.change-3",
+           "talents-rogue.subtlety-dirty-tricks.r1",
+           "talents-rogue.subtlety-dirty-tricks.r2"
+          ]
+         },
+         {
+          "text": "Master of Deception makes enemies detect you as if you were up to 3 levels higher.",
+          "facts": [
+           "talents-rogue.subtlety-master-of-deception.r3"
+          ]
+         },
+         {
+          "text": "Camouflage cuts Stealth's speed penalty by up to 15% and its cooldown by up to 6 sec.",
+          "facts": [
+           "talents-rogue.subtlety-camouflage.r3"
+          ]
+         },
+         {
+          "text": "Elusiveness shortens the cooldowns of Vanish and Blind by 45 or 90 sec.",
+          "facts": [
+           "talents-rogue.subtlety-elusiveness.r1",
+           "talents-rogue.subtlety-elusiveness.r2"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Waiting to enter Stealth before Premeditation.",
+          "fix": "Premeditation no longer requires Stealth.",
+          "facts": [
+           "class-rogue.premeditation-stealth"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "See the class course: no Rogue macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "The level-60 builds, combo points, stat priorities, consumables, the raid and PvP.",
+     "chapters": [
+      {
+       "id": "rogue-subtlety-201-talents",
+       "section": "talents",
+       "title": "Level-60 builds",
+       "theory": [
+        "talents-rogue.subtlety-death-mark",
+        "talents-rogue.subtlety-preparation.r1",
+        "talents-rogue.subtlety-boot-knife.r5",
+        "talents-rogue.subtlety-serrated-blades.r3",
+        "talents-rogue.combat-coup-de-grace.r3",
+        "class-rogue.subtlety-removed-classic"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "The raid build goes to Death Mark. Coup de Grace at rank 3 of 3 raises Death Mark's damage and storage rate, and Eviscerate's damage, by 20%.",
+          "facts": [
+           "talents-rogue.subtlety-death-mark",
+           "talents-rogue.combat-coup-de-grace.r3"
+          ]
+         },
+         {
+          "text": "Boot Knife at rank 5 of 5 gives Shank a 100% chance to add 2 combo points.",
+          "facts": [
+           "talents-rogue.subtlety-boot-knife.r5"
+          ]
+         },
+         {
+          "text": "Serrated Blades at rank 3 of 3 makes your attacks ignore 9% of armor and Rupture deal 30% more damage.",
+          "facts": [
+           "talents-rogue.subtlety-serrated-blades.r3"
+          ]
+         },
+         {
+          "text": "The battleground build takes Preparation, which finishes the cooldowns on your other Rogue abilities, with Premeditation and the stealth talents.",
+          "facts": [
+           "talents-rogue.subtlety-preparation.r1"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Following a Classic Subtlety build with Deadliness or Improved Sap.",
+          "fix": "Neither is in the Subtlety tree in the 10 November data.",
+          "facts": [
+           "class-rogue.subtlety-removed-classic"
+          ]
+         },
+         {
+          "mistake": "Planning points for Quietus, Cutthroat or Thousand Cuts.",
+          "fix": "Blizzard removed them in the latest notes.",
+          "facts": [
+           "class-rogue.change-8"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "rogue-subtlety-raid-60",
+        "rogue-subtlety-pvp-60"
+       ]
+      },
+      {
+       "id": "rogue-subtlety-201-combo",
+       "section": "rotation",
+       "title": "Combo points",
+       "theory": [
+        "talents-rogue.subtlety-boot-knife.r5",
+        "talents-rogue.subtlety-setup.r3",
+        "talents-rogue.subtlety-premeditation.r1",
+        "talents-rogue.subtlety-hemorrhage.r1",
+        "talents-rogue.subtlety-ghostly-strike.r1"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Boot Knife turns Shank into a combo-point source: a 20% chance per rank to add 2 combo points, 100% at rank 5 of 5.",
+          "facts": [
+           "talents-rogue.subtlety-boot-knife.r1",
+           "talents-rogue.subtlety-boot-knife.r5"
+          ]
+         },
+         {
+          "text": "Premeditation adds 2 combo points from 20 yd on a 2 min cooldown; add to or use them within 20 sec.",
+          "facts": [
+           "talents-rogue.subtlety-premeditation",
+           "talents-rogue.subtlety-premeditation.r1"
+          ]
+         },
+         {
+          "text": "Hemorrhage and Ghostly Strike each award 1 combo point.",
+          "facts": [
+           "talents-rogue.subtlety-hemorrhage.r1",
+           "talents-rogue.subtlety-ghostly-strike.r1"
+          ]
+         },
+         {
+          "text": "Setup adds a combo point after you dodge an attack or fully resist a spell: a 15%, 30% or 45% chance by rank.",
+          "facts": [
+           "talents-rogue.subtlety-setup.r1",
+           "talents-rogue.subtlety-setup.r2",
+           "talents-rogue.subtlety-setup.r3"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Expecting Boot Knife to work on Hemorrhage.",
+          "fix": "Boot Knife gives the chance to your Shank ability only.",
+          "facts": [
+           "talents-rogue.subtlety-boot-knife.r1"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "rogue-subtlety-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-rogue.death-mark",
+        "class-rogue.hemorrhage",
+        "class-rogue.rupture-talentsforever-data",
+        "class-rogue.precision-3",
+        "class-rogue.hit-cap-at-level-60",
+        "class-rogue.racials"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Death Mark costs 25 Energy, has a 10-second cooldown and a 20-yard range, and counts Garrote and Rupture damage at double rate.",
+          "facts": [
+           "class-rogue.death-mark"
+          ]
+         },
+         {
+          "text": "Rupture's base damage is about 38-42% lower than in Classic, per Talents Forever's beta data, while Hemorrhage adds 15% to your Rupture and Garrote.",
+          "facts": [
+           "class-rogue.rupture-talentsforever-data",
+           "class-rogue.hemorrhage"
+          ]
+         },
+         {
+          "text": "Precision gives up to +3% hit over 3 ranks, for attacks, spells and poisons.",
+          "facts": [
+           "class-rogue.precision-3"
+          ]
+         },
+         {
+          "text": "Count +1% hit for a Dwarf and +1% crit for a Human.",
+          "facts": [
+           "class-rogue.racials"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Planning Rupture damage from Classic numbers.",
+          "fix": "Talents Forever's data puts its base damage about 38-42% lower than in Classic.",
+          "facts": [
+           "class-rogue.rupture-talentsforever-data"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "rogue-subtlety-201-gear",
+       "section": "gear",
+       "title": "Pre-raid and phase gear",
+       "theory": [],
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
+      },
+      {
+       "id": "rogue-subtlety-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-rogue.poisons-with-stones",
+        "class-rogue.poison-supplies",
+        "class-rogue.food-in-forever",
+        "class-rogue.world-buffs-in-raids",
+        "class-rogue.classic-melee-staples"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Put a sharpening stone or weightstone on your weapons alongside your poisons; the two no longer exclude each other.",
+          "facts": [
+           "class-rogue.poisons-with-stones"
+          ]
+         },
+         {
+          "text": "Buy poison reagents from Shady Dealers, and keep Poisons skill at its cap of 5x your level (300 at 60).",
+          "facts": [
+           "class-rogue.poison-supplies"
+          ]
+         },
+         {
+          "text": "Eat Grilled Squid (+1% crit) or Mightfish Steak (+40 Attack Power). Icy Veins says both need an Iron Oven camp object (Cooking 300).",
+          "facts": [
+           "class-rogue.food-in-forever"
+          ]
+         },
+         {
+          "text": "Plan raid nights without world buffs: Icy Veins says they are removed inside raids, and Wowhead's Forever data marks Rallying Cry of the Dragonslayer 'No effect while in a raid instance'.",
+          "facts": [
+           "class-rogue.world-buffs-in-raids"
+          ]
+         },
+         {
+          "text": "Read the Classic melee list (Elixir of the Mongoose, Juju Might, Juju Power and the rest) as a Classic reference, not a list checked in Forever.",
+          "facts": [
+           "class-rogue.classic-melee-staples"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Counting on world buffs inside the raid.",
+          "fix": "Icy Veins' raid overview says world buffs are removed inside raids.",
+          "facts": [
+           "class-rogue.world-buffs-in-raids"
+          ]
+         },
+         {
+          "mistake": "Eating Grilled Squid for Agility.",
+          "fix": "Grilled Squid now gives +1% crit instead of Agility.",
+          "facts": [
+           "class-rogue.food-in-forever"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "rogue-subtlety-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-rogue.raid-outlook-3",
+        "class-rogue.serrated-blades",
+        "class-rogue.ghostly-strike",
+        "class-rogue.expose-armor",
+        "class-rogue.feint",
+        "class-rogue.onyxias-lair-entry"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Warcraft Tavern says Subtlety now has two PvE builds and that every Rogue spec is gear-hungry.",
+          "facts": [
+           "class-rogue.raid-outlook-3"
+          ]
+         },
+         {
+          "text": "Serrated Blades at rank 3 of 3 makes each of your attacks ignore 9% of the target's armor and adds 30% Rupture damage.",
+          "facts": [
+           "class-rogue.serrated-blades"
+          ]
+         },
+         {
+          "text": "Ghostly Strike lets your next Ambush or Garrote skip Stealth within seven seconds, which gives you an Ambush in the middle of a fight.",
+          "facts": [
+           "class-rogue.ghostly-strike"
+          ]
+         },
+         {
+          "text": "Keep Expose Armor up alongside your Warriors' Sunder Armor, and Feint when your threat climbs.",
+          "facts": [
+           "class-rogue.expose-armor",
+           "class-rogue.feint"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Keeping Ambush for the opener only.",
+          "fix": "Ghostly Strike lets your next Ambush or Garrote skip Stealth if cast within seven seconds.",
+          "facts": [
+           "class-rogue.ghostly-strike"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "rogue-subtlety-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [
+        "talents-rogue.subtlety-premeditation.r1",
+        "talents-rogue.subtlety-preparation.r1",
+        "talents-rogue.subtlety-dirty-deeds.r1",
+        "talents-rogue.subtlety-quick-getaway.r2",
+        "class-rogue.change-8",
+        "class-rogue.vs-warrior-mortal-strike",
+        "class-rogue.vs-warrior-improved-hamstring",
+        "class-rogue.vs-warrior-improved-berserker-rage",
+        "class-rogue.vs-hunter-traps",
+        "class-rogue.vs-hunter-auto-shot"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Open with Premeditation's 2 combo points, then Cheap Shot or Garrote; Dirty Deeds lets you Garrote from the front.",
+          "facts": [
+           "talents-rogue.subtlety-premeditation.r1",
+           "talents-rogue.subtlety-dirty-deeds.r1"
+          ]
+         },
+         {
+          "text": "Preparation finishes the cooldowns on your other Rogue abilities, so a second Vanish or Blind is ready.",
+          "facts": [
+           "talents-rogue.subtlety-preparation.r1",
+           "talents-rogue.subtlety-elusiveness.r1"
+          ]
+         },
+         {
+          "text": "Improved Distract is gone. Quick Getaway lets you keep one more target Sapped and, at rank 2 of 2, gives 30% movement speed for 3 sec after a Sap.",
+          "facts": [
+           "class-rogue.change-8",
+           "talents-rogue.subtlety-quick-getaway.r2"
+          ]
+         },
+         {
+          "text": "Against Warriors: Mortal Strike cuts your healing by 50% for 10 sec, Improved Hamstring can immobilize you for 5 sec, and Improved Berserker Rage at rank 2 of 2 clears your slows.",
+          "facts": [
+           "class-rogue.vs-warrior-mortal-strike",
+           "class-rogue.vs-warrior-improved-hamstring",
+           "class-rogue.vs-warrior-improved-berserker-rage"
+          ]
+         },
+         {
+          "text": "Against Hunters: Auto Shot needs about half a second of standing still, so stay close, and expect a trap from their shared 30-second trap cooldown.",
+          "facts": [
+           "class-rogue.vs-hunter-auto-shot",
+           "class-rogue.vs-hunter-traps"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Using Preparation while Vanish and Blind are still ready.",
+          "fix": "Preparation finishes the cooldowns on your other Rogue abilities, so use it after you have spent them.",
+          "facts": [
+           "talents-rogue.subtlety-preparation.r1"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "macros",
+       "reason": "No Rogue macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Death Mark's storage table is the one advanced topic the talent data already covers. The rest waits for measured caps, client coefficients and raid logs, and each chapter says what is missing.",
+     "chapters": [
+      {
+       "id": "rogue-subtlety-301-death-mark",
+       "section": "rotation",
+       "title": "Death Mark storage by combo point",
+       "theory": [
+        "talents-rogue.subtlety-death-mark.r1",
+        "talents-rogue.subtlety-death-mark",
+        "talents-rogue.combat-coup-de-grace.r3",
+        "class-rogue.death-mark"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Death Mark stores more per combo point: 12% with a 165 damage cap at 1 point, 36% and 369 at 3 points, 60% and 573 at 5 points.",
+          "facts": [
+           "talents-rogue.subtlety-death-mark.r1"
+          ]
+         },
+         {
+          "text": "The cap rises with your Attack Power and critical strike chance, so the listed caps grow with your gear.",
+          "facts": [
+           "talents-rogue.subtlety-death-mark.r1"
+          ]
+         },
+         {
+          "text": "Garrote and Rupture damage is stored at twice the rate, so cast Death Mark while both bleeds are ticking.",
+          "facts": [
+           "talents-rogue.subtlety-death-mark.r1"
+          ]
+         },
+         {
+          "text": "Coup de Grace at rank 3 of 3 raises both Death Mark's damage and its storage rate by 20%.",
+          "facts": [
+           "talents-rogue.combat-coup-de-grace.r3"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Treating Death Mark as a one-point finisher.",
+          "fix": "At 1 point it stores 12% with a 165 damage cap; at 5 points it stores 60% with a 573 damage cap.",
+          "facts": [
+           "talents-rogue.subtlety-death-mark.r1"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "rogue-subtlety-301-coefficients",
+       "section": "rotation",
+       "title": "Coefficients and swing timing",
+       "theory": [],
+       "unavailable": "Forever's attack power coefficients for Rogue abilities and its swing-timer rules have not been read from client data or measured in reviewed logs."
+      },
+      {
+       "id": "rogue-subtlety-301-caps",
+       "section": "stat-caps",
+       "title": "Hit and crit breakpoints",
+       "theory": [
+        "class-rogue.hit-cap-at-level-60"
+       ],
+       "unavailable": "Blizzard has published no level-60 hit cap for Forever and community estimates conflict, so no breakpoint formula can be given yet."
+      },
+      {
+       "id": "rogue-subtlety-301-bosses",
+       "section": "praxis",
+       "title": "Boss-by-boss execution",
+       "theory": [
+        "class-rogue.launch-raids"
+       ],
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
+      },
+      {
+       "id": "rogue-subtlety-301-duels",
+       "section": "praxis",
+       "title": "Duels and battlegrounds against every class",
+       "theory": [],
+       "unavailable": "Reviewed matchup notes exist only for Warriors and Hunters, in 201 PvP. A plan against all nine classes waits for reviewed duel and battleground facts."
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      }
+     ]
+    }
+   }
+  }
+ ]
+}

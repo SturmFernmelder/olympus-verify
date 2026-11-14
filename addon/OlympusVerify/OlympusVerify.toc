@@ -2,16 +2,19 @@
 ## Title: Olympus Verify
 ## Notes: Discord verification, native guild roster status and editable member reminders. /olv opens the panel.
 ## Author: Olympus
-## Version: 0.6.37
+## Version: 0.6.38
 ## OptionalDeps: Olympus
 ## SavedVariables: OlympusVerifyDB
 
-# Interface number: set to the Forever beta client's build (check /run print((select(4, GetBuildInfo()))) in game).
+# Supported interfaces are explicit qualification metadata; qualify each future client before adding its number.
 Libs\OlympusHmac.lua
 Config.lua
 OlympusQueue.lua
 OlympusVerifyLists.lua
 OlympusVerifyRanks.lua
+OlympusVerifyNativeRankConstants.lua
+OlympusVerifyNativeRanks.lua
+OlympusVerifyLocalPrivacy280.lua
 OlympusVerify.lua
 OlympusVerifyUI.lua
 OlympusVerifyAutoSync.lua

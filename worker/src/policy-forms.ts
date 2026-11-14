@@ -1,3 +1,4 @@
+import {formErrorResponse280,copyRateLimitResponse280} from './policy-form-core';
 /** Short script-free contact/case interface over the existing case engine. Conversation access is not account authority. */
 import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
 import type { Env } from "./env";
@@ -92,7 +93,7 @@ async function intake(request: Request, env: Env, path: string, body: Record<str
 }
 async function showCase(request: Request, env: Env, nonce: string, c: Readonly<{ caseId: string; caseCode: string }>, before?: string): Promise<Response> {
   const result = await intake(request, env, "/api/privacy/requests/read", { ...c, ...(before ? { before } : {}) });
-  if (!result.response.ok) return htmlResponse(request, "Case unavailable", `<p>The case is missing, expired or the code is incorrect. No account data was accessed.</p>${await caseReadForm(env, nonce)}${controls}`, result.response.status);
+  if (!result.response.ok) return copyRateLimitResponse280(htmlResponse(request, "Case unavailable", `<p>The case is missing, expired or the code is incorrect. No account data was accessed.</p>${await caseReadForm(env, nonce)}${controls}`, result.response.status),result.response);
   const d = result.data, rows = Array.isArray(d.messages) ? d.messages as Record<string, unknown>[] : [];
   let body = `<p>Case <code>${e(c.caseId)}</code>. Status: <strong>${e(d.status)}</strong>. Inactivity deadline: ${e(d.retentionDeadline)}.</p><p>This code gives access to this conversation only. It does not verify an account or authorise deletion.</p><ol class="case-messages">${rows.map(m => `<li><p><strong>${e(m.from)}</strong> · ${e(m.at)}</p><p class="preserve-text">${e(m.text)}</p></li>`).join("")}</ol>`;
   if (d.hasMore && rows.length) body += await caseReadForm(env, nonce, c, String(rows[0]!.messageId));
@@ -114,7 +115,7 @@ async function showHistory(request: Request, env: Env, nonce: string, result: Re
       body += resumeHelp + saved(resumeCursor, "Saved history-page continuation");
       body += await post("history", resumeCursor, "Retry this history page after the rate window");
     }
-    return htmlResponse(request, "History not available", body + controls, result.status, formCookie(nonce));
+    return copyRateLimitResponse280(htmlResponse(request, "History not available", body + controls, result.status, formCookie(nonce)),result);
   }
   const page = data.actions, capture = page.capture;
   let body = `<p>This is a curated partial view of your own retained action history, not a copy of every store or an erasure.</p><p>Captured range: ${e(capture.at)}. ${e(capture.delivered)} of ${e(capture.count)} included records reached; ${e(capture.remaining)} remain. This page was read at ${e(data.generatedAt)}.</p><ol>${page.entries.map(row => `<li>${e(row.at)} · ${e(row.action)}</li>`).join("")}</ol><p>Each view or download counts toward five copy reads per hour. A current-page JSON download freshly reads its other sections at that download's generatedAt; this view does not prove a file was saved.</p>`;
@@ -137,7 +138,7 @@ async function showEventChanges(request: Request, env: Env, nonce: string, resul
   if (!result.ok) {
     let body = `<p>${e(data.error ?? "unconfirmed")}. ${e(data.message ?? "No event-change completion is claimed. Reopen the account controls.")}</p>`;
     if (result.status === 429 && resumeCursor && eventChangeCursorShape(resumeCursor)) body += resumeHelp + saved(resumeCursor, "Saved event-change continuation") + await post("history", resumeCursor, "Retry this event-change page after the rate window");
-    return htmlResponse(request, "Event-change history not available", body + controls, result.status, formCookie(nonce));
+    return copyRateLimitResponse280(htmlResponse(request, "Event-change history not available", body + controls, result.status, formCookie(nonce)),result);
   }
   const page = data.eventChanges, capture = page.capture;
   let body = `<p>This curated partial view includes retained event-change records where your account was the recorded actor. It does not include other people's changes to your events, removed records, or arbitrary event text.</p><p>Captured range: ${e(capture.at)}. ${e(capture.delivered)} of ${e(capture.count)} included records reached; ${e(capture.remaining)} remain. This page was read at ${e(data.generatedAt)}.</p><ol>${page.entries.map(row => `<li>${e(row.at)} · ${e(row.eventId)} · ${e(row.action)} · ${row.changedFieldNames.map(e).join(", ") || "no changed field names"}</li>`).join("")}</ol><p>Action views, event-change views and downloads share about five reads per hour. A JSON download reads other sections freshly; this view is not an immutable snapshot or proof that a file was saved.</p>`;
@@ -157,7 +158,7 @@ async function showContributionDecisions(request: Request, env: Env, nonce: stri
   if (!result.ok) {
     let body = `<p>${e(data.error ?? "unconfirmed")}. ${e(data.message ?? "No contribution-decision completion is claimed. Reopen the account controls.")}</p>`;
     if (result.status === 429 && resumeCursor && contributionDecisionCursorShape(resumeCursor)) body += resumeHelp + saved(resumeCursor, "Saved contribution-decision continuation") + await post("history", resumeCursor, "Retry this contribution-decision page after the rate window");
-    return htmlResponse(request, "Contribution-decision history not available", body + controls, result.status, formCookie(nonce));
+    return copyRateLimitResponse280(htmlResponse(request, "Contribution-decision history not available", body + controls, result.status, formCookie(nonce)),result);
   }
   const page = data.contributionDecisions, capture = page.capture;
   let body = `<p>This curated partial view includes retained contribution decisions naming your account as subject or explicitly recording it as a member/staff actor. A row matching both appears once. Only action, time and your relation are included; payment evidence, counterpart identities, arbitrary actor text and expired records are omitted.</p><p>Captured range: ${e(capture.at)}. ${e(capture.delivered)} of ${e(capture.count)} included records reached; ${e(capture.remaining)} remain. This page was read at ${e(data.generatedAt)}.</p><ol>${page.entries.map(row => `<li>${e(row.at)} · ${e(row.action)} · ${e(row.relation)}</li>`).join("")}</ol><p>All history views and downloads share about five reads per hour. A JSON download reads other sections freshly; counts and positions do not authenticate equal-count content changes, an immutable snapshot or a complete all-store copy.</p>`;
@@ -235,8 +236,8 @@ export async function handlePolicyForms(request: Request, env: Env, path: string
       await requireFormToken(env, request, field(f, "csrf", 160), "contact-create", binding(c));
       const kind = field(f, "kind", 16, true, true); if (!(INTAKE_KINDS as readonly string[]).includes(kind)) throw new FormError("invalid_form");
       const result = await intake(request, env, "/api/privacy/requests", { ...c, kind, details: field(f, "details", 2000), subjectHint: field(f, "subjectHint", 64, false, true), characterHint: field(f, "characterHint", 64, false, true) });
-      if (!result.response.ok) return htmlResponse(request, "Request not confirmed", `<p>The intake did not confirm this request (${e(result.data.error)}). Keep the saved credentials; check the case before submitting again.</p>${await caseReadForm(env, nonce, c)}${controls}`, result.response.status);
-      return htmlResponse(request, "Message received by the privacy inbox", `<p>Case <code>${e(c.caseId)}</code> was received. Status: ${e(result.data.status)}. Inactivity deadline: ${e(result.data.retentionDeadline)}.</p><p>No account was exported, erased or granted access.</p>${await caseReadForm(env, nonce, c)}${controls}`, result.response.status);
+      if (!result.response.ok) return copyRateLimitResponse280(htmlResponse(request, "Request not confirmed", `<p>The intake did not confirm this request (${e(result.data.error)}). Keep the saved credentials; check the case before submitting again.</p>${await caseReadForm(env, nonce, c)}${controls}`, result.response.status),result.response);
+      return copyRateLimitResponse280(htmlResponse(request, "Message received by the privacy inbox", `<p>Case <code>${e(c.caseId)}</code> was received. Status: ${e(result.data.status)}. Inactivity deadline: ${e(result.data.retentionDeadline)}.</p><p>No account was exported, erased or granted access.</p>${await caseReadForm(env, nonce, c)}${controls}`, result.response.status),result.response);
     }
     if (m === "POST" && path === "/privacy/case") {
       const f = await readForm(request, CASE_FIELDS), c = credentials(f);
@@ -249,7 +250,7 @@ export async function handlePolicyForms(request: Request, env: Env, path: string
       await requireFormToken(env, request, field(f, "csrf", 160), "case-reply", binding(c));
       const messageId = field(f, "messageId", 22, true, true); if (!ID.test(messageId)) throw new FormError("invalid_form");
       const result = await intake(request, env, "/api/privacy/requests/reply", { ...c, messageId, text: field(f, "text", 2000) });
-      if (!result.response.ok) return htmlResponse(request, "Reply not confirmed", `<p>The intake did not confirm the reply (${e(result.data.error)}). Read the case before retrying; no account action was performed.</p>${await caseReadForm(env, nonce, c)}${controls}`, result.response.status);
+      if (!result.response.ok) return copyRateLimitResponse280(htmlResponse(request, "Reply not confirmed", `<p>The intake did not confirm the reply (${e(result.data.error)}). Read the case before retrying; no account action was performed.</p>${await caseReadForm(env, nonce, c)}${controls}`, result.response.status),result.response);
       return showCase(request, env, nonce, c);
     }
     if (m === "POST" && path === "/privacy/account/export") {
@@ -309,7 +310,7 @@ export async function handlePolicyForms(request: Request, env: Env, path: string
     }
     return htmlResponse(request, "Method not allowed", "<p>Use the form provided on this page.</p>", 405);
   } catch (error) {
-    if (error instanceof FormError) return htmlResponse(request, "Request refused", `<p>${e(error.code)}. No account action was performed. Reopen the form and try again.</p>${controls}`, error.status);
+    if (error instanceof FormError) return formErrorResponse280(htmlResponse(request, "Request refused", `<p>${e(error.code)}. No account action was performed. Reopen the form and try again.</p>${controls}`, error.status),error);
     // A lost database response can leave an admitted case/message. Never turn uncertainty into a false rollback claim.
     return htmlResponse(request, "Outcome not confirmed", `<p>The service could not confirm the outcome. Keep the saved case credentials or erasure request ID and read its status before retrying.</p>${controls}`, 503);
   }

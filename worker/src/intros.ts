@@ -1,3 +1,4 @@
+import {captureCanonicalRankConfig233} from './canonical-ranks233';
 /**
  * Bot-branded channel intros for the Olympus category in Asmongold's server (build .39, 29 Sep 2026).
  *
@@ -105,15 +106,14 @@ export const INTROS: Intro[] = [
         title: "World of Warcraft: Forever at a glance",
         color: GOLD,
         fields: [
-          { name: "Launch", value: "<t:1793833200:F> (November 4, 2026, 3:00 p.m. PST, global). Included with a WoW subscription or Game Time." },
-          { name: "Beta", value: "Began September 17, 2026. Blizzard's October 20 announcement planned the final shutdown for October 23 at 10:00 a.m. PDT (17:00 UTC); this is the announced schedule, not an observed server-closure receipt. Access was for selected invited testers and eligible Skyborne Epic Pack or Warcraft Forever Collection accounts; a guild application does not grant beta access." },
-          // Evergreen Stage 2 (4 Nov 2026): the window closed on 3 November, so the field is a dated record, true either side of launch.
-          { name: "Early name reservation", value: "October 27 – November 3, 2026 (closed). North America opened October 27 at 1:00 p.m. PDT (20:00 UTC); other regions had separate hours. A Skyborne Heroic Pack, Skyborne Epic Pack or Warcraft Forever Collection purchase was required on that WoW account. Up to three characters total across all Rulesets, first come, first served. A name on our guild planning list does not reserve it in the game." },
-          { name: "First new raids", value: "Unlock December 9, 2026." },
+          // CL2-174 (12 Nov 2026): the game has launched; the beta and name-reservation fields are retired.
+          { name: "Launched", value: "<t:1793833200:F> (November 4, 2026, global). Included with a WoW subscription or Game Time." },
+          // CL2-177: a dated fact, true before and after the unlock.
+          { name: "First new raids", value: "Unlock date: December 9, 2026." },
           { name: `${FLAGSHIP_GUILD_NAME} ruleset`, value: "{ruleset-ruleset} · {ruleset-faction} ({ruleset-decided}). Forever is realmless: choose the guild's ruleset and region, rather than a traditional realm." },
           { name: "New in Forever", value: "The Skyborne race (Zephras Isle), Mount Hyjal, Shen'dralas and Riverglades, nine new dungeons, the Hyjal Summit (20-player) and Barrow Deeps (10-player) raids, the Darkspear Islands 15 vs 15 battleground, Legacy progression for alts, camping and opt-in transmog." },
         ],
-        footer: { text: "Official schedule and ruleset announcements checked October 26, 2026. Announcements are not observed game-state proof." },
+        footer: { text: "Ruleset announcements checked October 26, 2026. Announced dates are not observed game-state proof." },
       },
       {
         title: "Guides and resources",
@@ -123,8 +123,6 @@ export const INTROS: Intro[] = [
           `• [Forever website](${LINKS.foreverSite})`,
           `• [Forever forum](${LINKS.foreverForum})`,
           `• [Dates and editions](${LINKS.datesEditions})`,
-          `• [Later beta shutdown announcement](${LINKS.betaClosure})`,
-          `• [Regional name reservation hours and eligibility](${LINKS.nameReservation})`,
           `• [Rulesets, including the October 22 update](${LINKS.rulesets})`,
           `• [What's Next panel recap](${LINKS.whatsNext})`,
           `• [Deep Dive panel recap](${LINKS.deepDive})`,
@@ -244,7 +242,7 @@ export const INTROS: Intro[] = [
     embeds: [{
       title: "Raid announcements",
       color: RAID,
-      description: "Confirmed raids only, posted by Olympus raid leaders. Every notice states the raid, the date and start time as a Discord timestamp, expected duration, requirements, how the roster is confirmed and the loot rules that apply ({#loot-and-raid-rules}).\nThe first Forever raids unlock on December 9, 2026. Sign up in {#raid-signups}.",
+      description: "Confirmed raids only, posted by Olympus raid leaders. Every notice states the raid, the date and start time as a Discord timestamp, expected duration, requirements, how the roster is confirmed and the loot rules that apply ({#loot-and-raid-rules}).\nFirst Forever raid unlock date: December 9, 2026. Sign up in {#raid-signups}.",
     }],
   },
   {
@@ -760,9 +758,14 @@ export async function introStatus(env: Env, guild: string): Promise<string> {
 
 // ---------- the command ----------
 
-/** Olympus Officer or Guild Leader (INTROS_ROLES), or anyone holding Administrator in that server. */
+/** Configured legacy staff, current same-guild canonical High Council, or Administrator. */
 export function mayManageIntros(env: Env, i: Interaction): boolean {
   const roles = (env.INTROS_ROLES ?? "").split(",").map((r) => r.trim()).filter(Boolean);
+  const canonical=captureCanonicalRankConfig233(env);
+  if(canonical.mode==='enabled'&&canonical.policy&&canonical.current()&&env.GUILD_ID===canonical.policy.guildId&&i.guild_id===canonical.policy.guildId&&(env.INTROS_GUILD_ID??env.GUILD_ID)===canonical.policy.guildId){
+    const council=canonical.policy.ranks.find(rank=>rank.key==='high-council')?.roleId;
+    if(council&&!roles.includes(council))roles.push(council);
+  }
   if ((i.member?.roles ?? []).some((r) => roles.includes(r))) return true;
   const perms = (i.member as unknown as { permissions?: string } | undefined)?.permissions;
   try {

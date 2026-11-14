@@ -5,7 +5,7 @@
     if (!root || typeof root.querySelector !== 'function') throw Error('A scoped reporter root is required.');
     const owner = options.owner || root, ownerCurrent = typeof options.isOwnerCurrent === 'function' ? options.isOwnerCurrent : () => true;
     if (active || held && (held.owner !== owner || !held.isOwnerCurrent() || held.pending)) throw Error('The original publication is still held for its original reporter. Return to that view; no replacement was made.');
-    let disposed = false, localImport = null;
+    let disposed = false, localImport = null, rawRealm = null;
     const live = () => !disposed && ownerCurrent() && (!options.isCurrent || options.isCurrent());
     const removers = [], listen = (target, event, fn) => { target.addEventListener(event, fn); removers.push(() => target.removeEventListener(event, fn)); };
     const protocol = window.OlympusGuildQRProtocol, cards = window.OlympusArmyCards;
@@ -54,12 +54,12 @@
       if (disposed) return;
       // A pending or unknown publish keeps only its immutable aggregate/token for an outcome read.
       if (pending === 'publish' || unknown || pending === 'outcome') {
-        snapshot = null; preview = null; deadline = null; ui['report-consent'].checked = false; ui['report-preview-results'].replaceChildren();
+        snapshot = null; rawRealm = null; preview = null; deadline = null; ui['report-consent'].checked = false; ui['report-preview-results'].replaceChildren();
         say('Capture and browser review were cleared. The original publication outcome is unresolved; check that exact outcome. Clearing does not remove a published snapshot.');
         controls(); return;
       }
       generation++; if (request) request.abort(); request = null; if (pending !== 'access') pending = '';
-      snapshot = null; preview = null; deadline = null; ui['report-consent'].checked = false; ui['report-preview-results'].replaceChildren(); controls();
+      snapshot = null; rawRealm = null; preview = null; deadline = null; ui['report-consent'].checked = false; ui['report-preview-results'].replaceChildren(); controls();
     }
     async function json(path, body, owned) {
       const timer = setTimeout(() => owned.abort(), 15000);
@@ -83,10 +83,16 @@
         throw Error('The online count aged past 15 minutes. This review was cleared; select the dedicated export again to withhold that count before preparing a new preview. Nothing was published.');
       }
     }
+    function scopeNode() {
+      const node = document.createElement('p'); node.className = 'help';
+      node.textContent = 'Accepted local realm group: ' + rawRealm + ' · Alliance. Publication scope: ' + PUBLISH_REALM + ' · Alliance. This remains an unverified observation.';
+      return node;
+    }
     function renderPreview(value, now) {
       if (!live()) return;
       ui['report-preview-results'].replaceChildren();
       if (!cards || typeof cards.card !== 'function') throw Error('The aggregate review renderer is unavailable.');
+      if (rawRealm) ui['report-preview-results'].append(scopeNode());
       ui['report-preview-results'].append(cards.card(value, now));
     }
     const controller = Object.freeze({
@@ -102,10 +108,15 @@
         if (!originalDeadline || !Number.isFinite(originalDeadline.wallDeadline) || !Number.isFinite(originalDeadline.monotonicDeadline) || originalDeadline.wallDeadline > Date.now() + 900000 || originalDeadline.monotonicDeadline > performance.now() + 900000) throw Error('The original local review deadline was refused.');
         const accepted = canonical(value, Math.floor(Date.now() / 1000));
         const guildName = canonicalGuild(accepted.guilds[0].name);
-        if (accepted.faction !== 'Alliance' || !guildName) throw Error('Only an Olympus guild Alliance observation can be prepared for this Army page. Nothing was sent.');
+        if (accepted.realmGroup !== 'ForeverPvE' || accepted.faction !== 'Alliance' || !guildName) {
+          clear();
+          throw Error('Only an Olympus guild Alliance observation labeled exactly ForeverPvE can be prepared for this Army page. Nothing was sent.');
+        }
+        rawRealm = accepted.realmGroup;
         snapshot = JSON.parse(JSON.stringify(accepted)); snapshot.realmGroup = PUBLISH_REALM; snapshot.guilds[0].name = guildName;
         canonical(snapshot, Math.floor(Date.now() / 1000));
         deadline = {...originalDeadline}; preview = null; original = null; ui['report-consent'].checked = false;
+        ui['report-preview-results'].replaceChildren(scopeNode());
         say('Complete observation reviewed locally. Its raw game realm label stays on this device. The private preview uses the fixed World of Warcraft: Forever PvE · Alliance publication scope, which you must attest before publishing.'); controls();
       },
     });
@@ -122,7 +133,7 @@
         preview = {snapshot: JSON.parse(JSON.stringify(checked)), previewToken: data.previewToken, expiresAt: data.expiresAt};
         renderPreview(preview.snapshot, data.now); ui['report-consent'].checked = false;
         say('Private preview prepared. Review its exact figures below and explicitly consent before sharing them with signed-in Olympus readers. Nothing has been published.');
-      } catch (error) { if (live() && token === generation && !document.hidden) { preview = null; ui['report-preview-results'].replaceChildren(); say(error.message || 'The private preview could not be prepared.'); } }
+      } catch (error) { if (live() && token === generation && !document.hidden) { preview = null; ui['report-preview-results'].replaceChildren(...(rawRealm ? [scopeNode()] : [])); say(error.message || 'The private preview could not be prepared.'); } }
       finally { if (request === owned) request = null; if (token === generation) { pending = ''; controls(); } }
     });
     listen(ui['report-consent'], 'change', controls);
@@ -137,7 +148,7 @@
       try {
         const data = await json('/api/army/publish', {...exact, confirm: 'PUBLISH'}, owned);
         if (!data || data.state !== 'published' || JSON.stringify(data.snapshot) !== JSON.stringify(exact.snapshot)) throw Error('The original publication answer did not match the reviewed snapshot.');
-        releaseHeld(exact); unknown = false; original = null; preview = null; snapshot = null; deadline = null;
+        releaseHeld(exact); unknown = false; original = null; preview = null; snapshot = null; rawRealm = null; deadline = null;
         if (!live()) return;
         ui['report-consent'].checked = false; ui['report-preview-results'].replaceChildren(); capture()?.clear();
         importClear();
@@ -151,7 +162,7 @@
       try {
         const data = await json('/api/army/outcome', exact, owned);
         if (!data || !['published', 'superseded', 'not_current'].includes(data.state)) throw Error('The original outcome is still unavailable.');
-        releaseHeld(exact); unknown = false; original = null; preview = null; snapshot = null; deadline = null;
+        releaseHeld(exact); unknown = false; original = null; preview = null; snapshot = null; rawRealm = null; deadline = null;
         if (!live()) return;
         ui['report-consent'].checked = false; ui['report-preview-results'].replaceChildren(); capture()?.clear();
         importClear();
@@ -188,7 +199,7 @@
       // Importer disposal closes its reporter too; mark this side first to make that reciprocal cleanup safe.
       disposed = true;
       generation++; if (request) request.abort(); request = null;
-      snapshot = null; preview = null; deadline = null; original = null;
+      snapshot = null; rawRealm = null; preview = null; deadline = null; original = null;
       if (localImport) localImport.destroy(); localImport = null;
       for (const remove of removers.splice(0)) remove(); clearInterval(interval);
       ui['report-consent'].checked = false; ui['report-preview-results'].replaceChildren();

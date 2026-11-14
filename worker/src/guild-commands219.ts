@@ -17,6 +17,7 @@ import { consentCalendarReminder219 } from './guild-reminder219';
 import { RSVP_CHOICES_219 } from './guild-calendar-metadata219';
 import { guideLookup219, workshopLookup219, referenceLookup219, safeDiscordText219, type GuildEmbed219 } from './guild-utilities219';
 import { siteMemberLink } from './site-return';
+import {capturePrivateComponent280} from './private-component280';
 
 const COMPONENT=/^raid219:rsvp:([A-Za-z0-9_-]{22}):([1-9][0-9]{0,8}):(tank|healer|melee|ranged|tentative|bench|absent)$/;
 export const isGuildCommand219=(i:Interaction):boolean=>isOlympusHub224(i)||isRaidHub222(i)||(i.type===2&&GUILD_COMMAND_NAMES_228.has(i.data?.name??''))||(i.type===3&&COMPONENT.test(i.data?.custom_id??''));
@@ -96,20 +97,21 @@ export async function executeGuildCommand219(env:Env,a:GuildActor219,i:Interacti
  * persisted, printed, placed in audit fields or passed to an automatic retry. */
 export async function handleGuildCommand219(env:Env,i:Interaction,signedAt:number,defer?:(work:()=>Promise<unknown>)=>void):Promise<Response> {
  if(!isGuildCommand219(i))return reply('Unknown guild command.');
+ const privateUpdate=capturePrivateComponent280(env,i,signedAt,'hub');
  if(!defer||typeof i.token!=='string'||i.token.length<20||i.token.length>2048||!/^[A-Za-z0-9_.-]+$/.test(i.token))return i.type===4?json({type:8,data:{choices:[]}}):reply('This command could not start. Open the guild website or run a fresh command.');
  let a:GuildActor219;
  try{a=await captureGuildActor219(env,i,now(),signedAt);}catch{return i.type===4?json({type:8,data:{choices:[]}}):reply('Verify a character and sign in on the Olympus website first. This command needs a current, eligible site account in this server.');}
  if(rateLimited('gc219:'+a.id,30,60))return i.type===4?json({type:8,data:{choices:[]}}):reply('Too many guild commands in one minute. Wait a moment before trying again.');
  try{if(i.type===4&&isRaidHub222(i))return json(await raidAutocomplete222(env,a,i));const modal=isOlympusHub224(i)?olympusModal224(i,a):isRaidHub222(i)?raidModal222(i,a):null;if(modal)return json(modal);}catch{return i.type===4?json({type:8,data:{choices:[]}}):reply('This private control expired or changed. Open /olympus or the raid hub again.');}
- const path=`${API}/webhooks/${env.DISCORD_APP_ID}/${i.token}/messages/@original`;
+ const update=privateUpdate(a.id),path=`${API}/webhooks/${env.DISCORD_APP_ID}/${i.token}/messages/@original`;
  defer(async()=>{
   let answer:Answer219;
   try{answer=await executeGuildCommand219(env,a,i);assertGuildAnswer219(answer);}catch(e){answer={content:e instanceof Error&&e.message.length<=300&&!/https?:|token|secret|SQL|constraint/i.test(e.message)?e.message:'The command could not be confirmed. Check the current website state before any repeat action.'};}
   if(!await currentGuildActor219(env,a))answer={content:'Your account or original request changed. This response is held; sign in on the website again.'};
   // New interaction required after expiry. No token refresh, background replay,
   // public fallback, follow-up POST or retry is permitted.
-  if(now()>=a.deadline)return;
-  try{const response=await credentialFetch(path,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:'',embeds:[],components:[],...answer,allowed_mentions:{parse:[]}})},()=>{if(now()>=a.deadline)throw Error('guild_reply_expired');});if(!response.ok)console.warn("guild_command_private_reply_unavailable",response.status);await response.body?.cancel();}catch{/* private answer unavailable; no retry */}
+  if(now()>=a.deadline||update&&!privateUpdate(a.id))return;
+  try{const response=await credentialFetch(path,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:'',embeds:[],components:[],...answer,allowed_mentions:{parse:[]}})},()=>{if(now()>=a.deadline||update&&!privateUpdate(a.id))throw Error('guild_reply_expired_or_changed');});if(!response.ok)console.warn("guild_command_private_reply_unavailable",response.status);await response.body?.cancel();}catch{/* private answer unavailable; no retry */}
  });
- return json({type:5,data:{flags:64}});
+ return update?json({type:6}):json({type:5,data:{flags:64}});
 }

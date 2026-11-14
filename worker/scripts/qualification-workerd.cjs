@@ -5,6 +5,10 @@ const {buildSync}=require('esbuild'),{Miniflare,Log,LogLevel,convertV4MiniflareO
 const root=path.resolve(__dirname,'..'),out=process.argv[2],targets=process.argv.slice(3);
 if(!out||!path.isAbsolute(out)||!fs.statSync(out).isDirectory()||targets.some(x=>!['lease','treasury','reconciliation'].includes(x))||new Set(targets).size!==targets.length)throw Error('invalid_runtime_arguments');
 const kinds=['baseline',...targets],calls=[],handoffs=[],present=new Set(),blocked='800000000000000103';
+const canonicalGuild='236932545793490944',canonicalSubject='800000000000000399',canonicalGM='1554261979684933742',canonicalBot='800000000000000002',canonicalBotRole='888888888888888888';
+const liveMember='800000000000000400',liveOfficer='800000000000000401',liveAlt='800000000000000402',canonicalMember='1552077551839617104',canonicalOfficer='1554262223038324840';
+const canonicalPresent=new Map([canonicalSubject,liveMember,liveOfficer,liveAlt].map(id=>[id,new Set()]));
+const canonicalAllowedGrants=new Map([[canonicalSubject,canonicalGM],[liveMember,canonicalMember],[liveOfficer,canonicalOfficer]]);
 const bundle=buildSync({entryPoints:[path.join(root,'tests/qualification_runtime_test.mjs')],absWorkingDir:root,bundle:true,write:false,format:'esm',platform:'browser',target:'es2022',external:['node:async_hooks'],tsconfig:path.join(root,'tsconfig.json'),logLevel:'silent'}).outputFiles[0].text;
 let mf,complete=false;
 const observations=[];
@@ -16,9 +20,9 @@ async function run(){
         const u=new URL(request.url),p=u.pathname.replace(/^\/api\/v10/,'');
         if(u.origin==='https://verify.example'&&u.pathname==='/internal/roles242/continue'){
           assert.equal(request.method,'POST');assert.equal(u.search,'');
-          const text=await request.text(),body=JSON.parse(text),signature=crypto.createHmac('sha256','qualification-secret-only').update('role-continuation242\n'+text).digest('hex');
+          const text=await request.text(),body=JSON.parse(text),signature=crypto.createHmac('sha256','qualification-cookie-only').update('role-continuation280-v2\n'+u.origin+'\n'+text).digest('hex');
           assert.equal(request.headers.get('X-Olympus-Role-Continuation'),signature,'actual handoff HMAC');
-          assert(['requests','sweep'].includes(body.kind));assert.equal(Object.keys(body).sort().join(','),body.kind==='requests'?'at,kind,nonce':'at,kind,nonce,sweep');
+          assert.equal(body.version,2);assert(['requests','sweep'].includes(body.kind));assert.equal(Object.keys(body).sort().join(','),body.kind==='requests'?'at,kind,nonce,version':'at,kind,nonce,sweep,version');
           assert(Number.isSafeInteger(body.at)&&Math.abs(Math.floor(Date.now()/1000)-body.at)<=60);
           if(body.kind==='sweep')assert.deepEqual(body.sweep,{id:'f'.repeat(32),n:5});
           handoffs.push({kind:body.kind,sweep:body.sweep??null,status:body.kind==='requests'?503:202});
@@ -26,7 +30,22 @@ async function run(){
         }
         assert.equal(u.origin,'https://discord.com','only synthetic Discord HTTP is permitted');
         assert.equal(u.search,'','unexpected outbound query');
+         if(u.pathname==='/__fixture/strip-member'){
+           assert.equal(request.method,'POST');assert.equal(await request.text(),'');
+           const roles=canonicalPresent.get(liveMember);assert(roles.has(canonicalMember),'only an actually granted mock Member may be stripped');roles.delete(canonicalMember);
+           calls.push({method:'POST',path:p,fixtureControl:'strip-member'});
+           return Response.json({fixtureControl:'strip-member',subject:liveMember,role:canonicalMember,wasPresent:true,present:roles.has(canonicalMember)});
+         }
         calls.push({method:request.method,path:p});
+        if(p==='/users/@me'||p.startsWith('/guilds/'+canonicalGuild+'/'))assert(u.pathname.startsWith('/api/v10/'),'exact canonical Discord API prefix');
+        if(request.method==='GET'&&p==='/users/@me')return Response.json({id:canonicalBot,bot:true});
+        if(request.method==='GET'&&p==='/guilds/'+canonicalGuild+'/roles')return Response.json([{id:canonicalGuild,name:'@everyone',position:0,permissions:'0',managed:false},{id:canonicalBotRole,name:'Fixture Bot',position:100,permissions:'268435456',managed:false},{id:canonicalGM,name:'Olympus Guild Master',position:50,permissions:'0',managed:false},{id:canonicalOfficer,name:'Olympus Officer',position:40,permissions:'0',managed:false},{id:canonicalMember,name:'Olympus Member',position:1,permissions:'0',managed:false}]);
+        if(request.method==='GET'&&p==='/guilds/'+canonicalGuild+'/members/'+canonicalBot)return Response.json({user:{id:canonicalBot,bot:true},roles:[canonicalBotRole]});
+        for(const [id,roles]of canonicalPresent){
+          if(request.method==='GET'&&p==='/guilds/'+canonicalGuild+'/members/'+id)return Response.json({user:{id},roles:[...roles]});
+          const role=canonicalAllowedGrants.get(id);
+          if(role&&request.method==='PUT'&&p==='/guilds/'+canonicalGuild+'/members/'+id+'/roles/'+role){roles.add(role);return new Response(null,{status:204});}
+        }
         if(request.method==='GET'&&p==='/guilds/800000000000000001/roles')return Response.json([{id:'800000000000000010'},{id:'800000000000000011'}]);
         const member=p.match(/^\/guilds\/800000000000000001\/members\/(80000000000000010[123])$/);
         if(request.method==='GET'&&member)return Response.json({user:{id:member[1]},roles:member[1]===blocked?['800000000000000011']:present.has(member[1])?['800000000000000010']:[]});
@@ -42,9 +61,11 @@ async function run(){
       assert.equal(observation.complete,true);assert.equal(observation.actualLocalWorkerdD1,true);assert(observation.checks.length>0&&observation.checks.every(x=>x.passed===true));
       for(const check of observation.checks)console.log('PASS '+target+': '+check.name);
     }
-    const effects=calls.filter(x=>x.method!=='GET');
-    assert.deepEqual(effects,[{method:'PUT',path:'/guilds/800000000000000001/members/800000000000000101/roles/800000000000000010'}],'only the eligible synthetic grant may dispatch');
-    console.log('PASS only one eligible synthetic Discord effect; no banned, blocked or unproven Native effect');
+    const fixtureControl=x=>x.method==='POST'&&x.path==='/__fixture/strip-member'&&x.fixtureControl==='strip-member';
+    assert.deepEqual(calls.filter(x=>Object.hasOwn(x,'fixtureControl')),targets.includes('reconciliation')?[{method:'POST',path:'/__fixture/strip-member',fixtureControl:'strip-member'}]:[],'only the exact synthetic Member-strip control is excluded from provider effects');
+    const effects=calls.filter(x=>x.method!=='GET'&&!fixtureControl(x));
+    assert.deepEqual(effects,[{method:'PUT',path:'/guilds/800000000000000001/members/800000000000000101/roles/800000000000000010'},...(targets.includes('reconciliation')?[{method:'PUT',path:'/guilds/'+canonicalGuild+'/members/'+canonicalSubject+'/roles/'+canonicalGM},{method:'PUT',path:'/guilds/'+canonicalGuild+'/members/'+liveMember+'/roles/'+canonicalMember},{method:'PUT',path:'/guilds/'+canonicalGuild+'/members/'+liveMember+'/roles/'+canonicalMember},{method:'PUT',path:'/guilds/'+canonicalGuild+'/members/'+liveOfficer+'/roles/'+canonicalOfficer}]:[])],'only eligible common and separately proved original-policy GM/Member/Member-restore/Officer grants may dispatch; unknown/cross-policy/drift must not PUT or DELETE');
+    console.log('PASS only eligible common and original-policy Native grants; no banned, blocked, mirror or Member-stack effect');
     assert.deepEqual(handoffs.map(x=>[x.kind,x.status]),targets.includes('reconciliation')?[['requests',503],['sweep',202]]:[],'failed requests handoff must not suppress or repeat the independent sweep');
     if(targets.includes('reconciliation'))console.log('PASS signed request503 and independent same-generation sweep202 each attempted once in order');
     complete=true;

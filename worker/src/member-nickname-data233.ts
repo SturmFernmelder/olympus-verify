@@ -39,6 +39,15 @@ export function nicknameUnresolvedSql233(parameter:'?1'|'?2'):string{
  AND CASE WHEN NOT json_valid(nk.value) THEN 1 WHEN json_type(nk.value)<>'object' THEN 1
  WHEN COALESCE(json_extract(nk.value,'$.state'),'') IN('acknowledged','applied','refused') THEN 0 ELSE 1 END)`;
 }
+/** The guarded eraser has removed the nickname text but not settled its PATCH.
+ * Only its exact marker permits account cleanup; the ordinary write fence above
+ * remains unresolved, and late original receipt updates still match zero rows. */
+export function nicknameErasureUnresolvedSql233(parameter:'?1'|'?2'):string{
+ const unresolved=nicknameUnresolvedSql233(parameter);
+ return `(${unresolved}) AND NOT EXISTS(SELECT 1 FROM site_settings nk
+ WHERE nk.key='${NICKNAME_PREFIX233}${NICKNAME_GUILD233}:'||${parameter}
+ AND nk.value IS '{"v":1,"state":"erased_unknown"}')`;
+}
 export function nicknameEraseStatements233(env:Env,subject:string):D1PreparedStatement[]{const key=nicknameKey233(subject);return [
  env.DB.prepare(`UPDATE site_settings SET value='{"v":1,"state":"erased_unknown"}',updated_at=CAST(strftime('%s','now') AS INTEGER),updated_by=NULL WHERE key=?1
  AND CASE WHEN NOT json_valid(value) THEN 1 WHEN json_type(value)<>'object' THEN 1 WHEN COALESCE(json_extract(value,'$.state'),'') IN('acknowledged','applied','refused') THEN 0 ELSE 1 END`).bind(key),

@@ -1,7 +1,8 @@
+import {erasedReceiptMarkerStatements280,erasedReceiptMarkerSql280,accountAuditAttributionSql280} from './tithe-erased-replay280';
 import './privacy-access-data';
 import './ruleset-publication-data';
 import {TREASURY_RECEIPT_OWN_SQL242} from './treasury-data242';
-import {nicknameUnresolvedSql233} from './member-nickname-data233';
+import {nicknameUnresolvedSql233,nicknameErasureUnresolvedSql233} from './member-nickname-data233';
 /** Serving-account completion; independent provider messages/recovery copies retain truthful custody.
  * Dormant .129 completion and restore authority are not enabled by this module.
  */
@@ -76,7 +77,7 @@ function ambiguousAccountReferencesSql(discipline=false):string{
  ELSE NOT EXISTS(SELECT 1 FROM json_each(${a}.details,'$.names') WHERE type<>'text') END`;
  // Ambiguous/manual references in another owner's record cannot be guessed away. The structured
  // application scrub runs below, but any still-ambiguous raw document closes this batch.
- return `(${nicknameUnresolvedSql233('?2')}) OR EXISTS(SELECT 1 FROM site_settings WHERE instr(value,?2)>0)
+ return `(${nicknameErasureUnresolvedSql233('?2')}) OR EXISTS(SELECT 1 FROM site_settings WHERE instr(value,?2)>0)
  OR EXISTS(SELECT 1 FROM site_applications a WHERE a.discord_id<>?2 AND instr(a.answers,?2)>0 AND
  (NOT json_valid(a.answers) OR CASE WHEN json_valid(a.answers) THEN json_type(a.answers)<>'object' OR
  (SELECT COUNT(*) FROM json_each(a.answers) WHERE key='references')<>1 OR
@@ -136,7 +137,9 @@ export async function continueServingErasure(env:Env,proof:AccountErasureProof,a
   const current=await env.DB.prepare(`SELECT CASE WHEN ${CURRENT_ERASURE_SQL} AND EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.operation_id=?1 AND ${originalErasureJobBirthSql(proof)}) AND (${receiptSql}) AND NOT(${ambiguousAccountReferencesSql(discipline)}) THEN 1 ELSE 0 END AS current`)
    .bind(proof.operationId,proof.subject,proof.subjectGeneration,proof.requestDigest).first<{current:number}>();
   if(current?.current!==1)return held('native_current_or_reference_unconfirmed');
-  await cleanupPrivacyMessages(env,proof.subject);
+  // The terminal Native batch marks every attributable pointer for cleanup
+  // atomically with identity retirement. Existing independent debt turns drain
+  // those original pointers; keep this invocation within its196-statement slice.
   return completeServingAccount(env,proof,{state:'absent',checkedAt:cleanup.checkedAt,staffAccess:cleanup.staffAccess},receiptSql,discipline,undefined,true);
  }
  if(!await currentAccountErasureProof(env,proof))return held('request_not_current');
@@ -223,9 +226,10 @@ async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberR
  .bind(p.operationId,p.subject,p.subjectGeneration).first<{confirmed:number}>().catch(()=>null);
  if(observed?.confirmed!==1)return held('local_commit_outcome_unknown','unknown',role.staffAccess,details);
  }
- // continueServingErasure already attempted one bounded pointer page before completion.
- // Remaining known/unknown purpose custody survives and the completed-account cron lane
- // resumes it; do not spend a second provider page in this same local completion slice.
+ // Configured continuations attempted one bounded pointer page before completion;
+ // Native continuations reserve this slice for identity retirement and marker proofs.
+ // Known/unknown purpose custody survives. Existing independent debt turns resume
+ // eligible original pointers; local completion never confirms Discord-copy removal.
  return {state:'complete',reason:null,servingAccountErased:true,allCopiesErased:false,providerMessages:'unqualified',recoveryCopies:'operator-held',staffAccess:role.staffAccess,staffAccessDetails:details,messageDebt:await privacyMessageDebt(env,p.subject)};
 }
 
@@ -304,12 +308,10 @@ function fixedAccountCleanupStatements(env:Env,p:Readonly<{subject:string;subjec
  AND CASE WHEN ${groupedShape('audit')} THEN EXISTS(SELECT 1 FROM json_each(audit.details,'$.names') n
  JOIN characters c ON c.discord_id=?1 AND audit.ts>=c.bound_at
  WHERE n.value=c.name COLLATE NOCASE OR n.value=c.name_key COLLATE NOCASE) ELSE 0 END`).bind(p.subject),
- // Evaluate the original receipt predicate first: malformed receipt JSON still refuses the whole transaction.
- env.DB.prepare(`DELETE FROM audit WHERE CASE WHEN (${TREASURY_RECEIPT_OWN_SQL242}) THEN 1 ELSE (actor=?1 OR subject=?1 OR instr(COALESCE(details,''),?1)>0
- OR EXISTS(SELECT 1 FROM characters c WHERE c.discord_id=?1 AND audit.ts>=c.bound_at AND
- (audit.subject=c.name COLLATE NOCASE OR audit.subject=c.name_key COLLATE NOCASE) AND
- ((audit.actor='watcher' AND audit.action IN('note.set','note.failed','invite.failed','invite.fired','invite.joined','verify.roster_not_current','verify.guid_pinned','roster.remove_failed','roster.removed_unlinked'))
- OR (audit.actor='system' AND audit.action IN('invite.declined','invite.expired','role.remove_held','role.remove_failed','nick.failed'))))) END`).bind(p.subject),
+ // The same original terminal batch retains only opaque replay keys and ORIGINAL expiries
+ // before authorized receipt deletion. No business registry eraser can execute this plan.
+ ...erasedReceiptMarkerStatements280(env,p.subject,TREASURY_RECEIPT_OWN_SQL242),
+ env.DB.prepare(`DELETE FROM audit WHERE CASE WHEN (${erasedReceiptMarkerSql280('audit')}) THEN 0 WHEN (${TREASURY_RECEIPT_OWN_SQL242}) THEN 1 ELSE ${accountAuditAttributionSql280('audit')} END`).bind(p.subject),
  ...['pending','invite_queue','bnet_characters','rename_holds','characters'].map(table=>env.DB.prepare(`DELETE FROM ${table} WHERE discord_id=${target}`).bind(p.subject)),
  env.DB.prepare('DELETE FROM site_board_votes WHERE voter_id=?1 OR candidate_id=?1').bind(p.subject),
  env.DB.prepare('DELETE FROM site_votes WHERE voter_id=?1').bind(p.subject),

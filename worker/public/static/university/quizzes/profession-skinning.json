@@ -1,0 +1,169 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "profession-skinning",
+ "questions": [
+  {
+   "id": "profession-skinning.starter-book",
+   "scope": "profession:skinning",
+   "tier": 101,
+   "chapter": "skinning-101-changes",
+   "type": "mcq",
+   "stem": "Which starting-zone quest item teaches Skinning?",
+   "choices": [
+    "Pelt Collecting for Beginners",
+    "Wild Harvest",
+    "Mining for Dummies"
+   ],
+   "answer": 0,
+   "explanation": "Pelt Collecting for Beginners teaches Skinning and gives +2 skill. Wild Harvest teaches Herbalism, and Mining for Dummies teaches Mining.",
+   "facts": [
+    "profession-skinning.starter-zone-book"
+   ],
+   "distractorFacts": [
+    "profession-herbalism.starter-zone-book",
+    "profession-mining.starter-zone-book"
+   ]
+  },
+  {
+   "id": "profession-skinning.pristine",
+   "scope": "profession:skinning",
+   "tier": 101,
+   "chapter": "skinning-101-changes",
+   "type": "mcq",
+   "stem": "Which of these is a new scarce Skinning material?",
+   "choices": [
+    "Pristine Scale",
+    "Pitchblende",
+    "Rosecap"
+   ],
+   "answer": 0,
+   "explanation": "Skinning can yield Pristine Leather, Pristine Hide and Pristine Scale. Pitchblende is a scarce ore and Rosecap a scarce herb.",
+   "facts": [
+    "profession-skinning.pristine-materials"
+   ],
+   "distractorFacts": [
+    "profession-mining.scarce-ores",
+    "profession-herbalism.scarce-herbs"
+   ]
+  },
+  {
+   "id": "profession-skinning.workbench",
+   "scope": "profession:skinning",
+   "tier": 101,
+   "chapter": "skinning-101-camp",
+   "type": "mcq",
+   "stem": "Which Skinning camp object unlocks at skill 300?",
+   "choices": [
+    "Trapper's Workbench",
+    "Field Guide",
+    "Camp Chair"
+   ],
+   "answer": 0,
+   "explanation": "The Camp Chair comes at skill 20, the Field Guide at 140 and the Trapper's Workbench at 300.",
+   "facts": [
+    "profession-skinning.camp-objects"
+   ]
+  },
+  {
+   "id": "profession-skinning.field-guide-perk",
+   "scope": "profession:skinning",
+   "tier": 101,
+   "chapter": "skinning-101-camp",
+   "type": "mcq",
+   "stem": "The Field Guide is also the name of a Legacy perk. What does the perk do?",
+   "choices": [
+    "shortens the camp-feature cooldown",
+    "makes food buffs last longer",
+    "gives extra cooking results"
+   ],
+   "answer": 0,
+   "explanation": "The Field Guide perk shortens the camp-feature cooldown. Gourmand makes food buffs last longer and Master Chef gives extra cooking results. The Field Guide camp object is a separate thing, unlocked at Skinning 140.",
+   "facts": [
+    "profession-cooking.legacy-perks"
+   ]
+  },
+  {
+   "id": "profession-skinning.working-overtime",
+   "scope": "profession:skinning",
+   "tier": 101,
+   "chapter": "skinning-101-leveling",
+   "type": "mcq",
+   "stem": "Which Legacy perk improves your skill-up chance?",
+   "choices": [
+    "Working Overtime",
+    "Bountiful Harvest",
+    "Master Chef"
+   ],
+   "answer": 0,
+   "explanation": "Working Overtime improves your skill-up chance. Bountiful Harvest gives extra Scarce resources, and Master Chef gives extra cooking results.",
+   "facts": [
+    "profession-skinning.legacy-perks"
+   ],
+   "distractorFacts": [
+    "profession-cooking.legacy-perks"
+   ]
+  },
+  {
+   "id": "profession-skinning.chair-crit",
+   "scope": "profession:skinning",
+   "tier": 201,
+   "chapter": "skinning-201-raid",
+   "type": "mcq",
+   "stem": "What does the Camp Chair give?",
+   "choices": [
+    "2% crit",
+    "1% crit",
+    "+40 attack power"
+   ],
+   "answer": 0,
+   "explanation": "The Camp Chair gives 2% crit. Grilled Squid and Hot Smoked Bass give +1% crit, and Mightfish Steak +40 attack power.",
+   "facts": [
+    "profession-skinning.camp-chair"
+   ],
+   "distractorFacts": [
+    "profession-cooking.reworked-raid-foods"
+   ]
+  },
+  {
+   "id": "profession-skinning.chair-aura",
+   "scope": "profession:skinning",
+   "tier": 201,
+   "chapter": "skinning-201-raid",
+   "type": "mcq",
+   "stem": "Which class buff does the Camp Chair match, so that the two do not stack?",
+   "choices": [
+    "Moonkin Aura",
+    "Blessing of Might"
+   ],
+   "answer": 0,
+   "explanation": "The Camp Chair matches Moonkin Aura. The Mining Lodestone is the one that matches Blessing of Might.",
+   "facts": [
+    "profession-skinning.camp-chair"
+   ],
+   "distractorFacts": [
+    "profession-mining.lodestone"
+   ]
+  },
+  {
+   "id": "profession-skinning.reagent-bag",
+   "scope": "profession:skinning",
+   "tier": 201,
+   "chapter": "skinning-201-gold",
+   "type": "mcq",
+   "stem": "Which Pristine material is the Bottomless Reagent Bag made from?",
+   "choices": [
+    "Pristine Hide",
+    "Pristine Leather",
+    "Pristine Scale"
+   ],
+   "answer": 0,
+   "explanation": "The Bottomless Reagent Bag is made from Pristine Hide, so that is the Pristine material to hold back.",
+   "facts": [
+    "profession-skinning.reagent-bag-slot"
+   ],
+   "distractorFacts": [
+    "profession-skinning.pristine-materials"
+   ]
+  }
+ ]
+}

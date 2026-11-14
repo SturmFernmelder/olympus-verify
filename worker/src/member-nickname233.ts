@@ -29,6 +29,16 @@ export function formatNickname233(character:string):string{
  for(const {segment} of new Intl.Segmenter('en',{granularity:'grapheme'}).segment(character.trim())){if(head.length+segment.length>limit)break;head+=segment;}
  if(!head.trim())throw Error('nickname_character_held');return head.trimEnd()+suffix;
 }
+/** Display the confirmed value as quoted, escaped text in this own-only reply. */
+function nicknameConfirmation233(action:'use'|'reset',desired:string|null,character:string,earlier=false):string{
+ const label=desired===null?'no custom nickname':'“'+desired.replace(/([\`*_{}\[\]()#+\-.!|~<>@])/g,'\\$1')+'”';
+ let shortened=false;
+ if(action==='use'&&desired!==null)try{shortened=desired===formatNickname233(character)&&desired!==character.trim()+' <OLYMPUS PRIME>';}catch{/* A saved original is displayed, never reformatted or replayed. */}
+ return (earlier?'Your earlier nickname change is confirmed. ':'')+(action==='reset'?'Your server nickname is restored to ':'Your server nickname is now ')+label+'.'
+  +(shortened?' The character name was shortened to keep the guild tag within the nickname length limit.':'')
+  +(earlier?' No second change was sent.':action==='use'?' Reset Nickname restores your saved previous nickname.':'');
+}
+
 type Member={roles:string[];nick:string|null;id:string};
 function member(raw:unknown,subject:string):Member{
  const roles=data(raw,'roles'),user=data(raw,'user'),nick=data(raw,'nick');
@@ -73,7 +83,7 @@ async function perform(env:Env,subject:string,operation:string,action:'use'|'res
    const next=JSON.stringify({...saved,state:'applied',updatedAt:at()});const p=routineMembership232Predicate(env,cap,4);
    const statement=saved.action==='reset'?env.DB.prepare(`DELETE FROM site_settings WHERE key=?1 AND value=?2 AND ?3 IS NOT NULL AND (${p.sql}) RETURNING key`):env.DB.prepare(`UPDATE site_settings SET value=?3,updated_at=CAST(strftime('%s','now') AS INTEGER),updated_by=NULL WHERE key=?1 AND value=?2 AND (${p.sql}) RETURNING key`);
    const r=await statement.bind(key,raw,next,...p.values).all();check();
-   return r.success&&r.results.length===1?'Your earlier nickname change is confirmed. No second change was sent.':unknown;
+   return r.success&&r.results.length===1?nicknameConfirmation233(saved.action,saved.desired,source.results[0]!.name,true):unknown;
   }
   const desired=action==='use'?formatNickname233(source.results[0]!.name):saved?.previous??null;
   const previous=saved?saved.previous:action==='use'?target.nick:null,record:NicknameRecord233={v:1,guild:NICKNAME_GUILD233,generation:f.subjectGeneration,previous,desired,expected:target.nick,state:'dispatching',action,operation,nonce:crypto.randomUUID().replaceAll('-',''),createdAt:at(),updatedAt:at()};
@@ -98,7 +108,7 @@ async function perform(env:Env,subject:string,operation:string,action:'use'|'res
   const done=routineMembership232Predicate(env,cap,4),next=JSON.stringify({...record,state:'applied',updatedAt:at()});
   const finish=action==='reset'?env.DB.prepare(`DELETE FROM site_settings WHERE key=?1 AND value=?2 AND ?3 IS NOT NULL AND (${done.sql}) RETURNING key`).bind(key,ack,next,...done.values):env.DB.prepare(`UPDATE site_settings SET value=?3,updated_at=CAST(strftime('%s','now') AS INTEGER),updated_by=NULL WHERE key=?1 AND value=?2 AND (${done.sql}) RETURNING key`).bind(key,ack,next,...done.values);
   const finished=await finish.all();check();if(!finished.success||finished.results.length!==1)return unknown;claimed=null;
-  return action==='reset'?'Your previous server nickname is restored. If none was saved, your custom nickname is cleared.':'Your server nickname now uses your verified character and guild. Reset Nickname restores your saved previous nickname.';
+  return nicknameConfirmation233(action,after.nick,source.results[0]!.name);
  }catch{
   if(claimed&&!acknowledged)try{await env.DB.prepare('UPDATE site_settings SET value=json_set(value,\'$.state\',?3),updated_at=CAST(strftime(\'%s\',\'now\') AS INTEGER),updated_by=NULL WHERE key=?1 AND value=?2').bind(key,claimed,effectStarted?'unknown':'refused').run();}catch{/* Original spent custody is retained even if its final receipt is lost. */}
   return claimed&&(effectStarted||acknowledged)?unknown:held;

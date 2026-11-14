@@ -1,3 +1,4 @@
+import {TITHE_ERASED_REPLAY_COVERAGE280} from './tithe-erased-replay280';
 /** Complete store inventory; selected account fields remain a curated partial copy. No identity or write authority. */
 import { FormError } from './policy-form-core';
 import { escapeText as e } from './policy-render';
@@ -103,7 +104,7 @@ const rows:StoreCoverage[]=[
   "collections": [
    "actions"
   ],
-  "description": "Account actor/subject action and time only; controlled reference-only or character-attributed rows are omitted.",
+  "description": "Account actor/subject action and time only; controlled reference-only or character-attributed rows are omitted. " + TITHE_ERASED_REPLAY_COVERAGE280,
   "handling": "Selected fields only. Omitted content and staff-related records need attended review; an empty or filtered section is not proof that nothing is retained."
  },
  {

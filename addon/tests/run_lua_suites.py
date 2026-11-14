@@ -40,11 +40,14 @@ SUITES = {
     "membership_queue_hold227": (TESTS, Path("test_membership_queue_hold227.lua")),
     "launch_diagnostics229": (TESTS, Path("test_launch_diagnostics229.lua")),
     "launch_operations229": (TESTS, Path("test_launch_operations229.lua")),
+    "discovery235": (TESTS, Path("test_discovery235.lua")),
     "auto_sync232": (TESTS, Path("test_auto_sync232.lua")),
     "performance235": (TESTS, Path("test_performance235.lua")),
     "slash_registration234": (TESTS, Path("test_slash_registration234.lua")),
     "officer_invites233": (TESTS, Path("test_officer_invites233.lua")),
     "live242": (TESTS, Path("test_live242.lua")),
+    "local_correspondence280": (TESTS, Path("test_local_correspondence280.lua")),
+    "selected_read_masking280": (TESTS, Path("test_selected_read_masking280.lua")),
     "dan155_census": (TESTS, Path("test_dan155_census.lua")),
     "bridge_status267": (TESTS, Path("test_bridge_status267.lua")),
     "roster268": (TESTS, Path("test_roster268.lua")),
@@ -57,17 +60,40 @@ SUITES = {
     "selected_promotion273": (TESTS, Path("test_selected_promotion273.lua")),
     "selected_batch276": (TESTS, Path("test_selected_batch276.lua")),
     "promotion_steps": (TESTS, Path("test_promotion_steps.lua")),
+    "directive_rank_transition": (TESTS, Path("test_directive_rank_transition.lua")),
+    "tithe280": (TESTS, Path("test_tithe280.lua")),
+    "tithe_slash280": (TESTS, Path("test_tithe_slash280.lua")),
+    "live_safety280": (TESTS, Path("test_live_safety280.lua")),
+    "tithe_successor280": (TESTS, Path("test_tithe_successor280.lua")),
+    "tithe_hookorder280": (TESTS, Path("test_tithe_hookorder280.lua")),
+    "combat_close280": (TESTS, Path("test_combat_close280.lua")),
+    "addon_residual280": (TESTS, Path("test_addon_residual280.lua")),
+    "addon_work280": (TESTS, Path("test_addon_work280.lua")),
 }
-TARGETED_ONLY = {"dan155_census", "bridge_status267", "roster268", "guild_status268", "roster_details", "roster_model", "roster_controls", "launch_projection_diagnostics", "loaded_scan_status", "selected_promotion273", "selected_batch276", "promotion_steps"}
+# Shared synthetic fixture modules that suites load; hashed with the suites.
+FIXTURES = [TESTS / "directive_fixture280.lua"]
+PYTHON_RUNNERS = {
+    "tithe280": ("run_tithe280.py", False),
+    "tithe_slash280": ("run_tithe_slash280.py", False),
+    "live_safety280": ("run_live_safety280.py", True),
+    "tithe_successor280": ("run_tithe_successor280.py", True),
+    "tithe_hookorder280": ("run_tithe_hookorder280.py", True),
+}
+# Suites that need an input from outside this repository. They run only by name with that input.
+NEEDS_EXTERNAL_ARCHIVE = {"dan155_census"}
+TARGETED_ONLY = {"dan155_census", "bridge_status267", "roster268", "guild_status268", "roster_details", "roster_model", "roster_controls", "launch_projection_diagnostics", "loaded_scan_status", "selected_promotion273", "selected_batch276", "promotion_steps", "addon_residual280", "addon_work280"}
 
 
 def input_hashes() -> dict[str, str]:
-    paths = [
-        ADDON / "OlympusVerify" / name
-        for name in ("OlympusVerify.lua", "OlympusVerifyUI.lua", "OlympusVerifyAutoSync.lua", "OlympusVerifyPreview.lua", "OlympusVerifyRoster.lua", "OlympusVerifyRosterModel.lua", "OlympusVerifyGuild.lua", "OlympusVerifyRanks.lua", "OlympusVerify.toc", "OlympusVerifyLists.lua", "Libs/OlympusHmac.lua", "Libs/OlympusQr.lua", "OlympusVerifyBrowser.lua", "OlympusVerifyCensus.lua", "OlympusVerifyTreasury.lua", "OlympusLaunchQueue.lua", "OlympusLaunchSelected.lua", "OlympusVerifyLaunch229.lua", "OlympusVerifyOfficerInvites233.lua")
-    ]
+    # Capture the current modules, including newly registered Native/Live code.
+    # Exclude the private configuration by name before any file is opened.
+    paths = sorted(path for path in (ADDON / "OlympusVerify").rglob("*")
+                   if path.name.casefold() != "config.lua"
+                   and path.suffix.lower() in {".lua", ".toc"} and path.is_file())
     paths.extend([TESTS / "wow_mock.lua", Path(__file__).resolve()])
     paths.extend(cwd / script for cwd, script in SUITES.values())
+    paths.extend(TESTS / name for name, _ in PYTHON_RUNNERS.values())
+    paths.extend(FIXTURES)
     return {str(path.relative_to(ADDON)): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths if path.is_file()}
 
 
@@ -76,12 +102,27 @@ def main() -> int:
     parser.add_argument("--suite", choices=SUITES)
     parser.add_argument("--logdir", type=Path)
     parser.add_argument("--dan-archive", type=Path, help="Explicit Olympus1.5.5 ZIP for the targeted public-checkpoint runtime test")
+    # Evergreen 12 Nov 2026 (CL2-022): the release gate runs every suite that needs no external archive, including the
+    # targeted roster, Guild tab and promotion suites the default run leaves out.
+    parser.add_argument("--all-offline", action="store_true", help="Run the default suites plus every targeted suite that needs no external archive")
     args = parser.parse_args()
     if args.dan_archive is not None and args.suite != "dan155_census":
         parser.error("--dan-archive is only for --suite dan155_census")
+    if args.all_offline and args.suite:
+        parser.error("--all-offline runs every offline suite; do not combine it with --suite")
     if args.suite == "dan155_census" and args.dan_archive is None:
         parser.error("--suite dan155_census requires --dan-archive")
     if args.suite:
+        if args.suite in PYTHON_RUNNERS:
+            import contextlib
+            import tempfile
+            runner, needs_evidence = PYTHON_RUNNERS[args.suite]
+            destination = contextlib.nullcontext(str(args.logdir)) if args.logdir else tempfile.TemporaryDirectory(prefix="olympus-lua-")
+            with destination as logdir:
+                command = [sys.executable, str(TESTS / runner)]
+                if needs_evidence:
+                    command.extend(["--evidence", logdir])
+                return subprocess.run(command).returncode
         import os
         import lupa
         import lupa.luajit21 as runtime
@@ -109,15 +150,18 @@ def main() -> int:
     before = input_hashes()
     results = []
     for name, (cwd, script) in SUITES.items():
-        if name in TARGETED_ONLY:
+        if name in NEEDS_EXTERNAL_ARCHIVE or (name in TARGETED_ONLY and not args.all_offline):
             continue
         if not (cwd / script).is_file():
             # O1_OPS-03 (Master QA, 28 Oct 2026): a missing declared suite must never yield a green partial run.
             row = {"suite": name, "exit_code": 1, "error": "missing_suite"}
             output = f"Required suite file is missing: {name} ({script.as_posix()}).\n"
         else:
+            command = [sys.executable, str(Path(__file__).resolve()), "--suite", name]
+            if args.logdir and name in PYTHON_RUNNERS:
+                command.extend(["--logdir", str(args.logdir / name)])
             result = subprocess.run(
-                [sys.executable, str(Path(__file__).resolve()), "--suite", name],
+                command,
                 text=True, encoding="utf-8", errors="replace", capture_output=True,
             )
             row = {"suite": name, "exit_code": result.returncode}

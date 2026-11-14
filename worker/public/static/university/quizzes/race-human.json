@@ -1,0 +1,90 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "race-human",
+ "questions": [
+  {
+   "id": "race-human.ruthless",
+   "scope": "race:human",
+   "tier": 101,
+   "chapter": "human-101-racials",
+   "type": "mcq",
+   "stem": "What does the Human racial Ruthless give in Forever?",
+   "choices": [
+    "+1% crit",
+    "+1% hit",
+    "+2% haste"
+   ],
+   "answer": 0,
+   "explanation": "Ruthless gives +1% crit since Blizzard cut it from 2% on 26 October. +1% hit is Dwarf Artisan's Precision and +2% haste is Skyborne Wind-Blessed.",
+   "facts": [
+    "common.racial-human-ruthless"
+   ],
+   "distractorFacts": [
+    "common.racial-dwarf-artisans-precision",
+    "common.racial-skyborne-wind-blessed"
+   ]
+  },
+  {
+   "id": "race-human.spirit",
+   "scope": "race:human",
+   "tier": 101,
+   "chapter": "human-101-racials",
+   "type": "mcq",
+   "stem": "By how much does the Human Spirit racial raise your Spirit?",
+   "choices": [
+    "10%",
+    "1%",
+    "2%"
+   ],
+   "answer": 0,
+   "explanation": "The 26 October notes give Humans +10% Spirit. 1% and 2% are the Dwarf hit and Skyborne haste racials.",
+   "facts": [
+    "common.racial-human-spirit"
+   ],
+   "distractorFacts": [
+    "common.racial-dwarf-artisans-precision",
+    "common.racial-skyborne-wind-blessed"
+   ]
+  },
+  {
+   "id": "race-human.bartleby",
+   "scope": "race:human",
+   "tier": 101,
+   "chapter": "human-101-class-quests",
+   "type": "mcq",
+   "stem": "Which quest is the Human Warrior's Defensive Stance quest?",
+   "choices": [
+    "the Bartleby quest",
+    "The Affray",
+    "Race armor quests"
+   ],
+   "answer": 0,
+   "explanation": "The Human version of the level 10 Defensive Stance quest is the Bartleby quest, which rewards Bartleby's Mug. The Affray grants Berserker Stance at level 30.",
+   "facts": [
+    "class-warrior.quest-defensive-stance-quest"
+   ],
+   "distractorFacts": [
+    "class-warrior.quest-the-affray-berserker-stance",
+    "class-warrior.quest-race-armor-quests"
+   ]
+  },
+  {
+   "id": "race-human.priest-spells",
+   "scope": "race:human",
+   "tier": 101,
+   "chapter": "human-101-class-quests",
+   "type": "mcq",
+   "stem": "Which racial spells does a Human Priest unlock through class quests?",
+   "choices": [
+    "Divine Grace, Feedback",
+    "Desperate Prayer, Chastise",
+    "Starshards, Elune's Grace"
+   ],
+   "answer": 0,
+   "explanation": "Warcraft Tavern lists Divine Grace and Feedback for Humans; Desperate Prayer and Chastise are Dwarf, Starshards and Elune's Grace Night Elf.",
+   "facts": [
+    "class-priest.quest-racial-priest-spells"
+   ]
+  }
+ ]
+}

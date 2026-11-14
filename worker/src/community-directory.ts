@@ -1,3 +1,4 @@
+import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 /**
  * .57 (1 Oct 2026): the member directory and crafting offers, consolidation batch 2 of Codex's adapter map, ported from
  * Olympus Forever's src/directory.ts and src/crafting.ts (frozen candidate manifest 296db2c8…) onto the keeper's door
@@ -66,7 +67,10 @@ export const PROFESSIONS = ["alchemy", "blacksmithing", "enchanting", "engineeri
 export type Profession = (typeof PROFESSIONS)[number];
 export const RAID_ROLES = ["tank", "healer", "damage"] as const;
 export type RaidRole = (typeof RAID_ROLES)[number];
-export const LIMITS = { maxProfessions: 4, maxAlts: 10, nameMin: 2, nameMax: 40, skillMax: 450, maxCrafts: 50, recipeMin: 2, recipeMax: 60, professions: PROFESSIONS } as const;
+// CL2-138 (Evergreen 12 Nov 2026), Classic 1.12 rules: two primary professions plus the three secondary ones (Cooking,
+// Fishing, First Aid), and a skill cap of 300 (Artisan). The earlier 4 / 450 allowed a primary third and an impossible skill.
+export const SECONDARY_PROFESSIONS: readonly string[] = ["cooking", "fishing", "first_aid"];
+export const LIMITS = { maxProfessions: 5, maxPrimaryProfessions: 2, maxAlts: 10, nameMin: 2, nameMax: 40, skillMax: 300, maxCrafts: 50, recipeMin: 2, recipeMax: 60, professions: PROFESSIONS } as const;
 export const PAGE_SIZE = 100;
 /** Listed profiles one read evaluates; also the directory's size (HL-1). COMMUNITY_DIRECTORY_LIMIT overrides it (1..10000). */
 export const DEFAULT_SCAN_LIMIT = 2500;
@@ -199,6 +203,7 @@ export function parseProfileInput(body: Record<string, unknown>): Input {
       seen.add(name);
       return { profession: name as Profession, skill: skill as number | null };
     });
+    if (input.professions.filter((p) => !SECONDARY_PROFESSIONS.includes(p.profession)).length > LIMITS.maxPrimaryProfessions) throw new Bad("invalid_professions"); // CL2-138
   }
   if (body.alts !== undefined) {
     const list = body.alts;
@@ -254,7 +259,8 @@ export async function profilePut(request: Request, env: Env, ctx: CommunityConte
   if (no) return no;
   if (request.headers.get("X-Olympus") !== PAGE_VERSION) return apiJson({ error: "reload", message: "The site has been updated since this page was opened. Reload the page, then try again." }, 409);
   const id = ctx.subject!.discordId;
-  if (rateLimited(`c:${id}`, 30, 60)) return apiJson({ error: "slow_down", message: "Too many saves in one minute. Wait a moment, then try again." }, 429);
+  const rateLimitAt257280=consumeRateLimit280(`c:${id}`,30,60);
+  if (rateLimitAt257280.limited) return apiJson({ error: "slow_down", message: "Too many saves in one minute. Wait a moment, then try again." }, 429,rateLimitHeaders280(rateLimitAt257280));
   const body = await readJson(request);
   if (body === null) return apiJson({ error: "bad_request", message: "That request could not be read." }, 400);
   if (body.crafts !== undefined && !ctx.features.has("crafting")) return featureOff();
@@ -457,7 +463,8 @@ export async function directoryList(request: Request, env: Env, ctx: CommunityCo
   if (!ctx.features.has("directory")) return featureOff();
   const no = await communityReader(ctx, request, env);
   if (no) return no;
-  if (rateLimited(`cd:${ctx.subject!.discordId}`, 90, 60)) return apiJson({ error: "slow_down", message: "Too many pages in one minute. Wait a moment, then carry on." }, 429);
+  const rateLimitAt460280=consumeRateLimit280(`cd:${ctx.subject!.discordId}`,90,60);
+  if (rateLimitAt460280.limited) return apiJson({ error: "slow_down", message: "Too many pages in one minute. Wait a moment, then carry on." }, 429,rateLimitHeaders280(rateLimitAt460280));
   const parts = cursorParts(new URL(request.url).searchParams.get("cursor"));
   if (parts === "invalid") return apiJson({ error: "invalid_cursor" }, 400);
   let cursor: { digest: string; displayName: string; ref: string } | null = null;
@@ -544,7 +551,8 @@ export async function craftingSearch(request: Request, env: Env, ctx: CommunityC
   if (!ctx.features.has("crafting")) return featureOff();
   const no = await communityReader(ctx, request, env);
   if (no) return no;
-  if (rateLimited(`cc:${ctx.subject!.discordId}`, 90, 60)) return apiJson({ error: "slow_down", message: "Too many searches in one minute. Wait a moment, then carry on." }, 429);
+  const rateLimitAt547280=consumeRateLimit280(`cc:${ctx.subject!.discordId}`,90,60);
+  if (rateLimitAt547280.limited) return apiJson({ error: "slow_down", message: "Too many searches in one minute. Wait a moment, then carry on." }, 429,rateLimitHeaders280(rateLimitAt547280));
   const url = new URL(request.url);
   const rawBrowse = url.searchParams.get("browse");
   if (rawBrowse !== null && rawBrowse !== "1") return apiJson({ error: "invalid_query" }, 400);
@@ -559,7 +567,8 @@ export async function craftingSearch(request: Request, env: Env, ctx: CommunityC
     if (professionMode) return apiJson({ error: "invalid_q" }, 400); // a recipe query cannot silently become a member search
     if (rawQ.length > LIMITS.recipeMax * 4) return apiJson({ error: "invalid_q" }, 400);
     const k = recipeKeyOf(normalizeRecipe(rawQ));
-    if (k.length < 2 || k.length > 40 || UNSAFE.test(k)) return apiJson({ error: "invalid_q" }, 400);
+    // CL2-145: a query may be as long as a stored recipe name (recipeMax), not 40.
+    if (k.length < 2 || k.length > LIMITS.recipeMax || UNSAFE.test(k)) return apiJson({ error: k.length < 2 ? "invalid_q" : "invalid_q_long" }, 400);
     q = k;
   }
   let profession: Profession | null = null;

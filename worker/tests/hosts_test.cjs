@@ -8,6 +8,13 @@ const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
 const entryFixture = require("./helpers/privacy129_fixture.cjs");
+// Compare the served build with the actual current entrypoint, not a historical release label.
+const buildDeclarations = ts.createSourceFile("index.ts", fs.readFileSync(path.join(root, "src", "index.ts"), "utf8"), ts.ScriptTarget.ES2022, true).statements
+  .filter(ts.isVariableStatement).flatMap((statement) => [...statement.declarationList.declarations])
+  .filter((declaration) => ts.isIdentifier(declaration.name) && declaration.name.text === "BUILD");
+if (buildDeclarations.length !== 1 || !buildDeclarations[0].initializer || !ts.isStringLiteral(buildDeclarations[0].initializer)) throw new Error("expected one current BUILD string literal");
+const expectedBuild = buildDeclarations[0].initializer.text;
+if (!expectedBuild.trim() || /[\x00-\x1f\x7f]/.test(expectedBuild)) throw new Error("invalid current BUILD literal");
 
 function d1(db, opts = {}) { return entryFixture.originalNativePort(db,{statement:opts.trap}); }
 function freshDb() {
@@ -18,13 +25,15 @@ function freshDb() {
 }
 const transpile = (file) => ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const cache = {};
-function load(name) {
+// A second module cache is a second isolate: its own module-level state (the membership single-flight, the soft rate
+// limiter) over the same database. Round 5, 13 Nov 2026: the delayed-provider race below needs one (see there).
+function load(name, own = cache) {
   if(name === "node:async_hooks") return require(name);
   const file = path.join(root, "src", name.replace(/^\.\//, "") + ".ts");
-  if (cache[file]) return cache[file].exports;
+  if (own[file]) return own[file].exports;
   const mod = { exports: {} };
-  cache[file] = mod;
-  new Function("module", "exports", "require", transpile(file))(mod, mod.exports, (p) => load(p));
+  own[file] = mod;
+  new Function("module", "exports", "require", transpile(file))(mod, mod.exports, (p) => load(p, own));
   return mod.exports;
 }
 let FETCHES = [];
@@ -66,6 +75,7 @@ const ctx = { waitUntil: () => {} };
 const get = (url, e = env(), init = {}) => index.fetch(new Request(url, init), e, ctx);
 let ok = 0, n = 0;
 const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length) console.log("   ", ...why); console.log((cond ? "PASS " : "FAIL ") + name); };
+const remainingMinute = (value) => typeof value === "string" && /^[1-9][0-9]?$/.test(value) && Number(value) <= 60;
 
 (async () => {
   console.log("\n== host classes ==");
@@ -100,11 +110,11 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   const fromA = { headers: { "CF-Connecting-IP": "198.51.100.9" } };
   let limited;
   for (let i = 0; i < 21; i++) limited = await get("https://guild.example/auth/login", env(), fromA);
-  check("the 21st /auth/login in a minute from one address is 429 with Retry-After 60 and the page headers", limited.status === 429 && limited.headers.get("Retry-After") === "60" && limited.headers.get("Cache-Control") === "no-store, no-transform", limited.status);
+  check("the 21st /auth/login in a minute from one address is 429 with Retry-After in the remaining 1..60 second window and the page headers", limited.status === 429 && remainingMinute(limited.headers.get("Retry-After")) && limited.headers.get("Cache-Control") === "no-store, no-transform", limited.status);
   res = await get("https://guild.example/auth/login", env(), { headers: { "CF-Connecting-IP": "198.51.100.10" } });
   check("  another address still starts the sign-in", res.status === 302, res.status);
   for (let i = 0; i < 21; i++) limited = await get("https://verify.example/linked-role", env(), fromA);
-  check("  the bot host's Linked Role start likewise: 429 JSON rate_limited with Retry-After", limited.status === 429 && (await limited.json()).error === "rate_limited" && limited.headers.get("Retry-After") === "60", limited.status);
+  check("  the bot host's Linked Role start likewise: 429 JSON rate_limited with Retry-After", limited.status === 429 && (await limited.json()).error === "rate_limited" && remainingMinute(limited.headers.get("Retry-After")), limited.status);
   let touched = 0;
   const trapped = env({ DB: d1(db, { trap: () => { touched++; } }) });
   res = await get("https://nobody.example/health", trapped);
@@ -114,7 +124,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get("https://guild.example/health", env({ PUBLIC_BASE_URL: "http://verify.example" }));
   check("a misconfigured PUBLIC_BASE_URL is 503 on every host", res.status === 503 && (await res.json()).error === "misconfigured");
   res = await get("https://verify.example/health");
-  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-11-10.265 Bounded audit lookups");
+  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === expectedBuild);
   res = await get("https://guild.example/");
   check('the site host serves only the sign-in gate before entry', res.status === 200 && (await res.text()).includes('Enter Olympus'));
   res = await get("https://guild.example/health");
@@ -183,11 +193,11 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   const loginEnv = env({ DB: d1(db, { trap: () => { loginTouches++; throw Error('public login media must not touch D1'); } }), ASSETS: { fetch: async request => {
     const path = new URL(request.url).pathname;
     loginCalls.push({ path, method: request.method, range: request.headers.get('Range') });
-    return new Response('exact-login-media', { status: 200, headers: { 'Content-Type': path.endsWith('.webm') ? 'video/webm' : path.endsWith('.png') ? 'image/png' : 'image/jpeg', ETag: '"login-media-test"' } });
+    return new Response('exact-login-media', { status: 200, headers: { 'Content-Type': path.endsWith('.webm') ? 'video/webm' : path.endsWith('.png') ? 'image/png' : path.endsWith('.webp') ? 'image/webp' : 'image/jpeg', ETag: '"login-media-test"' } });
   } } });
   // Direct owner choice retains both .173 stills and permits the existing optional video/poster.
   // Every approved asset receives the entire original positive security/verb matrix.
-  for (const [path, mime] of [['/static/wow/login/dark-portal.webm', 'video/webm'], ['/static/wow/login/dark-portal-poster.jpg', 'image/jpeg'], ['/static/wow/login/olympus-dark-portal-wide.png', 'image/png'], ['/static/wow/login/olympus-dark-portal-portrait.png', 'image/png']]) {
+  for (const [path, mime] of [['/static/wow/login/dark-portal.webm', 'video/webm'], ['/static/wow/login/dark-portal-poster.jpg', 'image/jpeg'], ['/static/wow/login/olympus-dark-portal-wide.png', 'image/png'], ['/static/wow/login/olympus-dark-portal-portrait.png', 'image/png'], ['/static/wow/login/olympus-dark-portal-wide.webp', 'image/webp'], ['/static/wow/login/olympus-dark-portal-portrait.webp', 'image/webp']]) {
     let before = loginCalls.length;
     res = await get('https://guild.example' + path, loginEnv);
     check('signed-out GET serves only this exact login asset without session/D1: ' + path, res.status === 200 && await res.text() === 'exact-login-media' && loginCalls.length === before + 1 && loginTouches === 0 && res.headers.get('Content-Type') === mime);
@@ -230,6 +240,8 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   const projection = JSON.parse(fs.readFileSync(path.join(root, "..", "scripts", "official_asset_reference.json"), "utf8"));
   const digest = bytes => require("node:crypto").createHash("sha256").update(bytes).digest("hex");
   const immutable = "public, max-age=31536000, immutable, no-transform";
+  const round5Pins = { "/static/policies.css": { sha256: "490c52bc213f7c8d55b17b5e24ad4fa53e8b31d5b12f7d7edbfc5bba26f1e1d4", bytes: 12260 } };
+  const webpCopies074 = { "/static/wow/login/olympus-dark-portal-wide.webp": { sha256: "3898651551731cd1585a5682636d457e8200183504c23c633c8aaa1dd3fddbc9", bytes: 362622 }, "/static/wow/login/olympus-dark-portal-portrait.webp": { sha256: "cd908960637f06c5dc509bf4315ba55859f984bb7e523f73dfdc47cd40462fe1", bytes: 342624 } };
   const files = new Map([...cache.POLICY_ASSETS, ...cache.LOGIN_ASSETS].map(assetPath => [assetPath, fs.readFileSync(path.join(root, "public", assetPath))]));
   const digestedCalls = [];
   const exactEnv = env({ DB: d1(db, { trap: () => { throw Error("The public asset closure is database-free"); } }), ASSETS: { fetch: async request => {
@@ -242,10 +254,13 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
     if (request.headers.get("Range") === "bytes=0-3") return new Response(file.subarray(0, 4), { status: 206, headers: { ...headers, "Content-Range": "bytes 0-3/" + file.length } });
     return new Response(request.method === "HEAD" ? null : file, { status: 200, headers });
   } } });
-  check("the immutable inventory is limited to 13 policy and four login assets", cache.POLICY_ASSETS.length === 13 && cache.LOGIN_ASSETS.length === 4 && files.size === 17);
+  check("the immutable inventory is limited to 13 policy and six login assets", cache.POLICY_ASSETS.length === 13 && cache.LOGIN_ASSETS.length === 6 && files.size === 19);
   for (const [assetPath, file] of files) {
     const sha = digest(file), alias = cache.immutablePolicyAssetUrl(assetPath);
-    const pin = projection.assets.find(row => row.path === "worker/public" + assetPath);
+    // CL2-074 (owner ruling of 13 Nov 2026): the two WebP copies are pinned here; the retired publication reference predates them.
+    // Round 5 (13 Nov 2026): policies.css gained the phone rules; its bytes are pinned here, like the WebP copies, because the
+    // retired publication reference keeps the row of the earlier file (11,715 bytes) and is not maintained any more.
+    const pin = round5Pins[assetPath] ?? projection.assets.find(row => row.path === "worker/public" + assetPath) ?? webpCopies074[assetPath];
     const served = await get("https://guild.example" + alias, exactEnv, { headers: { Cookie: "session=fixture", Authorization: "Bearer fixture" } });
     const headers = served.headers;
     const bytes = Buffer.from(await served.arrayBuffer());
@@ -471,21 +486,56 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
 
   // Carry forward the final .154 due-membership and delayed-provider regressions.
   // Use the .155 original PROFILE issuer and admitted fixture setup; never fabricate a cookie.
-  const staleViewer = '300000000000000092', staleAt = Math.floor(Date.now()/1000)-7200;
-  await admittedSetup.prepare('INSERT INTO site_users(discord_id,username,in_server,first_login,last_login,checked_at,session_version) VALUES(?1,?2,1,?3,?3,?3,1)').bind(staleViewer,'stale-member',staleAt).run();
-  const staleEntry = await entryFixture.issueOriginalEntryCookie(load,db,assetEnv,staleViewer);
-  const staleCookie = staleEntry.cookie, staleVersion = staleEntry.session.v;
+  // Round 5, 13 Nov 2026 (our 5d36707, CL2-073/CL2-077): one Discord membership answer is now shared per account,
+  // incarnation, session version and privacy generation for 30 s ("member", "not a member") or 5 s ("unavailable"),
+  // and the concurrent checks of one session in one isolate share one provider read. These checks used ONE session for
+  // every status and set its row back by hand (session version included) between statuses; no product path sets a
+  // session version back (a "not a member" answer always raises it in the same write), so that reuse only ever met
+  // the share. Each status and each race now gets its own issued session, and the share itself is asserted beside it.
+  const staleAt = Math.floor(Date.now()/1000)-7200;
+  const issueStale = async (staleViewer, username) => {
+    await admittedSetup.prepare('INSERT INTO site_users(discord_id,username,in_server,first_login,last_login,checked_at,session_version) VALUES(?1,?2,1,?3,?3,?3,1)').bind(staleViewer,username,staleAt).run();
+    const staleEntry = await entryFixture.issueOriginalEntryCookie(load,db,assetEnv,staleViewer);
+    // The issuer's PROFILE write stamps checked_at with now; put it back two hours so the hourly check is due.
+    await admittedSetup.prepare('UPDATE site_users SET in_server=1,denied=0,checked_at=?3 WHERE discord_id=?1 AND session_version=?2').bind(staleViewer,staleEntry.session.v,staleAt).run();
+    const row = db.prepare('SELECT in_server,denied,checked_at,session_version FROM site_users WHERE discord_id=?1').get(staleViewer);
+    if (row.in_server !== 1 || row.denied !== 0 || row.checked_at !== staleAt || row.session_version !== staleEntry.session.v) throw Error('stale fixture row not set');
+    return { staleViewer, staleCookie: staleEntry.cookie, staleVersion: staleEntry.session.v };
+  };
+  const staleIds = { 404: '300000000000000192', 503: '300000000000000193', 200: '300000000000000194' };
   for (const memberStatus of [404,503,200]) {
-    await admittedSetup.prepare('UPDATE site_users SET in_server=1,session_version=?2,checked_at=?3 WHERE discord_id=?1').bind(staleViewer,staleVersion,staleAt).run();
+    const { staleViewer, staleCookie, staleVersion } = await issueStale(staleIds[memberStatus], 'stale-member-' + memberStatus);
     let memberChecks=0;
     fetchResponder=async(url)=>{memberChecks++;if(!url.endsWith('/members/'+staleViewer))throw Error('Unexpected membership lookup');return new Response(JSON.stringify(memberStatus===200?{nick:'current member',pending:false}:{message:'membership unavailable',code:10007}),{status:memberStatus,headers:{'Content-Type':'application/json'}});};
     const beforeAssets=assetCalls;
     res=await get('https://guild.example/static/app.js',assetEnv,{headers:{Cookie:staleCookie}});
+    const firstBody=await res.text();
     const after=db.prepare('SELECT in_server,checked_at FROM site_users WHERE discord_id=?1').get(staleViewer);
     check('stale signed session rechecks Discord before protected delivery: '+memberStatus,memberChecks===1&&res.status===(memberStatus===200?200:memberStatus===404?403:503)&&assetCalls===beforeAssets+(memberStatus===200?1:0)&&after.in_server===(memberStatus===404?0:1)&&(memberStatus===200?after.checked_at>staleAt:memberStatus===404||after.checked_at===staleAt));
+    if (memberStatus === 404) {
+      // "Not a member" raised the session version in its own write, so the same cookie is signed out before the gate
+      // could consult the shared answer: the share cannot outlive this answer for any live session.
+      const again=await get('https://guild.example/static/app.js',assetEnv,{headers:{Cookie:staleCookie}});
+      const row=db.prepare('SELECT in_server,session_version FROM site_users WHERE discord_id=?1').get(staleViewer);
+      check('  the same session after "not a member" is signed out (401) with no second provider call or asset', again.status===401&&memberChecks===1&&assetCalls===beforeAssets&&row.in_server===0&&row.session_version===staleVersion+1, again.status, memberChecks);
+    } else {
+      // The share itself: a second request of the same session inside the window reaches the gate with the check still
+      // due (unavailable writes nothing; for member, the row as a request read it before the member write committed)
+      // and gets the same answer without a second provider call.
+      if (memberStatus === 200) await admittedSetup.prepare('UPDATE site_users SET checked_at=?2 WHERE discord_id=?1').bind(staleViewer,staleAt).run();
+      const again=await get('https://guild.example/static/app.js',assetEnv,{headers:{Cookie:staleCookie}});
+      const againBody=await again.text();
+      check('  a second request of the same session inside the share window makes no second provider call and gets the same answer: '+memberStatus, again.status===res.status&&againBody===firstBody&&memberChecks===1&&assetCalls===beforeAssets+(memberStatus===200?2:0), again.status, memberChecks);
+    }
   }
+  // The delayed-provider race: an earlier 200 still in flight while an authoritative absence arrives for the same session.
+  // Inside one isolate the second request now joins the first one's Discord read (CL2-077), so the two reads race only
+  // across isolates; the absence is read by a second module graph (a second isolate) over the same database.
+  const isolateB = load('./index', {}).default;
+  const getB = (url, e, init) => isolateB.fetch(new Request(url, init), e, ctx);
+  const raceIds = { '404': '300000000000000195', pending: '300000000000000196' };
   for (const absence of ['404', 'pending']) {
-    await admittedSetup.prepare('UPDATE site_users SET in_server=1,denied=0,session_version=?2,checked_at=?3 WHERE discord_id=?1').bind(staleViewer,staleVersion,staleAt).run();
+    const { staleViewer, staleCookie, staleVersion } = await issueStale(raceIds[absence], 'raced-member-' + absence);
     let release200, memberChecks=0, entered200;
     const delayed200=new Promise(resolve=>{release200=resolve;});
     const entered=new Promise(resolve=>{entered200=resolve;});
@@ -499,11 +549,17 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
     let timeout;
     try { await Promise.race([entered,new Promise((_,reject)=>{timeout=setTimeout(()=>reject(Error('membership race did not reach provider')),3000);})]); }
     finally { clearTimeout(timeout); }
-    const absent=await get('https://guild.example/static/app.js',assetEnv,{headers:{Cookie:staleCookie}});
+    // Same isolate, same session, while the first read is held: it joins that read instead of asking Discord again.
+    const joined=get('https://guild.example/static/app.js',assetEnv,{headers:{Cookie:staleCookie}});
+    await new Promise(resolve=>setTimeout(resolve,100));
+    const joinedChecks=memberChecks;
+    const absent=await getB('https://guild.example/static/app.js',assetEnv,{headers:{Cookie:staleCookie}});
     const absenceRow=db.prepare('SELECT in_server,checked_at,session_version FROM site_users WHERE discord_id=?1').get(staleViewer);
     release200();
     const late=await pendingAsset,lateBody=await late.text(),after=db.prepare('SELECT in_server,checked_at,session_version FROM site_users WHERE discord_id=?1').get(staleViewer);
+    const joinedRes=await joined,joinedBody=await joinedRes.text();
     check('authoritative '+absence+' revokes the original session before an earlier200 can resurrect membership or deliver assets',absent.status===403&&memberChecks===2&&absenceRow.in_server===0&&absenceRow.session_version===staleVersion+1&&JSON.stringify(after)===JSON.stringify(absenceRow)&&late.status===503&&!lateBody.includes('protected-source')&&assetCalls===beforeAssets);
+    check('  a second request of the raced session in the same isolate joins the held read (no extra provider call) and is held with it: '+absence,joinedChecks===1&&memberChecks===2&&joinedRes.status===late.status&&joinedBody===lateBody&&assetCalls===beforeAssets,joinedChecks,memberChecks,joinedRes.status);
     res=await get('https://guild.example/static/app.js',assetEnv,{headers:{Cookie:staleCookie}});
     check('the same cookie remains signed out after raced '+absence+' and cannot reuse private assets',res.status===401&&assetCalls===beforeAssets);
   }

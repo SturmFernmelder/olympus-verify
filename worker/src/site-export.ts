@@ -1,3 +1,5 @@
+import {erasedReceiptMarkerSql280} from './tithe-erased-replay280';
+import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 import { metadataFields219 } from './guild-calendar-metadata219';
 import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
 import './privacy-access-data';
@@ -101,10 +103,10 @@ async function prepareHistory(env: Env, s: CommunitySubject, raw?: string): Prom
   const bounded = p ? 1 : 0, after = p && p.seen > 0 ? 1 : 0;
   // These two statements run behind the original probe in the SAME batch. First-page SQL derives its own high-water.
   const meta = env.DB.prepare(
-    "SELECT COALESCE(MAX(id),0) AS high_water, COUNT(*) AS total_count, COALESCE(SUM(CASE WHEN ?4=0 OR ts>?5 OR (ts=?5 AND id>?6) THEN 1 ELSE 0 END),0) AS remaining_count FROM audit WHERE (subject=?1 OR actor=?1) AND (?2=0 OR id<=?3)"
+    `SELECT COALESCE(MAX(id),0) AS high_water, COUNT(*) AS total_count, COALESCE(SUM(CASE WHEN ?4=0 OR ts>?5 OR (ts=?5 AND id>?6) THEN 1 ELSE 0 END),0) AS remaining_count FROM audit WHERE (subject=?1 OR actor=?1) AND NOT(${erasedReceiptMarkerSql280('audit')}) AND (?2=0 OR id<=?3)`
   ).bind(s.discordId, bounded, p?.high ?? 0, after, p?.ts ?? 0, p?.id ?? 0);
   const rows = env.DB.prepare(
-    "SELECT ts,id,action FROM audit WHERE (subject=?1 OR actor=?1) AND id<=CASE WHEN ?2=1 THEN ?3 ELSE (SELECT COALESCE(MAX(id),0) FROM audit WHERE subject=?1 OR actor=?1) END AND (?4=0 OR ts>?5 OR (ts=?5 AND id>?6)) ORDER BY ts,id LIMIT ?7"
+    `SELECT ts,id,action FROM audit WHERE (subject=?1 OR actor=?1) AND NOT(${erasedReceiptMarkerSql280('audit')}) AND id<=CASE WHEN ?2=1 THEN ?3 ELSE (SELECT COALESCE(MAX(id),0) FROM audit WHERE (subject=?1 OR actor=?1) AND NOT(${erasedReceiptMarkerSql280('audit')})) END AND (?4=0 OR ts>?5 OR (ts=?5 AND id>?6)) ORDER BY ts,id LIMIT ?7`
   ).bind(s.discordId, bounded, p?.high ?? 0, after, p?.ts ?? 0, p?.id ?? 0, ACTIONS_LIMIT + 1);
   return { position: p, statements: [meta, rows] };
 }
@@ -120,8 +122,9 @@ async function beginHistory(request: Request, env: Env, user: SiteUser, raw?: st
   const subject: CommunitySubject = Object.freeze({discordId:s.discordId,sessionVersion:s.sessionVersion,expiresAt:s.expiresAt,privacyGeneration:s.privacyGeneration,accountIncarnation:s.accountIncarnation,originalSession:s.originalSession});assertOriginalSiteSessionRead(subject.originalSession);
   const plan = await prepareHistory(env, subject, raw);
   if (!plan) return { ok: false, response: apiJson({ error: "invalid_cursor" }, 400) };
-  if (rateLimited(`cx:${subject.discordId}`, 5, 3600))
-    return { ok: false, response: apiJson({ error: "slow_down", message: "Five copy views or downloads an hour. Try again later." }, 429) };
+  const rateLimitAt123280=consumeRateLimit280(`cx:${subject.discordId}`,5,3600);
+  if (rateLimitAt123280.limited)
+    return { ok: false, response: apiJson({ error: "slow_down", message: "Five copy views or downloads an hour. Try again later." }, 429,rateLimitHeaders280(rateLimitAt123280)) };
   return { ok: true, id: subject.discordId, subject, plan };
 }
 async function finishHistory(env: Env, s: CommunitySubject, plan: HistoryPlan, at: number, metadata: D1Result, rows: D1Result): Promise<OwnActionHistoryPage | null> {
@@ -199,7 +202,8 @@ async function beginEventChanges(request: Request, env: Env, user: SiteUser, raw
   const subject: CommunitySubject = Object.freeze({discordId:s.discordId,sessionVersion:s.sessionVersion,expiresAt:s.expiresAt,privacyGeneration:s.privacyGeneration,accountIncarnation:s.accountIncarnation,originalSession:s.originalSession});assertOriginalSiteSessionRead(subject.originalSession);
   const plan = await prepareEventChanges(env, subject, raw);
   if (!plan) return { ok: false, response: apiJson({ error: "invalid_cursor" }, 400) };
-  if (rateLimited(`cx:${subject.discordId}`, 5, 3600)) return { ok: false, response: apiJson({ error: "slow_down", message: "Five copy views or downloads an hour. Try again later." }, 429) };
+  const rateLimitAt202280=consumeRateLimit280(`cx:${subject.discordId}`,5,3600);
+  if (rateLimitAt202280.limited) return { ok: false, response: apiJson({ error: "slow_down", message: "Five copy views or downloads an hour. Try again later." }, 429,rateLimitHeaders280(rateLimitAt202280)) };
   return { ok: true, id: subject.discordId, subject, plan };
 }
 const EVENT_CHANGE_FIELDS = new Set(["title", "details", "startsAt", "durationMin", "capacity", "roleTargets"]);
@@ -297,7 +301,8 @@ async function beginContributionDecisions(request: Request, env: Env, user: Site
   const subject: CommunitySubject = Object.freeze({discordId:s.discordId,sessionVersion:s.sessionVersion,expiresAt:s.expiresAt,privacyGeneration:s.privacyGeneration,accountIncarnation:s.accountIncarnation,originalSession:s.originalSession});assertOriginalSiteSessionRead(subject.originalSession);
   const plan = await prepareContributionDecisions(env, subject, raw);
   if (!plan) return { ok: false, response: apiJson({ error: "invalid_cursor" }, 400) };
-  if (rateLimited(`cx:${subject.discordId}`, 5, 3600)) return { ok: false, response: apiJson({ error: "slow_down", message: "Five copy views or downloads an hour. Try again later." }, 429) };
+  const rateLimitAt300280=consumeRateLimit280(`cx:${subject.discordId}`,5,3600);
+  if (rateLimitAt300280.limited) return { ok: false, response: apiJson({ error: "slow_down", message: "Five copy views or downloads an hour. Try again later." }, 429,rateLimitHeaders280(rateLimitAt300280)) };
   return { ok: true, id: subject.discordId, subject, plan };
 }
 const CONTRIBUTION_DECISION_ACTIONS = new Set(["allocation_reversed", "receipt_voided", "removal_recorded", "state_open", "state_exempt", "state_disputed", "state_resolved", "contact_acknowledged", "contact_officer_contact", "contact_final_notice", "contact_final_acknowledged", "contact_final_officer_contact"]);

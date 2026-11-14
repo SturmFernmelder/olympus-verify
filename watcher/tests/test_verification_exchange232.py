@@ -32,6 +32,8 @@ REALM = 'Synthetic Native Realm'
 
 
 def lua(value):
+    if value is None:
+        return 'nil'
     if isinstance(value, dict):
         return '{' + ','.join('[' + json.dumps(k) + ']=' + lua(v) for k, v in value.items()) + '}'
     if isinstance(value, list):
@@ -62,7 +64,7 @@ class VerificationExchangeTests(unittest.TestCase):
     def transport(self, method, path, body=None, retries=3):
         self.calls.append((method, path, copy.deepcopy(body), retries))
         if path == '/health':
-            return True, {'ok': True, 'verification': {'mode': 'members-only', 'nativeScopePinned': True, 'nativeMembershipProofVersion': 1}}
+            return True, {'ok': True, 'verification': {'mode': 'members-only', 'nativeScopePinned': True, 'nativeMembershipProofVersion': 1, 'nativeRosterProtocolVersion': 2}}
         if path == '/ingest/roster':
             self.accepted = True
             return True, {'snapshot': 7, 'trusted': True, 'members': len(body['members'])}
@@ -99,8 +101,14 @@ class VerificationExchangeTests(unittest.TestCase):
         self.w.sv_file.parent.mkdir(parents=True, exist_ok=True)
         self.w.sv_file.write_text('OlympusVerifyDB = ' + lua(db), encoding='utf-8')
 
+    def read_native_roster(self, roster=None):
+        db = dict(roster=self.roster() if roster is None else roster, lastCharacterGuid='Player-1-00000001', events=[])
+        self.w.sv_file.parent.mkdir(parents=True, exist_ok=True)
+        self.w.sv_file.write_text('OlympusVerifyDB = ' + lua(db), encoding='utf-8')
+        self.w.check_savedvars()
+
     def admit(self):
-        self.w.forward_roster(self.roster())
+        self.read_native_roster()
         self.assertTrue(self.w.verification_roster_ready(self.body()))
         self.calls.clear()
 
@@ -208,7 +216,8 @@ class VerificationExchangeTests(unittest.TestCase):
         changed = self.roster()
         changed['members'][1]['rankIndex'] = 8
         self.w.forward_roster(changed)
-        self.assertEqual(self.calls, [])
+        self.assertEqual([c[1] for c in self.calls], ['/ingest/roster'])
+        self.assertEqual(self.calls[0][2]['exportedAt'], self.at)
         self.assertFalse(self.w.verification_roster_ready(self.body()))
         with self.assertRaises(watcher.VerificationDeferred):
             self.w.handle_chat_line(self.line())
@@ -248,7 +257,7 @@ class VerificationExchangeTests(unittest.TestCase):
                 raise OSError('synthetic local settlement failure')
             real_save()
         with patch.object(self.w.state, 'save', side_effect=save):
-            self.w.forward_roster(self.roster())
+            self.read_native_roster()
         self.assertFalse(self.w.verification_roster_ready(self.body()))
         self.assertTrue(self.w.recover_local_settlement())
         self.assertEqual(len(self.calls), 1)
@@ -256,14 +265,21 @@ class VerificationExchangeTests(unittest.TestCase):
 
     def test_source_changed_during_parse_never_borrows_old_ack(self):
         self.save_native()
-        original = watcher.savedvars.parse_file
-        def parse(path):
-            data = original(path)
+        original = watcher.savedvars.parse
+        def parse(text):
+            data = original(text)
             self.w.sv_file.write_text('-- concurrent incomplete export', encoding='utf-8')
             return data
-        with patch.object(watcher.savedvars, 'parse_file', side_effect=parse), patch.object(watcher.time, 'sleep'):
+        with patch.object(watcher.savedvars, 'parse', side_effect=parse), patch.object(watcher.time, 'sleep'):
             self.w.check_savedvars()
-        self.assertEqual(self.calls, [])
+        # Capture custody may send that exact original roster. Changed current
+        # bytes cannot turn its reply into current verification or control authority.
+        self.assertEqual([c[1] for c in self.calls], ['/ingest/roster'])
+        self.assertEqual(self.calls[0][2]['exportedAt'], self.at)
+        self.assertEqual([m['guid'] for m in self.calls[0][2]['members']], ['Player-1-00000001', GUID])
+        self.assertFalse(self.w.verification_roster_ready(self.body()))
+        self.assertFalse(self.w.state.was_seen(self.w.code_key('w',NAME,self.code)))
+        self.assertIsNone(self.w._launch_consumed_sv_witness)
         self.assertEqual(self.w.state.d['sv_mtime'], 0)
 
     def test_partial_source_invalidates_previous_positive(self):
@@ -299,7 +315,7 @@ class VerificationExchangeTests(unittest.TestCase):
         roster['members'].append(dict(name='Unknown Offline', guid=None, rank=None, rankIndex=None, level=None))
         roster['total'] = 3
         self.assertIsNone(watcher.launch_operations229.complete_roster_digest(roster))
-        self.w.forward_roster(roster)
+        self.read_native_roster(roster)
         self.assertTrue(self.w.verification_roster_ready(self.body()))
         self.calls.clear()
         self.w.handle_chat_line(self.line())
@@ -330,6 +346,8 @@ class VerificationExchangeTests(unittest.TestCase):
             self.w.state.seen(key)
         self.w.worker.call = lambda method, path, body=None, retries=3: (self.calls.append((method, path, copy.deepcopy(body), retries)) or (False, 'synthetic older outcome'))
         self.w.post('/ingest/events', {'events': []}, 'older synthetic event')
+        self.older_original=self.w.state.d['outbox'][0]
+        self.older_before=copy.deepcopy(self.older_original)
         # An explicit transport pause, rather than an unrelated FIFO head, keeps
         # this fixture genuinely unattempted under the independent626 contract.
         with patch.object(self.w.worker, 'paused', return_value='synthetic local pause'):
@@ -351,7 +369,7 @@ class VerificationExchangeTests(unittest.TestCase):
         fresh = dict(type='whisper', name=NAME, guid=GUID, code=self.code, ok=True,
                      ts=self.at, nativeMembership=self.proof())
         self.w.sv_file.parent.mkdir(parents=True, exist_ok=True)
-        self.w.sv_file.write_text('OlympusVerifyDB = ' + lua(dict(roster=self.roster(), events=[old, fresh])), encoding='utf-8')
+        self.w.sv_file.write_text('OlympusVerifyDB = ' + lua(dict(roster=self.roster(),lastCharacterGuid='Player-1-00000001', events=[old, fresh])), encoding='utf-8')
         with patch.object(watcher.time, 'sleep'):
             self.w.check_savedvars()
         self.assertEqual([c[1] for c in self.calls], ['/ingest/roster', '/ingest/verify', '/ingest/verify'])
@@ -372,10 +390,11 @@ class VerificationExchangeTests(unittest.TestCase):
         self.assertTrue(item['server_expired'])
         self.assertFalse(self.w.state.was_seen(key))
         self.assertTrue(self.w.state.was_seen('unrelated-custody'))
-        self.assertEqual(self.w.state.d['outbox'], [])
+        self.assertEqual(self.w.state.d['outbox'], [self.older_original])
+        self.assertEqual(self.older_original, self.older_before)
         self.assertIn('source_expired', ' '.join(c.args[0] for c in messages.call_args_list))
         self.assertEqual([c[2] for c in self.calls if c[1] == '/ingest/verify'], [old['body']])
-        self.w.forward_roster(self.roster())
+        self.read_native_roster()
         self.w.forward_events([dict(type='whisper', name=NAME, guid=GUID, code=self.code, ok=True,
                                    ts=self.at, nativeMembership=self.proof())])
         posts = [c for c in self.calls if c[1] == '/ingest/verify']
@@ -400,7 +419,7 @@ class VerificationExchangeTests(unittest.TestCase):
                         return True, receipt if path == '/ingest/verify' else dict(result='ok')
                     self.w.worker.call = response
                     self.w.flush_outbox()
-                    self.assertIs(self.w.state.d['outbox'][0], item)
+                    self.assertIs(self.w.state.d['outbox'][1], item)
                     self.assertTrue(self.w.state.was_seen(key))
                     self.assertNotIn('acknowledged', item)
                     before = len(self.calls);self.w.flush_outbox()
@@ -445,7 +464,7 @@ class VerificationExchangeTests(unittest.TestCase):
         item['refusal_status'] = 403
         self.expire_time()
         self.w.flush_outbox()
-        self.assertIs(self.w.state.d['outbox'][0], item)
+        self.assertIs(self.w.state.d['outbox'][1], item)
         self.assertTrue(self.w.state.was_seen(key))
         self.assertFalse(any(c[1] == '/ingest/verify' for c in self.calls))
 
@@ -455,7 +474,7 @@ class VerificationExchangeTests(unittest.TestCase):
         self.w.state.d['outbox'][1] = restored
         self.expire_time()
         self.w.flush_outbox()
-        self.assertIs(self.w.state.d['outbox'][0], restored)
+        self.assertIs(self.w.state.d['outbox'][1], restored)
         self.assertTrue(self.w.state.was_seen(key))
 
     def test_mutated_and_rehashed_body_is_not_the_private_original(self):
@@ -464,7 +483,7 @@ class VerificationExchangeTests(unittest.TestCase):
         item['digest'] = self.w._original_digest(item)
         self.expire_time()
         self.w.flush_outbox()
-        self.assertIs(self.w.state.d['outbox'][0], item)
+        self.assertIs(self.w.state.d['outbox'][1], item)
         self.assertTrue(self.w.state.was_seen(key))
 
     def test_mutated_label_cannot_acquire_local_retirement_right(self):
@@ -472,14 +491,14 @@ class VerificationExchangeTests(unittest.TestCase):
         item['label'] = 'changed diagnostic label'
         self.expire_time()
         self.w.flush_outbox()
-        self.assertIs(self.w.state.d['outbox'][0], item)
+        self.assertIs(self.w.state.d['outbox'][1], item)
         self.assertTrue(self.w.state.was_seen(key))
 
     def test_a_preexisting_seen_claim_is_never_owned_or_released_by_new_reservation(self):
         item, key = self.reserve_unattempted(preseen=True)
         self.expire_time()
         self.w.flush_outbox()
-        self.assertIs(self.w.state.d['outbox'][0], item)
+        self.assertIs(self.w.state.d['outbox'][1], item)
         self.assertTrue(self.w.state.was_seen(key))
 
         self.assertFalse(any(c[1] == '/ingest/verify' for c in self.calls), 'Unowned or duplicate claims never authorize HTTP')
@@ -490,7 +509,7 @@ class VerificationExchangeTests(unittest.TestCase):
         self.w._verification_seen_claims[self.w.state._k(key)] = self.w._verification_originals[id(other)]
         self.expire_time()
         self.w.flush_outbox()
-        self.assertIs(self.w.state.d['outbox'][0], item)
+        self.assertIs(self.w.state.d['outbox'][1], item)
         self.assertTrue(self.w.state.was_seen(key))
 
         self.assertFalse(any(c[1] == '/ingest/verify' for c in self.calls), 'Unowned or duplicate claims never authorize HTTP')
@@ -500,7 +519,7 @@ class VerificationExchangeTests(unittest.TestCase):
         self.w.state.d['seen'].append(self.w.state._k(key))
         self.expire_time()
         self.w.flush_outbox()
-        self.assertIs(self.w.state.d['outbox'][0], item)
+        self.assertIs(self.w.state.d['outbox'][1], item)
         self.assertEqual(self.w.state.d['seen'].count(self.w.state._k(key)), 2)
 
         self.assertFalse(any(c[1] == '/ingest/verify' for c in self.calls), 'Unowned or duplicate claims never authorize HTTP')
@@ -510,12 +529,12 @@ class VerificationExchangeTests(unittest.TestCase):
         self.expire_time()
         save = self.w.state.save
         def uncertain_save():
-            if not self.w.state.d['outbox']:
+            if all(entry is not item for entry in self.w.state.d['outbox']):
                 raise OSError('synthetic expiry write outcome unknown')
             save()
         with patch.object(self.w.state, 'save', side_effect=uncertain_save):
             self.w.flush_outbox()
-        self.assertIs(self.w.state.d['outbox'][0], item)
+        self.assertIs(self.w.state.d['outbox'][1], item)
         self.assertTrue(self.w.state.was_seen(key))
         self.assertTrue(self.w._custody_halted)
         before = len(self.calls)
@@ -526,7 +545,8 @@ class VerificationExchangeTests(unittest.TestCase):
         self.assertEqual(self.w._ack_settlement_pending, ('outbox', item))
         self.assertTrue(self.w.recover_local_settlement())
         self.assertEqual(len(self.calls), before, 'Known original ACK permits local persistence only, never another HTTP request')
-        self.assertEqual(self.w.state.d['outbox'], [])
+        self.assertEqual(self.w.state.d['outbox'], [self.older_original])
+        self.assertEqual(self.older_original, self.older_before)
         self.assertFalse(self.w.state.was_seen(key))
 
     def test_local_expiry_result_is_falsey_and_not_delivered(self):
@@ -597,7 +617,7 @@ class VerificationExchangeTests(unittest.TestCase):
             self.assertIs(self.w.state.d['outbox'][0], item)
             self.assertTrue(self.w.state.was_seen(self.w.code_key('w', NAME, self.code)))
             self.assertFalse(self.w._verification_originals[id(item)]['attempted'])
-            self.w.forward_roster(self.roster())  # Its real call is still locally paused.
+            self.read_native_roster()  # Its real call is still locally paused.
             self.assertEqual(len(requests), 1)
             self.at += 301
             self.now.return_value = self.at
@@ -654,7 +674,10 @@ class VerificationExchangeTests(unittest.TestCase):
         roster = self.roster()
         roster['members'] = roster['members'][:1]
         roster['total'] = 1
-        self.w.forward_roster(roster)
+        db = dict(roster=roster, lastCharacterGuid='Player-1-00000001', events=[])
+        self.w.sv_file.parent.mkdir(parents=True, exist_ok=True)
+        self.w.sv_file.write_text('OlympusVerifyDB = ' + lua(db), encoding='utf-8')
+        self.w.check_savedvars()
         self.assertTrue(self.w.officer_invite_roster_ready(self.invite_body233()))
         self.calls.clear()
 
@@ -742,7 +765,7 @@ class VerificationExchangeTests(unittest.TestCase):
         before = copy.deepcopy(item)
         self.w.worker.call = self.transport
         self.at += 1; self.now.return_value = self.at
-        self.w.forward_roster(self.roster())
+        self.read_native_roster()
         self.w.forward_events([dict(type='whisper', name=NAME, guid=GUID, code=self.code, ok=True, ts=self.at, nativeMembership=self.proof())])
         self.w.flush_outbox()
         self.assertIs(self.w.state.d['outbox'][0], item)
@@ -837,7 +860,7 @@ class VerificationExchangeTests(unittest.TestCase):
         self.w.forward_roster(self.roster())
         self.assertEqual(self.calls, [], 'The committed old export watermark is never reset or replayed')
         self.at += 1; self.now.return_value = self.at
-        self.w.forward_roster(self.roster())
+        self.read_native_roster()
         self.assertEqual([c[1] for c in self.calls], ['/ingest/roster'])
         self.assertTrue(self.w.verification_roster_ready(self.body()))
         self.assertEqual(self.w.state.d['outbox'], [head])
@@ -856,7 +879,7 @@ class VerificationExchangeTests(unittest.TestCase):
                 raise OSError('synthetic nonhead settlement outcome unknown')
             save()
         with patch.object(self.w.state, 'save', side_effect=fail_settlement):
-            self.w.forward_roster(self.roster())
+            self.read_native_roster()
         item = self.w.state.d['outbox'][1]
         self.assertTrue(item['acknowledged'])
         self.assertTrue(self.w._custody_halted)
@@ -964,7 +987,7 @@ class IndependentSweep264Tests(unittest.TestCase):
                         officer_character='Fern Melder', membership_only=True, state_file=str(self.root / 'state.json'))
         self.w = watcher.Watcher(self.cfg)
         self.health = dict(ok=True, build='2026-11-10.264 Independent bounded sweep wake',
-                           verification=dict(mode='members-only', nativeScopePinned=True, nativeMembershipProofVersion=1))
+                           verification=dict(mode='members-only', nativeScopePinned=True, nativeMembershipProofVersion=1, nativeRosterProtocolVersion=2))
         self.cache = dict(presenceOnly=True, entries=[], setGuildNote=False, verificationResults=[], independentRoleWake264=True)
         self.requests = []
         self.wake_responses = []
@@ -1023,7 +1046,9 @@ class IndependentSweep264Tests(unittest.TestCase):
         headers = {key.lower(): value for key, value in request.header_items()}
         self.assertEqual(headers['authorization'], 'Bearer ' + self.cfg['watcher_token'])
         self.assertEqual(headers['content-type'], 'application/json')
-        self.assertEqual(headers['user-agent'], 'olympus-verify-watcher/0.6.27')
+        # Evergreen 12 Nov 2026 (CL2-187): the release number is read from the Watcher, not pinned (0.6.27 went stale).
+        self.assertRegex(watcher.WATCHER_VERSION, r'^\d+\.\d+\.\d+$')
+        self.assertEqual(headers['user-agent'], 'olympus-verify-watcher/' + watcher.WATCHER_VERSION)
         body = json.loads(request.data)
         self.assertEqual(set(body), {'kind', 'at', 'nonce', 'independent'})
         self.assertEqual(body['kind'], 'sweep');self.assertIs(body['independent'], True)

@@ -237,7 +237,7 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
   let r = await log({});
   check("signed out: 401", (await http("GET", "/api/admin/audit-log")).status === 401);
   check("a signed-in member who is not in SITE_ADMINS: 403", (await log({}, MEMBER)).status === 403);
-  check("a SITE_ADMINS account: 200, JSON, no-store", r.status === 200 && /application\/json/.test(r.headers.get("Content-Type") || "") && r.headers.get("Cache-Control") === "no-store, no-transform", r.status, r.headers.get("Cache-Control"));
+  check("a SITE_ADMINS account: 200, JSON, no-store", r.status === 200 && /application\/json/.test(r.headers.get("Content-Type") || "") && r.headers.get("Cache-Control") === "no-store", r.status, r.headers.get("Cache-Control")); // CL2-076 (13 Nov 2026): member JSON may be compressed
   check("  the reply's shape: entries, next, scanned, exhausted, likelyEnd, window (7d by default), limit (50 by default)", Object.keys(r.body).sort().join() === "entries,exhausted,likelyEnd,limit,next,scanned,window" && r.body.window === "7d" && r.body.limit === 50, r.body);
   const before0 = footprint();
   for (const m of ["HEAD", "POST", "PUT", "DELETE", "PATCH"]) {

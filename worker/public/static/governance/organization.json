@@ -6,8 +6,8 @@
   "appointmentsIssued": false,
   "book": {
     "path": "/static/governance/reconciled-book.md",
-    "bytes": 273507,
-    "sha256": "fb6816b77507c2855f45511a32d1b46fbdcab804965e78a3650eb6f071684cac"
+    "bytes": 268133,
+    "sha256": "dc11c64f222d8a0c09b7446852d713bf981610e28836a0c7ed7422b0d74c83da"
   },
   "councilComposition": {
     "status": "owner_directed_current228",
@@ -76,7 +76,7 @@
         "id": "head-justice",
         "label": "Lord High Justiciar · Minister of Justice & The Privy Court",
         "familyKey": "head_justice",
-        "nodeId": "justice",
+        "nodeId": "justiciar",
         "officeKeys": [
           "office_101"
         ],
@@ -460,14 +460,29 @@
       "kind": "council of accepted offices",
       "icon": "officer",
       "remit": "Olympus-wide standards, budgets and portfolio coordination.",
-      "limits": "The Guild Master chairs the Council. The Co-Guild Master serves alongside twelve portfolios. An accepted warrant and eligible vote remain separate from native ranks and actual permissions.",
+      "limits": "The Guild Master chairs the Council. The Co-Guild Master sits beside the Guild Master in the top tier and serves on the Council alongside twelve portfolios. An accepted warrant and eligible vote remain separate from native ranks and actual permissions.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "justiciar",
+      "title": "Lord High Justiciar",
+      "parent": "founder",
+      "alsoReportsTo": [
+        "executive"
+      ],
+      "relation": "accountability",
+      "kind": "High Council portfolio",
+      "icon": "moderator",
+      "remit": "Oversees the Court branch: the Council of Justice, the Stockades & Court of Appeals (the Privy Court) and their hearing panels.",
+      "limits": "Holding this office is not a permanent seat on every case or a power to judge one’s own enforcement decision. Hearing panels decide cases independently.",
       "coordinates": [],
       "chapter": "organisation-and-offices"
     },
     {
       "id": "justice",
       "title": "Council of Justice",
-      "parent": "founder",
+      "parent": "justiciar",
       "relation": "independence",
       "kind": "independent adjudication",
       "icon": "moderator",
@@ -479,12 +494,26 @@
     {
       "id": "executive",
       "title": "Co-Guild Master and Vice Guild Master",
-      "parent": "founder",
+      "parent": null,
       "relation": "coordination",
       "kind": "appointments",
       "icon": "co_gm",
       "remit": "Agendas, absence cover and liaison within an accepted warrant.",
       "limits": "Neither title is a native rank, automatic succession or command over other Guild Masters.",
+      "coordinates": [
+        "founder"
+      ],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "vice-guild-master",
+      "title": "Vice Guild Master",
+      "parent": "founder",
+      "relation": "coordination",
+      "kind": "appointments",
+      "icon": "co_gm",
+      "remit": "Agendas, absence cover and liaison within an accepted warrant.",
+      "limits": "The title is not a native rank, automatic succession or command over other Guild Masters.",
       "coordinates": [],
       "chapter": "organisation-and-offices"
     },
@@ -2008,7 +2037,7 @@
       "ordinal": 29,
       "label": "Deputy",
       "classification": "leadership",
-      "nodeId": "executive",
+      "nodeId": "vice-guild-master",
       "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
       "nativeSlot": 2,
       "nativeRelationship": ".199 display association: Rank 3 Officer, zero-based slot 2; no automatic appointment, vote, sanction, rank change or permission.",
@@ -4105,7 +4134,7 @@
       "ordinal": 92,
       "label": "Vice Guild Master",
       "classification": "leadership",
-      "nodeId": "executive",
+      "nodeId": "vice-guild-master",
       "note": "Duty, appointment or alias requires its own scope and acceptance; publication appoints nobody.",
       "nativeSlot": 1,
       "nativeRelationship": ".199 display association: Rank 2 High Council, zero-based slot 1; no automatic appointment, vote, sanction, rank change or permission.",
@@ -4423,7 +4452,7 @@
       "ordinal": 101,
       "label": "Lord High Justiciar · Minister of Justice & The Privy Court",
       "classification": "portfolios",
-      "nodeId": "justice",
+      "nodeId": "justiciar",
       "note": "Individual reserved Council portfolio; no appointment or permissions are issued by publication.",
       "nativeSlot": 1,
       "nativeRelationship": ".199 display association: Rank 2 High Council, zero-based slot 1; no automatic appointment, vote, sanction, rank change or permission.",
@@ -4665,7 +4694,7 @@
       "boundary": "Existing website appointment is distinct; reserved powers are not silently transferred."
     },
     {
-      "nodeId": "executive",
+      "nodeId": "vice-guild-master",
       "title": "Vice Guild Master",
       "duty": "Provides expressly assigned continuity and absence cover.",
       "output": "A cover plan identifying when acting authority begins and ends.",
@@ -4721,7 +4750,7 @@
       "boundary": "No bank custody, property ownership, moderation permission or paid service is created by this guide."
     },
     {
-      "nodeId": "justice",
+      "nodeId": "justiciar",
       "title": "Lord High Justiciar · Minister of Justice & The Privy Court",
       "duty": "Provides unconflicted case panels and independent appeal review.",
       "output": "Reasoned decisions, recusals, correction and appeal routes.",
@@ -10952,6 +10981,114 @@
         "before": "heraldry",
         "after": "council",
         "reason": "Chancery is now a distinct reserved Council portfolio; Heraldry remains a coordinating communications partner."
+      }
+    ]
+  },
+  "reportingLines1113": {
+    "recordedAt": "2026-11-13",
+    "issue": "CL2-039",
+    "authority": "owner ruling of 13 November 2026 on the organization chart: placement and reporting lines only; holders, votes, seat numbers, office keys and application tracks unchanged",
+    "summary": "The Co-Guild Master sits in the top tier beside the Guild Master; the Vice Guild Master and the Deputy stay below the Guild Master. The Lord High Justiciar sits in the High Council Cabinet tier, reports directly to both top-tier offices and oversees the Court branch.",
+    "inverse": "Exact finite delta: applied in order it turns the previous model into this one; scripts/build-governance-titles.cjs restoreReportingLines1113 undoes it in reverse order and refuses any current value that differs from the recorded after.",
+    "changes": [
+      {
+        "nodeId": "executive",
+        "field": "parent",
+        "before": "founder",
+        "after": null
+      },
+      {
+        "nodeId": "executive",
+        "field": "coordinates",
+        "before": [],
+        "after": [
+          "founder"
+        ]
+      },
+      {
+        "nodeId": "vice-guild-master",
+        "field": "node",
+        "before": null,
+        "after": {
+          "id": "vice-guild-master",
+          "title": "Vice Guild Master",
+          "parent": "founder",
+          "relation": "coordination",
+          "kind": "appointments",
+          "icon": "co_gm",
+          "remit": "Agendas, absence cover and liaison within an accepted warrant.",
+          "limits": "The title is not a native rank, automatic succession or command over other Guild Masters.",
+          "coordinates": [],
+          "chapter": "organisation-and-offices"
+        }
+      },
+      {
+        "nodeId": "justiciar",
+        "field": "node",
+        "before": null,
+        "after": {
+          "id": "justiciar",
+          "title": "Lord High Justiciar",
+          "parent": "founder",
+          "alsoReportsTo": [
+            "executive"
+          ],
+          "relation": "accountability",
+          "kind": "High Council portfolio",
+          "icon": "moderator",
+          "remit": "Oversees the Court branch: the Council of Justice, the Stockades & Court of Appeals (the Privy Court) and their hearing panels.",
+          "limits": "Holding this office is not a permanent seat on every case or a power to judge one’s own enforcement decision. Hearing panels decide cases independently.",
+          "coordinates": [],
+          "chapter": "organisation-and-offices"
+        }
+      },
+      {
+        "nodeId": "justice",
+        "field": "parent",
+        "before": "founder",
+        "after": "justiciar"
+      },
+      {
+        "nodeId": "council",
+        "field": "limits",
+        "before": "The Guild Master chairs the Council. The Co-Guild Master serves alongside twelve portfolios. An accepted warrant and eligible vote remain separate from native ranks and actual permissions.",
+        "after": "The Guild Master chairs the Council. The Co-Guild Master sits beside the Guild Master in the top tier and serves on the Council alongside twelve portfolios. An accepted warrant and eligible vote remain separate from native ranks and actual permissions."
+      },
+      {
+        "term": "office_29",
+        "field": "nodeId",
+        "before": "executive",
+        "after": "vice-guild-master"
+      },
+      {
+        "term": "office_92",
+        "field": "nodeId",
+        "before": "executive",
+        "after": "vice-guild-master"
+      },
+      {
+        "term": "office_101",
+        "field": "nodeId",
+        "before": "justice",
+        "after": "justiciar"
+      },
+      {
+        "officeMandate": "Vice Guild Master",
+        "field": "nodeId",
+        "before": "executive",
+        "after": "vice-guild-master"
+      },
+      {
+        "officeMandate": "Lord High Justiciar · Minister of Justice & The Privy Court",
+        "field": "nodeId",
+        "before": "justice",
+        "after": "justiciar"
+      },
+      {
+        "councilSeat": "head-justice",
+        "field": "nodeId",
+        "before": "justice",
+        "after": "justiciar"
       }
     ]
   }

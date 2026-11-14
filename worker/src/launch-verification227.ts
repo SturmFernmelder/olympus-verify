@@ -5,6 +5,7 @@ import { linksNotBefore } from './db';
 import { createPrivacyAdmissionAlias,isPrivacyWriteAdmissionDatabase } from './privacy-write-admission';
 import { normalizeCharacter,normalizeCodeInput } from './codes';
 import { isApprovedNativeGuildName } from './guild-affiliation229';
+import { nativeMembershipSourceMatches } from './native-rank-schemes';
 export class LaunchVerificationHeld extends Error { constructor() { super('launch_verification_source_held'); } }
 export type LaunchNativeScope=Readonly<{version:1;guild:string;realm:string;provenance:`addon-native-v1:${string}`} >;
 export function parseLaunchNativeScope(raw:unknown):LaunchNativeScope|null {
@@ -85,15 +86,15 @@ const originalSources=new WeakSet<object>();
 export function captureLaunchMembershipSource(env:Env,mode:LaunchVerificationCapture,row:Readonly<{snapshotId:number;exportedAt:number;guid:string|null;source:string}>,nameKey:string,nativeProof:NativeMembershipProof|null):LaunchMembershipSource|null {
   if(mode.mode==='legacy')return null;
   const verified=nativeProof?verifiedNativeProofs.get(nativeProof):null;
-  if(!nativeProof||!nativeProof.member||!verified||verified.mode!==mode||verified.nameKey!==nameKey||verified.guid!==row.guid||mode.mode!=='members-only'||!mode.scope||row.source!==mode.scope.provenance||!mode.current()||!Number.isSafeInteger(row.snapshotId)||row.snapshotId<1||!Number.isSafeInteger(row.exportedAt)||!row.guid||!nameKey)throw new LaunchVerificationHeld();
-  const source=Object.freeze({snapshotId:row.snapshotId,exportedAt:row.exportedAt,nameKey,guid:row.guid,cutoff:linksNotBefore(env),provenance:mode.scope.provenance,nativeObservedAt:nativeProof.observedAt,mode});originalSources.add(source);return source;
+  if(!nativeProof||!nativeProof.member||!verified||verified.mode!==mode||verified.nameKey!==nameKey||verified.guid!==row.guid||mode.mode!=='members-only'||!mode.scope||!nativeMembershipSourceMatches(row.source,mode.scope.guild,mode.scope.realm)||!mode.current()||!Number.isSafeInteger(row.snapshotId)||row.snapshotId<1||!Number.isSafeInteger(row.exportedAt)||!row.guid||!nameKey)throw new LaunchVerificationHeld();
+  const source=Object.freeze({snapshotId:row.snapshotId,exportedAt:row.exportedAt,nameKey,guid:row.guid,cutoff:linksNotBefore(env),provenance:row.source,nativeObservedAt:nativeProof.observedAt,mode});originalSources.add(source);return source;
 }
 /** A verified own-roster absence can contradict an older positive snapshot. Quarantine
  * only that still-current snapshot; it is not proof of departure from a sister guild.
  * The caller places this restriction in the original request's admitted atomic group. */
 export function launchContradictionRestriction(env:Env,mode:LaunchVerificationCapture,proof:NativeMembershipProof|null,row:Readonly<{snapshotId:number;exportedAt:number;guid:string|null;source:string}>|null,nameKey:string):D1PreparedStatement|null {
   const verified=proof?verifiedNativeProofs.get(proof):null;
-  if(!proof||proof.member||!verified||verified.mode!==mode||verified.nameKey!==nameKey||!row||verified.guid!==row.guid||mode.mode!=='members-only'||!mode.scope||row.source!==mode.scope.provenance||proof.observedAt<row.exportedAt)return null;
+  if(!proof||proof.member||!verified||verified.mode!==mode||verified.nameKey!==nameKey||!row||verified.guid!==row.guid||mode.mode!=='members-only'||!mode.scope||!nativeMembershipSourceMatches(row.source,mode.scope.guild,mode.scope.realm)||proof.observedAt<row.exportedAt)return null;
   if(!mode.current())throw new LaunchVerificationHeld();
   return env.DB.prepare(`UPDATE roster_snapshots SET trusted=0 WHERE id=?1 AND id=(SELECT MAX(id) FROM roster_snapshots)
     AND exported_at=?2 AND source=?3 AND complete=1 AND trusted=1
@@ -106,7 +107,7 @@ export function launchContradictionRestriction(env:Env,mode:LaunchVerificationCa
 export function assertLaunchMembershipMode(env:Env,source:LaunchMembershipSource):void {
   const mode=Object.getOwnPropertyDescriptor(env,'VERIFY_MEMBERSHIP_ONLY');
   const configured=Object.getOwnPropertyDescriptor(env,'VERIFY_NATIVE_SCOPE'),scope=configured&&Object.hasOwn(configured,'value')?parseLaunchNativeScope(configured.value):null;
-  if(!originalSources.has(source)||!mode||!Object.hasOwn(mode,'value')||mode.value!=='true'||!scope||scope.provenance!==source.provenance||source.mode.mode!=='members-only'||!source.mode.current()||source.cutoff!==linksNotBefore(env))throw new LaunchVerificationHeld();
+  if(!originalSources.has(source)||!mode||!Object.hasOwn(mode,'value')||mode.value!=='true'||!scope||!nativeMembershipSourceMatches(source.provenance,scope.guild,scope.realm)||source.mode.mode!=='members-only'||!source.mode.current()||source.cutoff!==linksNotBefore(env))throw new LaunchVerificationHeld();
 }
 const SOURCE_CURRENT=`EXISTS(SELECT 1 FROM roster_snapshots s JOIN roster_members r ON r.snapshot_id=s.id
  WHERE s.id=?1 AND s.id=(SELECT MAX(id) FROM roster_snapshots) AND s.exported_at=?2
@@ -136,7 +137,7 @@ export function launchVerificationRefusal(capture: LaunchVerificationCapture, fa
   if (capture.mode === 'legacy') return null;
   // Ten minutes is the existing roster GUID-pin window. A name alone and an arbitrary
   // whispered guild label are not a native membership proof, even when a code is valid.
-  if (!facts.nativeMembership||!capture.scope||facts.source!==capture.scope.provenance||!facts.current || !Number.isSafeInteger(at) || !Number.isSafeInteger(facts.exportedAt) ||
+  if (!facts.nativeMembership||!capture.scope||!nativeMembershipSourceMatches(facts.source,capture.scope.guild,capture.scope.realm)||!facts.current || !Number.isSafeInteger(at) || !Number.isSafeInteger(facts.exportedAt) ||
       facts.exportedAt! > at || facts.exportedAt! <= at - 600 || !facts.whisperGuid || !facts.rosterGuid || facts.whisperGuid !== facts.rosterGuid) return {
     result: 'membership_not_confirmed', error: 'Your character is not confirmed by a fresh, trusted Olympus membership source. No role or invite was issued. For the collector\'s own guild, ask the owner to refresh the native roster, then press Get my code and whisper that fresh code. Sister-guild roles require the official signed-GUID QR website flow and remain held until that integration is qualified.',
     roleGranted: false, inviteQueued: false, pendingConsumed: false,

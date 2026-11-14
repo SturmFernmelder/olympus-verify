@@ -18,6 +18,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import watcher
 import codes
 import scrub_state
+
+
+def run_cli(args: list[str]) -> subprocess.CompletedProcess[str]:
+    # Evergreen 12 Nov 2026 (CL2-180): on Windows a child writes its pipe in the ANSI code page unless told otherwise,
+    # so scrub_state's em dash arrived as byte 0x97 and the UTF-8 reader thread crashed while the test still passed on
+    # the return code alone. The child is told to write UTF-8 and the parent decodes strictly.
+    return subprocess.run([sys.executable, "-X", "utf8", *args], capture_output=True, text=True, encoding="utf-8",
+                          errors="strict", env={**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}, timeout=20)
 import custody_recovery as recovery
 
 
@@ -30,11 +38,12 @@ class Custody196Tests(unittest.TestCase):
         self.cfg = {"worker_url": "https://example.invalid", "watcher_token": "synthetic-token", "verify_secret": "olympus-test-secret",
                     "wow_dir": str(self.root), "account": "SYNTHETIC", "officer_character": "Synthetic Officer", "state_file": str(self.root / "state.json"), "max_outbox": 2}
         self.w = watcher.Watcher(self.cfg)
+        self.w.queue_file.parent.mkdir(parents=True,exist_ok=True)
         self.calls = []
         self.logs = io.StringIO()
         self.output = contextlib.redirect_stdout(self.logs)
         self.output.__enter__()
-        self.w.worker.call = self.fail
+        self.w.worker.call = self.transport_failure
 
     def tearDown(self):
         self.output.__exit__(None, None, None)
@@ -43,7 +52,7 @@ class Custody196Tests(unittest.TestCase):
     def disk(self):
         return json.loads(self.w.state.path.read_text(encoding="utf-8"))
 
-    def fail(self, method, path, body=None, retries=3):
+    def transport_failure(self, method, path, body=None, retries=3):
         self.calls.append((method, path, copy.deepcopy(body), retries))
         return False, "synthetic-unknown"
 
@@ -156,7 +165,7 @@ class Custody196Tests(unittest.TestCase):
         self.w.state.d["outbox"][0]["acknowledged"] = True
         self.w.state.save()
         restarted = watcher.Watcher(self.cfg)
-        restarted.worker.call = lambda *a, **k: self.fail("UNEXPECTED", "UNEXPECTED")
+        restarted.worker.call = lambda *a, **k: self.fail("Unexpected provider request during recovery")
         restarted.flush_outbox()
         self.assertEqual(restarted.state.d["outbox"], [])
         self.assertEqual(len(self.calls), 1)
@@ -254,9 +263,9 @@ class Custody196Tests(unittest.TestCase):
 
     def test_savedvars_mtime_and_roster_watermark_do_not_advance_without_custody(self):
         self.w.max_outbox = 0
-        self.w.sv_file.write_text("synthetic placeholder", encoding="utf-8")
         data = {"OlympusVerifyDB": {"events": [self.code_event("Saved")], "roster": {"exportedAt": 123, "members": [{"name": "Saved"}]}}}
-        with patch.object(watcher.savedvars, "parse_file", return_value=data), patch.object(watcher.time, "sleep"):
+        self.w.sv_file.write_text('OlympusVerifyDB='+watcher.launch_operations229._lua(data['OlympusVerifyDB']),encoding='utf-8')
+        with patch.object(watcher.time, "sleep"):
             with self.assertRaises(watcher.NoCustody):
                 self.w.check_savedvars()
         self.assertEqual(self.w.state.d["sv_mtime"], 0)
@@ -306,7 +315,7 @@ class Custody196Tests(unittest.TestCase):
             self.assertEqual(record["body"], body)
             self.assertEqual(self.disk()["queue_written_pending"], [7])
             return False, "unknown"
-        self.fail("UNEXPECTED", path, body, retries)
+        self.fail("Unexpected provider request: " + path)
         raise AssertionError("unexpected synthetic request")
 
     def test_queue_written_captures_actual_officer_body_before_http_and_never_merges_new_work(self):
@@ -426,7 +435,7 @@ class Custody196Tests(unittest.TestCase):
         _, path, backup = self.scrub_seed()
         before = path.read_bytes()
         with recovery.StateLease(path):
-            result = subprocess.run([sys.executable, str(Path(scrub_state.__file__)), str(path)], capture_output=True, text=True, timeout=20)
+            result = run_cli([str(Path(scrub_state.__file__)), str(path)])
         self.assertEqual(result.returncode, 2)
         self.assertNotIn("SYNTHETIC-PRIVATE", result.stdout + result.stderr)
         self.assertEqual(path.read_bytes(), before)
@@ -518,9 +527,10 @@ class Custody196Tests(unittest.TestCase):
 
     def test_legacy_scrub_real_cli_help_and_refusal_do_not_read_config(self):
         script = str(Path(scrub_state.__file__))
-        result = subprocess.run([sys.executable, script, "--help"], capture_output=True, text=True, timeout=20)
+        result = run_cli([script, "--help"])
         self.assertEqual(result.returncode, 0)
-        result = subprocess.run([sys.executable, script, str(self.root / "missing.json")], capture_output=True, text=True, timeout=20)
+        self.assertIn("usage", result.stdout.lower())
+        result = run_cli([script, str(self.root / "missing.json")])
         self.assertEqual(result.returncode, 2)
         self.assertIn("requires inspection", result.stderr)
         self.assertNotIn("Traceback", result.stderr)

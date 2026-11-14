@@ -2,6 +2,9 @@
 ROSTER_FIXTURE_ONLY = true
 local fixture = assert(loadfile("test_roster268.lua"))()
 ROSTER_FIXTURE_ONLY = nil
+-- v234 (Stage 2 addon280, 13 Nov 2026): rows become ready only through the
+-- fixture's sealed selected read (selectInitiates); discovery stays advisory.
+local function ready() local f=fixture();f.selectInitiates();return f end
 local passed, failed = 0, 0
 local function check(label, value)
   if value then passed=passed+1; print("PASS "..label) else failed=failed+1;print("FAIL "..label) end
@@ -60,8 +63,8 @@ do
   f.w.Hide();check("hiding roster closes menus and copy overlay",not f.w.copyBox:IsShown() and not f.w.menu:IsShown())
 end
 do
-  local f=fixture();f.sort("action")
-  check("readiness heading now sorts ready targets first",f.names():match("^Alpha,Knight,Zulu")~=nil)
+  local f=ready();f.sort("action")
+  check("readiness heading now sorts ready targets first",f.names():match("^Alpha,Zulu")~=nil)
   f.sort("action");check("readiness heading reverses actual state order",f.names():sub(1,6)~="Alpha,")
   f.sort("class");f.sort("sourceAge")
   check("class and source-age headings are actual sortable columns",f.w.view.sort=="sourceAge")
@@ -113,9 +116,10 @@ do
   local potential
   for _,row in ipairs(f.w.rows) do if row.member and row.member.name=="NameOnly" then potential=row end end
   check("unsigned verified Initiate keeps its no-recommendation explanation",potential and not potential.promote:IsShown() and plain(potential.cells.action:GetText()):find("No loaded recommendation",1,true))
+  f.selectInitiates()
   f.w.nextButton:Click()
   check("potential shortcut still dispatches exactly one signed native target per click",f.attempts==1 and #f.promotions==1 and f.promotions[1].guid=="Player-1-0000B002" and f.names()=="NameOnly,Zulu")
-  f=fixture();f.e.NOW=f.page.expiresAt;f.w.readyButton:Click()
+  f=ready();f.e.NOW=f.sp.expiresAt;f.w.readyButton:Click()
   check("expired signed pages do not hide still-current verified potential",f.names()=="Alpha,NameOnly,Zulu" and not f.w.nextButton:IsEnabled() and plain(f.w.actionInfo:GetText()):find("expired",1,true))
   f.choose(f.w.actionFilterButton,2)
   check("expired signed-ready view remains empty with the original expiry reason",f.names()=="" and plain(f.w.actionInfo:GetText()):find("No actionable signed promotions",1,true) and plain(f.w.actionInfo:GetText()):find("expired",1,true) and f.attempts==0)
@@ -129,13 +133,17 @@ do
   check("empty verified shortcut explains the current filter and source state",plain(f.w.actionInfo:GetText()):find("No current verified Initiates match these filters.",1,true) and plain(f.w.actionInfo:GetText()):find("expired",1,true) and f.reloads==0 and f.attempts==0)
 end
 do
+  -- Retired: "checks all three ... including unsigned candidates" and "clears
+  -- display filters" -- CL2-108 (Codex residual, accepted in Claude's rank280-addon
+  -- review) made the button check only the first twenty shown rows and keep the view.
   local f=fixture();local requested
   f.q.SelectMany=function(ids) requested=ids;return true end
-  f.search("Zulu");f.choose(f.w.onlineButton,3)
   f.w.batchButton:Click()
   local seen={};for _,id in ipairs(requested or {}) do seen[id]=true end
-  check("batch button checks all three current verified Initiates including unsigned candidates",requested and #requested==3 and seen["Player-1-0000B001"] and seen["Player-1-0000B002"] and seen["Player-1-0000B003"])
-  check("batch button clears display filters and never directly promotes",f.names()=="Alpha,NameOnly,Zulu" and f.attempts==0 and #f.promotions==0 and f.removals==0 and f.invites==0)
+  check("batch button checks every shown verified Initiate including unsigned candidates",requested and #requested==3 and seen["Player-1-0000B001"] and seen["Player-1-0000B002"] and seen["Player-1-0000B003"])
+  requested=nil;f.search("Zulu");f.choose(f.w.onlineButton,3);f.w.batchButton:Click()
+  check("batch button checks only the shown rows, keeps the officer's filters and never directly promotes",requested and #requested==1 and requested[1]=="Player-1-0000B001"
+    and f.names()=="Zulu" and f.attempts==0 and #f.promotions==0 and f.removals==0 and f.invites==0)
   f=reviewFixture();requested=nil;f.q.SelectMany=function(ids) requested=ids;return true end
   f.w.batchButton:Click()
   check("batch button excludes prior-record and review identities",requested and #requested==1 and requested[1]=="Player-1-0000B003")
@@ -145,7 +153,7 @@ do
 end
 
 do
-  local f=fixture();f.search("Alpha")
+  local f=ready();f.search("Alpha")
   local b=f.w.nextButton
   check("roster promotion inherits the client-owned secure OnClick",b._template:find("SecureActionButtonTemplate",1,true) and b:GetScript("OnClick")==b._secureHandler)
   check("painting a ready button leaves its native command unarmed",not b:GetAttribute("type1") and not b:GetAttribute("macrotext1") and f.attempts==0)
@@ -160,13 +168,13 @@ do
   b:GetScript("OnClick")(b,"LeftButton",false)
   check("the now-unarmed secure handler cannot replay the previous target",f.attempts==1 and #receipt.steps==1)
   f.emit("GUILD_ROSTER_UPDATE")
-  check("separate complete native readback confirms the observed Member rank",receipt.state=="confirmed" and receipt.completed and receipt.observedSlot==8 and f.e.ROSTER[3].rankIndex==8 and f.attempts==1)
+  check("separate complete native readback confirms the observed Alt step",receipt.state=="confirmed" and not receipt.completed and receipt.observedSlot==8 and f.e.ROSTER[3].rankIndex==8 and f.attempts==1)
 end
 
 do
-  local f=fixture();f.search("Alpha");local row=f.w.rows[1]
+  local f=ready();f.search("Alpha");local row=f.w.rows[1]
   check("row promotion uses its own secure template handler",row.promote._template:find("SecureActionButtonTemplate",1,true) and row.promote:GetScript("OnClick")==row.promote._secureHandler)
-  f.e.NOW=f.page.expiresAt;f.forceClick(row.promote)
+  f.e.NOW=f.sp.expiresAt;f.forceClick(row.promote)
   check("expiry between paint and a forced old row click leaves no command or reservation",f.attempts==0 and not next(f.e.OlympusVerifyDB.launchPromotionAttempts or {}) and not row.promote:GetAttribute("type1") and not row.promote:GetAttribute("macrotext1"))
 end
 print(string.format("%d passed, %d failed",passed,failed))
