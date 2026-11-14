@@ -469,7 +469,7 @@ async function part1b() {
       check('CL2-073', '  lead correspondent: both paths give the same answer', JSON.stringify(original.dto) === JSON.stringify(batched.dto) && original.dto.signedIn === true && !('meta' in original.dto), Object.keys(original.dto));
       check('CL2-073', '  lead correspondent: the published Lead Correspondent may edit the Town Crier on both paths', original.dto.user.canEditTownCrier === true && batched.dto.user.canEditTownCrier === true, { original: original.dto.user, batched: batched.dto.user });
     }
-    const siteApi =fs.readFileSync(path.join(ROOT, 'src/site-api.ts'), 'utf8'), site = fs.readFileSync(path.join(ROOT, 'src/site.ts'), 'utf8');
+    const siteApi = fs.readFileSync(path.join(ROOT, 'src/site-api.ts'), 'utf8'), site = fs.readFileSync(path.join(ROOT, 'src/site.ts'), 'utf8');
     check('CL2-073', 'only the wrapper takes the original order: it calls meDataInOriginalOrder for the full view, and the ordinary /api/me route and the page boot keep the batch',
       wrapper.includes(':await meDataInOriginalOrder(producer,o.user);') && !/await meData\(producer/.test(wrapper) && (wrapper.match(/meDataInOriginalOrder/g) || []).length === 3
       && /await meSeatsData\(env, user\) : await meData\(env, user\)\)/.test(siteApi) && /await meDataWithState\(privacyBoundSiteEnv\(env, originalUserSession\(user\)\), user\);/.test(site)
