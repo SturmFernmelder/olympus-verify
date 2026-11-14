@@ -4,7 +4,8 @@ import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-
 import type {Env} from './env';
 import {nativeErasureMode} from './privacy-native-mode';
 import {currentUser,readSession,apiJson,isSiteAdmin,SESSION_COOKIE,ON_BOARD,ROLE_OF_FIRST,type SiteUser} from './site-core';
-import {meData,meSeatsData} from './site-api';
+import {meDataInOriginalOrder,meSeatsData} from './site-api';
+// The full view is read through meDataInOriginalOrder: one read at a time in the order groups() lists (14 Nov 2026).
 import {ownPublicationReadSql} from './site-appointed-identities';
 import {ensureSchema} from './schema';
 import {PRIVACY_ADMISSION_SCHEMA_PROOF_SQL,createPrivacyWriteAdmissionDatabase,isPrivacyWriteAdmissionDatabase,type AdmissionLayout} from './privacy-write-admission';
@@ -176,7 +177,7 @@ export async function dispatchServingSiteMe(h:SiteMeOrigin|undefined):Promise<Re
    else{o.originalRead=signed;o.session=session(signed);current(o);const authSql=`SELECT * FROM site_users WHERE discord_id = ?1 AND account_incarnation = ?2 AND session_version = ?3 AND ?4>CAST(strftime('%s','now') AS INTEGER) AND ${privacyGenerationLiteralFenceSql('discord_id',o.session.g)}`,auth=payload(authSql,[o.session.u,o.session.n,o.session.v,o.session.e]);
     const found=await child(o,parent,'auth',Object.freeze([schemaPlan(o),auth]),false,()=>currentUser(projected(o,authProducer(o)),o.authRequest));current(o);
     if(!found)output.response=apiJson({error:'signed_out',message:'You are signed out. Sign in with Discord again.'},401);
-    else{o.user=user(found,o);o.dataGroups=groups(o);const bound=privacyBoundSiteEnv(o.sourceEnv,o.originalRead!),producer=projected(o,dataProducer(o,parent,bound)),dto=o.seatsOnly?await meSeatsData(producer,o.user):await meData(producer,o.user);current(o);if(o.dataIndex!==o.dataGroups.length)return held();plain(dto);output.response=apiJson(dto);}
+    else{o.user=user(found,o);o.dataGroups=groups(o);const bound=privacyBoundSiteEnv(o.sourceEnv,o.originalRead!),producer=projected(o,dataProducer(o,parent,bound)),dto=o.seatsOnly?await meSeatsData(producer,o.user):await meDataInOriginalOrder(producer,o.user);current(o);if(o.dataIndex!==o.dataGroups.length)return held();plain(dto);output.response=apiJson(dto);}
    }
    const result=output.response??held();output.headers=JSON.stringify([...result.headers]);const body=await result.clone().text();current(o);const resultDigest=await digest(['site-me-response-known-v1',rootDigest,result.status,output.headers,body]);current(o);return {kind:'known_local' as const,value:result,resultDigest};
   });

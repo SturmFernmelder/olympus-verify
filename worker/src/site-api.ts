@@ -304,12 +304,42 @@ export async function meData(env: Env, user: SiteUser, settings?: SiteSettings, 
   return (await meDataWithState(env, user, settings, ruleset)).dto;
 }
 
+/** The same answer as meData, for the configured (old Floor) serving wrapper only (owner ruling of 14 Nov 2026, "Fix it
+ * now"). That wrapper admits the account's reads only as dfca7a2 issued them: one at a time, in one fixed order, each
+ * with its original method (privacy-serving-site-me.ts groups()). It refuses a batch of more than three statements and
+ * a second read while one is running, so the shared batch of meDataWithState held every full /api/me there. Native
+ * serving, the ordinary /api/me route and the page boot never call this. */
+export async function meDataInOriginalOrder(env: Env, user: SiteUser) {
+  return (await meDataWithState(env, user, undefined, undefined, true)).dto;
+}
+
+type MeSeatInfo = Awaited<ReturnType<typeof guildSeats>> | null;
+/** dfca7a2's reading order: settings, application (first), votes, friends, reserved, nominated-for, board votes, the
+ * seat batch, the two office authority reads one after the other (each may repeat its own read once after its crypto),
+ * the editor proof, and the rename hold (first). Entry i of the answer holds the rows of `reads[i]`, so the caller
+ * reads them exactly as it reads the batch. */
+async function meReadsInOriginalOrder(env: Env, user: SiteUser, reads: D1PreparedStatement[]): Promise<[Array<{ results: unknown[] }>, MeSeatInfo, boolean, boolean, string | undefined]> {
+  const id = user.discord_id;
+  const all = async (i: number) => ({ results: (await reads[i].all()).results as unknown[] });
+  const first = async (i: number) => { const row = await reads[i].first(); return { results: row ? [row as unknown] : [] }; };
+  const out: Array<{ results: unknown[] }> = [];
+  if (reads.length > 7) out[7] = await all(7);
+  out[0] = await first(0);
+  for (const i of [1, 2, 3, 4, 5]) out[i] = await all(i);
+  const seatInfo = user.denied ? null : await guildSeats(env, now(), id);
+  const streamShield = user.denied ? false : await canUseStreamShield(env, id);
+  const townCrier = user.denied ? false : await canEditTownCrier(env, id);
+  const editorProof = user.denied ? undefined : await sign(env.COOKIE_SECRET, APPLICATION_EDITOR_PURPOSE, applicationEditorValue(user));
+  out[6] = await first(6);
+  return [out, seatInfo, streamShield, townCrier, editorProof];
+}
+
 /** The same reading as meData, plus the resolved settings and ruleset it used, so the boot can describe the same state.
  * Evergreen 12 Nov 2026 (CL2-073): the account's own rows (and the settings, when the caller has none) are read in ONE
  * batch instead of eight sequential round trips; the seat state, the two office authority reads and the editor proof
  * run beside it. Every read is unchanged in its SQL and in what it binds; only the waiting is shared. The office
  * authority reads (site-appointed-identities.ts) keep their own captured predicates and are not merged into the batch. */
-export async function meDataWithState(env: Env, user: SiteUser, settings?: SiteSettings, ruleset?: RulesetSnapshot) {
+export async function meDataWithState(env: Env, user: SiteUser, settings?: SiteSettings, ruleset?: RulesetSnapshot, originalOrder = false) {
   const id = user.discord_id;
   const known = settings && ruleset ? { settings, ruleset } : null;
   const reads = [
@@ -336,7 +366,8 @@ export async function meDataWithState(env: Env, user: SiteUser, settings?: SiteS
   ];
   // .115 (item B): one guarded batch; the viewer's own rows only; times rounded to the hour (guild-seats.ts memberSeats).
   // A denied account gets neither. The signed-out boot and /api/public carry no seat state.
-  const [results, seatInfo, streamShield, townCrier, editorProof] = await Promise.all([
+  // originalOrder: the configured serving wrapper's sequence (meReadsInOriginalOrder above); everything else batches.
+  const [results, seatInfo, streamShield, townCrier, editorProof] = originalOrder ? await meReadsInOriginalOrder(env, user, reads) : await Promise.all([
     env.DB.batch(reads),
     user.denied ? null : guildSeats(env, now(), id),
     user.denied ? false : canUseStreamShield(env, id),

@@ -404,6 +404,66 @@ async function part1b() {
       && /TREASURY_SEAT_ALIASES1112\.includes\(office\.key\)\) return [^\n]*" · opens the Treasury plan"/.test(app)
       && app.includes('The Co-Guild Master seat (office_19) and the Lord High Treasurer seat (office_86) open the officer Treasury plan. The older records of the same two seats (co_gm and treasurer) open it too. A holder recorded on any of these four with a current published Discord account association qualifies. No other appointment record opens it. That includes the historical Treasurer rank record (rank_treasurer).')
       && !/open nothing/.test(app), named); }
+  console.log('== CL2-073: the original reading order for the configured serving wrapper (owner, 14 Nov 2026: "Fix it now") ==');
+  {
+    // meDataWithState reads the account's rows in one batch (CL2-073). The configured (old Floor) serving wrapper admits
+    // only dfca7a2's sequence, so it calls meDataInOriginalOrder. Both paths are run here on the same database with every
+    // read recorded: the original path must issue exactly the sequence the wrapper's groups() lists, the two paths must
+    // send the same statements, and they must give the same answer.
+    const api = load('./site-api');
+    r = await appoint({ office_19: BOTH, office_86: TREAS, co_gm: BOTH, office_12: JUSTICE });
+    check('CL2-073', 'setup: the admin publishes a Broadcaster (office_12)', r.status === 200, r);
+    const recording = log => { const base = rawEnv(), real = base.DB, known = new WeakMap();
+      const wrap = (stmt, sql, bound) => { const w = { bind: (...v) => wrap(stmt.bind(...v), sql, v),
+        all: async () => { log.push(['all', [sql], [bound]]); return stmt.all(); }, first: async (...a) => { log.push(['first', [sql], [bound]]); return stmt.first(...a); },
+        run: async () => { log.push(['run', [sql], [bound]]); return stmt.run(); }, raw: async (...a) => { log.push(['raw', [sql], [bound]]); return stmt.raw(...a); } };
+        known.set(w, { stmt, sql, bound }); return w; };
+      const DB = { prepare: sql => wrap(real.prepare(sql), sql, null), batch: async list => { const rs = list.map(w => known.get(w)); log.push(['batch', rs.map(x => x.sql), rs.map(x => x.bound)]); return real.batch(rs.map(x => x.stmt)); } };
+      const ds = Object.getOwnPropertyDescriptors(base); ds.DB = { value: DB, writable: false, configurable: false, enumerable: true };
+      return Object.freeze(Object.create(Object.getPrototypeOf(base), ds)); };
+    const label = sql => /FROM site_settings WHERE \(key < 'newsWebhook:'/.test(sql) ? 'settings' : /^SELECT \* FROM site_applications WHERE discord_id = \?1$/.test(sql) ? 'application'
+      : /FROM site_votes WHERE voter_id = \?1 ORDER BY ballot, slot$/.test(sql) ? 'votes' : /FROM site_friends WHERE owner_id = \?1/.test(sql) ? 'friends' : /FROM site_reserved r LEFT JOIN invite_queue/.test(sql) ? 'reserved'
+      : /^SELECT DISTINCT v\.ballot FROM site_votes v/.test(sql) ? 'nominatedFor' : /FROM site_board_votes v/.test(sql) ? 'boardVotes' : /a\.key IN\('office_12'\)/.test(sql) ? 'office_12' : /a\.key IN\('office_50'\)/.test(sql) ? 'office_50'
+      : /FROM rename_holds WHERE discord_id = \?1 AND state = 'reapply'/.test(sql) ? 'reapply' : 'other:' + sql.slice(0, 40);
+    const userRow = id => db.prepare('SELECT * FROM site_users WHERE discord_id = ?').get(id);
+    const read = async (id, original) => { const log = []; const out = await api.meDataWithState(recording(log), userRow(id), undefined, undefined, original);
+      return { dto: out.dto, log, order: log.map(([m, sqls]) => m === 'batch' ? (sqls.some(s => /FROM site_applications WHERE discord_id/.test(s)) ? 'own:batch:' + sqls.length : 'guildSeats:batch') : label(sqls[0]) + ':' + m),
+        statements: log.flatMap(([, sqls, binds]) => sqls.map((s, i) => s + ' <- ' + JSON.stringify(binds[i]))).sort() }; };
+    // The wrapper's own list, read from its source: the labels and methods of groups(), in order, with the two office
+    // reads between the seat batch and the rename hold.
+    const wrapper = fs.readFileSync(path.join(ROOT, 'src/privacy-serving-site-me.ts'), 'utf8');
+    const groupsSrc = wrapper.slice(wrapper.indexOf('function groups(o:Origin)'), wrapper.indexOf('function authProducer('));
+    const fence = [...groupsSrc.matchAll(/g\('([A-Za-z_0-9]+)','(all|first|batch)',/g)].map(m => m[1] + ':' + m[2]);
+    const officeAt = groupsSrc.indexOf("for(const key of ['office_12','office_50'])out.push(Object.freeze({...g(key,'all',");
+    check('CL2-073', 'the wrapper lists the full view as settings, application (first), votes, friends, reserved, nominated-for, board votes, the seat batch, the two office reads and the rename hold (first)',
+      JSON.stringify(fence) === JSON.stringify(['settings:all', 'application:first', 'votes:all', 'friends:all', 'reserved:all', 'nominatedFor:all', 'boardVotes:all', 'guildSeats:batch', 'reapply:first'])
+      && officeAt > groupsSrc.indexOf("g('guildSeats'") && officeAt < groupsSrc.indexOf("g('reapply'"), fence);
+    const own = fence.slice(0, 7), expected = {
+      member: [...own, 'guildSeats:batch', 'office_12:all', 'office_50:all', 'reapply:first'],
+      holder: [...own, 'guildSeats:batch', 'office_12:all', 'office_12:all', 'office_50:all', 'reapply:first'], // the holder's own repeat directly after its first read
+      admin: [...own, 'guildSeats:batch', 'reapply:first'], denied: [...own, 'reapply:first'] };
+    await testWriter().prepare('UPDATE site_users SET denied = 1 WHERE discord_id = ?').bind(VICE).run(); // through the admission port; raw writes are refused
+    const deniedSet = userRow(VICE).denied === 1;
+    const cases = [['member', MEMBER], ['holder', JUSTICE], ['admin', ADMIN], ['denied', VICE]];
+    for (const [name, id] of cases) {
+      const original = await read(id, true), batched = await read(id, false);
+      check('CL2-073', `${name}: the original-order path issues exactly the wrapper's sequence, one read at a time`, JSON.stringify(original.order) === JSON.stringify(expected[name]), original.order);
+      check('CL2-073', `  ${name}: the batched path still sends the account's rows as one batch of 8 first, and both paths send the same statements with the same binds`,
+        batched.order[0] === 'own:batch:8' && !original.order.some(x => x.startsWith('own:batch')) && JSON.stringify(original.statements) === JSON.stringify(batched.statements), { batched: batched.order, n: [original.statements.length, batched.statements.length] });
+      check('CL2-073', `  ${name}: both paths give the same answer`, JSON.stringify(original.dto) === JSON.stringify(batched.dto) && original.dto.signedIn === true && !('meta' in original.dto), Object.keys(original.dto));
+      if (name === 'holder') check('CL2-073', '  holder: the published Broadcaster reads as one on both paths (the repeat read is admitted in sequence)', original.dto.user.canUseStreamShield === true && batched.dto.user.canUseStreamShield === true && original.dto.user.canEditTownCrier === false, original.dto.user);
+      if (name === 'member') check('CL2-073', '  member: no office, so neither flag', original.dto.user.canUseStreamShield === false && original.dto.user.canEditTownCrier === false, original.dto.user);
+      if (name === 'denied') check('CL2-073', '  denied: the fixture row is denied, and the answer has no seat state', deniedSet && original.dto.denied === true && original.dto.seats === null, original.dto.seats);
+    }
+    await testWriter().prepare('UPDATE site_users SET denied = 0 WHERE discord_id = ?').bind(VICE).run();
+    const siteApi = fs.readFileSync(path.join(ROOT, 'src/site-api.ts'), 'utf8'), site = fs.readFileSync(path.join(ROOT, 'src/site.ts'), 'utf8');
+    check('CL2-073', 'only the wrapper takes the original order: it calls meDataInOriginalOrder for the full view, and the ordinary /api/me route and the page boot keep the batch',
+      wrapper.includes(':await meDataInOriginalOrder(producer,o.user);') && !/await meData\(producer/.test(wrapper) && (wrapper.match(/meDataInOriginalOrder/g) || []).length === 3
+      && /await meSeatsData\(env, user\) : await meData\(env, user\)\)/.test(siteApi) && /await meDataWithState\(privacyBoundSiteEnv\(env, originalUserSession\(user\)\), user\);/.test(site)
+      && (siteApi.match(/meDataWithState\(env, user, undefined, undefined, true\)/g) || []).length === 1, '');
+    r = await appoint({ office_19: BOTH, office_86: TREAS, co_gm: BOTH });
+    check('CL2-073', 'teardown: the Broadcaster publication is withdrawn again', r.status === 200, r);
+  }
   EXTRA = {};
 }
 
