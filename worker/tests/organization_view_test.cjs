@@ -96,15 +96,20 @@ check('.221 the chart controls precede the rank and Council reading sections',wi
 const deepOffice205=open({overview205:true,parts:['office_27']});
 check('.205 an existing office deep link reveals its complete mandate inside the outer map',deepOffice205.one('org-relationship-map205').open&&deepOffice205.doc.activeElement===deepOffice205.detail&&deepOffice205.detail.textContent.includes('Crafter'));
 const deepNode205=open({overview205:true,parts:['treasury']});
-check('.205 an existing department deep link reveals and focuses the requested mandate',deepNode205.one('org-relationship-map205').open&&deepNode205.doc.activeElement===deepNode205.detail&&deepNode205.detail.textContent.includes('Federal Treasury'));
+// CL2-047 (our 4c7b542): the treasury node holds the treasurer seat and shows that seat's Cabinet title, not "Federal Treasury".
+check('.205 an existing department deep link reveals and focuses the requested mandate',deepNode205.one('org-relationship-map205').open&&deepNode205.doc.activeElement===deepNode205.detail&&deepNode205.detail.textContent.includes('Lord High Treasurer · Minister of the Imperial Exchequer'));
 wide205.main.all(n=>n.getAttribute('data-office-key')==='office_08')[0].children[0].click(0);
 check('.205 historical catalogue selections reveal the outer map before focusing its reader',wide205.one('org-relationship-map205').open&&wide205.doc.activeElement===wide205.detail);
-check(".218 exact ten ranks and all103 current office records are visible", p.main.all(n=>!!n.getAttribute('data-native-rank')).map(n=>n.children[0].textContent).join('|') === 'Leader (Guild Master)|High Council|Officer|Officer Alt|Raid Leader|Veteran|Raider|Member|Alt|Initiate' && p.main.all(n=>!!n.getAttribute('data-office-key')).length === 103 && p.main.all(n=>n.getAttribute('data-tier-group')==='high_council').length===1 && p.main.all(n=>n.getAttribute('data-tier-group')==='officer_corps').length===1);
+// CL2-034 (our 4c7b542; directive line 45): the register uses the directory's six catalogue groups, each once and in order,
+// instead of the four tier groups.
+check(".218 exact ten ranks and all103 current office records are visible", p.main.all(n=>!!n.getAttribute('data-native-rank')).map(n=>n.children[0].textContent).join('|') === 'Leader (Guild Master)|High Council|Officer|Officer Alt|Raid Leader|Veteran|Raider|Member|Alt|Initiate' && p.main.all(n=>!!n.getAttribute('data-office-key')).length === 103 && p.main.all(n=>n.getAttribute('data-catalog-group')).map(n=>n.getAttribute('data-catalog-group')).join('|')==='council|officers|raid|workshop|members|royal');
 const leader118 = open({ parts: ['office_43'] });
-check('CC-118 the relationship map explains the exact in-game name and labels the rank-one mandate and badges without changing the data',
+// CL2-041, CL2-197, CL2-310 (our 4c7b542; directive line 52): the panel's placement sentence is gone; rank and slot are
+// stated once, in the badge, as "Rank 1 Leader (Guild Master) · Slot 0".
+check('CC-118 the relationship map explains the exact in-game name and labels the rank-one mandate once in its badge without changing the data',
   leader118.one('org-rank-guide').textContent.includes('The in-game name for slot 0 is Guild Master.')
-  && leader118.detail.all(node => node.getAttribute('data-native-placement') !== null).some(node => node.textContent.startsWith('Rank 1 Leader (Guild Master) · zero-based slot 0.'))
-  && leader118.detail.all(node => node.classList.contains('org-office-badges')).some(node => node.children.some(part => part.textContent === 'Rank 1 · Leader (Guild Master)'))
+  && leader118.detail.all(node => node.getAttribute('data-native-placement') !== null).length === 0
+  && leader118.detail.all(node => node.classList.contains('org-office-badges')).some(node => node.children.some(part => part.textContent === 'Rank 1 Leader (Guild Master) · Slot 0'))
   && data.nativeRanks[0].name === 'Leader' && data.nativeRanks[0].nativeSlot === 0);
 leader118.dispose();
 // Current labels describe these five standing records without rewriting the historical model.
@@ -120,8 +125,11 @@ check(".218 the five native-standing office cards use a rank-reference label whi
   && nativeDepartmentKeys218.every(key => { const card = rawOfficeCard218(key); return card && card.children.some(n => n.tagName === 'P' && n.textContent === 'In-game rank reference') && !card.children.some(n => n.tagName === 'P' && n.textContent === 'Ten native rank slots'); })
   && JSON.stringify(data) === originalDataCount208);
 function modelNativeDepartmentKeys218() { return data.terms.filter(term => term.department === 'Ten native rank slots').map(term => term.officeKey).sort().join('|'); }
-check(".218 all other office departments and every detailed source note remain visible without a broad relabel",
-  data.terms.every(term => { const card = rawOfficeCard218(term.officeKey); return card && card.children.some(n => n.tagName === 'P' && n.textContent === term.note)
+// CL2-041, CL2-220 (our 4c7b542): a note shared by several titles is boilerplate and leaves the cards; a note that belongs
+// to one title alone is still shown on that title's card.
+const noteUses218 = note => data.terms.filter(term => term.note === note).length;
+check(".218 all other office departments and every title-specific source note remain visible without a broad relabel",
+  data.terms.every(term => { const card = rawOfficeCard218(term.officeKey); return card && card.children.some(n => n.tagName === 'P' && n.textContent === term.note) === (noteUses218(term.note) === 1)
     && (nativeDepartmentKeys218.includes(term.officeKey) || card.children.some(n => n.tagName === 'P' && n.textContent === term.department)); }));
 const nativeDisplay218 = open({ mobile:true, parts:['native'] });
 const nativeDisplayRow218 = nativeDisplay218.one('org-list').children.find(row => row.children[0].all(n => n.tagName === 'STRONG' && n.textContent === 'In-game rank reference').length === 1);
@@ -189,7 +197,11 @@ check("initial branch keeps the selected office, parent and its direct connectio
 check("branch fit keeps labels at a readable scale rather than shrinking the full map", scaleOf(p) >= .85 && p.button("Fit branch").getAttribute("aria-pressed") === "true" && p.one("org-chart-shell").textContent.includes("drag to see the rest"));
 check("the complete reading view retains every group and label", p.one("org-list").children.length === data.nodes.length && p.main.all(n => n.classList.contains("organization-term")).length === data.terms.length);
 check("the two composition sources have a separate wrapping link group", p.one("org-composition-links").children.length === 3 && css.includes(".org-composition-links{display:flex;flex-wrap:wrap;gap:"));
-const expectedEdges = chartNodes.flatMap(n => [n.parent ? `${n.title} → ${data.nodes.find(p => p.id === n.parent).title}: ${data.legend[n.relation]}` : null, ...n.coordinates.filter(peer => peer !== n.parent).map(peer => `${n.title} → ${data.nodes.find(p => p.id === peer).title}: liaison; no command authority`)]).filter(Boolean).sort();
+// CL2-047 (our 4c7b542): a node that holds a current Council seat is named by that seat's Cabinet title; the chair's node
+// keeps "Founder and Patron". CL2-039 (our 6162226, owner ruling of 13 Nov 2026): alsoReportsTo draws a second reporting
+// line of the node's own relation (the Lord High Justiciar to the Co-Guild Master as well as to the Guild Master).
+const seatTitle1113 = n => (n.id !== 'founder' && data.councilComposition.currentSeats.find(seat => seat.nodeId === n.id)?.label) || n.title;
+const expectedEdges = chartNodes.flatMap(n => [n.parent ? `${seatTitle1113(n)} → ${seatTitle1113(data.nodes.find(p => p.id === n.parent))}: ${data.legend[n.relation]}` : null, ...(n.alsoReportsTo || []).filter(other => other !== n.parent).map(other => `${seatTitle1113(n)} → ${seatTitle1113(data.nodes.find(p => p.id === other))}: ${data.legend[n.relation]}`), ...n.coordinates.filter(peer => peer !== n.parent).map(peer => `${seatTitle1113(n)} → ${seatTitle1113(data.nodes.find(p => p.id === peer))}: liaison; no command authority`)]).filter(Boolean).sort();
 const renderedEdges = p.main.all(n => n.tagName === "PATH" && n.classList.contains("org-edge"));
 check("every relationship identifies its real source and target card ports",renderedEdges.every(e=>e.getAttribute("data-from")&&e.getAttribute("data-to")&&e.getAttribute("data-start-port")==="card-border"&&e.getAttribute("data-end-port")==="card-border"));
 check("branch presentation preserves every original directed relationship and explanation", JSON.stringify(renderedEdges.map(n => n.textContent).sort()) === JSON.stringify(expectedEdges));
@@ -346,11 +358,15 @@ check("Ctrl-wheel still zooms within the chart", k.viewport.dispatch("wheel", { 
 const mobile = open({ mobile: true, width: 315 });
 check("small screens open the full map", !mobile.viewport.hidden && mobile.one("org-list").hidden);
 mobile.button("Chart").click();
-check("mobile Chart keeps the full map when selected", mobile.button("Full map").getAttribute("aria-pressed")==="true");
+// CL2-042 (our 4c7b542): the chart opens on the High Council branch at a readable scale, on phones too; Full map is one
+// click away.
+check("mobile Chart keeps the fitted branch when selected", mobile.button("Fit branch").getAttribute("aria-pressed")==="true" && mobile.button("Full map").getAttribute("aria-pressed")==="false");
 mobile.button("Full map").click();
 check("opening Chart on mobile starts with all offices in a fitted complete overview", visibleIds(mobile).length === chartNodes.length && mobile.button("Full map").getAttribute("aria-pressed") === "true" && wholeMapFits(mobile));
 mobile.button("Fit branch").click();
-check("a narrow chart keeps connected offices readable on its contained pannable canvas", parseFloat(mobile.stage.style.width) >= 680 && scaleOf(mobile) >= .85 && !mobile.viewport.hidden);
+// REV-GOV-6 (our 1b893d5): below 600 px the branch stacks in one column (parent, office, children), lines on the right:
+// every shown card has the same left edge, and the canvas is that one 230 px card column plus its line gutter (274 px).
+check("a narrow chart keeps connected offices readable on its contained pannable canvas", parseFloat(mobile.stage.style.width) === 274 && new Set(mobile.main.all(n => n.getAttribute("data-organization-node") && !n.hidden).map(n => n.style.left)).size === 1 && scaleOf(mobile) >= .85 && !mobile.viewport.hidden);
 mobile.button("Full map").click();
 check("the narrow full map contains every office within the pannable stage", visibleIds(mobile).length === chartNodes.length && parseFloat(mobile.stage.style.width) >= 680 && boxes(mobile).every(b => b.left >= 0 && b.left + 230 <= parseFloat(mobile.stage.style.width)));
 mobile.button("List").click();
@@ -362,7 +378,8 @@ const drawer = mobile.one("org-detail-drawer"), help = mobile.one("org-chart-hel
 check("narrow fullscreen starts with the optional mandate and chart guide collapsed", mobile.dialog.open && !drawer.open && !help.open && mobile.dialog.contains(mobile.detail));
 check("the collapsed mandate has a native keyboard disclosure naming the selected office", drawer.children[0].tagName === "SUMMARY" && drawer.children[0].textContent === "Office details · High Council");
 mobile.node("treasury").click(0); mobile.flush();
-check("selecting a fullscreen office opens and focuses its complete mandate", drawer.open && mobile.doc.activeElement === mobile.detail && mobile.detail.textContent.includes("Authority and boundaries") && mobile.detail.textContent.includes("Federal Treasury") && drawer.children[0].textContent.includes("Federal Treasury"));
+// CL2-047 (our 4c7b542): the treasury node shows its seat's Cabinet title, in the mandate and in the drawer summary.
+check("selecting a fullscreen office opens and focuses its complete mandate", drawer.open && mobile.doc.activeElement === mobile.detail && mobile.detail.textContent.includes("Authority and boundaries") && mobile.detail.textContent.includes("Lord High Treasurer · Minister of the Imperial Exchequer") && drawer.children[0].textContent.includes("Lord High Treasurer · Minister of the Imperial Exchequer"));
 drawer.open = false; drawer.dispatch("toggle"); mobile.flush();
 check("closing the optional mandate keeps the live chart and all reading groups", !drawer.open && !mobile.viewport.hidden && mobile.one("org-list").children.length === data.nodes.length && mobile.node("treasury").getAttribute("aria-pressed") === "true");
 const mobileSearch = mobile.doc.getElementById("organization-search"); mobileSearch.value = "Treasury"; mobileSearch.dispatch("input");
