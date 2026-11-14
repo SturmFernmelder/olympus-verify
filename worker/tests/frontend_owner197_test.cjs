@@ -443,9 +443,15 @@ async function frontendOwner197() {
   check('.218 all five leadership rank rows use reserved rather than royal appointment wording and offer no public application',
     rows199.slice(0,5).every(row=>{const cell=row.querySelectorAll('td')[4];return cell.querySelector('p')?.textContent==='Reserved appointment; no public application.'&&!cell.textContent.includes('Royal appointment')&&!cell.querySelector('a[href^="#/vote"]');})
     &&rows199.slice(5).every(row=>row.querySelectorAll('td')[4].textContent.startsWith('Membership, raiding and artisan work use the role directory; other standing and titles require their own review. ')&&row.querySelectorAll('td')[4].querySelector('a[href="#/roles"]')?.textContent==='Explore the role directory'));
-  // CL2-035/CL2-046 (our 4c7b542): each rank row also links its role guide; the bridge is its organization links.
+  // CL2-035/CL2-046 (our 4c7b542): each rank row also links its role guide. The per-key organization links, the bridge,
+  // come from our 8f031a9 (RC-199): every stored key keeps its own register link under its family.
   const bridgeLinks199=rows199.flatMap(row=>row.querySelectorAll('li a')),bridgeKeys199=bridgeLinks199.filter(link=>link.getAttribute('href').startsWith('#/organization/')).map(link=>decodeURIComponent(link.getAttribute('href').slice('#/organization/'.length)));
-  check('.199 Rosetta Stone enumerates all139 assignable keys exactly once across their ten rank rows',bridgeLinks199.every(link=>/^#\/(?:organization|roles)\//.test(link.getAttribute('href')))&&bridgeKeys199.length===139&&new Set(bridgeKeys199).size===139&&JSON.stringify(bridgeKeys199.slice().sort())===JSON.stringify(keys201));
+  // app.js rosettaPanel199: one li[data-rosetta-family1112] per family in a rank row, with one #/roles/<family> link, and
+  // under it one #/organization/<key> link per stored key. The family link must name the family of those keys.
+  const rosettaFamilyLinks199=row=>row.querySelectorAll('li[data-rosetta-family1112]').map(item=>{const roleLinks=item.querySelectorAll('a').filter(link=>link.getAttribute('href').startsWith('#/roles/')),keys=item.querySelectorAll('li[data-rosetta-key1112] a').map(link=>decodeURIComponent(link.getAttribute('href').slice('#/organization/'.length)));
+    return {item,roleLinks,keys,target:roleLinks.length===1?decodeURIComponent(roleLinks[0].getAttribute('href').slice('#/roles/'.length)):null};});
+  check('.199 Rosetta Stone enumerates all139 assignable keys exactly once across their ten rank rows',bridgeLinks199.every(link=>/^#\/(?:organization|roles)\//.test(link.getAttribute('href')))&&bridgeKeys199.length===139&&new Set(bridgeKeys199).size===139&&JSON.stringify(bridgeKeys199.slice().sort())===JSON.stringify(keys201)
+    &&rows199.every(row=>{const items=rosettaFamilyLinks199(row);return items.length>0&&items.every(({item,roleLinks,keys,target})=>roleLinks.length===1&&keys.length>0&&target===item.getAttribute('data-rosetta-family1112')&&keys.every(key=>directoryModel203(roles199).keyToFamily[key]===target))&&new Set(items.map(entry=>entry.target)).size===items.length&&row.querySelectorAll('li a').filter(link=>link.getAttribute('href').startsWith('#/roles/')).length===items.length;}));
   const roleCards201=roles199.app.querySelectorAll('[data-role-key201]');
   check('.203 Roles keeps all103 stable office references and every original source key in canonical families, with no reserved application CTA',directoryComplete203(roles199)&&Object.keys(roles199.boot.meta.roleDirectory203.keyToFamily).filter(key=>/^office_[0-9]{2,3}$/.test(key)).length===103&&reservedRows201.every(row=>!familyForKey203(roles199,row.key).querySelector('[data-apply-role201]')));
   for(const appointedKey199 of ['member','office_07','office_27']){
@@ -653,7 +659,7 @@ async function frontendOwner197() {
     // overview and its actual context module have their own qualified leaf.
     const rendererFixturePath199=path.join(root,'tests/organization_view_test.cjs'),rendererFixtureSource199=fs.readFileSync(rendererFixturePath199,'utf8'),rendererCut199=rendererFixtureSource199.indexOf('const p = open();');
     const rendererPrefix199=rendererFixtureSource199.slice(0,rendererCut199);
-    // Our 64564f5 gives that fixture's DOM stand-in text nodes (organization-view.js appends plain strings since our
+    // Our organization_view text-node repair gives that fixture's DOM stand-in text nodes (organization-view.js appends plain strings since our
     // 4c7b542). The original prefix hash is checked after mapping exactly that reviewed edit back; any other drift is refused.
     const textNode199={"current":"  // Our 4c7b542 (CL2-037/CL2-041) appends a plain string (\" — note\") beside a link, as ParentNode.append allows;\n  // the stand-in makes it a text node, as a browser does.\n  append(...nodes) { for (let n of nodes.flat(Infinity).filter(n => n != null)) { if (typeof n === \"string\") { const text = new Element(\"#text\", this.doc); text._text = n; n = text; } n.remove(); n.parentNode = this; this.children.push(n); } }\n","historical":"  append(...nodes) { for (const n of nodes.flat(Infinity).filter(n => n != null)) { n.remove(); n.parentNode = this; this.children.push(n); } }\n"};
     if(rendererPrefix199.split(textNode199.current).length!==2)throw Error('owner199_organization_fixture_text_node_edit');
