@@ -280,7 +280,9 @@ class AttendedQuarantineTests(unittest.TestCase):
                 return self.stream.read(size)
         def old_size(path, *args, **kwargs):
             info = stat(path, *args, **kwargs)
-            if path == self.path:
+            # Older pathlib implements lstat via stat(follow_symlinks=False).
+            # Preserve real Windows reparse attributes for the identity check.
+            if path == self.path and kwargs.get("follow_symlinks", True):
                 fields = list(info)
                 fields[6] = 64
                 return os.stat_result(fields)
