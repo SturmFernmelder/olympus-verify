@@ -60,6 +60,18 @@ async function mounted(options, data = DATA) {
 }
 const text = n => n.textContent.replace(/\s+/g, ' ');
 const links = n => n.tags('a').map(a => a.getAttribute('href'));
+// CL2-052, CL2-057 (our 58b96f8): #/guides is now the Olympus University hub of university/university.js, which reads only its own files.
+async function university(parts) {
+  const doc = { createElement: tag => new El(doc, tag), createTextNode: text => new Text(doc, text) }, fetches = [], uni = path.join(stat, 'university');
+  const context = { document: doc, console, fetch: async (url, init) => { fetches.push([url, init]); const rel = url.replace(/^\/static\/university\//, '');
+    if (rel === url || rel.includes('..')) return { ok: false, status: 404, json: async () => ({}) };
+    return { ok: true, status: 200, json: async () => JSON.parse(fs.readFileSync(path.join(uni, rel), 'utf8')) }; } };
+  context.window = context;
+  for (const file of ['validate.js', 'university.js']) vm.runInNewContext(fs.readFileSync(path.join(uni, file), 'utf8'), context, { filename: file, timeout: 2000 });
+  const box = doc.createElement('main'), instance = context.OlympusUniversity.mount(box, { parts, talentRevision: talents.revision });
+  for (let i = 0; i < 50 && text(box).includes('Opening Olympus University'); i++) await settle();
+  return { box, fetches, instance };
+}
 
 (async () => {
   // 1. Source policy.
@@ -125,17 +137,22 @@ const links = n => n.tags('a').map(a => a.getAttribute('href'));
 
   // 5. Hub.
   let m = await mounted({ view: 'hub', talentRevision: talents.revision });
-  const hubLinks = links(m.box);
+  // CL2-052, CL2-057 (our 58b96f8, ab493c0): the hub checks read the University hub, which replaced the guides218.js hub at #/guides.
+  const hub = await university([]);
+  const hubLinks = links(hub.box);
   check('the hub retains all existing class, spec, profession and tool links', DATA.classes.every(c => hubLinks.includes('#/guides/class/' + c.id) && c.specs.every(s => hubLinks.includes('#/guides/class/' + c.id + '/' + s.id)))
     && DATA.professions.every(p => hubLinks.includes('#/guides/profession/' + p.key)) && ['attunements', 'buffs', 'changes'].every(t => hubLinks.includes('#/guides/tools/' + t)));
-  check('the hub keeps the calculator, addons, publisher library, game updates and member guide one click away', ['#/talents', '#/addons', '#/guides', '#/updates', '#/guide/member'].every(h => hubLinks.includes(h)));
-  check('the hub has one Class & profession guides heading and states the scope note once',
-    m.box.tags('h1').map(text).join('|') === 'Class & profession guides' && text(m.box).split(DATA.scopeNote.slice(0, 60)).length === 2);
+  // CL2-205 (our 58b96f8): the publisher library moved from #/guides to #/guides/library.
+  check('the hub keeps the calculator, addons, publisher library, game updates and member guide one click away', ['#/talents', '#/addons', '#/guides/library', '#/updates', '#/guide/member'].every(h => hubLinks.includes(h)));
+  // CL2-052 (our 58b96f8): the hub's one H1 is "Olympus University" and its scope note comes from university/index.json.
+  const hubScopeNote = JSON.parse(fs.readFileSync(path.join(stat, 'university/index.json'), 'utf8')).scopeNote;
+  check('the hub has one Olympus University heading and states the scope note once',
+    hub.box.tags('h1').map(text).join('|') === 'Olympus University' && text(hub.box).split(hubScopeNote.slice(0, 60)).length === 2);
   const classLandingLinks = hubLinks.filter(h => /^#\/guides\/class\/[a-z]+$/.test(h));
-  const professionHeadings = m.box.tags('h3').map(text).filter(t => ['Primary crafting', 'Gathering', 'Secondary'].includes(t));
+  const professionHeadings = hub.box.tags('h3').map(text).filter(t => ['Primary crafting', 'Gathering', 'Secondary'].includes(t));
   check('the hub alphabetizes classes and groups professions by the kind of training',
     classLandingLinks.join(',') === [...classLandingLinks].sort().join(',') && professionHeadings.join(',') === 'Primary crafting,Gathering,Secondary');
-  check('class and profession icons are local official art only', m.box.tags('img').every(i => /^\/static\/wow\/(class|prof|role)-[a-z_]+\.png$/.test(i.getAttribute('src'))));
+  check('class and profession icons are local official art only', hub.box.tags('img').every(i => /^\/static\/wow\/(class|prof|role)-[a-z_]+\.png$/.test(i.getAttribute('src'))));
   check('exactly one same-origin catalogue fetch', m.fetches.length === 1 && m.fetches[0][0] === '/static/guides218.json' && m.fetches[0][1].redirect === 'error');
 
   // 6. Class view, presets and attach.
@@ -463,9 +480,10 @@ const links = n => n.tags('a').map(a => a.getAttribute('href'));
     legacy?.status === 'announced' && legacy.text.includes('65 Legacy Challenges') && legacy.text.includes('16 points per character')
     && legacy.sources.some(index => DATA.sources[index].url === 'https://news.blizzard.com/en-us/article/24307383'));
   const structureUrl = '#/guides/tools/raid-structure';
-  const hubWithStructure = await mounted({ view: 'hub', talentRevision: talents.revision });
-  const raidTools = hubWithStructure.box.tags('section').find(s => text(s.tags('h2')[0]) === 'Raid preparation tools');
-  check('Raid preparation tools links to Fox’s guide', !!raidTools && links(raidTools).includes(structureUrl));
+  // CL2-057 (our 58b96f8, ab493c0): the University hub lists the four tools in its "Hub tools" section.
+  const hubWithStructure = await university([]);
+  const raidTools = hubWithStructure.box.tags('section').find(s => text(s.tags('h2')[0]) === 'Hub tools');
+  check('Hub tools links to Fox’s guide', !!raidTools && links(raidTools).includes(structureUrl));
   m = await mounted({ view: 'tool', tool: 'raid-structure', talentRevision: talents.revision });
   const assignments = m.box.tags('tbody')[0]?.tags('tr').map(row =>
     text(row.tags('td')[0]).match(/\d–\d/g)?.join(','));
