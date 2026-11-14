@@ -93,10 +93,13 @@ const routes = [
   check('CL-019/CL-299/CL2-173 the scope note states the launch once, as past, and frames nothing as still ahead', !hits(note, FUTURE).length && occurrences(note, 'Forever launched worldwide on 4 November 2026') === 1,
     sentences.length + ' sentences; phrases ' + (hits(note, [...FUTURE, ...PAST]).join(', ') || 'none') + ' :: ' + short(note));
   check('the scope note dates the global launch as 4 November 2026, 23:00 UTC', note.includes('4 November 2026') && note.includes('23:00 UTC'), short(note));
-  check('the scope note names the 16 October 2026 beta snapshot and its exact client build ' + DATA.talentClientBuild,
-    note.includes('16 October 2026') && note.includes(DATA.talentClientBuild), short(note));
-  check('CL-019 the scope note carries the whole beta caveat once: the level-30 limit and that the live game may differ',
-    occurrences(note, 'stopped at level 30') === 1 && (note.match(/may differ/g) || []).length === 1 && !/may (?:still )?change/i.test(note), short(note));
+  // CL2-087/CL2-089 (our e0f7077): the presets and calculator use the 10 November 2026 talent export, and the note names it.
+  check('the scope note names the 10 November 2026 talent export and its exact client build ' + DATA.talentClientBuild,
+    note.includes('10 November 2026 talent export') && note.includes(DATA.talentClientBuild), short(note));
+  // CL2-087/CL2-089 (our e0f7077): the 10 November export's caveat (talents/provenance.json: not a live-client read) replaces
+  // the 16 October snapshot's level-30 caveat; it is stated once and no older caveat remains.
+  check('CL-019 the scope note carries the whole data caveat once: not a live-client read, so check a build in game',
+    occurrences(note, 'it is not a live-client read, so check a build against your talents in game.') === 1 && !/stopped at level 30|may differ|may (?:still )?change/i.test(note), short(note));
 
   // 3. Every route, rendered.
   const rendered = [];
