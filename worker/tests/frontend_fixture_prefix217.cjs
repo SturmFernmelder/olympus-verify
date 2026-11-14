@@ -55,7 +55,8 @@ function historicalBoardNativePrefix217(current){
  return historical;
 }
 // Whole-fixture authority includes the Native main's reviewed form initiation.
-// Both inverse contexts remain data; consumers compile only the current setup.
+// The Treasury inverse has three contexts (BOARD_NATIVE217 above, TREASURY_NATIVE_ENTRY217 and
+// TREASURY_NATIVE_DETAIL217 below); all three remain data; consumers compile only the current setup.
 const TREASURY_NATIVE_ENTRY217=Object.freeze({
  "current": " {const f=fixture(),entryPage=await f.call('GET','/privacy/signin'),entryHtml=await entryPage.text(),entryToken=/name=\"csrf\" value=\"([^\"]+)\"/.exec(entryHtml)[1],entryCookie=Object.entries(cookies(entryPage)).map(([k,v])=>k+'='+v).join('; ');\n const start=await f.call('POST','/privacy/signin',{cookie:entryCookie,form:{csrf:entryToken}}),u=new URL(start.headers.get('Location')),flow=cookies(start),flowCookie=Object.entries(flow).map(([k,v])=>k+'='+v).join('; ');\n",
  "historical": " {const f=fixture(),start=await f.call('GET','/privacy/signin'),u=new URL(start.headers.get('Location')),flow=cookies(start),flowCookie=Object.entries(flow).map(([k,v])=>k+'='+v).join('; ');\n"
