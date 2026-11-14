@@ -206,6 +206,27 @@ for(const kind of ['commit-reject','commit-invalid']){
  cookie=await signIn();
 }
 
+console.log('\n== handler GET write-group failures reach index, not the member-gate catch ==');
+for(const kind of ['reply','commit-reject']){
+ // /api/me/verification GET is deliberately own-status-only and does not call
+ // stillMember. /api/board does: after the gate's fresh read, a genuine concurrent
+ // checked_at update makes the handler's separate native read hourly-due.
+ memberMode='member';cookie=await signIn();const before=await post('probe',{});memberMode='404';
+ const label=kind==='reply'?'storage_reset':'storage_network';
+ const v=await run({method:'GET',path:'/api/board',headers:{Cookie:cookie},expireMembershipAfterGateRead:true,
+  fault:{target:'bound',nth:1,kind,...(kind==='reply'?{message:'D1 DB reset because its code was updated.'+SECRET}:{})}});
+ const after=await post('probe',{}),lines=visible(v.logs),affected=v.wires.filter(w=>w.injected!==null);memberMode='member';
+ const effect=kind==='reply'
+  ?after.inServer===before.inServer&&after.sessionVersion===before.sessionVersion&&after.auditCount===before.auditCount&&after.checkedAt===before.checkedAt-7200
+  :after.inServer===0&&after.sessionVersion===before.sessionVersion+1&&after.auditCount===before.auditCount+1&&after.checkedAt>=before.checkedAt;
+ check('index handler GET '+kind+' keeps exact erasure_held for a retry-listed write-group failure',
+  v.status===503&&v.body===OLD_HELD&&v.body!==READ_UNAVAILABLE&&v.membershipAgedAfterGateRead===true&&before.inServer===1&&effect
+  &&v.wires.filter(w=>w.kind==='user').length===2&&affectedCount(v,7)&&affected[0].nativeSends===(kind==='reply'?0:1)
+  &&lines.length===2&&boundLine(lines[0],'site_session',label,'write')&&same(lines[1],siteLine(label,'write','api_other')),
+  {...v,effectReadback:{before,after}});
+}
+cookie=await signIn();
+
 console.log('\n== caller-shaped labels cannot mint private read-failure provenance ==');
 {
  const p=await post('provenance',{});check('public constructor arguments, descriptors, getters and plain objects have no private facts',p.cases.length===4&&p.cases.every(v=>v.recorded===false),p);

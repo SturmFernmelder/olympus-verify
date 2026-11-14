@@ -15,7 +15,7 @@ import {HELD_CAUSES,ROUTE_CLASSES} from '../src/log.ts';
 const EPOCH='a'.repeat(32),ID='300000000000000003',OTHER='300000000000000004',BOT='300000000000000099',GUILD='236932545793490944',NOBODY='300000000000000077';
 const BASE='https://guild.example',LAYOUT='recorded-live-pre-seal-20261017';
 const SITE_GUARD='privacy_site_request_refused',SUBJECT_GUARD='privacy_bot_request_refused',PROOF='privacy_current_schema_requires_attended_setup',USER_READ='FROM site_users WHERE discord_id = ?1 AND account_incarnation';
-let saved=null,fault=null,bypass=false,restoreAfter=[];
+let saved=null,fault=null,bypass=false,restoreAfter=[],ageAfterGateRead=null;
 const WRITE_KEY='sync503-write-probe';
 const wireSlice=(s,start)=>s.wires.slice(start).map(w=>({...w}));
 const faultFacts=f=>f?{target:f.target,nth:f.nth,kind:f.kind,seen:f.seen,fired:f.fired}:null;
@@ -94,7 +94,17 @@ async function setup(db){
     Object.defineProperty(Headers.prototype,'get',{...d,value:function(...a){return Reflect.apply(d.value,this,a);}});restoreAfter.push(()=>Object.defineProperty(Headers.prototype,'get',d));return tally(body,response);
    }
   }
-  return tally(body,await nativeSend());
+  const response=await nativeSend();
+  if(!bypass&&ageAfterGateRead&&!ageAfterGateRead.aged&&kind==='user'){
+   // The gate's real response still contains its fresh row. A concurrent
+   // admitted update makes the handler's separate native user read hourly-due.
+   // No gate/handler function or captured result is mocked or bypassed.
+   await response.clone().arrayBuffer();
+   ageAfterGateRead.aged=true;bypass=true;
+   try{await writer.prepare('UPDATE site_users SET checked_at=checked_at-7200 WHERE discord_id=?1').bind(ID).run();}
+   finally{bypass=false;}
+  }
+  return tally(body,response);
  }});
  const env={DB:db,PRIVACY_NATIVE_ERASURE_ENABLED:'true',PRIVACY_ERASURE_ENABLED:'true',PRIVACY_ERASURE_ATTEMPT_DISCIPLINE:'true',PRIVACY_ACCESS_ENABLED:'true',PRIVACY_RETENTION_ENABLED:'true',PRIVACY_WRITE_ADMISSION_ENABLED:'true',PRIVACY_WRITE_ADMISSION_LAYOUT:LAYOUT,PRIVACY_WRITE_ADMISSION_EPOCH:EPOCH,
  COOKIE_SECRET:'synthetic-native-mode-cookie-secret-0123456789',DISCORD_APP_ID:BOT,DISCORD_CLIENT_SECRET:'synthetic-native-client',DISCORD_BOT_TOKEN:'synthetic-native-bot',VERIFY_SECRET:'synthetic-native-verify',SITE_HOST:'guild.example',PUBLIC_BASE_URL:'https://verify.example',SITE_GUILD_ID:GUILD,GUILD_ID:GUILD,SITE_ADMINS:OTHER,
@@ -117,12 +127,12 @@ export const sync503Fixture={async fetch(request,bindings){
  if(u.pathname==='/run'){
   const spec=await request.json(),headers=new Headers(spec.headers??{}),target=BASE+spec.path;
   const original=new Request(target,{method:spec.method,headers,redirect:'manual',...(spec.body!==undefined?{body:spec.body}:{})});
-  armed(spec.fault);const wireStart=s.wires.length,jobs=[];
+  armed(spec.fault);ageAfterGateRead=spec.expireMembershipAfterGateRead?{aged:false}:null;const wireStart=s.wires.length,jobs=[];
   const out=await captured(async()=>{try{const response=await app.fetch(original,s.env,{waitUntil(p){jobs.push(Promise.resolve(p).catch(()=>{}));},passThroughOnException(){}});for(const p of jobs)await p;return response;}finally{while(restoreAfter.length)restoreAfter.pop()();}},spec.throwingConsole===true);
-  const f=fault;armed(null);
-  if(out.error)return Response.json({thrown:true,logs:out.logs,fault:faultFacts(f),wires:wireSlice(s,wireStart)},200);
+  const f=fault,gateReadAged=ageAfterGateRead?.aged??false;armed(null);ageAfterGateRead=null;
+  if(out.error)return Response.json({thrown:true,logs:out.logs,fault:faultFacts(f),wires:wireSlice(s,wireStart),membershipAgedAfterGateRead:gateReadAged},200);
   const r=out.value;
-  return Response.json({status:r.status,body:await r.text(),location:r.headers.get('Location'),setCookies:r.headers.getSetCookie(),contentType:r.headers.get('Content-Type'),logs:out.logs,fault:faultFacts(f),wires:wireSlice(s,wireStart),readGroupsOk:s.counts.readGroupsOk});
+  return Response.json({status:r.status,body:await r.text(),location:r.headers.get('Location'),setCookies:r.headers.getSetCookie(),contentType:r.headers.get('Content-Type'),logs:out.logs,fault:faultFacts(f),wires:wireSlice(s,wireStart),membershipAgedAfterGateRead:gateReadAged,readGroupsOk:s.counts.readGroupsOk});
  }
  if(u.pathname==='/subject'){
   // Module level: a subject_generation layer directly on the admission database, alone and nested twice.
