@@ -105,7 +105,14 @@ async function fresh() {
     const body = response ? await response.json() : null;
     check('actual route executes SELECT/WITH only outside explicit fixture changes', trace.every(row => /^\s*(SELECT|WITH)\b/.test(row.sql)));
     check('actual route leaves all synthetic application/control tables unchanged', snapshot() === state.expectedSnapshot);
-    check('actual route logs no session, account or provider payload', state.logs.length === 0);
+    const heldCauses = ['authority', 'sql_json_refused', 'sql_trigger_refused'];
+    const fixedHoldLog = line => Array.isArray(line) && (
+      line.length === 5 && line[0] === 'privacy request held' && line[1] === 'site_session' && heldCauses.includes(line[2]) &&
+        line[3] === 'read' && ['under_100ms', 'under_500ms', 'under_2s', '2s_or_more', 'unknown'].includes(line[4]) ||
+      line.length === 6 && line[0] === 'request held' && line[1] === 'site' && line[2] === 'error' && heldCauses.includes(line[3]) &&
+        ['read', 'unknown'].includes(line[4]) && line[5] === 'api_other');
+    check('actual route logs no session, account or provider payload, only fixed refused-read diagnostics',
+      state.logs.length === 0 || (held || response?.status === 503) && state.logs.length <= 2 && state.logs.every(fixedHoldLog));
     if (pathname === '/api/resource-updates') check('public updates never read guild characters, member facts, notices, figures or leadership data', !trace.some(row => /\b(?:FROM|JOIN)\s+(?:characters|members|site_news_notices|site_leadership|roster_snapshots)\b/i.test(row.sql)));
     return { response, body, held, trace, before };
   }

@@ -12,6 +12,12 @@ const URL_BASE = 'https://guild.example/api/community/census/preview';
 const encoder = new TextEncoder();
 let checks = 0;
 function check(name, condition) { assert.ok(condition, name); checks++; console.log('PASS ' + name); }
+// A refused native read may log its fixed boundary/cause, never the supplied body or error text.
+const elapsedLabels = new Set(['under_100ms', 'under_500ms', 'under_2s', '2s_or_more', 'unknown']);
+function fixedReadHold(line, causes) {
+  return Array.isArray(line) && line.length === 5 && line[0] === 'privacy request held' &&
+    line[1] === 'site_session' && causes.includes(line[2]) && line[3] === 'read' && elapsedLabels.has(line[4]);
+}
 
 function sourceGraph(logs) {
   const cache = new Map();
@@ -212,7 +218,8 @@ async function caseWith(name, run) {
     await assert.rejects(f.route.censusPreview(req, prepared.bound, prepared.ctx),
       error => error instanceof f.load('privacy-serving-authority').PrivacySiteRequestHeld);
     check('unknown native receipt is not converted into local success or ordinary JSON', fired);
-    check('receipt failure logs no payload', f.logs.length === 0);
+    check('receipt failure logs only the fixed read boundary and cause, without payload',
+      f.logs.length === 1 && fixedReadHold(f.logs[0], ['other']));
   });
   for (const [label, sql, args] of [
     ['session revocation', 'UPDATE site_users SET session_version=session_version+1 WHERE discord_id=?', [SUBJECT]],
@@ -320,7 +327,8 @@ async function caseWith(name, run) {
         responseNull: response === null, returnedNull: returned === null }));
     }
     check('no census response was adopted on changed authority', !returned || !Object.hasOwn(returned, 'snapshot'));
-    check('custody refusal does not log input', f.logs.length === 0);
+    check('custody refusal logs no input, only a fixed read refusal when the native group fails',
+      f.logs.length <= 1 && f.logs.every(line => fixedReadHold(line, ['sql_json_refused', 'authority', 'shape'])));
   });
   await caseWith('subject and header replacement while body waits', async f => {
     let ctx;
