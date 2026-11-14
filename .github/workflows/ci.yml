@@ -63,6 +63,8 @@ jobs:
           node tests/held_cause_labels_test.cjs
           node tests/sync503_held_workerd_test.cjs
           node tests/sync503_page_test.cjs
+          node tests/community_census_route_test.cjs --focus=closed-logs
+          node tests/resources_admission169_test.cjs --focus=closed-logs
         working-directory: worker
       - name: Concurrent sweep progress and completed-erasure regression
         run: |

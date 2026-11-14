@@ -206,6 +206,12 @@ return to the historical aggregate. The runtime has its own whole-command deadli
 the combined CI step is limited to four minutes. Synthetic failures do not establish
 the cause of a past production refusal.
 
+The same step runs the explicitly focused `--focus=closed-logs` cases in
+`community_census_route_test.cjs` and `resources_admission169_test.cjs`. These
+assert exact counts and labels for current held groups, and silence for ordinary
+refusals. Their output identifies the focused scope; it does not claim a pass of
+the full historical suites or reconstruct their retired static-source pins.
+
 CI has no production credentials. Its schema SQL restore is a local integrity
 sanity check, **not a fresh production backup**. The actual pre-deployment export
 and verification remain required for every authorized production deployment.
