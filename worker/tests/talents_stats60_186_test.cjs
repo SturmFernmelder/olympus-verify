@@ -57,19 +57,22 @@ check('both files bind the exact shipped data.json bytes and talent revision', (
   assert.equal(naked.build.talentRevision, data.revision); assert.equal(effects.source.talentRevision, data.revision);
   assert.equal(naked.generatedAt, effects.source.generatedAt);
 });
-check('schemas and closed counts: 141 components (A63 B34 C10 M34; grades A135 B6), 56 combos (E40 D6 U10), 9 classes, 10 races, 21 formulas', () => {
+// CL2-087 (our b4065db): five components left the trees with their talents (Arcane Focus, Elemental Precision B; Piercing Ice, One-Handed Weapon Specialization, Murder M; all grade A).
+check('schemas and closed counts: 136 components (A63 B32 C10 M31; grades A130 B6), 56 combos (E40 D6 U10), 9 classes, 10 races, 21 formulas', () => {
   assert.equal(effects.schema, 'olympus-talent-stat-effects-v1'); assert.equal(naked.schema, 'olympus-naked60-v1');
-  assert.equal(effects.components.length, 141); assert.deepEqual(effects.counts.byTier, { A: 63, B: 34, C: 10, M: 34 }); assert.deepEqual(effects.counts.byGrade, { A: 135, B: 6 });
+  assert.equal(effects.components.length, 136); assert.deepEqual(effects.counts.byTier, { A: 63, B: 32, C: 10, M: 31 }); assert.deepEqual(effects.counts.byGrade, { A: 130, B: 6 });
   const tiers = {}, grades = {}; for (const c of effects.components) { tiers[c.tier] = (tiers[c.tier] || 0) + 1; grades[c.grade] = (grades[c.grade] || 0) + 1; }
-  assert.deepEqual(tiers, { A: 63, B: 34, C: 10, M: 34 }); assert.deepEqual(grades, { A: 135, B: 6 });
+  assert.deepEqual(tiers, { A: 63, B: 32, C: 10, M: 31 }); assert.deepEqual(grades, { A: 130, B: 6 });
   assert.deepEqual(effects.components.filter(c => c.added).map(c => c.id).sort(), ['hunter-marksmanship-careful-aim#ranged_attack_power_from_intellect', 'priest-shadow-spirit-tap#mana_regen_while_casting']);
   const byGrade = {}; for (const c of naked.combos) byGrade[c.baseStats.grade] = (byGrade[c.baseStats.grade] || 0) + 1;
   assert.deepEqual(byGrade, { E: 40, D: 6, U: 10 }); assert.equal(Object.keys(naked.classes).length, 9); assert.equal(Object.keys(naked.races).length, 10); assert.equal(naked.formulas.length, 21);
   assert.ok(S.validateNaked(data, naked).ok); assert.ok(S.validateEffects(data, effects).ok);
 });
-check('every component is bound to its exact data.json rank texts by SHA-256 (independent hash) and none is withheld', () => {
-  for (const c of effects.components) { const talent = talentsOf(c.cls).find(t => t.id === c.talentId); assert.ok(talent, c.id); assert.equal(talent.maxRank, c.values.length, c.id); assert.deepEqual(c.textSHA256, talent.descriptions.map(H), c.id); }
-  assert.equal(model.components.filter(c => !c.verified).length, 0);
+// CL2-087 (our b4065db): 24 components have changed rank text (or rank count) in the 10 November data and stay withheld until reviewed again.
+const WITHHELD24 = ['druid-feral-combat-leader-of-the-pack#party_melee_ranged_crit', 'druid-restoration-naturalist#damage_done', 'hunter-survival-lightning-reflexes#agility_pct', 'mage-arcane-arcane-resilience#armor_from_intellect', 'mage-fire-critical-mass#spell_school_crit_chance', 'mage-frost-frost-warding#self_buff_armor_pct', 'paladin-holy-divine-precision#spell_school_hit_chance', 'paladin-holy-holy-power#spell_crit_chance_named', 'paladin-holy-holy-power#spell_crit_chance_other', 'paladin-holy-reverence#mana_regen_while_casting', 'paladin-protection-improved-righteous-fury#damage_taken_reduction', 'paladin-protection-redoubt#block_chance_proc', 'paladin-protection-sacred-duty#stamina_pct', 'paladin-retribution-champion-of-the-light#spell_damage_from_intellect', 'paladin-retribution-conviction#melee_crit_chance', 'paladin-retribution-two-handed-weapon-specialization#damage_done', 'paladin-retribution-vengeance#phys_holy_damage_proc', 'paladin-retribution-vindication#attack_power_pct_proc', 'rogue-assassination-lethality#crit_damage_bonus', 'rogue-combat-dual-wield-specialization#offhand_damage', 'shaman-enhancement-flurry#attack_speed_proc', 'shaman-enhancement-mental-dexterity#attack_power_from_intellect', 'warrior-arms-two-handed-weapon-specialization#damage_done', 'warrior-fury-flurry#attack_speed_proc'];
+check('every component is bound to its exact data.json rank texts by SHA-256 (independent hash) and exactly the 24 with changed rank text are withheld', () => {
+  for (const c of effects.components) { const talent = talentsOf(c.cls).find(t => t.id === c.talentId); assert.ok(talent, c.id); if (WITHHELD24.includes(c.id)) assert.notDeepEqual([talent.maxRank, talent.descriptions.map(H)], [c.values.length, c.textSHA256], c.id); else { assert.equal(talent.maxRank, c.values.length, c.id); assert.deepEqual(c.textSHA256, talent.descriptions.map(H), c.id); } }
+  assert.deepEqual(model.components.filter(c => !c.verified).map(c => c.comp.id).sort(), WITHHELD24);
 });
 check('valid race/class pairs match the talent data race lists and the class lists of every race', () => {
   for (const combo of naked.combos) assert.ok(naked.races[combo.race].classes.includes(combo.class), combo.id);
@@ -164,13 +167,14 @@ check('Careful Aim has a melee (aura 598, A) and a ranged (aura 580, B) componen
   const publicText = nakedBytes.toString('utf8') + effectsBytes.toString('utf8');
   for (const word of ['inCodexLedger', 'verifier', 'claude-r21']) assert.ok(!publicText.includes(word), word);
 });
+// CL2-087 (our b4065db): Divine Intellect moved to Protection with identical rank text and is re-keyed; the 24 already withheld components stay withheld beside it.
 check('a changed rank text withholds only that component and never adds its number', () => {
-  const changed = clone(data), talent = changed.classes.find(c => c.id === 'paladin').trees.flatMap(t => t.talents).find(t => t.id === 'paladin-holy-divine-intellect');
+  const changed = clone(data), talent = changed.classes.find(c => c.id === 'paladin').trees.flatMap(t => t.talents).find(t => t.id === 'paladin-protection-divine-intellect');
   talent.descriptions[4] = 'Increases your total Intellect by 99%.';
-  const m = S.prepare(changed, naked, effects), result = S.evaluate(m, { className: 'paladin', race: 'human', ranks: ranksFor('paladin', [['paladin-holy-divine-intellect', 5]]) });
-  assert.equal(m.components.filter(c => !c.verified).map(c => c.comp.id).join(), 'paladin-holy-divine-intellect#intellect_pct');
+  const m = S.prepare(changed, naked, effects), result = S.evaluate(m, { className: 'paladin', race: 'human', ranks: ranksFor('paladin', [['paladin-protection-divine-intellect', 5]]) });
+  assert.deepEqual(m.components.filter(c => !c.verified).map(c => c.comp.id).sort(), [...WITHHELD24, 'paladin-protection-divine-intellect#intellect_pct'].sort());
   assert.equal(row(result, 'int').total.value, 70); assert.equal(row(result, 'mana').total.value, 2282);
-  assert.equal(result.contributions.find(c => c.talentId === 'paladin-holy-divine-intellect').group, 'withheld');
+  assert.equal(result.contributions.find(c => c.talentId === 'paladin-protection-divine-intellect').group, 'withheld');
 });
 
 console.log('\n== .186 formula evaluation ==');
@@ -206,16 +210,18 @@ check('the evaluator reproduces the generator reference sheet for all 46 non-Sky
     assert.equal(b('str').grade, combo.baseStats.grade, combo.id);
   }
 });
-check('worked example 2: Divine Intellect 5/5 gives Int 70 to 77 and mana +105; Divine Strength, Sacred Duty and Champion of the Light follow the research', () => {
-  const di = evaluate('paladin', 'human', [['paladin-holy-divine-intellect', 5]]);
+// CL2-087 (our b4065db): Divine Intellect is re-keyed to Protection (identical text); Sacred Duty and Champion of the Light changed rank text and are withheld, so they add nothing.
+check('worked example 2: Divine Intellect 5/5 gives Int 70 to 77 and mana +105; Divine Strength follows the research; withheld Sacred Duty and Champion of the Light add nothing', () => {
+  const di = evaluate('paladin', 'human', [['paladin-protection-divine-intellect', 5]]);
   assert.equal(row(di, 'int').total.value, 77); assert.equal(row(di, 'int').talents.value, 7); assert.equal(row(di, 'int').talents.grade, 'E');
   assert.equal(row(di, 'mana').total.value, 2387); assert.equal(row(di, 'mana').talents.value, 105);
-  const contribution = di.contributions.find(c => c.talentId === 'paladin-holy-divine-intellect');
+  const contribution = di.contributions.find(c => c.talentId === 'paladin-protection-divine-intellect');
   assert.equal(contribution.group, 'applied'); assert.equal(contribution.modifier, '+10% Intellect (total)'); assert.ok(contribution.effects.some(e => e.row === 'mana' && e.text === '+105'));
-  const all = evaluate('paladin', 'human', [['paladin-holy-divine-intellect', 5], ['paladin-holy-divine-strength', 5], ['paladin-protection-sacred-duty', 2], ['paladin-retribution-champion-of-the-light', 3]]);
+  const all = evaluate('paladin', 'human', [['paladin-protection-divine-intellect', 5], ['paladin-holy-divine-strength', 5], ['paladin-protection-sacred-duty', 2], ['paladin-retribution-champion-of-the-light', 3]]);
   assert.ok(close(row(all, 'str').total.value, 115.5)); assert.ok(close(row(all, 'meleeAP').talents.value, 21));
-  assert.ok(close(row(all, 'sta').total.value, 104)); assert.equal(row(all, 'health').talents.value, 40);
-  assert.ok(close(row(all, 'spellDamage').total.value, 23.1)); assert.ok(all.contributions.find(c => c.talentId === 'paladin-retribution-champion-of-the-light').effects.some(e => e.text === '+21'));
+  assert.equal(row(all, 'sta').total.value, 100); assert.equal(row(all, 'health').talents.value, 0);
+  assert.equal(row(all, 'spellDamage').total.none, true);
+  for (const id of ['paladin-protection-sacred-duty', 'paladin-retribution-champion-of-the-light']) { const c = all.contributions.find(c => c.talentId === id); assert.equal(c.group, 'withheld', id); assert.deepEqual(c.effects, [], id); }
 });
 check('worked example 3: exact flat modifiers keep their own grade (Precision +3 hit A, Anticipation +20 defense A) while derived effects stay E', () => {
   const r = evaluate('paladin', 'human', [['paladin-protection-precision', 3], ['paladin-protection-anticipation', 5]]);
@@ -233,13 +239,15 @@ check('Druid melee AP stays disputed (CMaNGOS 284 / vmangos 104 for a Night Elf)
   const r = evaluate('druid', 'night-elf', []), ap = row(r, 'meleeAP').total;
   assert.equal(ap.value, null); assert.deepEqual(ap.cands.map(c => [c.label, c.value]), [['CMaNGOS', 284], ['vmangos', 104]]);
 });
-check('Careful Aim raises ranged attack power through its second client effect (Night Elf Hunter: ranged 461, melee 360)', () => {
+// CL2-087 (our b4065db): Lightning Reflexes changed rank text and is withheld, so Agility stays 130 (not 143); a withheld contribution carries no notes (stats60.js 610; the renderer guards it at 1082).
+check('Careful Aim raises ranged attack power through its second client effect (Night Elf Hunter: ranged 435, melee 347)', () => {
   const r = evaluate('hunter', 'night-elf', [['hunter-marksmanship-careful-aim', 5], ['hunter-survival-lightning-reflexes', 5], ['hunter-survival-surefooted', 3]]);
-  assert.equal(row(r, 'rangedAP').total.value, 2 * 143 + 2 * 60 - 10 + 65); assert.equal(row(r, 'meleeAP').total.value, 2 * 60 + 52 + 143 - 20 + 65);
+  assert.equal(row(r, 'rangedAP').total.value, 2 * 130 + 2 * 60 - 10 + 65); assert.equal(row(r, 'meleeAP').total.value, 2 * 60 + 52 + 130 - 20 + 65);
+  assert.equal(r.contributions.find(c => c.talentId === 'hunter-survival-lightning-reflexes').group, 'withheld');
   const parts = r.contributions.filter(c => c.talentId === 'hunter-marksmanship-careful-aim');
   assert.deepEqual(parts.map(c => [c.grade, c.modifier]), [['A', 'melee attack power +100% of Intellect'], ['B', 'ranged attack power +100% of Intellect']]);
   assert.ok(parts[1].effects.some(e => e.row === 'rangedAP' && e.text === '+65')); assert.match(parts[1].notes.join(' '), /aura 580/);
-  assert.ok(!r.contributions.some(c => c.notes.join(' ').includes('added to melee attack power only')));
+  assert.ok(!r.contributions.some(c => (c.notes || []).join(' ').includes('added to melee attack power only')));
 });
 check('Druid form candidates keep their own rule: Tauren with Predatory Strikes 3/3 is Bear 300 (CMaNGOS) / 210 (vmangos), Cat 355 / 265, and the talent adds 0 / +90', () => {
   const ps = [['druid-feral-combat-predatory-strikes', 3]], cands = cell => cell.cands.map(c => [c.label, c.value]);
@@ -280,10 +288,12 @@ check('ranged AP is disputed for Warrior and Rogue (2 vs 1 per Agility) and sing
   const h = row(evaluate('hunter', 'dwarf', []), 'rangedAP').total; assert.equal(h.cands, null); assert.equal(h.value, 2 * 121 + 120 - 10);
   const sc = row(evaluate('warrior', 'human', []), 'spellCrit'); assert.equal(sc.total.value, null); assert.equal(sc.total.cands, null); assert.equal(sc.total.grade, 'U');
 });
+// CL2-087 (our b4065db): Lightning Reflexes is withheld (changed rank text), so it adds no Agility modifier; Survivalist (+10% health, text unchanged) keeps the modifier-term case.
 check('Skyborne totals are Unavailable, never 0, while exact talent modifiers remain visible in modifier terms', () => {
-  const r = evaluate('hunter', 'skyborne-windshaper', [['hunter-survival-lightning-reflexes', 5], ['hunter-survival-deflection', 5]]);
+  const r = evaluate('hunter', 'skyborne-windshaper', [['hunter-survival-lightning-reflexes', 5], ['hunter-survival-deflection', 5], ['hunter-survival-survivalist', 5]]);
   for (const id of ['str', 'agi', 'sta', 'int', 'spi', 'health', 'mana', 'armor', 'meleeAP', 'rangedAP', 'meleeCrit', 'dodge']) { assert.equal(row(r, id).total.value, null, id); assert.equal(row(r, id).total.grade, 'U', id); assert.equal(row(r, id).base.value, null, id); }
-  assert.equal(row(r, 'agi').talents.value, null); assert.deepEqual(row(r, 'agi').talents.modifiers.map(m => [m.kind, m.value]), [['factor', 10]]);
+  assert.equal(row(r, 'agi').talents.value, null); assert.deepEqual(row(r, 'agi').talents.modifiers.map(m => [m.kind, m.value]), []);
+  assert.equal(row(r, 'health').talents.value, null); assert.deepEqual(row(r, 'health').talents.modifiers.map(m => [m.kind, m.value]), [['factor', 10]]);
   assert.equal(row(r, 'parry').talents.value, 5); assert.equal(row(r, 'parry').talents.grade, 'A');
 });
 check('naked means no gear: Toughness adds 0, Earth Fury is gear-bound, Hack and Slash and Weaponmaster need a weapon assumption', () => {
@@ -301,7 +311,8 @@ check('conditional components are excluded from totals by default and added only
   assert.equal(row(shieldOff, 'block').total.value, 0); assert.equal(shieldOff.contributions.find(c => c.talentId === 'warrior-protection-shield-specialization').group, 'gear');
   const shieldOn = evaluate('warrior', 'human', [['warrior-protection-shield-specialization', 5]], { shield: true });
   assert.equal(row(shieldOn, 'block').total.value, 10); assert.ok(shieldOn.assumptions.some(a => /shield/.test(a)));
-  const bear = [['druid-feral-combat-heart-of-the-wild', 5]];
+  // CL2-087 (our b4065db): Heart of the Wild moved to Restoration with identical rank text and is re-keyed.
+  const bear = [['druid-restoration-heart-of-the-wild', 5]];
   assert.equal(row(evaluate('druid', 'tauren', bear), 'sta').total.value, 72);
   assert.ok(close(row(evaluate('druid', 'tauren', bear, { form: 'bear' }), 'sta').total.value, 86.4));
   assert.ok(close(row(evaluate('druid', 'tauren', bear, { form: 'cat' }), 'str').total.value, 77));
@@ -358,9 +369,10 @@ check('app.js loads the sheet independently and lazily, outside the optional pai
   const route = appSource.slice(appSource.indexOf('  ROUTES.talents = '), appSource.indexOf('  const resourcesView ='));
   const start = route.indexOf('const optional = ['), pair = start < 0 ? '' : route.slice(start, route.indexOf('];', start) + 2);
   assert.ok(pair.includes('/static/talents/analysis.js') && pair.includes('/static/talents/guide-builds179.js') && !pair.includes('stats60'));
-  assert.ok(route.includes('await Promise.allSettled(optional.map(([, namespace, file]) => loadMemberScript(namespace, file)));') && !route.includes('Promise.all(['));
-  assert.equal(appSource.split('loadMemberScript("OlympusTalentStats60", "/static/talents/stats60.js")').length, 2);
-  assert.ok(route.includes('loadStats60: () => Promise.allSettled([loadMemberScript("OlympusTalentStats60", "/static/talents/stats60.js")]).then(() => {\n'
+  // UX-LOAD-001 (our efcbc42): the optional modules and the sheet pass OPTIONAL_SCRIPT_DEADLINE_MS to loadMemberScript.
+  assert.ok(route.includes('await Promise.allSettled(optional.map(([, namespace, file]) => loadMemberScript(namespace, file, OPTIONAL_SCRIPT_DEADLINE_MS)));') && !route.includes('Promise.all(['));
+  assert.equal(appSource.split('loadMemberScript("OlympusTalentStats60", "/static/talents/stats60.js", OPTIONAL_SCRIPT_DEADLINE_MS)').length, 2);
+  assert.ok(route.includes('loadStats60: () => Promise.allSettled([loadMemberScript("OlympusTalentStats60", "/static/talents/stats60.js", OPTIONAL_SCRIPT_DEADLINE_MS)]).then(() => {\n'
     + '        if (!window.OlympusTalentStats60) toolScripts.delete("OlympusTalentStats60");\n        return window.OlympusTalentStats60;\n      }),'));
 });
 
@@ -397,7 +409,8 @@ const guidesFor = cls => guideData.records.filter(r => r.className === cls).map(
 console.log('\n== .186 DOM rendering ==');
 check('the mounted sheet renders graded cells, a greyed Classic label, an SVG chart with an equivalent table and no style attribute', async () => {
   const document = makeDocument(), host = document.createElement('div');
-  const build = legalBuild('paladin', [['paladin-holy-divine-intellect', 5]]);
+  // CL2-087 (our b4065db): Divine Intellect is re-keyed to Protection (identical text); stat-effects186.json now counts 130 grade-A components (five left with their talents).
+  const build = legalBuild('paladin', [['paladin-protection-divine-intellect', 5]]);
   const ui = S.mount(host, { data, build, naked, effects, guides: guidesFor('paladin') });
   assert.equal(await ui.ready, true);
   const rootNode = byClass(host, 'talents-stats60')[0]; assert.ok(rootNode);
@@ -432,7 +445,7 @@ check('the mounted sheet renders graded cells, a greyed Classic label, an SVG ch
   assert.ok(host.all(() => true).every(n => !('style' in n.attributes)));
   const applied = byClass(host, 's60-group-applied')[0]; assert.match(applied.textContent, /Divine Intellect/); assert.match(applied.textContent, /Mana \+105/);
   const about = byClass(host, 's60-about')[0].textContent;
-  assert.match(about, /cropped to the stat panel only/); assert.match(about, /135 also equal the client's own talent curves \(grade A/); assert.match(about, /6 carry a semantic reading of client data \(grade B/);
+  assert.match(about, /cropped to the stat panel only/); assert.match(about, /130 also equal the client's own talent curves \(grade A/); assert.match(about, /6 carry a semantic reading of client data \(grade B/);
   assert.match(about, /1\.60\.1\.70009 is not used/); assert.ok(byClass(host, 's60-about')[0].tagName === 'DETAILS' && !host.all(n => n.tagName === 'A' || n.tagName === 'IMG').length);
   ui.destroy(); assert.equal(byClass(host, 'talents-stats60').length, 0);
 });
@@ -1158,8 +1171,9 @@ check('.196 impact sort keys are the displayed fields, text sorts alphabetically
 check('.196 a conditional or gear effect reads "Would add when its assumption holds" and loses that prefix once its assumption is on; Classic-reference parts are greyed', async () => {
   const druid = (await classMounts()).find(m => m.cls.id === 'druid'), cellOf = (t, id) => bodyRows(t.impact).find(tr => tr.getAttribute('data-component') === id).children[6];
   assert.equal(druid.race, 'night-elf');
-  assert.match(cellOf(druid.t, 'druid-feral-combat-heart-of-the-wild#stamina_pct_bear').textContent, /^Would add when its assumption holds: Stamina \+13\.8 E/);
-  assert.ok(!/Would add/.test(cellOf(druid.t, 'druid-feral-combat-heart-of-the-wild#intellect_pct').textContent));
+  // CL2-087 (our b4065db): Heart of the Wild (Restoration) and Divine Intellect (Protection) moved tree with identical rank text and are re-keyed.
+  assert.match(cellOf(druid.t, 'druid-restoration-heart-of-the-wild#stamina_pct_bear').textContent, /^Would add when its assumption holds: Stamina \+13\.8 E/);
+  assert.ok(!/Would add/.test(cellOf(druid.t, 'druid-restoration-heart-of-the-wild#intellect_pct').textContent));
   const { host, ui, t } = await mountFresh('warrior'), shieldId = 'warrior-protection-shield-specialization#block_chance';
   assert.equal(cellOf(t, shieldId).textContent, 'Would add when its assumption holds: Block % +5 pp A');
   const box = host.all(n => n.tagName === 'INPUT' && n.getAttribute('type') === 'checkbox')[0]; box.checked = true; box.dispatch('change');
@@ -1167,7 +1181,7 @@ check('.196 a conditional or gear effect reads "Would add when its assumption ho
   ui.destroy();
   // E and D parts carry s60-ref (greyed by the stylesheet); an exact talent part does not.
   const pal = (await classMounts()).find(m => m.cls.id === 'paladin').t, parts = id => byClass(cellOf(pal, id), 's60-effects').map(p => p.className);
-  assert.deepEqual(parts('paladin-holy-divine-intellect#intellect_pct'), ['s60-effects s60-ref', 's60-effects s60-ref', 's60-effects s60-ref']);
+  assert.deepEqual(parts('paladin-protection-divine-intellect#intellect_pct'), ['s60-effects s60-ref', 's60-effects s60-ref', 's60-effects s60-ref']);
   assert.deepEqual(parts('paladin-protection-anticipation#defense_skill'), ['s60-effects s60-ref', 's60-effects s60-ref', 's60-effects']);
 });
 check('.196 the disputed-change bracket drops its repeated "disputed:" prefix in both comparison tables', async () => {
