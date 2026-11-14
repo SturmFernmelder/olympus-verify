@@ -501,6 +501,14 @@ class AttendedQuarantineTests(unittest.TestCase):
         self.assertEqual(json.loads(self.archives()[0].read_bytes())["originals"], self.rows)
 
     def test_existing_temp_paths_are_preserved_before_archive_creation(self):
+        def assert_junction(path):
+            check = getattr(path, "is_junction", None)
+            if check is not None:  # pathlib exposes this from Python 3.12.
+                self.assertTrue(check())
+            else:
+                info = path.lstat()
+                self.assertTrue(getattr(info, "st_file_attributes", 0) & 0x400)
+                self.assertEqual(getattr(info, "st_reparse_tag", None), 0xA0000003)
         for kind in ("regular", "directory", "alias"):
             with self.subTest(kind=kind), tempfile.TemporaryDirectory() as folder:
                 path = Path(folder) / "state.json"
@@ -518,7 +526,7 @@ class AttendedQuarantineTests(unittest.TestCase):
                     made = subprocess.run(["cmd", "/d", "/c", "mklink", "/J", str(tmp), str(target)],
                                           capture_output=True, timeout=10)
                     self.assertEqual(made.returncode, 0, "synthetic junction creation failed")
-                    self.assertTrue(tmp.is_junction())
+                    assert_junction(tmp)
                 else:
                     tmp.symlink_to(target)  # deliberately dangling
                 with patch.object(recovery, "private_create", side_effect=AssertionError("archive created before temp preflight")) as created:
@@ -535,7 +543,7 @@ class AttendedQuarantineTests(unittest.TestCase):
                 elif kind == "directory":
                     self.assertTrue(tmp.is_dir())
                 elif os.name == "nt":
-                    self.assertTrue(tmp.is_junction())
+                    assert_junction(tmp)
                 else:
                     self.assertTrue(tmp.is_symlink())
 
@@ -1033,7 +1041,9 @@ class AttendedQuarantineTests(unittest.TestCase):
 
     def test_cli_runs_without_network_or_watcher_imports_and_rejects_queue_lane(self):
         script = Path(recovery.__file__).resolve()
-        code = """import builtins,runpy,sys
+        # Python 3.10-3.12 pathlib itself imports urllib.parse. Warm this
+        # standard-library dependency before closing helper/network imports.
+        code = """import builtins,runpy,sys,pathlib
 original=builtins.__import__
 def closed(name,*args,**kwargs):
  if name.split('.')[0] in {'socket','urllib','http','watcher'}: raise AssertionError('network or Watcher import')
