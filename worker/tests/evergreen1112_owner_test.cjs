@@ -332,10 +332,12 @@ async function part1b() {
   const holders = [[COGM, 'Cogmseat'], [TREAS, 'Treasseat'], [OLD_COGM, 'Oldcogm'], [OLD_TREAS, 'Oldtreas'], [JUSTICE, 'Justiceseat'], [COUNCIL45, 'Councilseat'], [BOTH, 'Bothkeys'], [EX_TREAS, 'Extreas'], [RANK_TREAS, 'Ranktreas'], [VICE, 'Viceseat']];
   for (const [id, name] of holders) { await signIn(id); await confirm(id, name); }
   const appoint = map => call('PUT', '/api/admin/settings', { who: ADMIN, body: { appointed: Object.fromEntries(Object.entries(map).map(([k, id]) => [k, `<@${id}>`])), appointedCharactersConfirmed: true, namesConfirmed: true } });
-  // Round 5 final (13 Nov 2026, Codex's d54a954): the appointment route admits five closed keys of the same two seat
-  // families (site-treasury-access.ts TREASURY_APPOINTMENT_SEATS): office_19 with its alias co_gm, office_86 with its
-  // aliases treasurer and rank_treasurer, each only with its own current publication proof (the admin route writes it as
-  // "<key>:publication:<64 hex>" beside the pointer). office_92 is in the co_gm family's source keys but is not a key.
+  // Round 5 correction (14 Nov 2026): the appointment route admits four closed keys of the same two seat families
+  // (site-treasury-access.ts TREASURY_APPOINTMENT_SEATS): office_19 with its older record co_gm, office_86 with its older
+  // record treasurer, each only with its own current publication proof (the admin route writes it as
+  // "<key>:publication:<64 hex>" beside the pointer). These are the two keys dfca7a2 admitted plus the two seats of the
+  // owner's ruling. rank_treasurer is catalogued as an alias of office_86, but it is separately publishable and dfca7a2
+  // never admitted it: it stays refused (d54a954 had admitted it; withdrawn). office_92 is not a key either.
   r = await appoint({ office_19: COGM, office_86: EX_TREAS, co_gm: OLD_COGM, treasurer: OLD_TREAS, rank_treasurer: RANK_TREAS, office_92: VICE, office_101: JUSTICE, office_45: COUNCIL45, office_97: BOTH });
   check('CL2-091', 'setup: the admin publishes the seats (office_19, office_86, the co_gm, treasurer and rank_treasurer keys, office_92 and three other Council seats)', r.status === 200, r);
   const access = async who => (await call('GET', '/api/treasury-plan/access', { who })).data;
@@ -346,11 +348,16 @@ async function part1b() {
   check('CL2-091', 'the holder of the published Co-Guild Master seat (office_19) is admitted', a?.canRead === true, a);
   a = await access(EX_TREAS);
   check('CL2-091', 'the holder of the published Lord High Treasurer seat (office_86) is admitted', a?.canRead === true, a);
-  for (const [id, key, what] of [[OLD_COGM, 'co_gm', 'the co_gm key (office_19\'s alias)'], [OLD_TREAS, 'treasurer', 'the treasurer key (office_86\'s alias)'], [RANK_TREAS, 'rank_treasurer', 'the rank_treasurer key (office_86\'s historical alias)']]) {
+  for (const [id, key, what] of [[OLD_COGM, 'co_gm', 'the co_gm key (office_19\'s alias)'], [OLD_TREAS, 'treasurer', 'the treasurer key (office_86\'s alias)']]) {
     a = await access(id);
     check('CL2-091', `${what} published with its own exact publication proof admits its holder`, proved(key, id) && a?.canRead === true, a);
     const s = await plan(id);
     check('CL2-091', `  the plan's data file follows the same gate for ${what} (200)`, s === 200, s);
+  }
+  { // The historical record: a valid publication of its own, and still no access (as on dfca7a2).
+    a = await access(RANK_TREAS);
+    const s = await plan(RANK_TREAS);
+    check('CL2-091', 'the historical rank_treasurer record, published with its own exact publication proof, does not admit its holder: access refused and the data file 403', proved('rank_treasurer', RANK_TREAS) && a?.canRead === false && /the holders of the published Co-Guild Master and Lord High Treasurer seats/.test(a.admits || '') && s === 403, { a, s });
   }
   for (const [id, what] of [[VICE, 'the Vice Guild Master seat (office_92, in the co_gm family but not a Treasury key)'], [JUSTICE, 'another Council seat (office_101, Justice)'], [COUNCIL45, 'the High Council appointment office_45'], [MEMBER, 'a member with no seat']]) {
     a = await access(id);
@@ -372,7 +379,7 @@ async function part1b() {
   const withdrawn = [];
   for (const id of [OLD_COGM, OLD_TREAS, RANK_TREAS]) withdrawn.push({ id, access: await access(id), plan: await plan(id) });
   a = await access(BOTH);
-  check('CL2-091', 'a withdrawn co_gm, treasurer or rank_treasurer publication refuses its former holder, and the new co_gm holder (also on another Council seat) is admitted through co_gm',
+  check('CL2-091', 'a withdrawn co_gm or treasurer publication refuses its former holder, the rank_treasurer holder stays refused, and the new co_gm holder (also on another Council seat) is admitted through co_gm',
     withdrawn.every(w => w.access?.canRead === false && w.plan === 403) && proved('co_gm', BOTH) && a?.canRead === true, { withdrawn, a });
   r = await appoint({ office_19: BOTH, office_86: TREAS, co_gm: BOTH });
   a = await access(BOTH);
@@ -380,21 +387,22 @@ async function part1b() {
   a = await access(COGM);
   check('CL2-091', 'the replaced Co-Guild Master seat holder is refused', a?.canRead === false, a);
   const treasury = load('./site-treasury-access');
-  // Round 5 final: five closed keys, all of the two families: the primary keys office_19 and office_86, the family keys
-  // co_gm and treasurer themselves, and rank_treasurer, catalogued as an alias of office_86. No other key (office_92 included).
-  check('CL2-091', 'the gate exports exactly the five keys of the Co-Guild Master and Lord High Treasurer families', JSON.stringify(treasury.TREASURY_APPOINTMENT_SEATS) === '["office_19","office_86","co_gm","treasurer","rank_treasurer"]' && Object.isFrozen(treasury.TREASURY_APPOINTMENT_SEATS)
+  // Round 5 correction: four closed keys, all of the two families: the primary keys office_19 and office_86 and the
+  // family keys co_gm and treasurer. rank_treasurer is still catalogued as an alias of office_86, and is not a key.
+  check('CL2-091', 'the gate exports exactly the four keys of the Co-Guild Master and Lord High Treasurer families, and the catalogued alias rank_treasurer is not one of them', JSON.stringify(treasury.TREASURY_APPOINTMENT_SEATS) === '["office_19","office_86","co_gm","treasurer"]' && Object.isFrozen(treasury.TREASURY_APPOINTMENT_SEATS)
     && (() => { const src = fs.readFileSync(path.join(ROOT, 'src/site-role-directory203.ts'), 'utf8'), offices = fs.readFileSync(path.join(ROOT, 'src/governance-offices.ts'), 'utf8');
       return /key: 'co_gm'[^\n]*primaryKey: 'office_19'/.test(src) && /key: 'treasurer'[^\n]*primaryKey: 'office_86'/.test(src) && /"key": "rank_treasurer",\s*"label": "[^"]*",\s*"group": "office",\s*"aliasOf": "office_86"/.test(offices); })(), treasury.TREASURY_APPOINTMENT_SEATS);
-  // The admin page says what the gate does (13 Nov 2026): its two seat keys, its list of older records and its sentence
-  // together name exactly the five exported keys, and the old "open nothing" sentence is gone.
+  // The admin page says what the gate does (14 Nov 2026): its two seat keys, its list of older records and its sentence
+  // together name exactly the four exported keys, the sentence says that rank_treasurer does not open the plan, and the
+  // old "open nothing" sentence is gone.
   { const app = fs.readFileSync(path.join(ROOT, 'public/static/app.js'), 'utf8');
     const aliases = (/const TREASURY_SEAT_ALIASES1112 = (\[[^\]]*\]);/.exec(app) || [])[1];
     const named = ['office_19', 'office_86', ...(aliases ? JSON.parse(aliases) : [])];
-    check('CL2-091', 'admin Settings names exactly the five keys the gate admits, in its labels and in its sentence, and no longer says the older records open nothing',
+    check('CL2-091', 'admin Settings names exactly the four keys the gate admits, in its labels and in its sentence, says that rank_treasurer does not open the plan, and no longer says the older records open nothing',
       JSON.stringify(named) === JSON.stringify(treasury.TREASURY_APPOINTMENT_SEATS)
       && /office\.key === "office_19" \|\| office\.key === "office_86"\) return "Treasury-plan access seat"/.test(app)
       && /TREASURY_SEAT_ALIASES1112\.includes\(office\.key\)\) return [^\n]*" · opens the Treasury plan"/.test(app)
-      && app.includes('The Co-Guild Master seat (office_19) and the Lord High Treasurer seat (office_86) open the officer Treasury plan. The older records of the same two seats (co_gm, treasurer and rank_treasurer) open it too. A holder recorded on any of these five with a current published Discord account association qualifies. No other appointment record opens it.')
+      && app.includes('The Co-Guild Master seat (office_19) and the Lord High Treasurer seat (office_86) open the officer Treasury plan. The older records of the same two seats (co_gm and treasurer) open it too. A holder recorded on any of these four with a current published Discord account association qualifies. No other appointment record opens it. That includes the historical Treasurer rank record (rank_treasurer).')
       && !/open nothing/.test(app), named); }
   EXTRA = {};
 }
@@ -516,9 +524,9 @@ async function part2() {
 // page reads; the Worker still refuses that officer every write (checked here over HTTP and on the real Worker above).
 async function part2round3(cdp, go, size) {
   console.log('== CL2-091 through the harness ==');
-  // Since d54a954 the gate admits five closed keys: the two seats and their older records co_gm, treasurer and
-  // rank_treasurer. The harness personas hold the older records with a published association, so they are admitted;
-  // a member with no record is the control, and the refusal still names the two seats.
+  // The gate admits four closed keys: the two seats and their older records co_gm and treasurer (14 Nov 2026; the
+  // historical rank_treasurer record opens nothing). The harness personas hold the older records with a published
+  // association, so they are admitted; a member with no record is the control, and the refusal still names the two seats.
   for (const persona of ['treasurer', 'cogm']) {
     const r = await http(persona, 'GET', '/api/treasury-plan/access');
     check('CL2-091', `harness: the ${persona} persona (the older ${persona === 'cogm' ? 'co_gm' : 'treasurer'} record of its seat) is admitted`, r.status === 200 && r.data?.canRead === true, r.data);
@@ -532,7 +540,8 @@ async function part2round3(cdp, go, size) {
   for (let i = 0; i < 50 && !seats; i++) { seats = await cdp.eval(`(() => { const t = document.querySelector('main')?.textContent || ''; return /Treasury-plan access seat/.test(t) ? t : null; /* the rows sit in collapsed details */ })()`); if (!seats) await sleep(200); }
   const kinds = seats ? [...seats.matchAll(/\(([a-z_0-9]+)\)\n?[^\n]*/g)].length : 0;
   check('CL2-091', 'admin Settings labels office_19 and office_86 as the Treasury-plan access seats, and co_gm as an alias that opens the plan too', !!seats && /Co-Guild Master — Treasury-plan access seat \(office_19\)/.test(seats) && /Lord High Treasurer · Minister of the Imperial Exchequer — Treasury-plan access seat \(office_86\)/.test(seats)
-    && /Co-Guild Master — Leadership display alias · opens the Treasury plan \(co_gm\)/.test(seats) && !/Treasury-plan access appointment/.test(seats) && /The older records of the same two seats \(co_gm, treasurer and rank_treasurer\) open it too\./.test(seats) && !/open nothing/.test(seats), seats ? (seats.match(/[^\n]*Treasury-plan[^\n]*/g) || []).slice(0, 4) : kinds);
+    && /Co-Guild Master — Leadership display alias · opens the Treasury plan \(co_gm\)/.test(seats) && !/Treasury-plan access appointment/.test(seats) && /The older records of the same two seats \(co_gm and treasurer\) open it too\./.test(seats) && /That includes the historical Treasurer rank record \(rank_treasurer\)\./.test(seats)
+    && /Treasurer \(appointment; historical rank key\) — Historical display alias \(rank_treasurer\)/.test(seats) && !/historical rank key\) — Historical display alias · opens the Treasury plan/.test(seats) && !/open nothing/.test(seats), seats ? (seats.match(/[^\n]*Treasury-plan[^\n]*/g) || []).slice(0, 4) : kinds);
 
   console.log('== CL2-016 through the harness ==');
   const startsAt = new Date(Math.ceil(Date.now() / 1000 + 3 * 3600) * 1000).toISOString();

@@ -5177,9 +5177,10 @@
     const s = o.settings;
     const box = (checked, text, hint) => { const i = h("input", { type: "checkbox", checked }); return [i, h("label", { class: "check field" }, i, h("span", null, text, hint ? h("span", { class: "hint", text: hint }) : null))]; };
     const was = s.appointed || {};
-    // The Treasury gate also admits the older records of the same two seats (TREASURY_APPOINTMENT_SEATS in
-    // site-treasury-access.ts); the label says so, because saving a holder there opens the plan for that holder.
-    const TREASURY_SEAT_ALIASES1112 = ["co_gm", "treasurer", "rank_treasurer"];
+    // The Treasury gate also admits the older records co_gm and treasurer of the same two seats (TREASURY_APPOINTMENT_SEATS
+    // in site-treasury-access.ts); the label says so, because saving a holder there opens the plan for that holder. The
+    // historical rank_treasurer record opens nothing, as on dfca7a2 (14 Nov 2026), and keeps its plain alias label.
+    const TREASURY_SEAT_ALIASES1112 = ["co_gm", "treasurer"];
     const appointmentKind = office => {
       if (office.key === "office_19" || office.key === "office_86") return "Treasury-plan access seat"; // CL2-091 (owner ruling, 13 Nov 2026)
       if (office.group === "native") return `Native rank display · Rank ${office.nativeRankOrdinal}`;
@@ -5301,7 +5302,7 @@
     add(body, frame("Appointed roles", null,
       h("p", { class: "muted small", text: "A role with a name here has an appointment display record. Its historical voting board and write-ins close while the appointment is recorded; prior votes and nominations are preserved. Clearing the holder can restore historical board visibility, but Leader, High Council and Officer Corps applications remain closed. An empty field is not an application vacancy." }),
       h("p", { class: "muted small", text: "Every office and rank below has a Discord name or exact user ID selector. Search and Save check current server membership and account standing. A website sign-in, character link or roster confirmation is not required to associate a current Discord member. These website records do not change Discord roles, native ranks, bank access or signing authority. Existing ballot roles remain closed while appointed; extended offices are separate records." }),
-      h("p", { class: "muted small", text: "The Co-Guild Master seat (office_19) and the Lord High Treasurer seat (office_86) open the officer Treasury plan. The older records of the same two seats (co_gm, treasurer and rank_treasurer) open it too. A holder recorded on any of these five with a current published Discord account association qualifies. No other appointment record opens it." }),
+      h("p", { class: "muted small", text: "The Co-Guild Master seat (office_19) and the Lord High Treasurer seat (office_86) open the officer Treasury plan. The older records of the same two seats (co_gm and treasurer) open it too. A holder recorded on any of these four with a current published Discord account association qualifies. No other appointment record opens it. That includes the historical Treasurer rank record (rank_treasurer)." }),
       h("p", { class: "muted small appointment-scope228", text: "Separate offices, aliases, regions, classes and ranks each keep their own display record." }),
       appointmentControls203,
       namesOkRow, namesOkError,
