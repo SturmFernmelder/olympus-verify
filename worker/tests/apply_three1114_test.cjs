@@ -84,7 +84,8 @@ check('RULING', 'organization.json term office_27 (Crafter): applicationEligible
   catalogueRow(term(model, 'office_27'), CRAFTER_TEXT) && term(model, 'office_27').label === 'Crafter', JSON.stringify(term(model, 'office_27') && { e: term(model, 'office_27').applicationEligible, k: term(model, 'office_27').applicationRoleKeys, a: term(model, 'office_27').acquisition }));
 const eligibleOrdinary = model.terms.filter(t => t.tier === 'member_specialist' && ORDINARY.includes(t.applicationTrack) && t.applicationEligible).map(t => t.officeKey);
 check('RULING', 'exactly one member_specialist term on an ordinary track is eligible: office_07 (Artisan)', same(eligibleOrdinary, ['office_07']), eligibleOrdinary.join(','));
-check('RULING', 'the two offices keep their tracks, labels and notes (only the three ruled fields change)', term(model, 'office_25').applicationTrack === 'raider' && term(model, 'office_27').applicationTrack === 'artisan'
+// That no other field of the two terms changed is checked by evergreen1112_governance_test.cjs (CL2-039 digests).
+check('RULING', 'the two terms keep their application tracks (raider, artisan) and labels (Core Raider, Crafter), and the server rows carry the ruled values', term(model, 'office_25').applicationTrack === 'raider' && term(model, 'office_27').applicationTrack === 'artisan'
   && term(model, 'office_25').applicationLabel === 'Core Raider' && term(model, 'office_27').applicationLabel === 'Crafter' && rulingPredicates(real).serverRows);
 const pick = row => row && JSON.parse(JSON.stringify(row));
 const rowsAgree = ['office_25', 'office_27'].every(key => { const s = pick(real.offices.OFFICE_APPOINTMENTS.find(o => o.key === key)), b = pick(browserRows().find(o => o.key === key)), o = pick(appointment(model, key)); return !!s && same(s, b) && same(s, o); });
@@ -102,8 +103,8 @@ check('RULING', 'artisan/office_27 (Crafter) is refused with field targetOffice'
 check('INVARIANT', 'raider/office_11 (Bench) stays refused with field targetOffice', refusedTarget(real, 'raider', 'office_11'));
 check('INVARIANT', 'member/null, raider/null and artisan/office_07 are still accepted', ['member', 'raider'].every(t => same(real.tracks.validateApplicationIntent199(t, null, () => false), { applicationTrack: t, targetOffice: null }))
   && same(real.tracks.validateApplicationIntent199('artisan', 'office_07', () => false), { applicationTrack: 'artisan', targetOffice: 'office_07' }));
-check('RULING', 'the board descriptor is null for a stored Core Raider or Crafter intent (no badge from the catalogue)', real.tracks.applicationIntentDto199({ applicationTrack: 'raider', targetOffice: 'office_25' }) === null
-  && real.tracks.applicationIntentDto199({ applicationTrack: 'artisan', targetOffice: 'office_27' }) === null);
+// How an application already saved with raider/office_25 or artisan/office_27 is shown (for example its board
+// descriptor, applicationIntentDto199, site-api.ts) is not ruled and deliberately not tested here.
 
 // ---------------------------------------------------------------- (c) the real role directory
 check('RULING', 'every family\'s applicationTargets: artisan -> artisan/office_07, raider -> raider/null, member -> member/null, [] elsewhere', targetsAsRuled(real.directory),

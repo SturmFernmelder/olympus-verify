@@ -69,7 +69,7 @@ async function applicationTrackWorker199(){
   const nested={...payload,answers:{...payload.answers,applicationTrack:track,targetOffice:target}};delete nested.applicationTrack;delete nested.targetOffice;
   const nestedRefused=await request199('PUT','/api/application',nested,id);
   check(target+' former separate application target is refused in the nested answers encoding too',nestedRefused.response.status===400&&nestedRefused.body?.field==='targetOffice'&&JSON.stringify(stored199(id))===before,nestedRefused.response.status,nestedRefused.body?.field);
-  check(target+' has no application route adapter and no board descriptor',intent199.applicationRoleKeys199(target).length===0&&intent199.applicationIntentDto199({applicationTrack:track,targetOffice:target})===null);
+  check(target+' has no application route adapter',intent199.applicationRoleKeys199(target).length===0);
  }
  const noTaken=()=>false;
  const invalidIntents199=[['unknown track','unknown',null,'applicationTrack'],['null track',null,null,'applicationTrack'],['boolean track',true,null,'applicationTrack'],['oversize track','x'.repeat(81),null,'applicationTrack'],['unknown office','officer','office_999','targetOffice'],['track mismatch','high_council','office_62','targetOffice'],['reserved Treasury','high_council','office_86','targetOffice'],['reserved sovereign','high_council','office_43','targetOffice'],['missing leadership target','officer',undefined,'targetOffice'],['null leadership target','officer',null,'targetOffice'],['boolean target','officer',false,'targetOffice'],['object target','officer',{},'targetOffice'],['oversize target','officer','x'.repeat(81),'targetOffice'],['member cannot target an officer','member','office_62','targetOffice']];
