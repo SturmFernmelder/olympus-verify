@@ -113,7 +113,7 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.38"
+WATCHER_VERSION = "0.6.39"
 STRICT_DISPLAY_PROTOCOL = "launch-roster-display-v2"
 STRICT_DISPLAY_PATH = "/queue/unverified?keyVersion=" + STRICT_DISPLAY_PROTOCOL
 STRICT_DISPLAY_MAX_BYTES = 512 * 1024
@@ -699,6 +699,8 @@ class Watcher:
         self.worker.pause_save280 = self._save_state280
         self._ack_settlement_pending: tuple[str, dict[str, Any]] | None = None
         self._custody_warning = None
+        self._custody_pressure_status282: tuple[int, int, bool, int] | None = None
+        self._custody_pressure_reported282: float | None = None
         # other client logs, scanned for OLVDIAG markers only (a C_Log test); what was there at start is not news
         self.logs_dir = wow / "Logs"
         self.wow_dir = wow
@@ -759,6 +761,44 @@ class Watcher:
         if self._custody_warning != reason:
             self._custody_warning = reason
             log("delivery held: " + reason)  # fixed text only: no payload, response or credential
+
+    def _custody_outbox_counts282(self) -> tuple[int, int, bool, int]:
+        """Local counts only; lack of a recorded reply does not establish an attempt."""
+        box = self.state.d.get("outbox", [])
+        count = len(box)
+        capacity = max(0, self.max_outbox)
+        unconfirmed = 0
+        for row in box:
+            if type(row) is not dict:
+                unconfirmed += 1
+                continue
+            refusal = row.get("refusal_status")
+            if row.get("acknowledged") is not True and not (type(refusal) is int and 400 <= refusal < 500):
+                unconfirmed += 1
+        return count, capacity, count >= capacity, unconfirmed
+
+    def _custody_outbox_summary282(self, status: tuple[int, int, bool, int] | None = None) -> str:
+        count, capacity, full, unconfirmed = status if status is not None else self._custody_outbox_counts282()
+        return (f"outbox custody: count={count}; capacity={capacity}; full={'yes' if full else 'no'}; "
+                f"unconfirmed={unconfirmed} (no recorded acknowledgment/refusal; attempts not inferred)")
+
+    def _notice_custody_pressure282(self) -> None:
+        # Owner's attended recovery (14 November 2026): report capture pressure
+        # even when NoCustody skips the later queue poll. This observes only local
+        # counts; it does not resume that poll, replay an original or save state.
+        status, at = self._custody_outbox_counts282(), time.monotonic()
+        previous, reported = self._custody_pressure_status282, self._custody_pressure_reported282
+        if previous == status:
+            if not math.isfinite(at):
+                return
+            if reported is None:
+                self._custody_pressure_reported282 = at
+                return
+            if at - reported < 60.0:
+                return
+        log("source capture held; " + self._custody_outbox_summary282(status))
+        self._custody_pressure_status282 = status
+        self._custody_pressure_reported282 = at if math.isfinite(at) else None
 
     @staticmethod
     def _state_write_failed(phase: str, error: OSError) -> None:
@@ -2734,8 +2774,7 @@ class Watcher:
         digest = hashlib.sha256(today.encode("utf-8")).hexdigest()[:8]
         log(f"code check: secret loaded; today's code for {self.officer or 'Test'} hashes to {digest} (not the code itself)")
         log(f"queue identity: {self.officer_id or '(none — this watcher claims nothing, fine for a single officer)'}")
-        pending = len(self.state.d.get("outbox") or [])
-        log(f"outbox: {pending} buffered post(s) waiting for the Worker" if pending else "outbox: empty")
+        log(self._custody_outbox_summary282())
         log(f"chat-log lag: {self.lag_summary()}")
         for d in (self.state.d.get("diag") or [])[-8:]:
             if isinstance(d, dict):
@@ -2832,6 +2871,8 @@ class Watcher:
                     log(f"chat-log lag: {self.lag_summary()}")
             except Exception as e:  # ordinary loop errors retry; uncertain local custody exits below
                 self._require_custody_continuation()
+                if isinstance(e, NoCustody):
+                    self._notice_custody_pressure282()
                 log(f"loop error: {type(e).__name__}")
             delay = self.poll
             if launch_seconds is not None:

@@ -5,6 +5,7 @@ import argparse
 import copy
 import hashlib
 import json
+import math
 import os
 import re
 import stat
@@ -12,6 +13,12 @@ import sys
 import time
 from pathlib import Path
 from typing import Any
+
+
+# Attended recovery (owner, 14 November 2026) is deliberately smaller than a
+# replay protocol: only these unresolved ordinary lanes can leave the live box.
+QUARANTINE_PATHS = ("/ingest/verify", "/ingest/events", "/ingest/roster")
+QUARANTINE_MAX_BYTES = 64 * 1024 * 1024
 
 
 def regular_identity(path: Path) -> tuple[int, int]:
@@ -95,6 +102,79 @@ def private_create(path: Path):
     except BaseException:
         os.close(fd)
         raise
+
+
+def private_protection(path: Path) -> str:
+    """Read back owner-only protection; creation arguments alone are not proof."""
+    regular_identity(path)
+    if os.name == "posix":
+        info = path.stat()
+        if info.st_mode & 0o077 or info.st_uid != os.getuid():
+            raise ValueError("private owner-only protection not confirmed")
+        return "posix-owner-only"
+    if os.name != "nt":
+        raise ValueError("private protection readback unsupported")
+    import ctypes
+    from ctypes import wintypes
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    get_security = advapi.GetNamedSecurityInfoW
+    get_security.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+                             ctypes.POINTER(wintypes.LPVOID), wintypes.LPVOID,
+                             ctypes.POINTER(wintypes.LPVOID), wintypes.LPVOID,
+                             ctypes.POINTER(wintypes.LPVOID)]
+    get_security.restype = wintypes.DWORD
+    convert = advapi.ConvertSecurityDescriptorToStringSecurityDescriptorW
+    convert.argtypes = [wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD,
+                        ctypes.POINTER(wintypes.LPWSTR), ctypes.POINTER(wintypes.DWORD)]
+    convert.restype = wintypes.BOOL
+    open_token = advapi.OpenProcessToken
+    open_token.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+    open_token.restype = wintypes.BOOL
+    get_token = advapi.GetTokenInformation
+    get_token.argtypes = [wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID,
+                          wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
+    get_token.restype = wintypes.BOOL
+    equal_sid = advapi.EqualSid
+    equal_sid.argtypes = [wintypes.LPVOID, wintypes.LPVOID]
+    equal_sid.restype = wintypes.BOOL
+    kernel.GetCurrentProcess.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel.LocalFree.argtypes = [wintypes.LPVOID]
+    kernel.LocalFree.restype = wintypes.LPVOID
+    owner, dacl, descriptor = wintypes.LPVOID(), wintypes.LPVOID(), wintypes.LPVOID()
+    text, token = wintypes.LPWSTR(), wintypes.HANDLE()
+    # Read owner and DACL, not a parent/default descriptor. The exact protected
+    # DACL permits only SYSTEM and OWNER RIGHTS, with no inherited ACEs.
+    code = get_security(str(path), 1, 0x5, ctypes.byref(owner), None,
+                        ctypes.byref(dacl), None, ctypes.byref(descriptor))
+    if code:
+        raise ctypes.WinError(code)
+    try:
+        if not convert(descriptor, 1, 0x4, ctypes.byref(text), None):
+            raise ctypes.WinError(ctypes.get_last_error())
+        if text.value not in ("D:P(A;;FA;;;SY)(A;;FA;;;OW)", "D:P(A;;FA;;;OW)(A;;FA;;;SY)"):
+            raise ValueError("private protected DACL not confirmed")
+        if not open_token(kernel.GetCurrentProcess(), 0x8, ctypes.byref(token)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        size = wintypes.DWORD()
+        get_token(token, 1, None, 0, ctypes.byref(size))
+        if not size.value:
+            raise ValueError("current user ownership not confirmed")
+        user = ctypes.create_string_buffer(size.value)
+        if not get_token(token, 1, user, size, ctypes.byref(size)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        user_sid = ctypes.cast(user, ctypes.POINTER(wintypes.LPVOID)).contents
+        if not owner or not dacl or not equal_sid(owner, user_sid):
+            raise ValueError("current user ownership not confirmed")
+        return "windows-protected-owner-system"
+    finally:
+        if token:
+            kernel.CloseHandle(token)
+        if text:
+            kernel.LocalFree(text)
+        if descriptor:
+            kernel.LocalFree(descriptor)
 
 
 class StateLease:
@@ -182,10 +262,22 @@ def retained(item: Any) -> bool:
         return False
 
 
-def load(path: Path) -> tuple[bytes, dict[str, Any]]:
+def _read_state(path: Path, max_bytes: int | None = None) -> bytes:
+    if max_bytes is None:
+        return path.read_bytes()
+    if path.stat().st_size > max_bytes:
+        raise ValueError("attended state size limit exceeded")
+    with path.open("rb") as stream:
+        raw = stream.read(max_bytes + 1)
+    if len(raw) > max_bytes:
+        raise ValueError("attended state size limit exceeded")
+    return raw
+
+
+def load(path: Path, *, max_bytes: int | None = None) -> tuple[bytes, dict[str, Any]]:
     path = reviewed_path(path)
     regular_identity(path)
-    raw = path.read_bytes()
+    raw = _read_state(path, max_bytes)
     value = json.loads(raw)
     if not isinstance(value, dict) or not isinstance(value.get("outbox", []), list):
         raise ValueError("invalid state; original retained")
@@ -225,8 +317,187 @@ def classify(item: Any) -> str:
     return "unknown-outcome-held"
 
 
+def _financial_original(value: Any) -> bool:
+    """Recognise financial structure, never search or publish free-text notes."""
+    pending = [value]
+    while pending:
+        current = pending.pop()
+        if isinstance(current, dict):
+            if any(key in current for key in ("donation", "copper", "money", "payment", "financial")):
+                return True
+            if current.get("type") in ("donation", "tithe", "payment", "financial"):
+                return True
+            source = current.get("source")
+            if isinstance(source, str) and source.startswith(("tithe-", "treasury-")):
+                return True
+            pending.extend(current.values())
+        elif isinstance(current, list):
+            pending.extend(current)
+    return False
+
+
+def _quarantine_manifest(state: dict[str, Any]) -> tuple[dict[str, Any], dict[str, int]]:
+    box = state.get("outbox")
+    if not isinstance(box, list) or not box:
+        raise ValueError("whole nonempty outbox required")
+    counts = {path: 0 for path in QUARANTINE_PATHS}
+    entries = []
+    for position, original in enumerate(box):
+        if (type(original) is not dict or type(original.get("custody")) is not int
+                or original.get("custody") != 1 or not retained(original)
+                or type(original.get("at")) is not int or original["at"] <= 0
+                or original.get("path") not in QUARANTINE_PATHS
+                or type(original.get("body")) is not dict
+                or "acknowledged" in original and original["acknowledged"] is not False
+                or original.get("refusal_status") is not None
+                or "server_expired" in original or _financial_original(original)):
+            raise ValueError("all originals must be valid ordinary unresolved records")
+        # Hash the entire record, not only its body: order, original metadata and
+        # every retained field remain part of the operator's exact selection.
+        entries.append({"index": position, "path": original["path"], "itemSha256": item_digest(original)})
+        counts[original["path"]] += 1
+    return {"schema": "watcher-unresolved-manifest-v1", "count": len(entries), "items": entries}, counts
+
+
+def _manifest_digest(manifest: dict[str, Any]) -> str:
+    return digest(json.dumps(manifest, sort_keys=True, allow_nan=False, separators=(",", ":")).encode())
+
+
+def _strict_quarantine_state(raw: bytes) -> dict[str, Any]:
+    if len(raw) > QUARANTINE_MAX_BYTES:
+        raise ValueError("attended state size limit exceeded")
+    def pairs(values):
+        out = {}
+        for key, value in values:
+            if key in out:
+                raise ValueError("ambiguous state keys refused")
+            out[key] = value
+        return out
+    def constant(_):
+        raise ValueError("nonfinite state refused")
+    def finite_float(value):
+        number = float(value)
+        if not math.isfinite(number):
+            raise ValueError("nonfinite state refused")
+        return number
+    try:
+        state = json.loads(raw.decode("utf-8"), object_pairs_hook=pairs, parse_constant=constant,
+                           parse_float=finite_float)
+    except RecursionError as error:
+        raise ValueError("state depth limit exceeded") from error
+    if type(state) is not dict:
+        raise ValueError("state object required")
+    return state
+
+
+def quarantine_unknown(path: Path, state_sha: str, manifest_sha: str, count: int, reason: str) -> dict[str, Any]:
+    """Quarantine a pinned whole box offline; no delivery, refusal or retry is inferred.
+
+    The private archive contains only the selected outbox originals, not other
+    state, and can include personal data. It is attended recovery evidence under
+    the existing privacy, erasure and retention obligations, not a new dispatch
+    input. After convergence the exact archive needs a cleanup review under the
+    published policy. No restoration, replay or automatic deletion is provided;
+    this neither extends proof lifetimes nor claims that an erasure completed.
+    """
+    progress = {"phase": "pre-archive"}
+    try:
+        return _quarantine_unknown(path, state_sha, manifest_sha, count, reason, progress)
+    except (OSError, ValueError, TypeError, OverflowError, RecursionError) as error:
+        # Preserve the exception type for attended callers, but expose only this
+        # fixed phase through the CLI. Never include private exception text.
+        error.custody_phase = progress["phase"]
+        raise
+
+
+def _quarantine_unknown(path: Path, state_sha: str, manifest_sha: str, count: int,
+                        reason: str, progress: dict[str, str]) -> dict[str, Any]:
+    path = reviewed_path(path)
+    if (not re.fullmatch(r"[0-9a-f]{64}", state_sha) or not re.fullmatch(r"[0-9a-f]{64}", manifest_sha)
+            or type(count) is not int or count <= 0):
+        raise ValueError("exact state, manifest and count pins required")
+    if not isinstance(reason, str) or not 10 <= len(reason.strip()) <= 500:
+        raise ValueError("attended reason must contain 10..500 characters")
+    with StateLease(path):
+        identity = regular_identity(path)
+        if path.stat().st_size > QUARANTINE_MAX_BYTES:
+            raise ValueError("attended state size limit exceeded")
+        raw = _read_state(path, QUARANTINE_MAX_BYTES)
+        if digest(raw) != state_sha:
+            raise ValueError("state changed; inspect again, no mutation")
+        state = _strict_quarantine_state(raw)
+        if not isinstance(state.get("queue_written_pending", []), list):
+            raise ValueError("invalid pending IDs; original retained")
+        manifest, _ = _quarantine_manifest(state)
+        if manifest["count"] != count or _manifest_digest(manifest) != manifest_sha:
+            raise ValueError("ordered selection changed; no mutation")
+        new = copy.deepcopy(state)
+        new["outbox"] = []
+        after = json.dumps(new, allow_nan=False).encode()
+        created = int(time.time())
+        if not 0 < created <= 9007199254740991 - 86400:
+            raise ValueError("recovery review time unavailable")
+        receipt = {"schema": "watcher-attended-quarantine-v1", "createdAt": created, "reviewBy": created + 86400,
+                   "purpose": "attended-recovery", "outcome": "unknown", "replayed": False,
+                   "action": "quarantined-unresolved", "lane": "outbox", "selection": "whole-outbox",
+                   "reason": reason.strip(), "beforeStateSha256": state_sha, "afterStateSha256": digest(after),
+                   "manifestSha256": manifest_sha, "manifest": manifest, "originals": state["outbox"],
+                   "deliveryAcknowledged": False, "network": False,
+                   "dispatchAuthority": False}
+        archive_raw = json.dumps(receipt, allow_nan=False).encode()
+        if len(after) > QUARANTINE_MAX_BYTES or len(archive_raw) > QUARANTINE_MAX_BYTES:
+            raise ValueError("attended recovery output size limit exceeded")
+        archive = path.with_name(path.name + ".custody-quarantine-" + state_sha + "-" + manifest_sha + ".json")
+        tmp = path.with_name(path.name + ".custody-recovery.tmp")
+        # Even a dangling alias or directory is prior evidence. Discover it
+        # before creating an archive; never delete or overwrite it to continue.
+        if os.path.lexists(tmp):
+            raise FileExistsError("existing recovery replacement requires attended inspection")
+        # Archive first, exclusively. A partial archive or any uncertain replace
+        # result is evidence to inspect, never permission for an automatic repeat.
+        progress["phase"] = "archive-started"
+        with private_create(archive) as stream:
+            info = os.fstat(stream.fileno())
+            archived_identity = (info.st_dev, info.st_ino)
+            if stream.write(archive_raw) != len(archive_raw):
+                raise OSError("private archive write incomplete")
+            stream.flush()
+            os.fsync(stream.fileno())
+        if (regular_identity(archive) != archived_identity or archive.stat().st_size != len(archive_raw)
+                or _read_state(archive, QUARANTINE_MAX_BYTES) != archive_raw):
+            raise ValueError("private archive readback differs; original state not replaced")
+        private_protection(archive)
+        progress["phase"] = "archive-verified"
+        if (regular_identity(path) != identity or path.stat().st_size > QUARANTINE_MAX_BYTES
+                or digest(_read_state(path, QUARANTINE_MAX_BYTES)) != state_sha):
+            raise ValueError("state changed after archive; original state not replaced")
+        with private_create(tmp) as stream:
+            if stream.write(after) != len(after):
+                raise OSError("private replacement write incomplete")
+            stream.flush()
+            os.fsync(stream.fileno())
+        replacement = regular_identity(tmp)
+        if tmp.stat().st_size != len(after) or _read_state(tmp, QUARANTINE_MAX_BYTES) != after:
+            raise ValueError("private replacement readback differs; original state not replaced")
+        private_protection(tmp)
+        if (regular_identity(path) != identity or path.stat().st_size > QUARANTINE_MAX_BYTES
+                or digest(_read_state(path, QUARANTINE_MAX_BYTES)) != state_sha):
+            raise ValueError("state changed before replace; original state not replaced")
+        # A raised replace can still have committed. Do not infer nonapplication.
+        progress["phase"] = "replace-attempted-unconfirmed"
+        os.replace(tmp, path)
+        progress["phase"] = "state-replaced-readback-unconfirmed"
+        if regular_identity(path) != replacement or _read_state(path, QUARANTINE_MAX_BYTES) != after:
+            raise ValueError("state replacement readback differs; inspect, never repeat blindly")
+        protection = private_protection(path)
+        return {"action": "quarantined-unresolved", "stateSha256": digest(after), "archive": str(archive),
+                "manifestSha256": manifest_sha, "quarantinedCount": count, "deliveryAcknowledged": False,
+                "network": False, "dispatchAuthority": False, "outcome": "unknown", "replayed": False,
+                "createdAt": created, "reviewBy": created + 86400, "protection": protection}
+
+
 def inspect(path: Path) -> dict[str, Any]:
-    raw, state = load(path)
+    raw, state = load(path, max_bytes=QUARANTINE_MAX_BYTES)
     # Output does not disclose payloads, names, codes, tokens or provider response bodies.
     result: dict[str, Any] = {"stateSha256": digest(raw), "outboxCount": len(state.get("outbox", [])), "network": False}
     for lane in ("outbox", "queue-written"):
@@ -235,6 +506,13 @@ def inspect(path: Path) -> dict[str, Any]:
             result[lane] = {"itemSha256": item_digest(item), "classification": classify(item)}
         except ValueError:
             result[lane] = {"classification": "absent-or-legacy-IDs-held"}
+    try:
+        manifest, counts = _quarantine_manifest(_strict_quarantine_state(raw))
+        result["quarantineUnknown"] = {"eligible": True, "count": manifest["count"],
+                                       "pathCounts": counts, "manifestSha256": _manifest_digest(manifest)}
+    except (ValueError, TypeError, OverflowError, RecursionError):
+        result["quarantineUnknown"] = {"eligible": False, "count": len(state.get("outbox", [])),
+                                       "manifestSha256": None}
     return result
 
 
@@ -291,20 +569,37 @@ def recover(path: Path, lane: str, action: str, state_sha: str, item_sha: str, r
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state", required=True, type=Path, help="exact private state path; stop watcher first")
-    parser.add_argument("action", choices=("inspect", "settle-acknowledged", "retire-refused"))
+    parser.add_argument("action", choices=("inspect", "settle-acknowledged", "retire-refused", "quarantine-unknown"))
     parser.add_argument("--lane", choices=("outbox", "queue-written"), default="outbox")
     parser.add_argument("--state-sha256")
     parser.add_argument("--item-sha256")
+    parser.add_argument("--manifest-sha256")
+    parser.add_argument("--count", type=int)
     parser.add_argument("--reason")
     args = parser.parse_args()
     try:
-        result = inspect(args.state) if args.action == "inspect" else recover(
-            args.state, args.lane, args.action, args.state_sha256 or "", args.item_sha256 or "", args.reason or "")
+        if args.action == "inspect":
+            result = inspect(args.state)
+        elif args.action == "quarantine-unknown":
+            if args.lane != "outbox":
+                raise ValueError("whole outbox quarantine only")
+            result = quarantine_unknown(args.state, args.state_sha256 or "", args.manifest_sha256 or "",
+                                        args.count, args.reason or "")
+        else:
+            result = recover(args.state, args.lane, args.action, args.state_sha256 or "", args.item_sha256 or "", args.reason or "")
         print(json.dumps(result))
         return 0
-    except (OSError, ValueError, TypeError, OverflowError):
+    except (OSError, ValueError, TypeError, OverflowError, RecursionError) as error:
         # Never print exception data: a malformed private file can contain sensitive text.
-        print("custody recovery refused or outcome requires inspection; no network request was made", file=sys.stderr)
+        if args.action == "quarantine-unknown":
+            phase = getattr(error, "custody_phase", "pre-archive")
+            if phase not in ("pre-archive", "archive-started", "archive-verified",
+                              "replace-attempted-unconfirmed", "state-replaced-readback-unconfirmed"):
+                phase = "pre-archive"
+            print("custody quarantine held; phase=" + phase + "; stop writers and preserve state, archive and temporary "
+                  "files; compare state and archive hashes before attended recovery; no network request was made", file=sys.stderr)
+        else:
+            print("custody recovery refused or outcome requires inspection; no network request was made", file=sys.stderr)
         return 2
 
 

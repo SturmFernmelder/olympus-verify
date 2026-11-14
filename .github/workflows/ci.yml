@@ -57,6 +57,15 @@ jobs:
       - name: TypeScript, targeted genuine Workerd D1 behavior, D1 statement ceilings and query plans
         run: npm run qualify -- --target lease --target treasury --target reconciliation --target promotions
         working-directory: worker
+      - name: Held-read diagnostics, uncertain writes and explicit page retry
+        timeout-minutes: 4
+        run: |
+          node tests/held_cause_labels_test.cjs
+          node tests/sync503_held_workerd_test.cjs
+          node tests/sync503_page_test.cjs
+          node tests/community_census_route_test.cjs --focus=closed-logs
+          node tests/resources_admission169_test.cjs --focus=closed-logs
+        working-directory: worker
       - name: Concurrent sweep progress and completed-erasure regression
         run: |
           node tests/lane_progress280_test.cjs --layout canonical --only ordinary-last,ban-last,erase-late,read-unknown --out "$RUNNER_TEMP/role-progress-canonical"

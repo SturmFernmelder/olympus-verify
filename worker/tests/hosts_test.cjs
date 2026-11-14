@@ -403,24 +403,25 @@ const remainingMinute = (value) => typeof value === "string" && /^[1-9][0-9]?$/.
       const beforeAttempts = faultAttempts, beforeLogs = gateLogs.length;
       res = await get('https://guild.example' + privatePath + '?code=private-query', faultEnv, { headers: { Cookie: faultCookie } });
       check('failed original account read refuses ' + privatePath + ' before delivery without retry or account change', res.status === 503 && await res.text() === '{"error":"site_access_unavailable"}' && faultAttempts === beforeAttempts + 1 && faultAssetCalls === 0 && faultAccount() === beforeFaultAccount);
-      check('account-read refusal retains exact security headers and logs only fixed stage/category: ' + privatePath, JSON.stringify([...res.headers]) === JSON.stringify(refusalHeaders) && !res.headers.has('Set-Cookie') && gateLogs.length === beforeLogs + 1 && JSON.stringify(gateLogs.at(-1)) === JSON.stringify(['site access unavailable','current_user','d1']));
+      check('account-read refusal retains exact security headers and logs only fixed stage/category: ' + privatePath, JSON.stringify([...res.headers]) === JSON.stringify(refusalHeaders) && !res.headers.has('Set-Cookie') && gateLogs.length === beforeLogs + 1 && JSON.stringify(gateLogs.at(-1)) === JSON.stringify(['site access unavailable','current_user','d1','d1_other']));
     }
     faultMode = '';
     res = await get('https://guild.example/static/wow/talents/bg-302.jpg', faultEnv, { headers: { Cookie: faultCookie } });
     check('a fresh request after an account-read failure succeeds through unchanged private-asset safeguards', res.status === 200 && await res.text() === 'protected-fault-source' && faultAssetCalls === 1 && res.headers.get('Cache-Control') === 'private, no-store, no-transform' && res.headers.get('Vary') === 'Cookie' && gateLogs.length === 2);
     // An authoritative Discord404 whose original bound write fails is still held;
     // the original bound layer deliberately discards provider text, yielding category error.
+    // 14 Nov 2026: the bound layer logs one closed label for its batch and passes it up as the gate's fourth value.
     await admittedSetup.prepare('UPDATE site_users SET checked_at=?2 WHERE discord_id=?1').bind(faultViewer,faultAt-7200).run();
     beforeFaultAccount = faultAccount(); faultMode = 'membership';
     let faultMemberCalls = 0;
     fetchResponder = async url => { if (!url.endsWith('/members/' + faultViewer)) throw Error('unexpected fault-fixture provider route'); faultMemberCalls++; return new Response('{"code":10007}', { status: 404 }); };
     res = await get('https://guild.example/static/wow/talents/bg-302.jpg?code=private-query', faultEnv, { headers: { Cookie: faultCookie } });
     check('failed original membership write refuses assets without retry or a partial account change', res.status === 503 && await res.text() === '{"error":"site_access_unavailable"}' && faultAttempts === 3 && faultMemberCalls === 1 && faultAssetCalls === 1 && faultAccount() === beforeFaultAccount);
-    check('membership refusal retains the same security contract and sanitizes its distinct stage', JSON.stringify([...res.headers]) === JSON.stringify(refusalHeaders) && !res.headers.has('Set-Cookie') && gateLogs.length === 3 && JSON.stringify(gateLogs.at(-1)) === JSON.stringify(['site access unavailable','membership','error']));
+    check('membership refusal retains the same security contract and sanitizes its distinct stage', JSON.stringify([...res.headers]) === JSON.stringify(refusalHeaders) && !res.headers.has('Set-Cookie') && gateLogs.length === 4 && JSON.stringify(gateLogs.at(-2).slice(0, 4)) === JSON.stringify(['privacy request held','site_session','d1_other','write']) && gateLogs.at(-2).length === 5 && ['under_100ms','under_500ms','under_2s','2s_or_more'].includes(gateLogs.at(-2)[4]) && JSON.stringify(gateLogs.at(-1)) === JSON.stringify(['site access unavailable','membership','error','d1_other']));
     faultMode = '';
     fetchResponder = async url => { if (!url.endsWith('/members/' + faultViewer)) throw Error('unexpected recovery-fixture provider route'); faultMemberCalls++; return new Response('{"pending":false}', { headers: { 'Content-Type': 'application/json' } }); };
     res = await get('https://guild.example/static/wow/talents/bg-302.jpg', faultEnv, { headers: { Cookie: faultCookie } });
-    check('a fresh request after a membership failure rechecks current Discord membership before private delivery', res.status === 200 && await res.text() === 'protected-fault-source' && faultMemberCalls === 2 && faultAssetCalls === 2 && gateLogs.length === 3 && db.prepare('SELECT checked_at FROM site_users WHERE discord_id=?1').get(faultViewer).checked_at > faultAt-7200);
+    check('a fresh request after a membership failure rechecks current Discord membership before private delivery', res.status === 200 && await res.text() === 'protected-fault-source' && faultMemberCalls === 2 && faultAssetCalls === 2 && gateLogs.length === 4 && db.prepare('SELECT checked_at FROM site_users WHERE discord_id=?1').get(faultViewer).checked_at > faultAt-7200);
   } finally { console.error = beforeGateConsole; fetchResponder = null; }
   // The councillor page is the one response that may use the device camera (owner item 32 fallback).
   const cameraEnv = env({ ASSETS: qrAssets }), memberHeaders = { Cookie: validCookie };
@@ -680,7 +681,7 @@ const remainingMinute = (value) => typeof value === "string" && /^[1-9][0-9]?$/.
   body = await res.json();
   console.error = realConsoleError;
   check("an unhandled error is 500 with a request id and no error text", res.status === 500 && body.error === "internal" && /^[0-9a-f]{8}$/.test(body.requestId) && !JSON.stringify(body).includes("abc.def"), JSON.stringify(body));
-  check("  the log line carries the request id, the path and the error's category, never its text (.51)", errLog.length === 1 && errLog[0].includes(body.requestId) && errLog[0].includes("/admin/guild-map") && /\berror\b/.test(errLog[0]) && !errLog[0].includes("abc.def") && !errLog[0].includes("exploded"), errLog.join(" | "));
+  check("  the log line carries the request id, the route family and the error's closed labels, never its text or a path segment (.51, 14 Nov 2026)", errLog.length === 1 && errLog[0] === `unhandled ${body.requestId} admin error other` && !errLog[0].includes("guild-map") && !errLog[0].includes("abc.def") && !errLog[0].includes("exploded"), errLog.join(" | "));
   fetchResponder = null;
 
   console.log("\n== what a failure may say in the log (.51) ==");

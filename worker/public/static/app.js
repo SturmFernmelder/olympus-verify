@@ -935,6 +935,7 @@
   // before an update would send an old shape), so it must match PAGE_VERSION in src/site-core.ts.
   const PAGE_VERSION = "2";
   const WRITE_ANSWER_LOST = "The answer did not arrive, so it is not known whether this took effect. Reload the page and check before you repeat it.";
+  const READ_UNAVAILABLE = "The site could not read its data for a moment. Please try again.";
   let boardSummaryRead = null; // Session-memory counts only, never candidate records or write authority.
   const SESSION_ENDED_ENTRY = "/?entry=session-ended";
   let endingSiteSession = false;
@@ -985,6 +986,10 @@
       if (current) reloadNotice(data.message);
       throw new ApiError(409, Object.assign({}, data, { message: "Nothing was saved: reload the page first (your typing is still on this page)." }));
     }
+    // sync503 (14 Nov 2026): read_unavailable is the Worker's answer to a GET or HEAD whose read failed for a storage reason.
+    // The page owns its sentence, so every caller that shows the answer's message shows exactly it. Any other method never
+    // reads as retryable: the message is dropped and the caller's own wording for an unknown outcome applies.
+    if (!res.ok && data && data.error === "read_unavailable") data = method === "GET" || method === "HEAD" ? { error: data.error, message: READ_UNAVAILABLE } : { error: data.error };
     if (!res.ok || bodyReadFailed) { const error = new ApiError(res.status, bodyReadFailed ? { error: "unreadable_answer" } : data); if(res.status===429){const seconds=Number(res.headers.get("Retry-After"));error.retryAfterSeconds=Number.isFinite(seconds)&&seconds>0?Math.min(900,Math.ceil(seconds)):60;} throw error; }
     return data;
   }
@@ -6360,8 +6365,10 @@
         noticeBox("warn", "icon-warning", h("p", { text: held
           ? "The original membership decision for this account could not be safely confirmed. No data or access was changed. Ask a site administrator to investigate. Reopening alone may not resolve this hold."
           : changed ? "The account changed while you opened the review. Open the current record before deciding."
-          : "This application could not be read. Return to the list and try again. No changes were made." })),
-        changed || draft ? h("button", { class: "btn small", type: "button", text: changed ? "Open the current account" : "Retry and keep my note", onclick: () => { if (live()) adminApplication(body, id, changed ? null : draft); } }) : null));
+          : "This application could not be loaded. Return to the list and try again." })),
+        // sync503 (14 Nov 2026): a failed read offers Try again, never for a held decision. A click reloads the view once; nothing repeats by itself.
+        changed || draft ? h("button", { class: "btn small", type: "button", text: changed ? "Open the current account" : "Retry and keep my note", onclick: () => { if (live()) adminApplication(body, id, changed ? null : draft); } })
+          : held ? null : readRetryButton(err, () => { if (live()) adminApplication(body, id); })));
       return;
     }
     if (!live()) return;

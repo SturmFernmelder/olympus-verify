@@ -7,6 +7,7 @@ import {ADMISSION_CONTROL_TABLE as SLOT,ADMISSION_PROTOCOL as VERSION,ADMISSION_
 import {lowerOriginalSchemaSQL,captureOriginalPhysicalStatement,type OriginalPhysicalSchemaPlan} from './privacy-schema-source-plan';
 import {PROVIDER_METADATA_CURRENT_SQL,PROVIDER_METADATA_APPLICATION_OBJECT_FILTER_SQL} from './privacy-provider-metadata';
 import {originalServingNativeCostContext} from './privacy-global-serving-origin';
+import {proofCostSample} from './log';
 const registered=new WeakSet<D1Database>();
 export type AdmissionLayout='canonical'|'recorded-live-20261010'|'recorded-live-pre-seal-20261017';
 // The owner's .163 OFF-mode transition keeps the exact installed .161 profile. This is an explicit
@@ -332,6 +333,7 @@ export function createPrivacyWriteAdmissionDatabase(native:D1Database,purpose:'w
    const out=await originalNative.batch<Record<string,unknown>>(nativeInput);
    checkPhysical(plans);
    if(out.length!==source.length+1||out[0]?.results[0]?.current!==1)throw new PrivacyWriteAdmissionHeld('read_epoch_unconfirmed');
+   proofCostSample(out[0]); // 14 Nov 2026 (design 2.5): one read group in 256 logs the proof's own meta in fixed classes; it never throws
    return out.slice(1);
   }
   const nonce=randomHex(),plans=Object.freeze([
