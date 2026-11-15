@@ -6,7 +6,7 @@ import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admissio
 import {requestCharacterCode242} from '../src/interactions.ts';
 import {postRoster,postVerify} from '../src/ingest.ts';
 import {CANONICAL_GUILD233,CANONICAL_PROFILE233,CANONICAL_RANKS233,NATIVE_NAMES233,parseCanonicalRankPolicy233,currentOriginalCanonicalPolicy233,currentDirectiveCanonicalPolicy233} from '../src/canonical-ranks233.ts';
-import {DIRECTIVE_CANONICAL_PROFILE,DIRECTIVE_RANK_NAMES,qualifiedNativeSnapshotSource,nativeSnapshotSource} from '../src/native-rank-schemes.ts';
+import {DIRECTIVE_CANONICAL_PROFILE,DIRECTIVE_RANK_NAMES,NATIVE_RANK_SCHEMES,qualifiedNativeSnapshotSource,nativeSnapshotSource} from '../src/native-rank-schemes.ts';
 import {canonicalRankSource280,canonicalRankSnapshotSql280,canonicalRankWitnessMatches280,originalCanonicalSnapshotSource280} from '../src/canonical-native-authority280.ts';
 import {captureRoutineMembership232,routineMembership232Facts,closeRoutineMembership232} from '../src/routine-membership-authority232.ts';
 import {reconcileCanonicalRanks233} from '../src/role-settlements.ts';
@@ -24,17 +24,24 @@ const LIVE_NAMES280=Object.freeze(['Guild Master','Steward','High Council','Offi
 const LIVE_MEMBER280='800000000000000400',LIVE_OFFICER280='800000000000000401',LIVE_ALT280='800000000000000402';
 async function liveOriginalTableSmoke280(env,writer,venue,check){
  const now=async()=>(await writer.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS at").first()).at;
- const table={version:1,names:LIVE_NAMES280},original=parseCanonicalRankPolicy233(env.CANONICAL_RANKS233);
- const members=[['Canonical Smoke','ABCDEF12',0],['Live Member','ABCDEF13',8],['Live Officer','ABCDEF14',3],['Live Steward','ABCDEF15',1],['Live Alt','ABCDEF16',7],['Unlinked Steward','ABCDEF17',1],['Unlinked Alt','ABCDEF18',7]].map(([name,suffix,rankIndex])=>({name,guid:'Player-4613-'+suffix,rank:LIVE_NAMES280[rankIndex],rankIndex,level:60}));
- const publish=async(names=LIVE_NAMES280)=>{
+ // Keep the original-v1 unknown-name compatibility case distinct from the
+ // newly owner-reviewed exact Steward table; a new profile cannot alias v1.
+ const observedNames=Object.freeze(LIVE_NAMES280.map((name,index)=>index===1?'Unreviewed Steward':name));
+ const table={version:1,names:observedNames},original=parseCanonicalRankPolicy233(env.CANONICAL_RANKS233);
+ const members=[['Canonical Smoke','ABCDEF12',0],['Live Member','ABCDEF13',8],['Live Officer','ABCDEF14',3],['Live Steward','ABCDEF15',1],['Live Alt','ABCDEF16',7],['Unlinked Steward','ABCDEF17',1],['Unlinked Alt','ABCDEF18',7]].map(([name,suffix,rankIndex])=>({name,guid:'Player-4613-'+suffix,rank:observedNames[rankIndex],rankIndex,level:60}));
+ const publish=async(names=observedNames)=>{
   const rows=members.map(row=>({...row,rank:names[row.rankIndex]}));
   const response=await postRoster(env,{exportedAt:await now(),nativeGuild:NATIVE_SCOPE232.guild,nativeRealm:NATIVE_SCOPE232.realm,nativeRankTable:{version:1,names},members:rows},undefined,undefined,true);
   check('actual observed-table ingress accepted '+names[1],response.status===200,{status:response.status});
   return writer.prepare('SELECT id,source FROM roster_snapshots ORDER BY id DESC LIMIT 1').first();
  };
- let snapshot=await publish();
+ let snapshot=await publish(LIVE_NAMES280);
+ check('newly reviewed Steward source retains its own profile and cannot acquire original-v1 role authority',snapshot.source===qualifiedNativeSnapshotSource(NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm,NATIVE_RANK_SCHEMES[1])&&canonicalRankSource280(original,snapshot.source,NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)===null&&canonicalRankSnapshotSql280(original,'?1',NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm,snapshot.source)==='0');
+ const reviewed=await runNativeSubject232(env,CANONICAL_V1_SMOKE_SUBJECT280,callBudget(env),2);
+ check('original policy cannot dispatch from the newly reviewed Steward profile',reviewed.state==='held'&&reviewed.requests===0,reviewed);
+ snapshot=await publish();
  const expectedSource=nativeSnapshotSource(NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm,table,members);
- check('live Steward1/Alt7 observation retains its exact scoped null-profile source',snapshot.source===expectedSource&&JSON.parse(snapshot.source.slice(16)).rankProfile===null&&canonicalRankSource280(original,snapshot.source,NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)==='original-native-v2');
+ check('unreviewed Steward1/Alt7 observation retains its exact scoped null-profile source',snapshot.source===expectedSource&&JSON.parse(snapshot.source.slice(16)).rankProfile===null&&canonicalRankSource280(original,snapshot.source,NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)==='original-native-v2');
  const query=async(source,id=snapshot.id)=>!!(await writer.prepare('SELECT 1 AS allowed WHERE '+canonicalRankSnapshotSql280(original,'?1',NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm,source)).bind(id).first());
  check('coherent live table qualifies original policy without aliasing its unknown names',await query(snapshot.source));
  const value=JSON.parse(expectedSource.slice(16)),sourceWith=change=>'addon-native-v2:'+JSON.stringify({...value,...change});

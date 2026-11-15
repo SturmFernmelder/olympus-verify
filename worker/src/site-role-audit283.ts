@@ -133,7 +133,7 @@ export async function handleSiteRoleAudit283(request:Request,env:Env,admin:SiteU
    await read([]);check();
    // Existing writer repeats original Native/provider/custody admission. This
    // is a current reconciliation, never an old-row reset or historical replay.
-   const result=await reconcileRoleBatch242(privacyBoundSiteRoleActionEnv(env,original,{subject:preview.subject as string,snapshotId:preview.snapshot as number,snapshotAt:preview.snapshotAt as number,expectedRole:preview.expected as string}),[body.subject]);check();await read([]);check();
+   const result=await reconcileRoleBatch242(privacyBoundSiteRoleActionEnv(env,original,{subject:preview.subject as string,snapshotId:preview.snapshot as number,snapshotAt:preview.snapshotAt as number,expectedRole:preview.expected as string,expiresAt:preview.expiresAt as number}),[body.subject]);check();await read([]);check();
    return apiJson({result,delivery:'inspect_current_roles_with_a_fresh_audit',automaticRetry:false,oldReceiptsPreserved:true});
   }
   if(Object.keys(body).length)throw new Held('invalid_request',400);

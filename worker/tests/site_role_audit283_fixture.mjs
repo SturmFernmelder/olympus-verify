@@ -66,6 +66,16 @@ async function cookie(adminId=ADMIN){
  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode('olympus-site/session-incarnation-v1|'+SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']);
  return '__Host-olg='+body+'.'+b64u(new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(body))));
 }
+async function shortOriginalPreview(env,user,token){
+ const s=originalUserSession(user),binding=JSON.stringify(['private-role-audit283-v1',env.GUILD_ID,s.u,s.v,s.e,s.g,s.n,env.CANONICAL_RANKS233,null])+'|preview';
+ const key=await crypto.subtle.importKey('raw',await crypto.subtle.digest('SHA-256',new TextEncoder().encode('private-role-audit283-v1\0'+SECRET)),{name:'AES-GCM'},false,['encrypt','decrypt']);
+ const bytes=value=>Uint8Array.from(atob(value.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-value.length%4)%4)),c=>c.charCodeAt(0)),parts=token.split('.');
+ const value=JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:bytes(parts[1]),additionalData:new TextEncoder().encode(binding)},key,bytes(parts[2]))));
+ // A shorter original encrypted preview, never a renewed/extended operation.
+ value.issuedAt=Math.floor(Date.now()/1000);value.expiresAt=value.issuedAt+5;
+ const iv=crypto.getRandomValues(new Uint8Array(12)),sealed='1.'+b64u(iv)+'.'+b64u(new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:new TextEncoder().encode(binding)},key,new TextEncoder().encode(JSON.stringify(value)))));
+ return {token:sealed,expiresAt:value.expiresAt};
+}
 export default {async fetch(request,bindings){
  const path=new URL(request.url).pathname;
  if(path==='/setup'){if(ready)return new Response(null,{status:409});await setup(bindings.DB);return Response.json({cookie:await cookie(),admin:ADMIN,subject:String(BASE),role:ROLE,council:CANONICAL_RANKS233[1].roleId,officer:CANONICAL_RANKS233[2].roleId,ranks:CANONICAL_RANKS233,nativeRows:1000});}
@@ -104,22 +114,26 @@ export default {async fetch(request,bindings){
  }
  if(path==='/effect-run'){
   const spec=await request.json(),kind=spec.kind;if(effects.has(kind))return new Response(null,{status:409});
-  const adminId=String(800000000000000100n+BigInt(['baseline','before-denied','after-denied','before-export','wrong-role'].indexOf(kind)));
+  const adminId=String(800000000000000100n+BigInt(['baseline','before-denied','after-denied','before-export','wrong-role','preview-expired'].indexOf(kind)));
   const original={config,rawDB,ready};await setup(bindings['DB_EFFECT_'+kind.replaceAll('-','_')],'recorded-live-pre-seal-20261017',adminId);
   const state={config:{...config,DISCORD_BOT_TOKEN:'role-audit-effect-'+kind},db:rawDB,adminId};effects.set(kind,state);({config,rawDB,ready}=original);
   const cookieValue=await cookie(adminId),start=physical,invoke=async(method,body={})=>{
    const req=new Request('https://guild.example/api/admin/role-audit',{method,headers:{Cookie:cookieValue,Origin:'https://guild.example','X-Olympus':'2'}}),user=await currentUser(state.config,req);
    const response=await handleSiteRoleAudit283(req,privacyBoundSiteEnv(state.config,originalUserSession(user)),user,body);return {status:response.status,body:await response.json()};
   };
-  const preview=await invoke('GET'),row=preview.body.rows?.[0];let action;
+  const preview=await invoke('GET'),row=preview.body.rows?.[0];let action,previewExpiresAt=null;
+  if(kind==='preview-expired'&&row?.previewToken){
+   const req=new Request('https://guild.example/api/admin/role-audit',{headers:{Cookie:cookieValue}}),user=await currentUser(state.config,req),shortened=await shortOriginalPreview(state.config,user,row.previewToken);
+   row.previewToken=shortened.token;previewExpiresAt=shortened.expiresAt;
+  }
   if(kind==='wrong-role'){
    const req=new Request('https://guild.example/api/admin/role-audit',{headers:{Cookie:cookieValue}}),user=await currentUser(state.config,req),snapshot=await state.db.prepare('SELECT exported_at FROM roster_snapshots WHERE id=1').first();
-   const bound=privacyBoundSiteRoleActionEnv(privacyBoundSiteEnv(state.config,originalUserSession(user)),originalUserSession(user),{subject:String(BASE),snapshotId:1,snapshotAt:snapshot.exported_at,expectedRole:ROLE});
+   const bound=privacyBoundSiteRoleActionEnv(privacyBoundSiteEnv(state.config,originalUserSession(user)),originalUserSession(user),{subject:String(BASE),snapshotId:1,snapshotAt:snapshot.exported_at,expectedRole:ROLE,expiresAt:Math.floor(Date.now()/1000)+120});
    action={status:200,body:await reconcileRoleBatch242(bound,[String(BASE)])};
   }else action=row?.previewToken?await invoke('POST',{subject:row.id,previewToken:row.previewToken,confirm:true}):{status:409,body:{error:'fixture_preview_not_ready',preview:preview.body.error}};
   const receipts=(await state.db.prepare('SELECT id,purpose,role_id,desired,state,reason,attempts,request_digest,claim_nonce FROM role_settlements WHERE subject=?1 ORDER BY created_at,id').bind(String(BASE)).all()).results;
   const actor=await state.db.prepare('SELECT denied,in_server FROM site_users WHERE discord_id=?1').bind(state.adminId).first();
-  return Response.json({previewStatus:preview.status,previewReady:!!row?.previewToken,action,receipts,actor,statements:physical-start,actualLocalWorkerdD1:true});
+  return Response.json({previewStatus:preview.status,previewReady:!!row?.previewToken,previewExpiresAt,action,receipts,actor,statements:physical-start,actualLocalWorkerdD1:true});
  }
  if(path==='/unit'){
   const t=Math.floor(Date.now()/1000),manual=CANONICAL_RANKS233[2].roleId;
@@ -150,12 +164,16 @@ export default {async fetch(request,bindings){
   const req=new Request('https://guild.example/api/admin/role-audit',{headers:{Cookie:spec.cookie}}),user=await currentUser(env,req);
   if(!user)return Response.json({error:'native_guard_actor_missing'},{status:409});
   const snapshot=await rawDB.prepare('SELECT id,exported_at FROM roster_snapshots WHERE id=1').first(),expected=CANONICAL_RANKS233[1].roleId;
-  const selection={subject:String(BASE),snapshotId:snapshot.id,snapshotAt:snapshot.exported_at,expectedRole:expected};
+  const selection={subject:String(BASE),snapshotId:snapshot.id,snapshotAt:snapshot.exported_at,expectedRole:expected,expiresAt:Math.floor(Date.now()/1000)+120};
   if(spec.wrong==='subject')selection.subject=String(BASE+1n);
   if(spec.wrong==='snapshot')selection.snapshotId++;
   if(spec.wrong==='export')selection.snapshotAt--;
   if(spec.wrong==='role')selection.expectedRole=ROLE;
-  const bound=privacyBoundSiteRoleActionEnv(privacyBoundSiteEnv(env,originalUserSession(user)),originalUserSession(user),selection);
+  if(spec.wrong==='expired')selection.expiresAt=Math.floor(Date.now()/1000)-1;
+  if(spec.wrong==='malformed-expiry')selection.expiresAt='not-a-time';
+  if(spec.wrong==='missing-expiry')delete selection.expiresAt;
+  if(spec.wrong==='unknown-field')selection.extra=true;
+  let bound;try{bound=privacyBoundSiteRoleActionEnv(privacyBoundSiteEnv(env,originalUserSession(user)),originalUserSession(user),selection);}catch{return Response.json({captured:false,selectionRefused:true,statements:physical-before,actualLocalWorkerdD1:true});}
   const cap=await captureRoutineMembership232(bound,String(BASE));
   if(!cap)return Response.json({captured:false,statements:physical-before,actualLocalWorkerdD1:true});
   try{

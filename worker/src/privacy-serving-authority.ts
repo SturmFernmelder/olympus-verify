@@ -73,7 +73,7 @@ type AuthorityPlan=Readonly<{sql:string;values:readonly AuthorityBind[]|null}>;
 type AuthorityMethod=Readonly<{receiver:object;owner:object;fn:Function}>;
 type AuthorityContext=Readonly<{base:D1Database;check:()=>void;guard:AuthorityPlan|null;purpose:'site_session'|'subject_generation'|'provider_custody'}>;
 const authorityContexts=new WeakMap<D1Database,AuthorityContext>(),custodyByEnv=new WeakMap<Env,D1Database>();
-export type SiteRoleActionSelection283=Readonly<{subject:string;snapshotId:number;snapshotAt:number;expectedRole:string}>;
+export type SiteRoleActionSelection283=Readonly<{subject:string;snapshotId:number;snapshotAt:number;expectedRole:string;expiresAt:number}>;
 export type SiteRoleActionAuthority283=Readonly<{sql:string;selection:SiteRoleActionSelection283|null;current:()=>void}>;
 const siteRoleActions283=new WeakMap<D1Database,SiteRoleActionAuthority283>();
 type OriginalAuthorityProjection=Readonly<{logical:readonly AuthorityPlan[];records:readonly object[];check:()=>void}>;
@@ -150,15 +150,15 @@ export function privacyBoundSiteRoleActionEnv(env:Env,session:OriginalSiteSessio
  const current=()=>{if(JSON.stringify(authoritySession(session))!==JSON.stringify(captured)||env.SITE_ADMINS!==admins||!isSiteAdmin(env,captured.u))return authorityHeld();};current();
  let selected:SiteRoleActionSelection283|null=null;
  if(selection!==undefined){
-  if(!selection||typeof selection!=='object'||Reflect.ownKeys(selection).length!==4||Reflect.ownKeys(selection).some(k=>typeof k!=='string'||!['subject','snapshotId','snapshotAt','expectedRole'].includes(k)))return authorityHeld();
-  const subject=authorityData(selection,'subject'),snapshotId=authorityData(selection,'snapshotId'),snapshotAt=authorityData(selection,'snapshotAt'),expectedRole=authorityData(selection,'expectedRole');
-  if(typeof subject!=='string'||!ID.test(subject)||typeof expectedRole!=='string'||!ID.test(expectedRole)||typeof snapshotId!=='number'||!Number.isSafeInteger(snapshotId)||snapshotId<1||typeof snapshotAt!=='number'||!Number.isSafeInteger(snapshotAt)||snapshotAt<1)return authorityHeld();
-  selected=Object.freeze({subject,snapshotId,snapshotAt,expectedRole});
+  if(!selection||typeof selection!=='object'||Reflect.ownKeys(selection).length!==5||Reflect.ownKeys(selection).some(k=>typeof k!=='string'||!['subject','snapshotId','snapshotAt','expectedRole','expiresAt'].includes(k)))return authorityHeld();
+  const subject=authorityData(selection,'subject'),snapshotId=authorityData(selection,'snapshotId'),snapshotAt=authorityData(selection,'snapshotAt'),expectedRole=authorityData(selection,'expectedRole'),expiresAt=authorityData(selection,'expiresAt');
+  if(typeof subject!=='string'||!ID.test(subject)||typeof expectedRole!=='string'||!ID.test(expectedRole)||typeof snapshotId!=='number'||!Number.isSafeInteger(snapshotId)||snapshotId<1||typeof snapshotAt!=='number'||!Number.isSafeInteger(snapshotAt)||snapshotAt<1||typeof expiresAt!=='number'||!Number.isSafeInteger(expiresAt)||expiresAt<=snapshotAt||expiresAt>captured.e)return authorityHeld();
+  selected=Object.freeze({subject,snapshotId,snapshotAt,expectedRole,expiresAt});
  }
  // These literals are closed validated cookie/scalar data, never caller SQL.
  const sql=`(EXISTS(SELECT 1 FROM site_users WHERE discord_id='${captured.u}' AND session_version=${captured.v} AND ${privacyAccountIncarnationLiteralFenceSql('account_incarnation',captured.n)} AND denied=0 AND in_server=1)
  AND NOT EXISTS(SELECT 1 FROM members WHERE discord_id='${captured.u}' AND banned=1)
- AND ${captured.e}>${PRIVACY_DB_NOW} AND ${privacyGenerationLiteralFenceSql("'"+captured.u+"'",captured.g)}${selected?` AND EXISTS(SELECT 1 FROM roster_snapshots WHERE id=${selected.snapshotId} AND id=(SELECT MAX(id) FROM roster_snapshots) AND exported_at=${selected.snapshotAt} AND complete=1 AND trusted=1)`:''})`;
+ AND ${captured.e}>${PRIVACY_DB_NOW} AND ${privacyGenerationLiteralFenceSql("'"+captured.u+"'",captured.g)}${selected?` AND ${selected.expiresAt}>${PRIVACY_DB_NOW} AND EXISTS(SELECT 1 FROM roster_snapshots WHERE id=${selected.snapshotId} AND id=(SELECT MAX(id) FROM roster_snapshots) AND exported_at=${selected.snapshotAt} AND complete=1 AND trusted=1)`:''})`;
  const guard=Object.freeze({sql:`SELECT CASE WHEN ${sql} THEN 1 ELSE json_extract('privacy_site_request_refused','$') END AS admitted`,values:null});
  const bound=privacyBoundDbEnv(env,guard,'site_session',current);
  siteRoleActions283.set(bound.DB,Object.freeze({sql,selection:selected,current}));return bound;

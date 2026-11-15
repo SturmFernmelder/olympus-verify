@@ -209,5 +209,7 @@ for _,isSteward in ipairs({false,true}) do
   local other=mixed.e.OlympusVerifyNativeRankConstants.profiles[isSteward and 1 or 2]
   local names={};for i,name in ipairs(other.names) do names[i]=name end
   mixed.e.OlympusLaunchSelected.page.rankNames=names
-  assert(not mixed.q.Current() and not mixed.click() and mixed.clicks==0,'reviewed names cannot be mixed with another profile and digest')
+  local current=mixed.q.Current()
+  assert(current==nil or current.actionHeld==true and #current.promotions==0,'mixed profile metadata cannot produce a positive recommendation; an advisory held context may remain')
+  assert(not mixed.click() and mixed.clicks==0,'reviewed names cannot be mixed with another profile and digest for a native action')
 end

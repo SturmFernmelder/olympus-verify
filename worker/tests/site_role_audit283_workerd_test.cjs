@@ -3,7 +3,7 @@
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const {build,stop}=require('esbuild'),{Miniflare,Log,LogLevel,convertV4MiniflareOptions}=require('miniflare');
 const root=path.join(__dirname,'..'),out=fs.mkdtempSync(path.join(os.tmpdir(),'olympus-role-audit283-')),hash=v=>crypto.createHash('sha256').update(v).digest('hex');
-let mf,fixture,http=[],cases=[],setup;const BASE=800000000000001000n,effectKinds=['baseline','before-denied','after-denied','before-export','wrong-role'],effectRoles=new Map(),effectMutated=new Set();
+let mf,fixture,http=[],cases=[],setup;const BASE=800000000000001000n,effectKinds=['baseline','before-denied','after-denied','before-export','wrong-role','preview-expired'],effectRoles=new Map(),effectMutated=new Set(),effectWaits=new Map();
 const check=(name,pass,detail)=>{cases.push({name,pass:!!pass,detail});console.log((pass?'PASS ':'FAIL ')+name+(pass?'':' '+JSON.stringify(detail).slice(0,1800)));};
 const run=async spec=>{const r=await mf.dispatchFetch('http://fixture.invalid/run',{method:'POST',body:JSON.stringify({cookie:setup?.cookie,...spec})});assert.equal(r.status,200);return r.json();};
 const mutate=async kind=>{const r=await mf.dispatchFetch('http://fixture.invalid/mutate',{method:'POST',body:JSON.stringify({kind})});assert.equal(r.status,200,await r.text());};
@@ -21,6 +21,9 @@ const whole=setTimeout(()=>{console.error('role-audit283 whole-command deadline'
    const change=async what=>{effectMutated.add(kind);const r=await mf.dispatchFetch('http://fixture.invalid/effect-mutate',{method:'POST',body:JSON.stringify({kind,change:what})});assert.equal(r.status,200,await r.text());};
    if(request.method==='GET'&&p==='/users/@me')return Response.json({id:BOT,bot:true});
    if(request.method==='GET'&&p==='/guilds/'+G+'/roles'){
+    if(!effectMutated.has(kind)&&kind==='preview-expired'){
+     effectMutated.add(kind);const beganAt=Math.floor(Date.now()/1000);await new Promise(resolve=>setTimeout(resolve,5000));effectWaits.set(kind,{beganAt,finishedAt:Math.floor(Date.now()/1000),waitedMilliseconds:5000});
+    }
     if(!effectMutated.has(kind)&&kind==='before-denied')await change('denied');
     if(!effectMutated.has(kind)&&kind==='before-export')await change('export');
     return Response.json([{id:G,position:0,permissions:'0',managed:false},{id:BOTROLE,position:40,permissions:'268435456',managed:false},{id:EXTERNAL,position:1,permissions:'0',managed:false},...setup.ranks.map((r,i)=>({id:r.roleId,name:r.name,position:30-i,permissions:'0',managed:false}))]);
@@ -87,7 +90,7 @@ const whole=setTimeout(()=>{console.error('role-audit283 whole-command deadline'
   check('actual Native capture→custody→new-effect predicate retains original admin '+kind+' fence after provider wait',g.status===200&&r.captured&&r.matches&&r.prior?.ok===1&&r.after?.ok===0&&r.receipt?.ok===1,r);
   await mutate('restore');
  }
- for(const wrong of ['subject','snapshot','export','role']){
+ for(const wrong of ['subject','snapshot','export','role','expired','malformed-expiry','missing-expiry','unknown-field']){
   const g=await mf.dispatchFetch('http://fixture.invalid/native-guard',{method:'POST',body:JSON.stringify({wrong,cookie:setup.cookie})}),r=await g.json();
   check('Native action retains exact preview '+wrong+' pin',g.status===200&&(wrong==='role'?r.captured&&r.matches===false:r.captured===false),r);
  }
@@ -115,6 +118,7 @@ const whole=setTimeout(()=>{console.error('role-audit283 whole-command deadline'
   if(kind==='before-denied')check('actual Native writer blocks PUT when original admin is denied during inventory GET',r.status===200&&result.previewReady&&result.actor?.denied===1&&puts.length===0&&deletes.length===0&&!recorded.some(x=>x.attempts===1),{result,traffic});
   if(kind==='before-export')check('actual Native writer blocks PUT when sealed original export changes during inventory GET',r.status===200&&result.previewReady&&effectMutated.has(kind)&&puts.length===0&&deletes.length===0&&!recorded.some(x=>x.attempts===1),{result,traffic});
   if(kind==='wrong-role')check('actual Native writer rejects a different expected role before any effect',r.status===200&&result.previewReady&&puts.length===0&&deletes.length===0&&result.action?.body?.results?.[0]?.reason==='attended_role_preview_changed',{result,traffic});
+  if(kind==='preview-expired')check('actual Native writer retains original sealed preview deadline across a real provider wait and sends no PUT',r.status===200&&result.previewReady&&effectWaits.has(kind)&&effectWaits.get(kind).finishedAt>=result.previewExpiresAt&&puts.length===0&&deletes.length===0&&!recorded.some(x=>x.attempts===1),{result,traffic,wait:effectWaits.get(kind)});
   if(kind==='after-denied'){
    const originals=recorded.filter(x=>x.desired===1&&x.attempts===1),compensations=recorded.filter(x=>x.desired===0&&x.attempts===1);
    check('post-PUT original admin revocation performs at most one owned compensation or retains an explicit uncertain outcome',r.status===200&&result.previewReady&&result.actor?.denied===1&&puts.length===1&&deletes.length<=1&&effectRoles.get(kind).has('900000000000000005')&&

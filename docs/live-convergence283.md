@@ -28,7 +28,7 @@ authority. Privacy-withheld history must never be described as complete.
 
 A selected correction uses an opaque, original-reader-bound preview and the
 existing Native reconciler. The original actor/session/incarnation/generation,
-standing, preview snapshot/export time and expected role remain restrictions
+standing, preview snapshot/export time, original expiry and expected role remain restrictions
 through custody unwrapping and final new-effect SQL. Original ACK recording and
 owned compensation use their existing separate custody; no old request is
 reset, replayed, relabelled or marked delivered by a new observation.
@@ -72,13 +72,25 @@ live-convergence evidence folder.
 Component results are not a final exact-head pass. The completed native 58-case
 Workerd/D1 run predates the new attended action restriction. The subsequent
 private-read 43-case run and 11-case DOM run did not exercise a successful nested
-writer effect or post-PUT compensation. Those limits are retained until the
-full current release gate finishes. A subsequent extended 50-case Workerd/D1 run
-passed, including an acknowledged grant, no PUT after actor revocation or changed
+writer effect or post-PUT compensation; those historical receipts keep their own
+limits. A subsequent extended 55-case Workerd/D1 run passed, including an
+acknowledged grant, no PUT after original preview expiry, actor revocation or changed
 preview source, and one owned compensation after a landed PUT. The latter returned
 403 to the revoked actor, retained the original compensated grant and recorded its
 acknowledged child DELETE. Read requests used 71 physical statements through the
 normal Worker route; query plans used the existing character/settlement indexes.
+
+The first four-target gate stopped at a stale compatibility-fixture expectation:
+the exact newly reviewed Steward table now has its own profile. The updated
+fixture separately requires the old policy to refuse that profile and retains
+its previous unknown-name/null-profile compatibility case. The first offline
+Lua gate passed 52 of 53 suites; its new negative fixture incorrectly expected
+no context where the addon deliberately keeps a held advisory context with no
+positive recommendation. The assertion now checks that behavior and no native
+action. Both failed runs are preserved. The first full Watcher capture was
+incomplete after an output-wrapper encoding error, with no collected test totals
+or child exit; it is not recorded as a Watcher test failure or pass. Fresh gates
+on the corrected frozen candidate are still required.
 
 Before rollout: freeze the final commit/tree, verify current generated artifacts,
 run TypeScript, the four bounded Workerd/D1 targets, all offline Lua suites and
