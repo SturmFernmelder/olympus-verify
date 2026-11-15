@@ -88,6 +88,58 @@ Object.defineProperty(Element.prototype, 'value', { ...value184, set(value) {
   await new Promise(resolve => setTimeout(resolve, 210));
   check('a late old closed-role summary cannot damage the replacement role or either special label', late184.app.querySelector('.role-pick')?.value === 'officer' && late184.app.querySelector('.role-item[aria-current="page"] .n')?.textContent === '0/1' && option184(late184, 'co_gm')?.textContent === label184(late184, 'co_gm') + ' (appointed)' && !!marker184(late184, 'co_gm', 'appointed') && option184(late184, 'pvp_leader')?.textContent === label184(late184, 'pvp_leader') + ' (no public vote)' && lateReads184.filter(call => call.pathname === '/api/board').length === 2);
   check('all exercised navigation remains read-only and preserves the seeded settings, application and zero votes', calls184.every(call => call.method === 'GET') && one('SELECT COUNT(*) AS n FROM site_board_votes').n === 0 && one('SELECT COUNT(*) AS n FROM site_applications').n === 1 && one("SELECT value FROM site_settings WHERE key='appointed'").value === appointed184 && one("SELECT value FROM site_settings WHERE key='noVote'").value === JSON.stringify(['pvp_leader']));
+
+  // Unit h3, the owner's question of 15 Nov 2026 ("Shouldn't .../#/vote already have assigned HC roles since we have them
+  // ingame and on Discord?"): the board lists every current High Council portfolio with the holder from the website
+  // appointment record only, or the existing fallback. The expected portfolios and their order are the Council register,
+  // governance/organization.json councilComposition.currentSeats without the Guild Master's chair, not the page's code.
+  const register184 = JSON.parse(fs.readFileSync(path.join(root, 'public', 'static', 'governance', 'organization.json'), 'utf8')).councilComposition.currentSeats.filter(seat => seat.familyKey !== 'leader').map(seat => [seat.officeKeys[0], seat.label]);
+  const none184 = 'No website appointment recorded.';
+  const panelOf184 = page => { const kids = page.app.querySelector('main')?.children || []; return kids.length === 3 ? kids[2] : null; };
+  const shape184 = page => {
+    const kids = page.app.querySelector('main')?.children || [], panel = kids[2], list = panel?.children[1];
+    return kids.length === 3 && kids[0].querySelector('.plaque')?.textContent === 'Leadership applications board' && kids[1].classList.contains('board-layout')
+      && panel.tagName === 'SECTION' && panel.classList.contains('frame') && panel.children.length === 2 && panel.children[0].classList.contains('plaque') && panel.children[0].textContent === 'High Council portfolios'
+      && list.tagName === 'DL' && list.classList.contains('kv') && JSON.stringify(list.children.map(el => el.tagName)) === JSON.stringify(register184.flatMap(() => ['DT', 'DD']))
+      && JSON.stringify(list.querySelectorAll('dt').map(dt => dt.textContent)) === JSON.stringify(register184.map(([, label]) => label));
+  };
+  const rows184 = page => JSON.stringify((panelOf184(page)?.querySelectorAll('dd') || []).map(dd => [dd.getAttribute('data-council-holder'), dd.textContent, dd.querySelector('[data-appointment-label]')?.getAttribute('data-appointment-label') || null]));
+  const expected184 = holders => JSON.stringify(register184.map(([key]) => [key, ...(holders[key] || [none184, null])]));
+  const note184 = page => page.app.querySelector('.board-role-content .notice-box');
+  const openHolders184 = async (appointed, hash, answer) => {
+    await fixtureRun("UPDATE site_settings SET value=? WHERE key='appointed'", JSON.stringify(appointed));
+    const page = await openPage(MEMBER), reads = [];
+    page.before(pathname => { reads.push(pathname); return false; });
+    if (answer) page.answer(answer);
+    await page.go(hash);
+    await waitFor(() => page.app.querySelector('.board-summary-status')?.textContent === '' && !!panelOf184(page), hash + ' summary and holders panel');
+    await new Promise(resolve => setTimeout(resolve, 250));
+    return { page, reads };
+  };
+
+  const seeded184 = await openHolders184({ co_gm: 'Example Co-GM', treasurer: 'Example Treasurer' }, '#/vote/officer');
+  check('h3 the board shows one High Council portfolios panel after the board, with the thirteen register portfolios in register order', register184.length === 13 && shape184(seeded184.page));
+  check('h3 each portfolio shows its holder through the key the record is stored under, and the fallback where nothing is recorded', rows184(seeded184.page) === expected184({ office_19: ['Appointed: Example Co-GM.', 'co_gm'], office_86: ['Appointed: Example Treasurer.', 'treasurer'] }), rows184(seeded184.page));
+
+  const hand184 = await openHolders184({ office_19: 'Recorded Hand', office_101: 'Recorded Justiciar', office_96: '<@' + OTHER + '>' }, '#/vote/co_gm');
+  const handNote184 = note184(hand184.page);
+  check('h3 a record under office_19 closes the co_gm ballot and names that record as the source', shape184(hand184.page) && option184(hand184.page, 'co_gm')?.textContent === label184(hand184.page, 'co_gm') + ' (appointed)' && !!marker184(hand184.page, 'co_gm', 'appointed') && closed184(hand184.page)
+    && handNote184?.textContent === 'Appointed: Recorded Hand. ' + label184(hand184.page, 'co_gm') + ' is filled by appointment rather than by the board, so there is nothing to vote on or write in here.' && handNote184.querySelector('[data-appointment-label]')?.getAttribute('data-appointment-label') === 'office_19', handNote184?.textContent);
+  check('h3 recorded typed holders show as recorded, an account holder the projection does not name keeps the opaque label, every other portfolio the fallback', rows184(hand184.page) === expected184({ office_19: ['Appointed: Recorded Hand.', 'office_19'], office_101: ['Appointed: Recorded Justiciar.', 'office_101'], office_96: ['Filled by appointment.', 'office_96'] }) && hand184.reads.some(pathname => pathname.startsWith('/api/appointed-identities')), rows184(hand184.page));
+
+  const both184 = await openHolders184({ co_gm: 'Exact Co-GM record', office_19: 'Exact Hand record' }, '#/vote/co_gm');
+  check('h3 with records under both co_gm and office_19, the ballot and the portfolio each read their own record first', shape184(both184.page) && note184(both184.page)?.textContent.startsWith('Appointed: Exact Co-GM record. ') && note184(both184.page).querySelector('[data-appointment-label]')?.getAttribute('data-appointment-label') === 'co_gm'
+    && rows184(both184.page) === expected184({ office_19: ['Appointed: Exact Hand record.', 'office_19'] }), rows184(both184.page));
+
+  const ranks184 = await openHolders184({ rank_high_council: 'Rank holder', rank_treasurer: 'Rank treasurer record', office_45: 'High Council office record', office_92: 'Vice Guild Master record' }, '#/vote/officer');
+  check('h3 a record under the High Council rank, the historical Treasurer rank key or another High Council office fills no portfolio and closes neither co_gm nor treasurer', shape184(ranks184.page) && rows184(ranks184.page) === expected184({})
+    && !option184(ranks184.page, 'co_gm')?.textContent.endsWith('(appointed)') && !option184(ranks184.page, 'treasurer')?.textContent.endsWith('(appointed)') && !marker184(ranks184.page, 'co_gm', 'appointed') && !marker184(ranks184.page, 'treasurer', 'appointed'), rows184(ranks184.page));
+
+  // The page's existing projection reader names an account holder by the stored key; this reply has the contract's shape.
+  const projected184 = await openHolders184({ co_gm: '<@' + OTHER + '>' }, '#/vote/officer', pathname => pathname.startsWith('/api/appointed-identities')
+    ? { scope: 'qualified_community_readers', identities: [{ role: 'co_gm', appointment: '<@' + OTHER + '>', displayName: 'Projected Hand', username: 'projected_hand', characters: [] }], revision: 'A'.repeat(43), nextCursor: null, complete: true } : null);
+  check('h3 the identity reader asks for the stored key co_gm and its name fills the office_19 portfolio only', shape184(projected184.page) && projected184.reads.includes('/api/appointed-identities?role=co_gm')
+    && rows184(projected184.page) === expected184({ office_19: ['Appointed: Projected Hand (projected_hand).', 'co_gm'] }), rows184(projected184.page), JSON.stringify(projected184.reads));
   console.log('\n' + ok + '/' + n + ' vote labels184 checks passed'); process.exit(ok === n ? 0 : 1);
 })().catch(error => { console.error(error); process.exit(1); });
 `;
