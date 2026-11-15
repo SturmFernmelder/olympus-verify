@@ -1851,7 +1851,7 @@
   // Titles identify the section, never a private account, event or case from an address.
   function routeTitle(route) {
     const [head, sub, detail, action] = route.split("/");
-    const staff = { "": "Overview", applications: detail ? "Application details" : "Applications", votes: "Votes", names: "Reserved names", "launch-operations": "Launch operations & MOTD", friends: "Friends", lookup: "Lookup", settings: "Settings", appointments: "Appointed roles", ranks: "Rank planner", treasury: "Treasury", "donation-ledger": "Donation ledger", "approved-guilds": "Signed guild list", renames: "Renames", news: "News", audit: "Audit log", "ruleset-publication": "Ruleset publication", "directory-visibility": "Discord member list preferences", community: "Community" };
+    const staff = { "": "Overview", applications: detail ? "Application details" : "Applications", votes: "Votes", names: "Reserved names", "launch-operations": "Launch operations & MOTD", friends: "Friends", lookup: "Lookup", settings: "Settings", appointments: "Appointed roles", ranks: "Rank planner", "role-audit": "Discord role audit", treasury: "Treasury", "donation-ledger": "Donation ledger", "approved-guilds": "Signed guild list", renames: "Renames", news: "News", audit: "Audit log", "ruleset-publication": "Ruleset publication", "directory-visibility": "Discord member list preferences", community: "Community" };
     const staffCommunity = { trials: "Trials", departures: "Departures", cases: "Restriction cases", ledger: "Contribution ledger", inbox: "Private requests", claims: "Character claims" };
     if (head === "admin") return `Admin · ${sub === "community" && own(staffCommunity, detail) ? staffCommunity[detail] : own(staff, sub || "") ? staff[sub || ""] : "Overview"}`;
     if (head === "community") {
@@ -4660,7 +4660,7 @@
   function adminGroups() {
     return [
       ["Applications & Roster", [["", "Overview"], ["applications", "Applications"], ["votes", "Votes"], ["names", "Reserved names"], ["friends", "Friends"], ["lookup", "Lookup"], ["renames", "Renames"], ["directory-visibility", "Discord member list preferences"]]],
-      ["Governance, Ranks & Appointments", [["appointments", "Appointed roles"], ["ranks", "Rank planner"], ["approved-guilds", "Signed guild list"]]],
+      ["Governance, Ranks & Appointments", [["appointments", "Appointed roles"], ["ranks", "Rank planner"], ["role-audit", "Discord role audit"], ["approved-guilds", "Signed guild list"]]],
       ["Imperial Treasury & Stockades", [["treasury", "Treasury"], ["donation-ledger", "Donation ledger"]]],
       ["News, Calendar & Operations", [["news", "News"], ...(feat("events") ? [["#/community/calendar", "Calendar"]] : []), ["launch-operations", "Launch operations & MOTD"], ...(anyCommunity() ? [["community", "Community"]] : [])]],
       ["System Settings & Compliance", [["settings", "Settings"], ["audit", "Audit log"], ["ruleset-publication", "Ruleset publication"]]]
@@ -4703,6 +4703,7 @@
       "donation-ledger": adminDonationLedger242,
       "directory-visibility": adminDirectoryVisibility,
       'approved-guilds': adminApprovedGuilds,
+      'role-audit': adminRoleAudit283,
       ranks: (b) => adminRankPlanner(b, dec(parts[1] || "")),
       renames: adminRenames, // .114
       news: (b) => adminNews(b), // .115
@@ -4752,6 +4753,20 @@
       const slotRow = /^(?:[1-9]|10)$/.test(rankAnchor) ? node.querySelector("#rank-planner-current-rank-" + rankAnchor) : null;
       if (slotRow) { slotRow.setAttribute("tabindex", "-1"); scrollToSection(slotRow); slotRow.focus({ preventScroll: true }); }
     } catch (error) { if (live()) { clear(body); add(body, noticeBox("warn", "icon-warning", h("p", {text:explain(error,"The rank planner could not be opened.")}))); } }
+  }
+
+  async function adminRoleAudit283(body) {
+    const owner = S.user, route = currentRoute(); let disposed = false, instance = null;
+    const live = () => !disposed && S.signedIn && !S.denied && S.user === owner && owner?.isAdmin && currentRoute() === route && app.contains(body);
+    const dispose = () => { if (disposed) return; disposed = true; instance?.destroy(); if (disposeTool === dispose) disposeTool = null; };
+    disposeTool = dispose;
+    clear(body); add(body, h("p", {role:"status", text:"Opening the private role audit…"}));
+    try {
+      await loadMemberScript("mountRoleAudit283", "/static/role-audit283.js"); if (!live()) return;
+      clear(body);
+      const privateApi = async (...args) => { if (!live()) throw Error("This role audit is no longer open. Reopen it to continue."); const result = await api(...args); if (!live()) throw Error("The original role audit session changed."); return result; };
+      instance = window.mountRoleAudit283(body, {api:privateApi}); if (!live()) instance?.destroy();
+    } catch (error) { if (live()) { clear(body); add(body, errorLine(explain(error,"The private role audit could not be opened."))); } }
   }
 
   async function adminApprovedGuilds(body) {

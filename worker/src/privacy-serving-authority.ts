@@ -14,7 +14,7 @@ import {ORIGINAL_REQUEST_DESCRIPTORS,ORIGINAL_HEADER_DESCRIPTORS,checkOriginalNa
 import {originalPrivacyAdmissionOpaqueReference,originalPrivacyAdmissionGroupProjection,createPrivacyAdmissionAlias,copyPrivacyAdmissionBind,isPrivacyWriteAdmissionDatabase,admissionTransportCost,privacyAdmissionAliasDescendsFrom,assertPrivacyAdmissionWitness,admissionPlanWrites} from './privacy-write-admission';
 import {staffCustodyProjectionSql,staffAccessDetails,type StaffAccessDetails,type StaffCustodyCounts} from './privacy-erasure-staff-custody';
 import type { PendingRow } from './db';
-import { readSession, sameOrigin, PAGE_VERSION, sign, verify, b64u, apiJson } from './site-core';
+import { readSession, sameOrigin, PAGE_VERSION, sign, verify, b64u, apiJson, isSiteAdmin } from './site-core';
 import {inactiveBetaRetentionSatisfiedSql} from './privacy-retention-clocks';
 import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
 import {heldCause,elapsedClass,clockMs,type HeldCause,type HeldGroup} from './log';
@@ -73,6 +73,9 @@ type AuthorityPlan=Readonly<{sql:string;values:readonly AuthorityBind[]|null}>;
 type AuthorityMethod=Readonly<{receiver:object;owner:object;fn:Function}>;
 type AuthorityContext=Readonly<{base:D1Database;check:()=>void;guard:AuthorityPlan|null;purpose:'site_session'|'subject_generation'|'provider_custody'}>;
 const authorityContexts=new WeakMap<D1Database,AuthorityContext>(),custodyByEnv=new WeakMap<Env,D1Database>();
+export type SiteRoleActionSelection283=Readonly<{subject:string;snapshotId:number;snapshotAt:number;expectedRole:string}>;
+export type SiteRoleActionAuthority283=Readonly<{sql:string;selection:SiteRoleActionSelection283|null;current:()=>void}>;
+const siteRoleActions283=new WeakMap<D1Database,SiteRoleActionAuthority283>();
 type OriginalAuthorityProjection=Readonly<{logical:readonly AuthorityPlan[];records:readonly object[];check:()=>void}>;
 type OriginalAuthorityBatchLineage=Readonly<{kind:'ordinary'|'counted';parent:object;guardCount:number;check:()=>void}>;
 const originalAuthorityProjectors=new WeakMap<D1Database,(plan:D1PreparedStatement[])=>OriginalAuthorityProjection>();
@@ -138,6 +141,43 @@ export function privacyBoundSiteEnv(env:Env,session:OriginalSiteSession):Env{
  const captured=authoritySession(session),guard=Object.freeze({sql:`SELECT CASE WHEN EXISTS(SELECT 1 FROM site_users WHERE discord_id=?1 AND session_version=?2 AND ${privacyAccountIncarnationLiteralFenceSql('account_incarnation',captured.n)})
  AND ?3>${PRIVACY_DB_NOW} AND ${privacyGenerationFenceSql(1,4)} THEN 1 ELSE json_extract('privacy_site_request_refused','$') END AS admitted`,values:Object.freeze([captured.u,captured.v,captured.e,captured.g])});
  return privacyBoundDbEnv(env,guard,'site_session',()=>{if(JSON.stringify(authoritySession(session))!==JSON.stringify(captured))return authorityHeld();});
+}
+/** Attended role actions retain the original reader AND current administrator
+ * standing at every database group, including admissions after provider awaits.
+ * This adds no target or role authority; the Native writer still supplies both. */
+export function privacyBoundSiteRoleActionEnv(env:Env,session:OriginalSiteSession,selection?:SiteRoleActionSelection283):Env{
+ const captured=authoritySession(session),admins=env.SITE_ADMINS;
+ const current=()=>{if(JSON.stringify(authoritySession(session))!==JSON.stringify(captured)||env.SITE_ADMINS!==admins||!isSiteAdmin(env,captured.u))return authorityHeld();};current();
+ let selected:SiteRoleActionSelection283|null=null;
+ if(selection!==undefined){
+  if(!selection||typeof selection!=='object'||Reflect.ownKeys(selection).length!==4||Reflect.ownKeys(selection).some(k=>typeof k!=='string'||!['subject','snapshotId','snapshotAt','expectedRole'].includes(k)))return authorityHeld();
+  const subject=authorityData(selection,'subject'),snapshotId=authorityData(selection,'snapshotId'),snapshotAt=authorityData(selection,'snapshotAt'),expectedRole=authorityData(selection,'expectedRole');
+  if(typeof subject!=='string'||!ID.test(subject)||typeof expectedRole!=='string'||!ID.test(expectedRole)||typeof snapshotId!=='number'||!Number.isSafeInteger(snapshotId)||snapshotId<1||typeof snapshotAt!=='number'||!Number.isSafeInteger(snapshotAt)||snapshotAt<1)return authorityHeld();
+  selected=Object.freeze({subject,snapshotId,snapshotAt,expectedRole});
+ }
+ // These literals are closed validated cookie/scalar data, never caller SQL.
+ const sql=`(EXISTS(SELECT 1 FROM site_users WHERE discord_id='${captured.u}' AND session_version=${captured.v} AND ${privacyAccountIncarnationLiteralFenceSql('account_incarnation',captured.n)} AND denied=0 AND in_server=1)
+ AND NOT EXISTS(SELECT 1 FROM members WHERE discord_id='${captured.u}' AND banned=1)
+ AND ${captured.e}>${PRIVACY_DB_NOW} AND ${privacyGenerationLiteralFenceSql("'"+captured.u+"'",captured.g)}${selected?` AND EXISTS(SELECT 1 FROM roster_snapshots WHERE id=${selected.snapshotId} AND id=(SELECT MAX(id) FROM roster_snapshots) AND exported_at=${selected.snapshotAt} AND complete=1 AND trusted=1)`:''})`;
+ const guard=Object.freeze({sql:`SELECT CASE WHEN ${sql} THEN 1 ELSE json_extract('privacy_site_request_refused','$') END AS admitted`,values:null});
+ const bound=privacyBoundDbEnv(env,guard,'site_session',current);
+ siteRoleActions283.set(bound.DB,Object.freeze({sql,selection:selected,current}));return bound;
+}
+/** Capture before provider custody deliberately strips ordinary session SQL.
+ * Only registered source-owned contexts can carry an attended action. A Native
+ * issuer embeds this predicate in new-effect admissions, never in ACK custody. */
+export function captureSiteRoleActionAuthority283(env:Env):SiteRoleActionAuthority283|null{
+ const original=authorityBase(env);let db=original.base;const found:SiteRoleActionAuthority283[]=[];
+ for(let depth=0;depth<32;depth++){
+  const action=siteRoleActions283.get(db);if(action){action.current();found.push(action);}
+  const context=authorityContexts.get(db),counted=ownedCounted.get(db);
+  if(context){context.check();db=context.base;continue;}
+  if(counted){counted.check();if(!counted.registered)return authorityHeld();db=counted.parent;continue;}
+  if(!isPrivacyWriteAdmissionDatabase(db))return authorityHeld();
+  original.check();if(!found.length)return null;if(found.length!==1)return authorityHeld();
+  const captured=found[0]!;return Object.freeze({sql:captured.sql,selection:captured.selection,current:()=>{original.check();captured.current();original.check();}});
+ }
+ return authorityHeld();
 }
 /** Original subject/G or explicit absence is copied, with the existing active-state contract. */
 export function privacyBoundSubjectEnv(env:Env,subject:string,capture:PrivacySubject|null):Env{

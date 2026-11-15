@@ -6,12 +6,12 @@ import {callBudget} from '../src/roles.ts';
 import {betaResetReceiptRetentionStatements} from '../src/beta-reset-retention.ts';
 import {NATIVE_RANK_NAMES232,NATIVE_SCOPE232} from '../src/native-rank-reconciliation232.ts';
 import {CANONICAL_RANKS233,CANONICAL_PROFILE233,parseCanonicalRankPolicy233,canonicalNativeRole233} from '../src/canonical-ranks233.ts';
-import {DIRECTIVE_RANK_NAMES,DIRECTIVE_CANONICAL_PROFILE,DIRECTIVE_CANONICAL_INDEX,qualifiedNativeSnapshotSource} from '../src/native-rank-schemes.ts';
-import {DIRECTIVE_CANONICAL_SWEEP280_SELECT} from '../src/full-release-roles.ts';
+import {NATIVE_RANK_SCHEMES,qualifiedNativeSnapshotSource} from '../src/native-rank-schemes.ts';
+import {directiveCanonicalSweepSelect280} from '../src/full-release-roles.ts';
 const OLD230_DEBT='2bc8a653168cd702a7804fc1631abc6a68ee8200c500fb1345b3087387b89f86';
 const hex=b=>Array.from(new Uint8Array(b),x=>x.toString(16).padStart(2,'0')).join(''),H=async x=>hex(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(x)));
 const method=(o,k)=>{for(let p=o;p;p=Object.getPrototypeOf(p)){const d=Object.getOwnPropertyDescriptor(p,k);if(d){if(!Object.hasOwn(d,'value')||typeof d.value!=='function')throw Error('original_method');return d.value;}}throw Error('original_method');};
-export function fixture280(seed){const spent=new Set(),active=new Map();return {async fetch(request,bindings){
+export function fixture280(seed){const scheme=NATIVE_RANK_SCHEMES[seed.steward?1:0],DIRECTIVE_RANK_NAMES=scheme.names,DIRECTIVE_CANONICAL_PROFILE=scheme.canonicalProfile,DIRECTIVE_CANONICAL_INDEX=scheme.canonicalIndexes;const spent=new Set(),active=new Map();return {async fetch(request,bindings){
  const name=new URL(request.url).pathname.slice(1);
  if(name.startsWith('mutate/')){const kind=name.slice(7),a=active.get(kind);if(!a)return new Response(null,{status:404});if(kind==='await-row')await a.env.DB.prepare("UPDATE roster_members SET rank='Wrong rank' WHERE name_key='synthetic 17'").run();else if(kind==='await-generation')await a.env.DB.prepare("INSERT INTO privacy_subjects(subject_id,generation,state,revision,created_at,updated_at)VALUES(?1,?2,'active',1,?3,?3)").bind(a.subject,'9'.repeat(32),seed.now).run();else await a.env.DB.prepare("UPDATE roster_snapshots SET source='addon-native-v1:'||?1").bind(JSON.stringify(a.scope)).run();return Response.json({mutated:true});}
  const kind=name;if(request.method!=='POST'||spent.has(kind))return new Response(null,{status:404});spent.add(kind);
@@ -19,9 +19,9 @@ export function fixture280(seed){const spent=new Set(),active=new Map();return {
  const subject=seed.tables.find(t=>t.name==='pending').rows[0].discord_id,oldPolicy=kind.startsWith('old-policy'),oldSource=oldPolicy||kind.startsWith('old-source');
  const index=kind==='entitlement'?5:kind.startsWith('own-replace-')?0:/^[a-z-]+[0-9]$/.test(kind)?Number(kind.at(-1)):0,names=oldSource?NATIVE_RANK_NAMES232:DIRECTIVE_RANK_NAMES;
  const closure={...JSON.parse(seed.config.SHARED_MEMBERSHIP230_CLOSURE_JSON),debtPredicateSHA256:OLD230_DEBT,createdAt:seed.now-3600,expiresAt:seed.now-3300},closureJSON=JSON.stringify(closure),scope={version:1,...NATIVE_SCOPE232};
- const policy=JSON.stringify({version:oldPolicy?1:2,enabled:true,profile:oldPolicy?CANONICAL_PROFILE233:DIRECTIVE_CANONICAL_PROFILE,guildId:seed.config.GUILD_ID,ranks:CANONICAL_RANKS233.map(r=>({...r,permissions:'0'}))});
+ const policy=JSON.stringify({version:oldPolicy?1:seed.steward?3:2,enabled:true,profile:oldPolicy?CANONICAL_PROFILE233:DIRECTIVE_CANONICAL_PROFILE,guildId:seed.config.GUILD_ID,ranks:CANONICAL_RANKS233.map(r=>({...r,permissions:'0'}))});
  const config={...seed.config,VERIFY_NATIVE_SCOPE:JSON.stringify(scope),NATIVE_RANK_SYNC232:'off',QR_NATIVE_ROLE_MAP:'off',FULL_RELEASE_ROLES:'off',CANONICAL_RANKS233:policy,SHARED_MEMBERSHIP230_CLOSURE_JSON:closureJSON,SHARED_MEMBERSHIP230_CLOSURE_SHA256:await H(closureJSON),DISCORD_BOT_TOKEN:seed.config.DISCORD_BOT_TOKEN+'-'+kind};
- const source=oldSource?'addon-native-v1:'+JSON.stringify(scope):kind==='unqualified'?'addon-native-v2:'+JSON.stringify({version:2,guild:scope.guild,realm:scope.realm,rankProfile:null,rankSchemeDigest:null,rankNames:null}):qualifiedNativeSnapshotSource(scope.guild,scope.realm);
+ const source=oldSource?'addon-native-v1:'+JSON.stringify(scope):kind==='unqualified'?'addon-native-v2:'+JSON.stringify({version:2,guild:scope.guild,realm:scope.realm,rankProfile:null,rankSchemeDigest:null,rankNames:null}):qualifiedNativeSnapshotSource(scope.guild,scope.realm,scheme);
  if(kind==='entitlement')config.CANONICAL_ENTITLEMENTS233=JSON.stringify({version:1,profile:CANONICAL_PROFILE233,guildId:config.GUILD_ID,packetSHA256:'4'.repeat(64),entries:[{subject,generation:null,roleKey:'branch-gm'}]});
  const create=seed.objects.filter(x=>x.type!=='trigger'&&!x.name.startsWith('sqlite_')).map(x=>db.prepare(x.sql));while(create.length)await db.batch(create.splice(0,40));
  const order=['privacy_write_admission','privacy_rejection_expiry_control','site_settings','pending','roster_snapshots','roster_members','roster_first_seen','roster_effect_runs','audit'];
@@ -58,7 +58,7 @@ export function fixture280(seed){const spent=new Set(),active=new Map();return {
    const calls=callBudget(env);if(kind.startsWith('own-replace-budget'))calls.limit=Number(kind.slice('own-replace-budget'.length));
    repeat=await runNativeSubject232(env,subject,calls,kind==='own-replace-job1'?1:2);
   }
-  selector=(await env.DB.prepare(DIRECTIVE_CANONICAL_SWEEP280_SELECT).bind(config.GUILD_ID,'',8,0,'d'.repeat(32)).all()).results;
+  selector=(await env.DB.prepare(directiveCanonicalSweepSelect280(scheme.canonicalProfile)).bind(config.GUILD_ID,'',8,0,'d'.repeat(32)).all()).results;
   const retentionStart=wires.length,out=await env.DB.batch(betaResetReceiptRetentionStatements(env));retention={start:retentionStart,end:wires.length,success:out.every(r=>r.success===true)};
  }catch(e){error=String(e?.stack||e);}
  const end=wires.length,rows=await db.prepare('SELECT id,purpose,role_id,desired,state,reason,attempts,request_digest,claim_nonce,native_profile,native_rank,native_rank_name FROM role_settlements ORDER BY created_at,id').all(),characters=await db.prepare('SELECT status,guid FROM characters WHERE discord_id=?1').bind(subject).all(),control=await db.prepare('SELECT epoch,mode,active,nonce,purpose FROM privacy_write_admission').first(),after=await db.prepare('SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY type,name').all();

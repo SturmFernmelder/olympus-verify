@@ -34,6 +34,7 @@ import {
   currentPosition,
   HOUR_KEYS,
   isAppointed,
+  recordedAppointmentKey283,
   isLeadership,
   isNoVote,
   LIMITS,
@@ -73,7 +74,7 @@ import { handleTownCrierWebhook } from "./site-news-webhook";
 import { loadResourceUpdates, resourcePublicCache } from "./site-resources";
 import { appointedIdentitiesPage, appointmentAccountId, appointmentAccountStatuses, searchAppointmentMembers, canUseStreamShield, canEditTownCrier } from './site-appointed-identities';
 import { applicationTalentBuilds, sharedApplicationTalentBuilds, talentBuildAttachment, unchangedHistoricalTalentBuild } from './talent-build-attachment';
-import { validateApplicationIntent199, applicationIntentDto199, applicationRoleKeys199, reservedApplication201 } from './application-track199';
+import { validateApplicationIntent199, storedApplicationIntentDto199, applicationRoleKeys199, reservedApplication201 } from './application-track199';
 
 export const DENIED_TEXT =
   "Your registration with Olympus has been permanently denied. Joke and abusive applications are not reconsidered.";
@@ -987,7 +988,7 @@ async function boardRole(env: Env, user: SiteUser, roleKey: string, q: URLSearch
         choice, // 1 = their first choice, 2 or 3 = a backup
         // Only the written answers the application form says are shown here; logs, references and notes stay private.
         answers: Object.fromEntries(BOARD_ANSWERS.filter((k) => typeof answers[k] === "string").map((k) => [k, answers[k]])),
-        applicationIntent: answers.boardApplicationIntentOptIn === true ? applicationIntentDto199(answers) : null,
+        applicationIntent: answers.boardApplicationIntentOptIn === true ? storedApplicationIntentDto199(answers) : null,
         talentBuilds: sharedApplicationTalentBuilds(answers.talentBuilds, answers.boardTalentBuildsOptIn, { character: typeof r.character === "string" ? r.character : null, className: typeof r.class === "string" ? r.class : "", siteHost: env.SITE_HOST }, parseCharacterName),
         myVote: Number(r.myVote ?? 0),
         self: id === me,
@@ -998,7 +999,8 @@ async function boardRole(env: Env, user: SiteUser, roleKey: string, q: URLSearch
 
 /** Keep the conflict and closed role public without disclosing a private account association. */
 const appointedRole = (key: string, s: SiteSettings) => {
-  const appointed = generalAppointmentLabel(s.appointed[key]);
+  const sourceKey = recordedAppointmentKey283(s,key);
+  const appointed = generalAppointmentLabel(sourceKey ? s.appointed[sourceKey] : undefined);
   return apiJson({ error: "appointed", appointed, message: `${roleLabel(key)} has been appointed (${appointed}): there is no vote for it.` }, 409);
 };
 /** The answer for a role chosen without a public vote: it takes applications, but there is no board to show or vote on. */

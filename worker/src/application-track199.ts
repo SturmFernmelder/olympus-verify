@@ -69,3 +69,17 @@ export function applicationIntentDto199(answers: Record<string, unknown>): Appli
   const value = validateApplicationIntent199(answers.applicationTrack, answers.targetOffice, () => false);
   return value && !('error' in value) ? value : null;
 }
+
+const storedSpecialistTracks283: Readonly<Record<string, string>> = Object.freeze({ office_25: 'raider', office_27: 'artisan' });
+/** Read an existing canonical descriptor without treating today's picker policy
+ * as a migration. These two retired targets retain their exact stored identity;
+ * this reader authorizes no save, appointment, vote, rank or Discord role. */
+export function storedApplicationIntentDto199(answers: Record<string, unknown>): ApplicationIntent199 | null {
+  const track = answers.applicationTrack, key = answers.targetOffice;
+  if (typeof key === 'string' && Object.hasOwn(storedSpecialistTracks283, key)) {
+    const target = officeByKey.get(key);
+    return target && track === storedSpecialistTracks283[key] && target.applicationTrack === track
+      ? { applicationTrack: track, targetOffice: key } : null;
+  }
+  return applicationIntentDto199(answers);
+}

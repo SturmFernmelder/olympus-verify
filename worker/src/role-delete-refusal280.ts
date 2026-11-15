@@ -4,7 +4,7 @@
 import {uniqueJsonKeys} from './network-profile';
 import {DB_NOW} from './account-generation-contracts';
 import {CANONICAL_GUILD233,CANONICAL_PROFILE233,CANONICAL_MANAGED_ROLE_IDS233} from './canonical-ranks233';
-import {DIRECTIVE_CANONICAL_PROFILE,DIRECTIVE_RANK_NAMES} from './native-rank-constants';
+import {NATIVE_RANK_SCHEMES} from './native-rank-constants';
 import {NATIVE_RANK_NAMES232} from './native-rank-reconciliation232';
 
 export const MANAGED_RANK_COOLDOWN280='role.managed.cooldown280';
@@ -78,8 +78,8 @@ function common(a:string):readonly string[]{
 }
 export function canonicalDeleteRefusalSql280(name:string):string{
  const a=alias(name),native=(names:readonly string[])=>all([safeInt(a+'.roster_id'),`typeof(${a}.native_guid)='text'`,`length(CAST(${a}.native_guid AS BLOB)) BETWEEN 1 AND 64`,`instr(${a}.native_guid,char(0))=0`,`typeof(${a}.native_rank)='integer'`,`${a}.native_rank BETWEEN 0 AND 9`,`${a}.native_rank_name=(CASE ${a}.native_rank ${names.map((n,i)=>`WHEN ${i} THEN '${n}'`).join(' ')} END)`]);
- const source=any([all([`${a}.native_guid IS NULL`,`${a}.native_rank IS NULL`,`${a}.native_rank_name IS NULL`,safeInt(a+'.roster_id')]),all([`${a}.native_profile='${CANONICAL_PROFILE233}'`,native(NATIVE_RANK_NAMES232)]),all([`${a}.native_profile='${DIRECTIVE_CANONICAL_PROFILE}'`,native(DIRECTIVE_RANK_NAMES)])]);
- return all([...common(a),`${a}.purpose='canonical_routine233'`,`${a}.proof_id IS NULL`,hex(a+'.request_digest',32),`${a}.native_profile IN('${CANONICAL_PROFILE233}','${DIRECTIVE_CANONICAL_PROFILE}')`,source,reasonSql(a,CANONICAL_DELETE_REFUSAL280)]);
+ const source=any([all([`${a}.native_guid IS NULL`,`${a}.native_rank IS NULL`,`${a}.native_rank_name IS NULL`,safeInt(a+'.roster_id')]),all([`${a}.native_profile='${CANONICAL_PROFILE233}'`,native(NATIVE_RANK_NAMES232)]),...NATIVE_RANK_SCHEMES.map(s=>all([`${a}.native_profile='${s.canonicalProfile}'`,native(s.names)]))]);
+ return all([...common(a),`${a}.purpose='canonical_routine233'`,`${a}.proof_id IS NULL`,hex(a+'.request_digest',32),`${a}.native_profile IN('${CANONICAL_PROFILE233}',${NATIVE_RANK_SCHEMES.map(s=>"'"+s.canonicalProfile+"'").join(',')})`,source,reasonSql(a,CANONICAL_DELETE_REFUSAL280)]);
 }
 export function banDeleteRefusalSql280(name:string):string{
  const a=alias(name);return all([...common(a),`${a}.purpose='canonical_ban_remove_v1'`,`${a}.native_profile='${BAN_PROFILE}'`,hex(a+'.proof_id',32),hex(a+'.request_digest',64),

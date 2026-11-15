@@ -84,3 +84,7 @@ activated_at = "2026-11-08T05:55:07Z"
 # Not produced by --activate; no provider deployment, activation or new Native authority is asserted.
 activation_profile_sha256 = "7028e6a2c71ecb5aba716553a3a1408dba71d51905274d84a9a7c7409a3fe6cc"
 activated_at = "2026-11-10T19:28:25Z"
+# .283 SOURCE PREPARATION: owner-confirmed Steward-ten canonical profile, with historic profiles preserved.
+# Source review record only; no provider deployment or Link activation is asserted.
+activation_profile_sha256 = "5adef1881d2180e67ed56d9724efc0cb6aabc9309ae823a24de61bcbe3d6bc9f"
+activated_at = "2026-11-15T18:29:42Z"

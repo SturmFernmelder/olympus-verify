@@ -45,9 +45,11 @@ local function verified(row)
   return row.status == "verified" and row.historicalLinked ~= true
     and (type(base) ~= "table" or base.status == "verified" and base.historicalLinked ~= true)
 end
-local function recommendation(row)
-  return type(row)=="table" and guid(row.guid) and ((row.reason=="verified-initiate" and (row.currentSlot==9 or row.currentSlot==8 and type(row.intent)=="table" and row.intent.startSlot==9 and row.intent.acknowledgedSteps==1) and row.targetSlot==7 and row.targetName=="Member")
-    or (row.reason=="knight-veteran" and whole(row.currentSlot,6,9) and row.targetSlot==5 and row.targetName=="Veteran"))
+local function recommendation(row,page)
+  local ranks=page and OlympusVerifyNativeRanks and OlympusVerifyNativeRanks.Profile(page.rankProfile,page.rankSchemeDigest)
+  if not ranks and not page then ranks=OlympusVerifyNativeRankConstants end
+  return ranks and type(row)=="table" and guid(row.guid) and ((row.reason=="verified-initiate" and (row.currentSlot==ranks.initiate or row.currentSlot>ranks.member and type(row.intent)=="table" and row.intent.startSlot==ranks.initiate and row.intent.acknowledgedSteps==ranks.initiate-row.currentSlot) and row.targetSlot==ranks.member and row.targetName=="Member")
+    or (row.reason=="knight-veteran" and whole(row.currentSlot,ranks.veteran+1,ranks.initiate) and row.targetSlot==ranks.veteran and row.targetName=="Veteran"))
 end
 local heldLabels = {
   ["native-rank-unconfirmed"] = "The source could not confirm the native rank; no promotion was recommended.",
@@ -159,7 +161,7 @@ function M.Promotions(list, launchAPI, now)
         end
         for index = 1, rows do
           local row = page.promotions[index]
-          if recommendation(row) then
+          if recommendation(row,page) then
             historicalPages[row.guid]=row
             if originalPages[row.guid] ~= nil then originalPages[row.guid] = false
             else originalPages[row.guid] = { row = row, page = page } end
@@ -170,7 +172,7 @@ function M.Promotions(list, launchAPI, now)
         local chosen=current.selection
         for id in pairs(chosen.covered) do originalPages[id]=nil end
         for _,row in ipairs(chosen.page.promotions) do
-          if recommendation(row) then originalPages[row.guid]={row=row,page=chosen.page} end
+          if recommendation(row,chosen.page) then originalPages[row.guid]={row=row,page=chosen.page} end
         end
       end
       if current then
@@ -185,7 +187,7 @@ function M.Promotions(list, launchAPI, now)
   local recommendations = {}
   if current then
     for _, row in ipairs(current.promotions) do
-      if recommendation(row) then
+      if recommendation(row,current.freshness and current.freshness[row.guid] and current.freshness[row.guid].page) then
         diagnostics.recommendations = diagnostics.recommendations + 1
         if recommendations[row.guid] ~= nil then recommendations[row.guid] = false else recommendations[row.guid] = row end
       end

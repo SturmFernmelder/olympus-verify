@@ -8,3 +8,9 @@ VETERAN = 5
 MEMBER = 7
 ALT = 8
 INITIATE = 9
+PROFILES = (
+    {'profile': 'olympus-prime-directive-20261112-v1', 'canonical_profile': 'olympus-canonical-ranks-directive-20261112-v2', 'names': ('Guild Master', 'High Council', 'Officer', 'Officer Alt', 'Raid Leader', 'Veteran', 'Raider', 'Member', 'Alt', 'Initiate'), 'canonical_indexes': (0, 1, 2, 3, 4, 7, 8, 9, 10, 11), 'digest': '84be4203598ba7bf6c506547c681ba6b7338414ae00add5d64055eeeea98bd29', 'veteran': 5, 'member': 7, 'alt': 8, 'initiate': 9},
+    {'profile': 'olympus-steward-ten-20261115-v1', 'canonical_profile': 'olympus-canonical-ranks-steward-20261115-v3', 'names': ('Guild Master', 'Steward', 'High Council', 'Officer', 'Officer Alt', 'Raid Leader', 'Veteran', 'Alt', 'Member', 'Initiate'), 'canonical_indexes': (0, 1, 1, 2, 3, 4, 7, 10, 9, 11), 'digest': 'fd0c78668b594b8ee5a6da309d38811d838265d881b92f09bdcf5ad2ccc3c8b0', 'veteran': 6, 'member': 8, 'alt': 7, 'initiate': 9},
+)
+def rank_scheme(profile, digest):
+    return next((p for p in PROFILES if p["profile"] == profile and p["digest"] == digest), None)

@@ -79,6 +79,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".283", date: "2026-11-15", lines: [
+      "Guild promotion checks recognize the reviewed current Steward rank table while preserving older plans and unresolved attempts. Update Verify and the Watcher together.",
+      "Site admins can compare live Discord roles with qualified native roster records. Corrections require a current preview and preserve manual roles and unknown outcomes.",
+    ],
+  },
+  {
     build: ".282", date: "2026-11-14", lines: [
       "Application reviews explain failed reads more clearly and offer a deliberate retry. A lost answer to a change still requires checking the current record before repeating it.",
       "Watcher 0.6.39 shows local queue capacity and held outcomes more clearly. Existing privacy, verification and promotion safeguards remain in place.",

@@ -1,7 +1,7 @@
 /** Policy-specific rank-source checks only. These predicates never mint an
  * issuer, identity, ownership ACK or permission to dispatch a role effect. */
 import {currentOriginalCanonicalPolicy233,currentDirectiveCanonicalPolicy233,NATIVE_NAMES233,type CanonicalRankPolicy233} from './canonical-ranks233';
-import {nativeSnapshotSource,qualifiedNativeSnapshotSource,nativeRankTable,type NativeRankTable} from './native-rank-schemes';
+import {nativeSnapshotSource,qualifiedNativeSnapshotSource,nativeRankTable,nativeRankSchemeForCanonical,type NativeRankTable} from './native-rank-schemes';
 import {directiveAndSql280,directiveSnapshotSql280} from './directive-native-authority';
 import {parseLaunchNativeScope} from './launch-verification227';
 
@@ -37,7 +37,7 @@ export function originalObservedCanonicalTable280(source:unknown,guild:string,re
  }catch{return null;}
 }
 export function canonicalRankSource280(policy:CanonicalRankPolicy233|null,source:string,guild:string,realm:string):CanonicalRankSource280|null{
- if(currentDirectiveCanonicalPolicy233(policy))return source===qualifiedNativeSnapshotSource(guild,realm)?'directive-native-v2':null;
+ if(currentDirectiveCanonicalPolicy233(policy))return source===qualifiedNativeSnapshotSource(guild,realm,nativeRankSchemeForCanonical(policy.profile)!)?'directive-native-v2':null;
  if(!currentOriginalCanonicalPolicy233(policy))return null;
  if(source===originalV1(guild,realm))return 'original-native-v1';
  return originalObservedCanonicalTable280(source,guild,realm)?'original-native-v2':null;
@@ -59,8 +59,9 @@ export function canonicalRankSnapshotSql280(policy:CanonicalRankPolicy233|null,s
  const supplied=arguments.length>=5;
  if(supplied&&typeof capturedSource!=='string')return '0';
  if(currentDirectiveCanonicalPolicy233(policy)){
-  if(supplied&&capturedSource!==qualifiedNativeSnapshotSource(guild,realm))return '0';
-  return directiveSnapshotSql280(snapshot,guild,realm);
+  const scheme=nativeRankSchemeForCanonical(policy.profile)!;
+  if(supplied&&capturedSource!==qualifiedNativeSnapshotSource(guild,realm,scheme))return '0';
+  return directiveSnapshotSql280(snapshot,guild,realm,scheme);
  }
  if(!currentOriginalCanonicalPolicy233(policy))return '0';
  if(!/^(?:\?[1-9][0-9]*|[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*)$/.test(snapshot))throw Error('canonical_rank_snapshot_sql');

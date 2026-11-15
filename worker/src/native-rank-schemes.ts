@@ -1,6 +1,6 @@
 /** Current rank observation only. A membership source and a historical receipt are different facts. */
 export * from './native-rank-constants';
-import { DIRECTIVE_NATIVE_PROFILE, DIRECTIVE_RANK_DIGEST, DIRECTIVE_RANK_NAMES } from './native-rank-constants';
+import { NATIVE_RANK_SCHEMES, type NativeRankScheme } from './native-rank-constants';
 export type NativeRankTable = Readonly<{version:1;names:readonly string[]}>;
 function record(value:unknown):value is Record<string,unknown>{return !!value&&typeof value==='object'&&!Array.isArray(value)&&Object.getPrototypeOf(value)===Object.prototype;}
 /** Read own data only, including dense array elements. No accessor can issue a witness. */
@@ -16,21 +16,34 @@ export function nativeRankTable(value:unknown):NativeRankTable|null{
  }catch{return null;}
 }
 export function directiveRankTable(value:unknown):NativeRankTable|null{
- const table=nativeRankTable(value);return table&&table.names.every((n,i)=>n===DIRECTIVE_RANK_NAMES[i])?table:null;
+ const table=nativeRankTable(value);return table&&nativeRankScheme(table)?table:null;
 }
+/** Exact reviewed profiles only. Historical profiles retain their original semantics. */
+export function nativeRankScheme(value:unknown):NativeRankScheme|null{
+ const table=nativeRankTable(value);return table?NATIVE_RANK_SCHEMES.find(p=>table.names.every((name,index)=>name===p.names[index]))??null:null;
+}
+export function nativeRankSchemeByProfile(profile:unknown,digest?:unknown):NativeRankScheme|null{
+ return NATIVE_RANK_SCHEMES.find(p=>p.profile===profile&&(digest===undefined||digest===p.digest))??null;
+}
+export function nativeRankSchemeForCanonical(profile:unknown):NativeRankScheme|null{return NATIVE_RANK_SCHEMES.find(p=>p.canonicalProfile===profile)??null;}
 export function directiveMemberRanks(members:readonly {rank?:unknown;rankIndex?:unknown}[],table:unknown):boolean{
  const observed=directiveRankTable(table);return !!observed&&members.every(row=>typeof row.rankIndex==='number'&&Number.isInteger(row.rankIndex)&&row.rankIndex>=0&&row.rankIndex<10&&row.rank===observed.names[row.rankIndex]);
 }
 export function nativeSnapshotSource(guild:string,realm:string,table:unknown,members:readonly {rank?:unknown;rankIndex?:unknown}[]):`addon-native-v2:${string}`{
- const observed=nativeRankTable(table),qualified=directiveMemberRanks(members,observed);
- return `addon-native-v2:${JSON.stringify({version:2,guild,realm,rankProfile:qualified?DIRECTIVE_NATIVE_PROFILE:null,rankSchemeDigest:qualified?DIRECTIVE_RANK_DIGEST:null,rankNames:observed?.names??null})}`;
+ const observed=nativeRankTable(table),qualified=directiveMemberRanks(members,observed),scheme=qualified?nativeRankScheme(observed):null;
+ return `addon-native-v2:${JSON.stringify({version:2,guild,realm,rankProfile:scheme?.profile??null,rankSchemeDigest:scheme?.digest??null,rankNames:observed?.names??null})}`;
 }
-export function qualifiedNativeSnapshotSource(guild:string,realm:string):string{
- return 'addon-native-v2:'+JSON.stringify({version:2,guild,realm,rankProfile:DIRECTIVE_NATIVE_PROFILE,rankSchemeDigest:DIRECTIVE_RANK_DIGEST,rankNames:DIRECTIVE_RANK_NAMES});
+export function qualifiedNativeSnapshotSource(guild:string,realm:string,scheme:NativeRankScheme=NATIVE_RANK_SCHEMES[0]):string{
+ if(!NATIVE_RANK_SCHEMES.includes(scheme))throw Error('native_rank_profile');
+ return 'addon-native-v2:'+JSON.stringify({version:2,guild,realm,rankProfile:scheme.profile,rankSchemeDigest:scheme.digest,rankNames:scheme.names});
+}
+export function nativeRankSchemeFromSource(source:unknown):NativeRankScheme|null{
+ if(typeof source!=='string'||source.length>2048||!source.startsWith('addon-native-v2:'))return null;
+ try{const v=JSON.parse(source.slice(16)),scheme=nativeRankSchemeByProfile(v?.rankProfile,v?.rankSchemeDigest);return record(v)&&scheme&&v.rankSchemeDigest===scheme.digest&&typeof v.guild==='string'&&typeof v.realm==='string'&&source===qualifiedNativeSnapshotSource(v.guild,v.realm,scheme)?scheme:null;}catch{return null;}
 }
 export function nativeRankTableFromSource(source:unknown):NativeRankTable|null{
  if(typeof source!=='string'||source.length>2048||!source.startsWith('addon-native-v2:'))return null;
- try{const v=JSON.parse(source.slice(16));if(!record(v)||typeof v.guild!=='string'||typeof v.realm!=='string'||source!==qualifiedNativeSnapshotSource(v.guild,v.realm))return null;return directiveRankTable({version:1,names:v.rankNames});}catch{return null;}
+ const scheme=nativeRankSchemeFromSource(source);return scheme?nativeRankTable({version:1,names:scheme.names}):null;
 }
 export function nativeMembershipSourceMatches(source:unknown,guild:string,realm:string):boolean{
  if(typeof source!=='string'||source.length>2048)return false;

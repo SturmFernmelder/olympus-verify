@@ -29,9 +29,19 @@ function R.Same(a,b)
   a,b=R.Copy(a),R.Copy(b);if not a or not b then return false end
   for i=1,10 do if a.names[i]~=b.names[i] then return false end end;return true
 end
+function R.Profile(profile,digest)
+  if type(C)~="table" then return nil end
+  for _,p in ipairs(C.profiles or {C}) do if p.profile==profile and p.digest==digest then return p end end
+end
+function R.Scheme(value)
+  local t=R.Copy(value);if not t or type(C)~="table" then return nil end
+  for _,p in ipairs(C.profiles or {C}) do
+    local same=true;for i=1,10 do if t.names[i]~=p.names[i] then same=false;break end end
+    if same then return p end
+  end
+end
 function R.Qualified(value)
-  local t=R.Copy(value);if not t or type(C)~="table" then return false end
-  for i=1,10 do if t.names[i]~=C.names[i] then return false end end;return true
+  return R.Scheme(value)~=nil
 end
 function R.Encode(value)
   local t=R.Copy(value);if not t then return "unavailable" end

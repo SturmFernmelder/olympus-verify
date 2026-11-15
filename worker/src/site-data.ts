@@ -697,6 +697,14 @@ export const applicationSeatKeys199 = (key: string): readonly string[] => {
   return applicationLeadershipSeat199(row) ? row!.applicationRoleKeys : [];
 };
 const applicationParent199 = (key: string) => OFFICE_APPOINTMENTS.find(row => /^office_\d{2,3}$/.test(row.key) && applicationLeadershipSeat199(row) && row.applicationRoleKeys.includes(key));
+/** Presence/display aliases only. Exact stored keys and publication proofs are
+ * never copied or retargeted; a conflicting exact key keeps priority. */
+export const recordedAppointmentKey283 = (s: { appointed: Record<string, string> }, key: string): string | null => {
+  const owns = (k: string) => Object.prototype.hasOwnProperty.call(s.appointed,k);
+  if (owns(key)) return key;
+  const alias = key === 'treasurer' ? 'office_86' : key === 'office_86' ? 'treasurer' : key === 'co_gm' ? 'office_19' : key === 'office_19' ? 'co_gm' : null;
+  return alias && owns(alias) ? alias : null;
+};
 export const isAppointed = (s: { appointed: Record<string, string> }, key: string): boolean => {
   const owns = (k: string) => Object.prototype.hasOwnProperty.call(s.appointed, k);
   if (owns(key)) return true;
@@ -704,7 +712,7 @@ export const isAppointed = (s: { appointed: Record<string, string> }, key: strin
   if (parent && parent.key !== key && owns(parent.key)) return true;
   const children = applicationSeatKeys199(key);
   if (children.length && !children.includes(key) && children.every(owns)) return true;
-  return key === 'treasurer' ? owns('office_86') : key === 'office_86' ? owns('treasurer') : false;
+  return recordedAppointmentKey283(s,key) !== null;
 };
 
 function parseAppointed(raw: string | undefined): Record<string, string> {

@@ -19,7 +19,7 @@ import { privateSiteAsset } from "./site-access";
 import { captureCanonicalRankConfig233, currentDirectiveCanonicalPolicy233, canonicalNativeRole233, CANONICAL_PROFILE233, NATIVE_NAMES233, type CanonicalRankPolicy233 } from './canonical-ranks233';
 import { captureLaunchVerification, parseLaunchNativeScope } from './launch-verification227';
 import { canonicalOlympusGuildName, FLAGSHIP_GUILD_NAME } from './guild-affiliation229';
-import { DIRECTIVE_RANK_NAMES, qualifiedNativeSnapshotSource, nativeMembershipSourceSql } from './native-rank-schemes';
+import { nativeRankSchemeForCanonical, qualifiedNativeSnapshotSource, nativeMembershipSourceSql } from './native-rank-schemes';
 import { originalObservedCanonicalTable280 } from './canonical-native-authority280';
 
 /** The planning programme's renderer, financial model, content and stylesheet. Royal Writs stay member-readable. */
@@ -31,10 +31,11 @@ export const TREASURY_ACCESS_PATH = "/api/treasury-plan/access";
  * original publication proof; no signature, stored map or native rank is retargeted.
  * Final raw-map, account/session and privacy-generation readmission is unchanged. */
 export const TREASURY_APPOINTMENT_SEATS = Object.freeze(["office_19", "office_86", "co_gm", "treasurer"] as const);
-/** Officer tier on the Directive ladder (DIRECTIVE_RANK_NAMES, owner ladder of 12 Nov 2026, slots 0-4). */
+/** Named staff on the two exact reviewed profiles; membership in the selected
+ * complete table is checked separately (Directive slots0-4, Steward slots0-5). */
 // Private, frozen lists: nothing outside this module can reach or change them (Codex Root's review of 98dc690, 13 Nov
 // 2026: a Set handed out through currentLadder stayed mutable, whatever its TypeScript type said).
-const OFFICER_RANKS: readonly string[] = Object.freeze(["Guild Master", "High Council", "Officer", "Officer Alt", "Raid Leader"]);
+const OFFICER_RANKS: readonly string[] = Object.freeze(["Guild Master", "Steward", "High Council", "Officer", "Officer Alt", "Raid Leader"]);
 /** Officer tier on the ORIGINAL v1 ladder (NATIVE_NAMES233), exactly the names dfca7a2 admitted there: its seven-name set
  * intersected with that ladder. "Treasurer" is not on NATIVE_NAMES233, so dfca7a2 could never match it and it is left
  * out. "Stewart" exists only on this ladder (slot 1) and is never offered to the Directive ladder (round 5, 13 Nov 2026). */
@@ -95,8 +96,10 @@ export function currentLadder(env: Env): TreasuryLadder | null {
   const launch=captureLaunchVerification(env),policy=canonical.policy;
   if(!policy||canonical.mode!=='enabled'||!canonical.current()||env.GUILD_ID!==policy.guildId
     ||launch.mode!=='members-only'||!launch.scope||!launch.current()||canonicalOlympusGuildName(launch.scope.guild)!==FLAGSHIP_GUILD_NAME||!Number.isSafeInteger(cutoff)||cutoff<=0)return null;
-  if(currentDirectiveCanonicalPolicy233(policy))
-    return Object.freeze({policy:'directive',names:DIRECTIVE_RANK_NAMES,cutoff,source:qualifiedNativeSnapshotSource(launch.scope.guild,launch.scope.realm)});
+  if(currentDirectiveCanonicalPolicy233(policy)){
+    const scheme=nativeRankSchemeForCanonical(policy.profile)!;
+    return Object.freeze({policy:'directive',names:scheme.names,cutoff,source:qualifiedNativeSnapshotSource(launch.scope.guild,launch.scope.realm,scheme)});
+  }
   if(originalCanonicalPolicy233(policy))
     return Object.freeze({policy:'original233',names:NATIVE_NAMES233,cutoff,source:launch.scope.provenance});
   return null;
@@ -169,7 +172,7 @@ export function treasuryDiscordRoles(env: Env): { guild: string; wanted: string[
 // Member-facing names follow the owner's ten-rank ladder (12 Nov 2026): the runtime's "Guild Master" rank is shown as
 // Leader, and runtime-only names (Stewart, Treasurer) are not named. On the original v1 ladder the in-game "Stewart" slot
 // is the High Council rank (NATIVE_CANONICAL_INDEX233[1] is canonical high-council), so it is shown as High Council.
-const ROSTER_LABELS: Readonly<Record<string, string>> = Object.freeze({ "Guild Master": "Leader", "High Council": "High Council", "Officer": "Officer", "Officer Alt": "Officer Alt", "Raid Leader": "Raid Leader" });
+const ROSTER_LABELS: Readonly<Record<string, string>> = Object.freeze({ "Guild Master": "Leader", "Steward": "Steward (High Council)", "High Council": "High Council", "Officer": "Officer", "Officer Alt": "Officer Alt", "Raid Leader": "Raid Leader" });
 const ORIGINAL_ROSTER_LABELS233: Readonly<Record<string, string>> = Object.freeze({ ...ROSTER_LABELS, "Stewart": "High Council" });
 const DISCORD_LABELS: Readonly<Record<string, string>> = Object.freeze({ "guild-master": "Guild Master", "high-council": "High Council", "officer": "Officer", "officer-alt": "Officer Alt", "raid-leader": "Raid Leader" });
 const listOf = (items: readonly string[]) => items.length < 2 ? items.join("") : items.slice(0, -1).join(", ") + " and " + items[items.length - 1];

@@ -15,10 +15,39 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import watcher
 import launch_operations229 as launch
 import native_rank_attestation as ranks
-from native_rank_schemes import NAMES, NATIVE_PROFILE, SCHEME_DIGEST
+from native_rank_schemes import NAMES, NATIVE_PROFILE, SCHEME_DIGEST, PROFILES
 
 
 class DirectiveTransition(unittest.TestCase):
+    def test_steward_profile_selected_wire_and_exact_table(self):
+        old = self.page()
+        new = copy.deepcopy(old)
+        scheme = PROFILES[1]
+        new.update(rankProfile=scheme['profile'], rankSchemeDigest=scheme['digest'], rankNames=list(scheme['names']))
+        new['promotions'][0]['targetSlot'] = scheme['member']
+        new['promotions'][0]['intent'].update(rankProfile=scheme['profile'], rankSchemeDigest=scheme['digest'], finalSlot=scheme['member'])
+        self.assertTrue(launch._validate_page(old, self.at, False, 600), 'legacy profile keeps its Member7 semantics')
+        self.assertTrue(launch._validate_page(new, self.at, False, 600), 'new Member8 seal is accepted')
+        bad = copy.deepcopy(new); bad['promotions'][0]['targetSlot'] = 7; bad['promotions'][0]['intent']['finalSlot'] = 7
+        self.assertFalse(launch._validate_page(bad, self.at, False, 600), 'new Alt7 cannot be relabelled Member')
+        bad = copy.deepcopy(new); bad['rankNames'][7] = 'Raider'
+        self.assertFalse(launch._validate_page(bad, self.at, False, 600), 'whole-table mismatch remains held')
+        bad = copy.deepcopy(new); bad['promotions'][0]['intent'] = old['promotions'][0]['intent']
+        self.assertFalse(launch._validate_page(bad, self.at, False, 600), 'old intent cannot borrow new profile')
+        roster = copy.deepcopy(self.roster)
+        roster['nativeRankTable']['names'] = list(scheme['names'])
+        roster['members'][0]['rankIndex'] = 2
+        self.assertTrue(ranks.qualified(roster['nativeRankTable']))
+        control = self.control(); reader = launch.SelectedRead(lambda: self.at)
+        reader.request(control, dict(digest=launch.complete_roster_digest(roster), exportedAt=roster['exportedAt'], snapshot=12), roster, self.at)
+        def call(method, path, retries=1):
+            self.assertEqual(method, 'GET')
+            return True, dict(version=2, protocol=launch.DIRECTIVE_PROTOCOL, coverageKind='selected-guids', actorGuid=self.actor, controlId=control['id'], targetGuids=[self.target], targetsDigest=launch.targets_digest276([self.target]), coveredGuids=[self.target], page=new)
+        self.assertTrue(reader.step(call, self.at))
+        self.assertTrue(reader.record['completed'])
+        self.assertEqual(reader.record['page']['promotions'][0]['targetSlot'], 8)
+        self.assertEqual(old['promotions'][0]['targetSlot'], 7, 'original fixture remains unchanged')
+
     def setUp(self):
         self.at = int(time.time())
         self.actor, self.target = 'Player-1-0000AAAA', 'Player-1-0000BBBB'
