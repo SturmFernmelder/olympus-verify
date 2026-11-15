@@ -795,7 +795,8 @@
         cells: Object.fromEntries(CLASS_COLUMNS.map(col => [col.id, specs.has(col.id) ? { cell: result.sheets.total[col.id], spec: specs.get(col.id) } : null])) };
     }) };
   }
-  // Sort keys. A disputed value sorts by its lowest candidate; Unavailable, n/a and "not available" have no key.
+  // Sort keys. A disputed value sorts by its lowest candidate; Unavailable, n/a and "not available" have no key, nor has a withheld
+  // row for Stat, Kind and Data grade, so it sorts last there in both directions.
   function classSortValue(row, key) {
     if (key === "class") return row.label;
     const entry = row.available ? row.cells[key] : null, cell = entry && entry.cell;
@@ -803,6 +804,7 @@
     return num(cell.value) ? cell.value : cell.cands ? Math.min(...cell.cands.map(c => c.value)) : null;
   }
   function impactSortValue(row, key) {
+    if (row.group === "withheld" && (key === "stat" || key === "kind" || key === "grade")) return null;
     switch (key) {
       case "talent": return row.name;
       case "tree": return row.treeIndex * 1000 + row.index;
