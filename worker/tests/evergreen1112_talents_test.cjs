@@ -76,6 +76,74 @@ check('art.json covers every current talent: an existing local icon file or the 
   const missingFiles = Object.values(art.talentIcons).filter(url => !exists(path.join(worker, 'public', url)));
   return missingFiles.length === 0 && v.unavailable === art.talentIconsUnavailable.length && art.talentIconsUnavailable.every(id => !art.talentIcons[id]) || missingFiles.join(',');
 });
+// --- h4 (15 Nov 2026): the owner reported blank talent tiles and chose "Codex extracts them from the game (Recommended)". The 17 talents
+// that CL2-087 listed without art use the icons Codex Root extracted from client 1.60.1.70938 (manifest SHA-256 below). Each icon name is the
+// one the retained 10 November export (talentsforever-source-02e1e101d1a5.json, kept outside the repository) gives the talent; file id,
+// size and SHA-256 are the manifest's (fileDataId, pngBytes, pngSHA256).
+const CLIENT_MANIFEST = '6a2cff460c2efd39eb5786eb3ed039ac0f6249f88eded9558d3dc889b71f0447';
+const CLIENT_ICONS = [
+  ['warrior-fury-reckless-swings', 'ability_warrior_bloodfrenzy', 132334, 5432, 'c5ac0d4f4adea666128dc96ee8e81ffa5c6ecd51009bf12deb5274fd843aa891'],
+  ['paladin-holy-divine-precision', 'spell_holy_mindsooth', 135933, 4714, '7a61cd0e1f46429a63d98d7f73bb00ceb32a8d7f925ba13a31068de195d74b39'],
+  ['paladin-holy-oath-of-light', 'spell_holy_greaterblessingoflight', 135909, 6486, 'd9a6004240faf1b91e06404a33b7fc3f4cbda5cf5a1cb50afed1b8d21277f674'],
+  ['paladin-holy-boundless-light', 'ability_paladin_sacredcleansing', 236261, 6200, '5d9353802b85d61399a1a2a839296bc4a783a43e203f217d58eabd181ae95499'],
+  ['paladin-protection-stoicism', 'spell_holy_stoicism', 135978, 5435, '4f226327c1696579b4b674d58d47b9191332dbe01e539b883b7462771306ad85'],
+  ['paladin-protection-shieldsworn', 'spell_holy_greaterblessingofsanctuary', 135911, 6631, '37d74b9ef16d8fcb2bcb407806215a4f7c43b570637634a4bc6d2fdf39499bcd'],
+  ['paladin-retribution-turn-evil', 'spell_holy_turnundead', 135983, 6693, '6097f1267467f434673aedabcd06e11e331d343eb5b2adbcce03842febfcc6b6'],
+  ['rogue-combat-composure', 'ability_rogue_fleetfooted', 132296, 6576, 'f89b14caa4a71e080514344fc3810fa02554e601f84053057b7bbda384345dd2'],
+  ['rogue-combat-flash-of-steel', 'ability_rogue_restlessblades', 458731, 5533, 'a77d6f531208fb4e9be79750ec5ac413dce61e11acd2b714844764e98e235469'],
+  ['rogue-subtlety-quick-getaway', 'ability_rogue_blackjack', 458797, 6085, '6fc5387423032998a115135eb7e11f05d8289e4a1f68e4c995b9392d00496096'],
+  ['rogue-subtlety-boot-knife', 'inv_sword_32', 135342, 5074, 'bdacfda938798b3cef1158d58836c0295430567c9aff6dcb9c781d68599a6ca0'],
+  ['rogue-subtlety-death-mark', 'ability_creature_cursed_02', 132094, 5780, 'fa71a7868887c24534b44e0165c4662cea859b0ece44d1a541265e294f8e7f19'],
+  ['shaman-elemental-call-of-thunder', 'spell_nature_callstorm', 136014, 6435, '7215ad3fc4e56efd14cae1bb6040bc5e89514a240103565fa4a54d2f50566a67'],
+  ['shaman-elemental-lightning-mastery', 'spell_nature_unrelentingstorm', 136111, 5760, '644185f5ea3cbe6781c2dee89eadb1f826b00110db05ebd1b11a0b70428ab90b'],
+  ['druid-feral-combat-lacerate', 'ability_druid_lacerate', 132131, 6827, '7d293e682f93d51108bf2e8e0d805d221abdfc8f3d282abab437ae31fb5c52f6'],
+  ['druid-feral-combat-predatory-discipline', 'spell_druid_savagery', 1033484, 5788, 'd28bcea56937e670ea6039b3fd935933c5ee3b9c6be6f36b24f9ba5a3e32c67b'],
+  ['druid-restoration-bloom', 'inv_misc_herb_felblossom', 134206, 6223, 'aafd02a0ec7e9b55d0343be5b9f709af660b62ddee70bd5ff923e956cd9fb5c6'],
+];
+check('h4: the 17 talents CL2-087 listed without art map to the client icons the export names, each a 64 by 64 PNG with the manifest\'s size and SHA-256', () => {
+  const bad = [];
+  for (const [id, icon, , bytes, digest] of CLIENT_ICONS) {
+    const url = '/static/wow/talents/icon-' + icon + '.png', file = path.join(worker, 'public', url), b = exists(file) ? read(file) : Buffer.alloc(0);
+    if (art.talentIcons[id] !== url) bad.push(id + ' maps to ' + art.talentIcons[id]);
+    else if (b.length !== bytes || sha(b) !== digest) bad.push(id + ' file has ' + b.length + ' bytes, ' + sha(b).slice(0, 12));
+    else if (b.readUInt32BE(16) !== 64 || b.readUInt32BE(20) !== 64) bad.push(id + ' is not 64 by 64');
+  }
+  const png = Object.entries(art.talentIcons).filter(([, url]) => url.endsWith('.png')).map(([id]) => id).sort().join();
+  return bad.length === 0 && CLIENT_ICONS.length === 17 && new Set(CLIENT_ICONS.map(r => r[1])).size === 17 && png === CLIENT_ICONS.map(r => r[0]).sort().join()
+    && art.talentIconsUnavailable.length === 0 || bad.join(' | ') || JSON.stringify({ png, unavailable: art.talentIconsUnavailable });
+});
+check('h4: every current talent has exactly one local icon: 467 = 450 talentsforever.com JPEGs + 17 client PNGs, 365 distinct files, none listed without art', () => {
+  const v = calc.validateArt(data, art), urls = Object.values(art.talentIcons);
+  const jpg = urls.filter(u => /^\/static\/wow\/talents\/icon-[a-z0-9_]+\.jpg$/.test(u)).length, png = urls.filter(u => /^\/static\/wow\/talents\/icon-[a-z0-9_]+\.png$/.test(u)).length;
+  return v.ok && v.talents === 467 && v.unavailable === 0 && data.counts.talents === 467 && Object.keys(art.talentIcons).length === 467 && jpg === 450 && png === 17 && new Set(urls).size === 365
+    || JSON.stringify({ v, jpg, png, unique: new Set(urls).size });
+});
+check('h4: art-provenance.json, asset-provenance.json and provenance.json say which talent icons are client extractions and which are talentsforever.com copies, with counts that add up', () => {
+  const ap = JSON.parse(readText(folder, 'art-provenance.json')), wow = JSON.parse(readText(worker, 'public/static/wow/asset-provenance.json'));
+  const ce = ap.clientExtractions, te = wow.talent_icon_client_extraction, c = ap.counts, urls = Object.values(art.talentIcons);
+  const tf = new Set(ap.assets.map(r => '/' + r.path.slice('worker/public/'.length))), files = fs.readdirSync(path.join(worker, 'public/static/wow/talents'));
+  const rows = CLIENT_ICONS.filter(([id, icon, fileDataId, bytes, digest]) => {
+    const a = ce.assets.filter(r => r.talent === id), b = te.assets.filter(r => r.talent === id);
+    return a.length === 1 && b.length === 1 && a[0].path === 'worker/public/static/wow/talents/icon-' + icon + '.png' && a[0].clientPath === 'interface/icons/' + icon + '.blp'
+      && a[0].fileDataId === fileDataId && a[0].bytes === bytes && a[0].sha256 === digest
+      && b[0].asset === '/static/wow/talents/icon-' + icon + '.png' && b[0].clientPath === a[0].clientPath && b[0].fileDataId === fileDataId && b[0].assetBytes === bytes && b[0].assetSha256 === digest;
+  }).length;
+  const relation = text => /rests on the retained Talents Forever export \(revision 02e1e101d1a5\)/.test(text) && /it is not taken from client data/.test(text);
+  return rows === 17 && ce.assets.length === 17 && te.assets.length === 17 && ce.extractedBy === 'Codex Root' && te.extracted_by === 'Codex Root'
+    && ce.clientVersion === '1.60.1.70938' && te.clientVersion === '1.60.1.70938' && ce.manifestSHA256 === CLIENT_MANIFEST && te.manifest_sha256 === CLIENT_MANIFEST
+    && ce.limits.some(relation) && relation(te.talent_icon_relationship)
+    && te.scope.includes('(369 icon JPEGs and 27 tree backgrounds) are exact copies from talentsforever.com, not client extractions') && te.scope.includes('396 + 17 = 413 files')
+    && ap.assets.length === 396 && ap.assets.every(r => r.sourceURL.startsWith('https://talentsforever.com/assets/')) && ap.limits[0].startsWith('The 396 files under assets are')
+    && files.length === 413 && files.every(f => tf.has('/static/wow/talents/' + f) !== ce.assets.some(r => r.path === 'worker/public/static/wow/talents/' + f))
+    && c.talentsForeverIconFiles === 369 && c.talentsForeverBackgroundFiles === 27 && c.clientIconFiles === 17 && c.files === 413
+    && c.talentsForeverIconFiles + c.talentsForeverBackgroundFiles + c.clientIconFiles === c.files
+    && c.talents === 467 && c.talentsWithoutIcon === 0 && c.talentsWithClientIcon === 17 && c.talentsWithTalentsForeverIcon === urls.filter(u => tf.has(u)).length
+    && c.talentsWithTalentsForeverIcon + c.talentsWithClientIcon + c.talentsWithoutIcon === c.talents
+    && c.uniqueIcons === new Set(urls).size && c.uniqueTalentsForeverIcons === new Set(urls.filter(u => tf.has(u))).size && c.uniqueClientIcons === 17
+    && c.uniqueTalentsForeverIcons + c.uniqueClientIcons === c.uniqueIcons
+    && provenance.artImportNote.includes('17 icons that Codex Root extracted from the game client 1.60.1.70938') && !provenance.artImportNote.includes('no-art tile')
+    || JSON.stringify({ rows, counts: c, files: files.length });
+});
 
 // --- CL2-089/CL2-090: presets.
 check('guides218.json pins the current revision and client build', () => guides.talentRevision === data.revision && guides.talentClientBuild === data.source.clientBuilds.join(', '));
