@@ -130,7 +130,9 @@ const visibility218=(p,hidden=false)=>{
   check(".218 a class guide without a spec leaves the spec to the module", university.length === 4 && JSON.stringify(university[3].options.parts) === '["class","mage"]');
   await p.go("#/guides/profession/first-aid"); await waitFor(() => university.length === 5, "profession guide");
   // CL2-205 (our 58b96f8): the .218 profession link opens the matching course with the profession key unchanged.
-  check(".218 a profession guide route passes the profession key", university.length === 5 && JSON.stringify(university[4].options.parts) === '["profession","first-aid"]');
+  // Unit h1 guidesname (owner, 15 Nov 2026): the page title ends in " · Guides" again, as before 58b96f8.
+  check(".218 a profession guide route passes the profession key", university.length === 5 && JSON.stringify(university[4].options.parts) === '["profession","first-aid"]'
+    && p.document.title === "First Aid guide · Guides — Olympus");
   await p.go("#/guides/tools/buffs"); await waitFor(() => guides.length === 1, "tool");
   // CL2-205 (our 58b96f8): tools keep guides218.js. Unit h1 guidesname (owner, 15 Nov 2026): their page titles end in " · Guides" again, as before 58b96f8.
   check(".218 a tool route passes the tool and titles the page", guides.length === 1 && guides[0].options.view === "tool" && guides[0].options.tool === "buffs" && p.document.title === "World buffs & consumables · Guides — Olympus");
@@ -147,19 +149,20 @@ const visibility218=(p,hidden=false)=>{
     && guides[1].options.tool === "raid-structure" && p.document.title === "Raid team structure & leadership · Guides — Olympus");
   // Unit h1 guidesname (owner, 15 Nov 2026: "Instead of university rename it back to its old name that it had for the guides."): the hub's
   // title is "Class & profession guides" and every other guides title ends in " · Guides", with the fallback "Guides", as before 58b96f8
-  // (race and exam titles use the same suffix); the frames of #/guides/tools (no tool named) and #/resources/<x> are titled as then and lead
-  // back with "Class & profession guides".
+  // (race and exam titles use the same suffix; an unknown race or profession falls back to "Guides"); the frames of #/guides/tools (no tool
+  // named) and #/resources/<x> are titled as then and lead back with "Class & profession guides".
   const titles218 = [];
-  for (const [hash, count] of [["#/guides", 7], ["#/guides/race/dwarf", 8], ["#/guides/exam/class-warrior/101", 9], ["#/guides/exams", 10], ["#/guides/class/no-such-class", 11], ["#/guides/nothing", 12]]) {
+  for (const [hash, count] of [["#/guides", 7], ["#/guides/race/dwarf", 8], ["#/guides/exam/class-warrior/101", 9], ["#/guides/exams", 10], ["#/guides/class/no-such-class", 11], ["#/guides/nothing", 12],
+    ["#/guides/race/orc", 13], ["#/guides/profession/no-such-profession", 14]]) {
     await p.go(hash); await waitFor(() => university.length === count, hash); titles218.push(p.document.title);
   }
   const frame218 = async hash => { await p.go(hash); await Promise.resolve(); const frames = p.app.querySelectorAll(".frame"), plaque = frames.length === 1 ? frames[0].querySelector(".plaque") : null;
     return [frames.length, plaque ? plaque.textContent : null, p.document.title, ...(frames.length === 1 ? frames[0].querySelectorAll("a.btn") : []).map(a => [a.getAttribute("href"), a.textContent])]; };
   const frames218 = [await frame218("#/guides/tools"), await frame218("#/resources/extra")];
   check("h1: the guides hub, race, exam, fallback and not-found pages use the section's old names", JSON.stringify(titles218) === JSON.stringify(["Class & profession guides — Olympus", "Dwarf guide · Guides — Olympus",
-    "Mastery exam · Guides — Olympus", "Mastery exams · Guides — Olympus", "Guides — Olympus", "Guides — Olympus"])
+    "Mastery exam · Guides — Olympus", "Mastery exams · Guides — Olympus", "Guides — Olympus", "Guides — Olympus", "Guides — Olympus", "Guides — Olympus"])
     && JSON.stringify(frames218) === JSON.stringify([[1, "Guides", "Guides — Olympus", ["#/guides", "Class & profession guides"]], [1, "Class & profession guides", "Class & profession guides — Olympus", ["#/guides", "Class & profession guides"]]])
-    && guides.length === 2 && university.length === 12);
+    && guides.length === 2 && university.length === 14);
 
   console.log("\n== .218: Attach to my application (prefill only) ==");
   // CL2-205 (our 58b96f8): the class guide that offers Attach is now an Olympus University course.
