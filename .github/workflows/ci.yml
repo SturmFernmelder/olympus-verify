@@ -80,6 +80,7 @@ jobs:
         working-directory: worker
       - name: Original preview expiry across the final D1 response
         timeout-minutes: 3
+        working-directory: worker
         run: node tests/site_role_audit283_workerd_test.cjs --only final-d1-expired
       - name: Concurrent sweep progress and completed-erasure regression
         run: |
