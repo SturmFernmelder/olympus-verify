@@ -804,7 +804,7 @@
     return num(cell.value) ? cell.value : cell.cands ? Math.min(...cell.cands.map(c => c.value)) : null;
   }
   function impactSortValue(row, key) {
-    if (row.group === "withheld" && (key === "stat" || key === "kind" || key === "grade")) return null;
+    if ((key === "stat" || key === "kind" || key === "grade") && row.group === "withheld") return null;
     switch (key) {
       case "talent": return row.name;
       case "tree": return row.treeIndex * 1000 + row.index;
