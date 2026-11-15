@@ -398,8 +398,9 @@ export function renderOrganization(main, data, ui) {
     }
     termList.append(h("section", { class: "org-office-tier-group", "data-catalog-group": groupKey }, h("h3", { text: title + " · " + terms.length + " offices" }), group));
   }
-  // CL2-190: one index per title (labels, aliases, historical labels, key and department) serves the chart and the register.
-  const termIndex1112 = t => [t.label, t.applicationLabel, ...(t.applicationAliases || []), ...(t.historicalOfficeLabels || []), t.officeKey, t.department, t.tierLabel, termFamily218(t)?.label].filter(Boolean).join(" ").toLowerCase();
+  // CL2-190: one index per title (labels, aliases, key and department) serves the chart and the register. Owner ruling
+  // 15 Nov 2026: current titles only; a historical office label stays in its history drawer and does not match a search.
+  const termIndex1112 = t => [t.label, t.applicationLabel, ...(t.applicationAliases || []), t.officeKey, t.department, t.tierLabel, termFamily218(t)?.label].filter(Boolean).join(" ").toLowerCase();
   search.addEventListener("input", () => {
     const q = search.value.trim().toLowerCase(); let count = 0, outside = 0;
     for (const n of data.nodes) {
