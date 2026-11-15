@@ -152,9 +152,9 @@ Object.defineProperty(Element.prototype, 'value', { ...value184, set(value) {
   check('h3 each portfolio without a record holds one muted span with the fallback text', fallbacks184.length === 11 && fallbacks184.every(dd => dd.children.length === 1 && dd.children[0].tagName === 'SPAN' && dd.children[0].getAttribute('class') === 'muted' && dd.textContent === none184));
 
   // The panel applies the Roles catalogue's guard (officeAssignmentPanel): a stored holder text longer than 40 characters,
-  // with a control character or an angle bracket, or of 17 to 20 digits shows "Name withheld". The Worker already cleans
-  // the first two on save and on read, so they reach the page here only through the test's boot hook (an old or malformed
-  // value); the other two come through the Worker.
+  // with a control character or an angle bracket, or of 17 to 20 digits shows "Name withheld". The Worker's cleanAppointed
+  // cuts a stored text to 40 characters and turns control characters into spaces when it reads the setting, so this test
+  // gives all six texts to the page through the fixture's boot hook.
   const withheld184 = 'Appointed: Name withheld.';
   const odd184 = { office_58: 'A'.repeat(41), office_98: 'B'.repeat(40), office_59: 'Tab\there', office_96: 'Holder <b>', office_97: '123456789012345678', office_99: '1234567890123456' };
   const guarded184 = await openHolders184({}, '#/vote/officer', { boot: boot => { boot.settings.appointed = { ...odd184 }; } });
