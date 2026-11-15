@@ -227,7 +227,7 @@ check("exactly the four cards whose aliases the page files as historical keep th
       && d[0].children[2].tagName === 'P' && d[0].children[2].textContent === line && !card.children.some(n => n.tagName === 'P' && n.textContent === line); }));
 const orgFiledQueries1115 = [...new Set(orgAliasTerms1115.filter(orgFiledHistorical1115).flatMap(t => t.applicationAliases))];
 const orgFiledResults1115 = orgFiledQueries1115.map(q => [q, orgSearch1115(q)]);
-check("a name the page files as a historical application label finds neither its card nor its chart node; only offices whose current terms carry the same words match",
+check("a name the page files as a historical application label finds only the offices whose current terms carry the same words, in the register, the list and the chart",
   JSON.stringify(orgFiledQueries1115) === JSON.stringify(['Systems Architect', 'Head of Justice', 'Privy Council / Judiciary', 'Judicial Portfolio', 'MAIN Raid & PvP Leads', 'PvE War Council Director'])
   && orgFiledResults1115.every(([, r]) => orgExact1115(r))
   && orgAliasTerms1115.filter(orgFiledHistorical1115).every(t => t.applicationAliases.every(q => { const r = orgFiledResults1115.find(([x]) => x === q)[1], own = orgCurrent1115(t).includes(orgLc1115(q));
