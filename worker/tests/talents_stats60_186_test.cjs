@@ -221,7 +221,8 @@ check('worked example 2: Divine Intellect 5/5 gives Int 70 to 77 and mana +105; 
   assert.ok(close(row(all, 'str').total.value, 115.5)); assert.ok(close(row(all, 'meleeAP').talents.value, 21));
   assert.equal(row(all, 'sta').total.value, 100); assert.equal(row(all, 'health').talents.value, 0);
   assert.equal(row(all, 'spellDamage').total.none, true);
-  for (const id of ['paladin-protection-sacred-duty', 'paladin-retribution-champion-of-the-light']) { const c = all.contributions.find(c => c.talentId === id); assert.equal(c.group, 'withheld', id); assert.deepEqual(c.effects, [], id); }
+  // Site fault f2 (stats60.js 609): a withheld contribution's rank count is the data's (Champion of the Light: 5 in data.json, 3 when reviewed).
+  for (const id of ['paladin-protection-sacred-duty', 'paladin-retribution-champion-of-the-light']) { const c = all.contributions.find(c => c.talentId === id); assert.equal(c.group, 'withheld', id); assert.deepEqual(c.effects, [], id); assert.equal(c.maxRank, talentsOf('paladin').find(t => t.id === id).maxRank, id); }
 });
 check('worked example 3: exact flat modifiers keep their own grade (Precision +3 hit A, Anticipation +20 defense A) while derived effects stay E', () => {
   const r = evaluate('paladin', 'human', [['paladin-protection-precision', 3], ['paladin-protection-anticipation', 5]]);
@@ -445,7 +446,12 @@ check('the mounted sheet renders graded cells, a greyed Classic label, an SVG ch
   assert.ok(host.all(() => true).every(n => !('style' in n.attributes)));
   const applied = byClass(host, 's60-group-applied')[0]; assert.match(applied.textContent, /Divine Intellect/); assert.match(applied.textContent, /Mana \+105/);
   const about = byClass(host, 's60-about')[0].textContent;
-  assert.match(about, /cropped to the stat panel only/); assert.match(about, /130 also equal the client's own talent curves \(grade A/); assert.match(about, /6 carry a semantic reading of client data \(grade B/);
+  // Site fault f2 (stats60.js 1013): the provenance sentence counts what the page verified. 136 components (stat-effects186.json); 112 = 136 minus
+  // the 24 withheld (WITHHELD24, bound by an independent hash above); client 1.60.1.70755 (data.json source.clientBuilds); of the 112, grade A 107 and B 5.
+  const kept = effects.components.filter(c => !WITHHELD24.includes(c.id));
+  assert.deepEqual([effects.components.length, kept.length, data.source.clientBuilds, kept.filter(c => c.grade === 'A').length, kept.filter(c => c.grade === 'B').length, effects.source.db2Build, effects.source.db2CrossCheckBuild, naked.build.client], [136, 112, ['1.60.1.70755'], 107, 5, '1.60.1.70425', '1.60.1.70450', '1.60.1.70450']);
+  assert.equal(byClass(host, 's60-about')[0].children[1].textContent, 'Exact: the talent values. Of the 136 talent stat components, 112 equal their Talents Forever rank text for client 1.60.1.70755 and 24 are withheld because their rank text changed since review; of the 112, 107 also equal the client\'s own talent curves (grade A, DB2 1.60.1.70425, cross-checked in 1.60.1.70450) and 5 carry a semantic reading of client data (grade B: values read from spell effects, or an exact curve whose stat is read from its aura). Racial traits come from DB2 SpellEffect 1.60.1.70450 (grade B).');
+  assert.match(about, /cropped to the stat panel only/);
   assert.match(about, /1\.60\.1\.70009 is not used/); assert.ok(byClass(host, 's60-about')[0].tagName === 'DETAILS' && !host.all(n => n.tagName === 'A' || n.tagName === 'IMG').length);
   ui.destroy(); assert.equal(byClass(host, 'talents-stats60').length, 0);
 });
@@ -863,32 +869,37 @@ check('.196 stat impact: every stat component of every class, at maximum rank an
       const tree = cls.trees[r.treeIndex], talent = tree.talents.find(t => t.id === r.talentId), comp = comps.find(c => c.id === r.id); assert.ok(talent, r.id); assert.equal(r.row, talent.row); assert.equal(r.pointsNeeded, 5 * (talent.row - 1)); assert.equal(r.tree, tree.name);
       // Grade and maximum rank come from the data: the six B components stay B, and the parry grant is U.
       assert.equal(r.maxRank, talent.maxRank, r.id); assert.equal(r.grade, comp ? comp.grade : 'U', r.id);
+      // Site fault f2 (stats60.js 768): a withheld row prints no reviewed number; its per-rank cell reads as its maximum-rank cell.
+      if (WITHHELD24.includes(r.id)) assert.deepEqual([r.group, r.perRank, r.atMax, r.maxValue, r.sortValue], ['withheld', 'Rank text changed since review; number withheld.', 'Rank text changed since review; number withheld.', null, null], r.id);
     }
   }
   const pal = S.impactRows(model, { className: 'paladin', race: 'human' }).rows, find = (rows, id) => rows.find(r => r.id === id);
-  const di = find(pal, 'paladin-holy-divine-intellect#intellect_pct');
-  assert.deepEqual([di.tree, di.row, di.pointsNeeded, di.requires, di.stat, di.group, di.kind, di.perRank, di.atMax, di.maxValue, di.sortValue, di.grade], ['Holy', 1, 0, null, 'Intellect', 'applied', 'Added to the sheet', '2 / 4 / 6 / 8 / 10%', '+10% Intellect (total)', 10, 7, 'A']);
+  // CL2-087 (our b4065db): Divine Intellect is re-keyed to Protection (identical text); data.json puts it in row 1 with no prerequisite.
+  const di = find(pal, 'paladin-protection-divine-intellect#intellect_pct');
+  assert.deepEqual([di.tree, di.row, di.pointsNeeded, di.requires, di.stat, di.group, di.kind, di.perRank, di.atMax, di.maxValue, di.sortValue, di.grade], ['Protection', 1, 0, null, 'Intellect', 'applied', 'Added to the sheet', '2 / 4 / 6 / 8 / 10%', '+10% Intellect (total)', 10, 7, 'A']);
   assert.deepEqual(di.effects.map(e => [e.label, e.text, e.grade]), [['Intellect', '+7', 'E'], ['Mana', '+105', 'E'], ['Spell crit %', '+0.13 pp (both candidates)', 'E']]);
   const anticipation = find(pal, 'paladin-protection-anticipation#defense_skill');
   assert.deepEqual(anticipation.effects.map(e => [e.label, e.text, e.grade]), [['Dodge %', '+0.8 pp', 'E'], ['Parry %', '+0.8 pp', 'E'], ['Defense skill', '+20', 'A']]); assert.equal(anticipation.sortValue, 20);
+  // CL2-087 (our b4065db): Divine Precision changed rank text and is withheld; data.json puts it in row 4 with no prerequisite.
   const precision = find(pal, 'paladin-holy-divine-precision#spell_school_hit_chance');
-  assert.deepEqual([precision.group, precision.requires, precision.effects.length, precision.sortValue, precision.conditions], ['scoped', 'Holy Shock', 0, null, ['for Holy spells']]);
+  assert.deepEqual([precision.group, precision.requires, precision.effects.length, precision.sortValue, precision.conditions], ['withheld', null, 0, null, ['for Holy spells']]);
   const vigor = find(S.impactRows(model, { className: 'rogue', race: 'gnome' }).rows, 'rogue-assassination-vigor#max_energy');
   assert.deepEqual(vigor.effects.map(e => [e.label, e.text, e.grade, e.value]), [['Maximum energy', '+10 (modifier)', 'A', 10], ['Maximum energy on the sheet', '+11 after percentage bonuses and Classic rounding', 'E', 11]]);
   assert.deepEqual([vigor.perRank, vigor.atMax, vigor.sortValue], ['5 / 10 energy', '+10 maximum energy', 10]);
-  const elf = S.impactRows(model, { className: 'druid', race: 'night-elf' }).rows, bear = find(elf, 'druid-feral-combat-heart-of-the-wild#stamina_pct_bear');
+  // CL2-087 (our b4065db): Heart of the Wild is re-keyed to Restoration with identical text.
+  const elf = S.impactRows(model, { className: 'druid', race: 'night-elf' }).rows, bear = find(elf, 'druid-restoration-heart-of-the-wild#stamina_pct_bear');
   assert.deepEqual([bear.group, bear.kind, bear.conditions], ['conditional', 'Conditional: added only when its assumption is on', ['in Bear Form or Dire Bear Form']]);
   assert.deepEqual(bear.effects.map(e => [e.label, e.text, e.grade]), [['Stamina', '+13.8', 'E'], ['Health', '+138', 'E']]);
-  const skyHotw = find(S.impactRows(model, { className: 'druid', race: 'skyborne-windshaper' }).rows, 'druid-feral-combat-heart-of-the-wild#intellect_pct');
+  const skyHotw = find(S.impactRows(model, { className: 'druid', race: 'skyborne-windshaper' }).rows, 'druid-restoration-heart-of-the-wild#intellect_pct');
   assert.deepEqual(skyHotw.effects.map(e => [e.label, e.text, e.grade]), [['Intellect', '+10% (modifier; total unavailable)', 'A'], ['2 dependent totals', 'Unavailable (no base values)', 'U']]); assert.equal(skyHotw.sortValue, null);
   const grant = find(S.impactRows(model, { className: 'shaman', race: 'orc' }).rows, SPIRIT_WEAPONS + '#parry_grant');
   assert.deepEqual([grant.grade, grant.tree, grant.effects.map(e => [e.row, e.text, e.grade])], ['U', 'Enhancement', [['parry', 'Unavailable (value not published)', 'U']]]);
   const shield = find(S.impactRows(model, { className: 'warrior', race: 'human', toggles: { shield: true } }).rows, 'warrior-protection-shield-specialization#block_chance');
   assert.deepEqual([shield.group, shield.kind, shield.effects.map(e => e.text)], ['applied', 'Added to the sheet (your assumption is on)', ['+5 pp']]);
   assert.equal(find(S.impactRows(model, { className: 'warrior', race: 'human' }).rows, 'warrior-protection-shield-specialization#block_chance').group, 'gear');
-  // A changed rank text withholds its number here too.
-  const changed = clone(data); changed.classes.find(c => c.id === 'paladin').trees.flatMap(t => t.talents).find(t => t.id === 'paladin-holy-divine-intellect').descriptions[4] = 'Increases your total Intellect by 99%.';
-  const withheld = find(S.impactRows(S.prepare(changed, naked, effects), { className: 'paladin', race: 'human' }).rows, 'paladin-holy-divine-intellect#intellect_pct');
+  // A changed rank text withholds its number here too. CL2-087 (our b4065db): Divine Intellect's Protection key.
+  const changed = clone(data); changed.classes.find(c => c.id === 'paladin').trees.flatMap(t => t.talents).find(t => t.id === 'paladin-protection-divine-intellect').descriptions[4] = 'Increases your total Intellect by 99%.';
+  const withheld = find(S.impactRows(S.prepare(changed, naked, effects), { className: 'paladin', race: 'human' }).rows, 'paladin-protection-divine-intellect#intellect_pct');
   assert.deepEqual([withheld.group, withheld.maxValue, withheld.effects.length, withheld.sortValue], ['withheld', null, 0, null]);
 });
 check('.196 sorting is stable, keeps missing values last in both directions and orders disputed values by their lowest candidate', () => {
@@ -1046,16 +1057,19 @@ check('.196 each tree table lists exactly that tree\'s stat components in talent
         // Stat, kind, per-rank and maximum-rank text agree with the impact table's row for the same component.
         const twin = bodyRows(t.impact).find(x => x.getAttribute('data-component') === id), comp = effects.components.find(c => c.id === id), want = comp ? comp.grade : 'U';
         assert.deepEqual([2, 3, 4, 5].map(k => tr.children[k].textContent), [2, 3, 4, 5].map(k => twin.children[k].textContent), id);
+        // Site fault f2 (stats60.js 768): a withheld row's per-rank cell prints no reviewed value.
+        if (WITHHELD24.includes(id)) assert.equal(tr.children[4].textContent, 'Rank text changed since review; number withheld.', id);
         assert.equal(badgeOf(tr.children[6]).textContent, want, id); assert.equal(badgeOf(twin.children[7]).textContent, want, id);
         bGrades += (want === 'B') + (badgeOf(twin.children[7]).textContent === 'B');
       }
     });
   }
-  // 141 components plus the Spirit Weapons parry grant; the six B components show B once in their tree table and once in the impact table.
-  assert.equal(total, 142); assert.equal(bGrades, 12);
+  // CL2-087 (our b4065db): 136 components (five left with their talents) plus the Spirit Weapons parry grant; the six B components show B once in their tree table and once in the impact table.
+  assert.equal(total, 137); assert.equal(bGrades, 12);
   const pal = (await classMounts()).find(m => m.cls.id === 'paladin').t;
-  assert.equal(bodyRows(pal.trees[0]).find(tr => tr.getAttribute('data-component') === 'paladin-holy-divine-precision#spell_school_hit_chance').children[1].textContent, 'Row 5, 20 points in earlier rows; requires Holy Shock at maximum rank');
-  assert.equal(bodyRows(pal.trees[0]).find(tr => tr.getAttribute('data-component') === 'paladin-holy-divine-intellect#intellect_pct').children[1].textContent, 'Row 1, no earlier points');
+  // CL2-087 (our b4065db): data.json puts Divine Precision in Holy row 4 with no prerequisite, and Divine Intellect in Protection row 1.
+  assert.equal(bodyRows(pal.trees[0]).find(tr => tr.getAttribute('data-component') === 'paladin-holy-divine-precision#spell_school_hit_chance').children[1].textContent, 'Row 4, 15 points in earlier rows');
+  assert.equal(bodyRows(pal.trees[1]).find(tr => tr.getAttribute('data-component') === 'paladin-protection-divine-intellect#intellect_pct').children[1].textContent, 'Row 1, no earlier points');
   assert.equal(byClass(bodyRows((await classMounts()).find(m => m.cls.id === 'shaman').t.trees[1]).find(tr => tr.getAttribute('data-component') === SPIRIT_WEAPONS + '#parry_grant'), 's60-row-note')[0].textContent, '1 rank');
 });
 check('.196 reachability cells show the tree check\'s own numbers, counts read in the singular for one, data-grade tooltips use the stat file\'s legend and no cell gets a numeric class', async () => {
