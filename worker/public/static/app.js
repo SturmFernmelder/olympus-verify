@@ -2229,7 +2229,7 @@
     if (!cls.value || cls.value === "undecided") { cls.value = pending.classId; cls.dispatchEvent(new Event("change")); classNote = ` Your class is now ${wanted.label}.`; }
     const field = pending.level === 30 ? talentRows[0].at30 : talentRows[0].at60;
     field.value = pending.code; touch();
-    say(`Attached "${pending.label}" as your level ${pending.level} talent build.${classNote} Check the form, tick the confirmation and save when ready. Nothing has been sent yet.`);
+    say(`Attached "${pending.label}" as your level ${pending.level} talent build.${classNote} Review it against the current in-game talents. Check the form, tick the confirmation and save when ready. Nothing has been sent yet.`);
     field.focus();
   }
   ROUTES.guide = (main, parts) => {
