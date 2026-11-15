@@ -381,6 +381,8 @@
       }
       for (const id of chapter.theory) ctx.used.add(ctx.facts.get(id).grade);
       const p = chapter.praxis;
+      // Praxis steps and common mistakes are plain text, but they state the facts they cite.
+      if (p) { for (const s of p.steps) noteTalentData(ctx, s.facts || []); for (const m of p.mistakes) noteTalentData(ctx, m.facts); }
       const presets = (chapter.presets || []).map(id => ctx.presets.get(id)).filter(Boolean);
       return el("article", { class: "uni-chapter", "data-chapter": chapter.id }, head,
         chapter.theory.length ? [el("h4", { text: "Theory" }), factList(ctx, chapter.theory)] : null,
@@ -447,6 +449,7 @@
       const title = spec ? spec.name + " " + g.name : g.name, used = ctx.used;
       if (route.chapter && !owner.tracks[route.tier].chapters.some(c => c.id === route.chapter)) return notFound("chapter", "The " + TRACK_NAMES[route.tier] + " track of the " + title + " course has no chapter by that name.", [base + "/" + route.tier, title + " " + TRACK_NAMES[route.tier]]);
       for (const id of owner.overview.facts) used.add(ctx.facts.get(id).grade);
+      for (const p of owner.overview.points) noteTalentData(ctx, p.facts || []);
       const frag = [], trail = [["#/guides", "Olympus University"]];
       if (spec) trail.push([guideHref(entry), g.name], [null, spec.name]); else trail.push([null, g.name]);
       frag.push(crumbs(...trail), header(entry.kind === "profession" || entry.kind === "race" ? g.name + " guide" : title, iconFor(entry), owner.overview.lead));
