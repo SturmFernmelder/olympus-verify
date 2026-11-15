@@ -35,6 +35,7 @@ export function fixture1112(seed){const cases=new Map();return {async fetch(requ
    // Every case's roster is older than 600 s unless the case first verifies through the bot (it ages the roster after).
    // The positive routine uses the active ten-rank policy and a full, qualified native-v2 source; old settlement rows remain historical controls.
    const fresh=body.verifyFirst===true,rank=Number.isInteger(body.rank)?body.rank:7;
+   const seedInserts=[];
    for(const table of [...seed.tables].sort((a,b)=>order.indexOf(a.name)-order.indexOf(b.name)))for(const original of table.rows){const row={...original};
     if(table.name==='site_settings'&&row.key==='membership230:closure:'+closure.operationId)row.value=closureJSON;
     if(table.name==='roster_snapshots'){row.source=qualifiedNativeSnapshotSource(scope.guild,scope.realm);if(!fresh){row.exported_at=seed.now-700;row.received_at=seed.now-700;row.first_received_at=seed.now-700;}}
@@ -42,7 +43,10 @@ export function fixture1112(seed){const cases=new Map();return {async fetch(requ
     // Successor (12 Nov 2026): many cases verify, some late in the run; the seed's one open code keeps its 120 s TTL
     // from this case's setup instead of from seed creation. Its creation time, and so the code itself, are unchanged.
     if(table.name==='pending'&&row.consumed_at===null)row.expires_at=Math.max(row.expires_at,Math.floor(Date.now()/1000)+120);
-    const names=Object.keys(row);await db.prepare('INSERT INTO "'+table.name+'"('+names.map(n=>'"'+n+'"').join(',')+')VALUES('+names.map(()=>'?').join(',')+')').bind(...names.map(n=>row[n])).run();}
+    const names=Object.keys(row);seedInserts.push(db.prepare('INSERT INTO "'+table.name+'"('+names.map(n=>'"'+n+'"').join(',')+')VALUES('+names.map(()=>'?').join(',')+')').bind(...names.map(n=>row[n])));}
+   // Preserve the original FK/table/row insertion order and every statement;
+   // only pre-trigger fixture transport grouping changes.
+   while(seedInserts.length)await db.batch(seedInserts.splice(0,40));
    const triggers=seed.objects.filter(x=>x.type==='trigger').map(x=>db.prepare(x.sql));while(triggers.length)await db.batch(triggers.splice(0,40));
    const control={failD1:[]},wires=[],fetcher=Object.getOwnPropertyDescriptor(db,'fetcher').value,send=method(fetcher,'fetch');
    Object.defineProperty(fetcher,'fetch',{configurable:true,writable:false,value:async function(input,init){
@@ -57,18 +61,29 @@ export function fixture1112(seed){const cases=new Map();return {async fetch(requ
   }
   const c=cases.get(kind);if(!c)return new Response(null,{status:404});
   const {db,env,subject,wires}=c,start=wires.length;
-  const finish=async extraOut=>{const end=wires.length,rows=(await db.prepare('SELECT id,subject,purpose,proof_id,role_id,desired,state,reason,attempts,claim_nonce,subject_generation,request_digest,native_profile,created_at,expires_at,checked_at FROM role_settlements ORDER BY created_at,rowid').all()).results;
+  const finish=async extraOut=>{const end=wires.length;
    // Round 5 gate2 (13 Nov 2026): the audit id is returned so the driver can name each sweep lane's head row (the
    // progress is lane-owned since Codex's 42e36b7), and the guild-wide managed-rank cooldown row (fdf2158) is returned
    // as stored. Both are read after the measured statements, so `statements` is unchanged.
-   const member=await db.prepare('SELECT banned,ban_reason FROM members WHERE discord_id=?1').bind(subject).first(),audits=(await db.prepare("SELECT id,action,details FROM audit WHERE action IN('role.ban_rank1112','role.remove_failed','role.sweep') ORDER BY id").all()).results,failed=wires.slice(start,end).filter(w=>w.status!==200).length;
+   // The same six post-measurement diagnostics, in their original order. A
+   // single batch avoids six separate binding trips without hiding a statement
+   // from the measured action (whose immutable end was captured above).
+   const observed=await db.batch([
+    db.prepare('SELECT id,subject,purpose,proof_id,role_id,desired,state,reason,attempts,claim_nonce,subject_generation,request_digest,native_profile,created_at,expires_at,checked_at FROM role_settlements ORDER BY created_at,rowid'),
+    db.prepare('SELECT banned,ban_reason FROM members WHERE discord_id=?1').bind(subject),
+    db.prepare("SELECT id,action,details FROM audit WHERE action IN('role.ban_rank1112','role.remove_failed','role.sweep') ORDER BY id"),
+    db.prepare("SELECT value FROM site_settings WHERE key='role.managed.cooldown280'"),
+    db.prepare("SELECT details FROM audit WHERE action='role.sweep_failed' ORDER BY id"),
+    db.prepare("SELECT (SELECT MAX(id) FROM audit WHERE action='admin.ban' AND subject=?1) AS ban,(SELECT MAX(id) FROM audit WHERE action='admin.unban' AND subject=?1) AS unban").bind(subject),
+   ]);
+   const rows=observed[0].results,member=observed[1].results[0]??null,audits=observed[2].results,failed=wires.slice(start,end).filter(w=>w.status!==200).length;
    const statements=wires.slice(start,end).reduce((n,w)=>{try{const x=JSON.parse(w.requestBody);return n+(Array.isArray(x)?x.length:1);}catch{return n+1;}},0);
-   const cooldown=(await db.prepare("SELECT value FROM site_settings WHERE key='role.managed.cooldown280'").first())?.value??null;
-   const sweepFailed=(await db.prepare("SELECT details FROM audit WHERE action='role.sweep_failed' ORDER BY id").all()).results.map(r=>r.details);
+   const cooldown=observed[3].results[0]?.value??null;
+   const sweepFailed=observed[4].results.map(r=>r.details);
    // Round 5 final (13 Nov 2026): the ban cause the product binds into a refusal's mandate since Codex's 9a66048
    // (role-settlements.ts removeBanRankRoles1112: the newest admin.ban and admin.unban audit ids of the subject), read
    // after the measured statements like the rows above, so the driver can recompute the exact mandate.
-   const banCause=await db.prepare("SELECT (SELECT MAX(id) FROM audit WHERE action='admin.ban' AND subject=?1) AS ban,(SELECT MAX(id) FROM audit WHERE action='admin.unban' AND subject=?1) AS unban").bind(subject).first();
+   const banCause=observed[5].results[0]??null;
    return json({ok:true,rows,member,audits,cooldown,sweepFailed,banCause,trips:end-start,statements,failedTrips:failed,actualLocalWorkerdD1:true,...extraOut});};
   const command=async(sub,options)=>{const pending=[],defer=(label,work)=>{pending.push(Promise.resolve().then(work));};
    const interaction={type:2,id:'9'.repeat(18),token:'interaction-token-'+kind,application_id:env.DISCORD_APP_ID,guild_id:env.GUILD_ID,channel_id:'444444444444444444',member:{user:{id:ACTOR,username:'qualification-officer'},roles:[HIGH_COUNCIL]},
