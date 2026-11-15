@@ -977,7 +977,7 @@ check('.196 stat impact: every stat component of every class, at maximum rank an
       const tree = cls.trees[r.treeIndex], talent = tree.talents.find(t => t.id === r.talentId), comp = comps.find(c => c.id === r.id); assert.ok(talent, r.id); assert.equal(r.row, talent.row); assert.equal(r.pointsNeeded, 5 * (talent.row - 1)); assert.equal(r.tree, tree.name);
       // Grade and maximum rank come from the data: the five verified B components stay B, and the parry grant is U. Owner's answer 3 (15 Nov 2026,
       // "Yes, show neither"; site fault g1, stats60.js 768): a withheld row is U too and has no condition; a verified row keeps its grade and conditions.
-      // Owner's answers 7 and 8 (15 Nov 2026, "Yes, always last"; "No, only Stat, Kind, grade"; site fault g5, stats60.js 807): its grade sort key is missing.
+      // Owner's answers 7 and 8 (15 Nov 2026, "Yes, always last"; "No, only Stat, Kind, grade (Recommended)"; site fault g5, stats60.js 807): its grade sort key is missing.
       assert.equal(r.maxRank, talent.maxRank, r.id); assert.equal(r.grade, comp && !WITHHELD24.includes(r.id) ? comp.grade : 'U', r.id);
       if (WITHHELD24.includes(r.id)) assert.deepEqual([r.grade, r.conditions, S.impactSortValue(r, 'grade')], ['U', [], null], r.id);
       else if (comp) assert.deepEqual([r.grade, r.conditions], [comp.grade, comp.conditions.map(S.conditionText)], r.id);
