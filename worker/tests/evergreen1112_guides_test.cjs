@@ -748,9 +748,12 @@ const creditState = p => {
   const links = c.length === 1 ? JSON.stringify(c[0].querySelectorAll('a').map(a => [a.getAttribute('href'), text(a), a.getAttribute('target'), a.getAttribute('rel')])) : '';
   return c.length === 1 && named === 1 && text(c[0]) === TF_CREDIT && links === TF_LINKS ? 1 : 'credits ' + c.length + ', author named ' + named + ': ' + c.map(text).join(' | ') + ' ' + links;
 };
-const showsTalentData = (owner, tier, F, TF, questions, presetIds) => {
+// The facts behind the plain-text overview points, praxis steps and common mistakes a page shows (f1 review round).
+const textFacts = (owner, tier) => [...owner.overview.points.flatMap(p => p.facts || []), ...owner.tracks[tier].chapters.filter(c => c.unavailable === undefined && c.praxis)
+  .flatMap(c => [...c.praxis.steps.flatMap(s => s.facts || []), ...c.praxis.mistakes.flatMap(m => m.facts)])];
+const showsTalentData = (owner, tier, F, TF, questions, presetIds, withText = true) => {
   const chapters = owner.tracks[tier].chapters, open = chapters.filter(c => c.unavailable === undefined);
-  const ids = [...owner.overview.facts, ...chapters.flatMap(c => c.theory), ...questions.filter(q => open.some(c => c.id === q.chapter)).flatMap(q => q.facts)];
+  const ids = [...owner.overview.facts, ...chapters.flatMap(c => c.theory), ...questions.filter(q => open.some(c => c.id === q.chapter)).flatMap(q => q.facts), ...(withText ? textFacts(owner, tier) : [])];
   return ids.some(id => F.get(id).sources.some(s => TF.has(s))) || open.some(c => (c.presets || []).some(id => presetIds.has(id)));
 };
 const coursePages = () => json(uni, 'index.json').guides.filter(g => g.file).flatMap(entry => {
@@ -783,9 +786,38 @@ check('f1: every mastery exam prints the credit once exactly when one of its dra
 });
 check('f1: the hub, the exam index, a not-found page and an unwritten guide print no Talents Forever credit', async () => {
   const planned = x => { const ix = json(uni, 'index.json'), d = ix.guides.find(g => g.id === 'dwarf'); d.status = 'planned'; d.file = null; delete d.exams; delete d.chapters; x.files.set('index.json', ix); };
-  const pages = [await open([]), await open(['exams']), await open(['class', 'no-such-class']), await open(['class', 'warrior', 'nope']), await open(['race', 'dwarf'], undefined, planned)];
+  const pages = [await open([]), await open(['exams']), await open(['class', 'no-such-class']), await open(['class', 'warrior', 'nope']), await open(['race', 'dwarf'], undefined, planned),
+    await open(['class', 'warrior', '101', 'no-such-chapter']), await open(['class', 'warrior', '401']), await open(['exam', 'class-nope', '101'])];
   const h1 = pages.map(p => text(p.container.querySelector('h1')));
-  return JSON.stringify(h1) === '["Olympus University","Mastery exams","Class guide not found","Spec not found","Dwarf guide"]' && pages.every(p => creditState(p) === 0) || JSON.stringify({ h1, state: pages.map(creditState) });
+  return JSON.stringify(h1) === '["Olympus University","Mastery exams","Class guide not found","Spec not found","Dwarf guide","Chapter not found","Track not found","Exam not found"]' && pages.every(p => creditState(p) === 0) || JSON.stringify({ h1, state: pages.map(creditState) });
+});
+// f1 review round (reviewer A): overview points, praxis steps and common mistakes are plain text, but each states the facts it
+// cites. On these seven pages that text is the only Talents Forever data (derived below from the data files).
+check('f1: a course whose only Talents Forever data is in its overview points, praxis steps or common mistakes prints the credit (Rogue 101 to 301, Druid 201 and 301, Mage 301, Warlock 301)', async () => {
+  const F = allFacts(), TF = tfSources(), cites = id => F.get(id).sources.some(s => TF.has(s)), bad = [];
+  const only = coursePages().filter(x => showsTalentData(x.owner, x.tier, F, TF, x.questions, x.presetIds) && !showsTalentData(x.owner, x.tier, F, TF, x.questions, x.presetIds, false));
+  for (const x of only) {
+    const p = await open(x.parts), shown = p.container.textContent, written = x.owner.tracks[x.tier].chapters.filter(c => c.unavailable === undefined && c.praxis);
+    const said = [...x.owner.overview.points.filter(t => (t.facts || []).some(cites)).map(t => t.text), ...written.flatMap(c => [...c.praxis.steps.filter(s => (s.facts || []).some(cites)).map(s => s.text),
+      ...c.praxis.mistakes.filter(m => m.facts.some(cites)).map(m => m.mistake)])];
+    if (creditState(p) !== 1 || !said.length || !said.every(t => shown.includes(t))) bad.push(x.parts.join('/') + ' ' + JSON.stringify({ credit: creditState(p), said: said.length, shown: said.filter(t => shown.includes(t)).length }));
+  }
+  const names = only.map(x => x.parts.join('/')).sort();
+  return bad.length === 0 && JSON.stringify(names) === '["class/druid/201","class/druid/301","class/mage/301","class/rogue/101","class/rogue/201","class/rogue/301","class/warlock/301"]' || JSON.stringify({ names, bad });
+});
+// f1 review round (reviewer B): app.js loads university.js once and mounts it again on every address, so the credit of one
+// page must not carry over to the next page mounted in the same page context.
+check('f1: a page without Talents Forever data mounted after one with it, in the same page context, prints no credit', async () => {
+  const F = allFacts(), TF = tfSources(), pages = coursePages(), by = parts => pages.find(x => x.parts.join('/') === parts.join('/'));
+  const want = parts => { const x = by(parts); return showsTalentData(x.owner, x.tier, F, TF, x.questions, x.presetIds) ? 1 : 0; };
+  const p = page(), mount = parts => p.ctx.OlympusUniversity.mount(p.container, { parts, talentRevision: json(stat, 'guides218.json').talentRevision, canAttach: true, onAttach() {} });
+  const done = () => settle(p, x => x.container.textContent !== '' && !/Opening Olympus University/.test(x.container.textContent));
+  const first = mount(['class', 'warrior', 'arms', '101']); await done();
+  const a = creditState(p);
+  first.destroy();
+  mount(['profession', 'alchemy', '101']); await done();
+  const b = creditState(p), h1 = text(p.container.querySelector('h1'));
+  return want(['class', 'warrior', 'arms', '101']) === 1 && want(['profession', 'alchemy', '101']) === 0 && a === 1 && b === 0 && h1 === 'Alchemy guide' || JSON.stringify({ a, b, h1 });
 });
 check('f1: a talent build alone, or a Talents Forever fact that only a chapter quiz shows, still brings the credit', async () => {
   // Fixture 1: no source is published by Talents Forever, so on the Warrior pages only the talent builds call for the credit.
