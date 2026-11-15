@@ -720,6 +720,29 @@ async function detailRenderRegression() {
   check('.282-f5 a Warrior link with the empty code the route passes shows the ordinary help line, not the unavailable-class recovery',
     warriorEmptyF5.reads === 0 && warriorEmptyF5.feedback.length === 1 && warriorEmptyF5.feedback[0] === 'Left-click adds a point; right-click or Shift-click refunds. Hover or focus a talent to read every rank.'
     && warriorEmptyF5.shown === 'warrior' && warriorEmptyF5.changes === 0);
+  // h4 (finishing round): the shipped art.json lists no talent any more, so no check above reaches the plain no-art tile of talentArt.
+  // A test-only copy of art.json that lists Reckless Swings without an icon is served to a separate calculator realm; no site file changes.
+  const noArtMapH4 = clone(art); delete noArtMapH4.talentIcons['warrior-fury-reckless-swings']; noArtMapH4.talentIconsUnavailable = ['warrior-fury-reckless-swings'];
+  const noArtDocumentH4 = { createElement(tag) { return new TalentElement(tag, this); }, createTextNode(value) { return new TalentText(value); }, activeElement: null };
+  const noArtModuleH4 = { exports: {} };
+  vm.runInNewContext(source, {
+    module: noArtModuleH4, setTimeout() { return 0; }, clearTimeout() {}, location: { origin: 'https://guild.example', pathname: '/' },
+    navigator: { clipboard: { async writeText() {} } }, fetch: async url => ({ ok: true, json: async () => clone(url.endsWith('/art.json') ? noArtMapH4 : data) }),
+  }, { filename: path.join(folder, 'calculator.js'), timeout: 1000 });
+  const noArtHostH4 = noArtDocumentH4.createElement('main'), noArtControllerH4 = await noArtModuleH4.exports.mount(noArtHostH4);
+  const noArtButtonsH4 = byClass(noArtHostH4, 'talents-pick'), noArtIndexH4 = all(data.classes[0]).findIndex(talent => talent.id === 'warrior-fury-reckless-swings');
+  const noArtButtonH4 = noArtButtonsH4[noArtIndexH4], noArtTilesH4 = noArtButtonH4 ? byClass(noArtButtonH4, 'talents-noart') : [];
+  if (noArtButtonH4) noArtButtonH4.focus();
+  const noArtHeadingH4 = byClass(noArtHostH4, 'talents-tooltip-heading')[0], noArtHeadingTilesH4 = noArtHeadingH4 ? byClass(noArtHeadingH4, 'talents-noart') : [];
+  check('h4: a talent the art map lists without an icon (a test copy of art.json with Reckless Swings listed) is one aria-hidden talents-noart span and no image in its tile and its detail heading, while the other 52 Warrior tiles keep one image each',
+    api.validateArt(data, noArtMapH4).ok && api.validateArt(data, noArtMapH4).talents === 466 && api.validateArt(data, noArtMapH4).unavailable === 1
+    && noArtButtonsH4.length === 53 && !!noArtButtonH4 && (noArtButtonH4.getAttribute('aria-label') || '').startsWith('Reckless Swings, rank ')
+    && noArtTilesH4.length === 1 && noArtTilesH4[0].tagName === 'SPAN' && noArtTilesH4[0].getAttribute('aria-hidden') === 'true' && noArtTilesH4[0].childNodes.length === 0
+    && noArtButtonH4.all(node => node.tagName === 'IMG').length === 0
+    && !!noArtHeadingH4 && noArtHeadingH4.all(node => node.tagName === 'H3')[0]?.textContent === 'Reckless Swings' && noArtHeadingH4.all(node => node.tagName === 'IMG').length === 0
+    && noArtHeadingTilesH4.length === 1 && noArtHeadingTilesH4[0].tagName === 'SPAN' && noArtHeadingTilesH4[0].getAttribute('aria-hidden') === 'true'
+    && noArtButtonsH4.every((button, index) => index === noArtIndexH4 || byClass(button, 'talents-noart').length === 0 && button.all(node => node.tagName === 'IMG').length === 1));
+  noArtControllerH4.destroy();
   console.log('\n' + ok + '/' + n + ' passed');
   if (ok !== n) process.exitCode = 1;
 }
