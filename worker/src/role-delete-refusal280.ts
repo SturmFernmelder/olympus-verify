@@ -96,14 +96,18 @@ export function managedRankCooldownAllowedSql280():string{
 
 /** Known permission/missing-member/role refusals require attended resolution;
  * expiration of a dispatch claim alone cannot authorize another automatic DELETE. */
+function manualRankRefusalStatusSql280(a:string):string{return `(CASE WHEN json_valid(${a}.reason) THEN json_extract(${a}.reason,'$.status') ELSE NULL END) IN(403,404)`;}
 export function manualRankRefusalSql280(name:string):string{
- const a=alias(name);return all([any([canonicalDeleteRefusalSql280(a),banDeleteRefusalSql280(a)]),`(CASE WHEN json_valid(${a}.reason) THEN json_extract(${a}.reason,'$.status') ELSE NULL END) IN(403,404)`]);
+ const a=alias(name);return all([any([canonicalDeleteRefusalSql280(a),banDeleteRefusalSql280(a)]),manualRankRefusalStatusSql280(a)]);
 }
 export function managedRankTargetAllowedSql280(subject:string,guild:string,role:string,binding:Readonly<{kind:'routine';generation:string;parent:string}|{kind:'ban';generation:string;mandate:string}>):string{
- const original=binding.kind==='routine'?binding.parent:binding.mandate;
+ const routine=binding.kind==='routine',original=routine?binding.parent:binding.mandate;
  for(const v of [subject,guild,role,binding.generation,original])if(!/^\?[1-9]\d*$/.test(v))throw Error('role_refusal_parameter_held');
- const mandate=binding.kind==='routine'?all(["manual280.purpose='canonical_routine233'",`manual280.request_digest=${original}`]):all(["manual280.purpose='canonical_ban_remove_v1'",`(CASE WHEN json_valid(manual280.reason) THEN json_extract(manual280.reason,'$.mandate') ELSE NULL END)=${original}`]);
- return `NOT EXISTS(SELECT 1 FROM role_settlements manual280 WHERE ${all([`manual280.subject=${subject}`,`manual280.guild_id=${guild}`,`manual280.role_id=${role}`,`manual280.subject_generation IS ${binding.generation}`,mandate,manualRankRefusalSql280('manual280')])})`;
+ const a='m284',mandate=routine?all([`${a}.purpose='canonical_routine233'`,`${a}.request_digest=${original}`]):all([`${a}.purpose='canonical_ban_remove_v1'`,`(CASE WHEN json_valid(${a}.reason) THEN json_extract(${a}.reason,'$.mandate') ELSE NULL END)=${original}`]);
+ // The fixed mandate already excludes the other purpose. Keep its complete
+ // original proof and manual-status filter without the unreachable branch.
+ const refusal=all([routine?canonicalDeleteRefusalSql280(a):banDeleteRefusalSql280(a),manualRankRefusalStatusSql280(a)]);
+ return `NOT EXISTS(SELECT 1 FROM role_settlements ${a} WHERE ${all([`${a}.subject=${subject}`,`${a}.guild_id=${guild}`,`${a}.role_id=${role}`,`${a}.subject_generation IS ${binding.generation}`,mandate,refusal])})`;
 }
 /** Data-only Native status for an original pacing read; never effect authority. */
 export function managedRankCooldownStatusSql280():string{

@@ -1969,6 +1969,50 @@ const native232OwnedGrantBase=(a:string,base:boolean)=>`((${a}.desired=1 AND ${a
  AND ((${a}.native_profile='${NATIVE_RANK_PROFILE232}' AND ${a}.reason='native232_put_acknowledged_and_confirmed' AND ${native232GrantFacts(a)})${base?` OR (${a}.native_profile='prime-native-230' AND ${a}.purpose='launch_membership230' AND ${a}.role_id='${SHARED_MEMBER232}' AND ${a}.reason='launch230_put_acknowledged_and_confirmed' AND ${a}.native_rank IS NULL AND ${a}.native_rank_name IS NULL)`:''}))`;
 const native232OwnedGrant=(a:string,base:boolean)=>`EXISTS(SELECT 1 FROM c239_native held239 WHERE held239.c239_row=${a}.rowid ${base?'':`AND held239.native_profile='${NATIVE_RANK_PROFILE232}'`}) AND (${canonical239CurrentOwnership(a)})`;
 
+/** A claimed canonical DELETE can expire after its final original SQL read but
+ * before physical dispatch. Its retained held row is not an ACK and consumes no
+ * parent grant. This closed observation requires the original nonce, source
+ * tuple and acknowledged same-role parent; the reason alone proves nothing.
+ * It deliberately accepts checked_at after expiry, without renewing any permit.
+ * Public only for the bounded audit reader's same-statement observation. */
+function canonicalNeverSentDeleteShape284(a:string):string{
+ const safe=(column:string)=>canonical239And([`typeof(${column})='integer'`,`${column}>0`,`${column}<=9007199254740991`]);
+ const guid=canonical239And([`typeof(${a}.native_guid)='text'`,`length(CAST(${a}.native_guid AS BLOB))=length(${a}.native_guid)`,`instr(${a}.native_guid,char(0))=0`,`substr(${a}.native_guid,1,7)='Player-'`,`instr(substr(${a}.native_guid,8),'-') BETWEEN 2 AND 7`,`substr(substr(${a}.native_guid,8),1,instr(substr(${a}.native_guid,8),'-')-1) NOT GLOB '*[^0-9]*'`,`length(substr(substr(${a}.native_guid,8),instr(substr(${a}.native_guid,8),'-')+1)) BETWEEN 4 AND 16`,`substr(substr(${a}.native_guid,8),instr(substr(${a}.native_guid,8),'-')+1) NOT GLOB '*[^0-9A-Fa-f]*'`]);
+ const native=canonical239And([safe(a+'.roster_id'),`((${a}.native_guid IS NULL AND ${a}.native_rank IS NULL AND ${a}.native_rank_name IS NULL) OR (${canonical239And([guid,canonical280ReceiptSource(a)])}))`]);
+ return canonical239And([`${a}.guild_id='${BETA_RESET_GUILD_ID}'`,`${a}.role_id IN(${CANONICAL_MANAGED_ROLE_IDS233.map(r=>"'"+r+"'").join(',')})`,`${a}.purpose='canonical_routine233'`,`${a}.native_profile IN('${CANONICAL_PROFILE233}','${DIRECTIVE_CANONICAL_PROFILE}','${STEWARD_CANONICAL_PROFILE}')`,`${a}.desired=0`,`${a}.state='held'`,`${a}.attempts=1`,`${a}.reason='canonical233_never_dispatched'`,native232Hex(a+'.id',32),native232Hex(a+'.claim_nonce',32),native232Hex(a+'.request_digest',32),`${a}.proof_id IS NULL`,
+  `typeof(${a}.subject)='text'`,`length(${a}.subject) BETWEEN 17 AND 20`,`length(CAST(${a}.subject AS BLOB))=length(${a}.subject)`,`${a}.subject NOT GLOB '*[^0-9]*'`,`substr(${a}.subject,1,1) BETWEEN '1' AND '9'`,`(length(${a}.subject)<20 OR ${a}.subject<='18446744073709551615')`,`(${a}.subject_generation IS NULL OR ${native232Hex(a+'.subject_generation',32)})`,safe(a+'.created_at'),safe(a+'.expires_at'),safe(a+'.checked_at'),`${a}.expires_at>${a}.created_at`,`${a}.expires_at<=${a}.created_at+300`,`${a}.checked_at>=${a}.created_at`,`${a}.checked_at<=${DB_NOW}`,native]);
+}
+const canonicalNeverSentDeleteParent284=(a:string,p:string)=>canonical239And([`${p}.id=${a}.request_digest`,`${p}.id<>${a}.id`,`${p}.subject=${a}.subject`,`${p}.guild_id=${a}.guild_id`,`${p}.subject_generation IS ${a}.subject_generation`,`${p}.role_id=${a}.role_id`,`${p}.checked_at<=${a}.created_at`]);
+export function canonicalNeverSentDeleteSql284(name:string):string{
+ if(!/^[a-z][a-z0-9_]*$/.test(name))throw Error('canonical_never_sent_alias_held');
+ const p='never_sent_parent284_'+name,parent=canonical239And([canonicalNeverSentDeleteParent284(name,p),`((${canonical233OwnedGrantBase(p)}) OR (${canonical233MigrationOwnedGrantBase(p)}) OR (${canonical239And([`${p}.purpose IN('${ROUTINE_MEMBERSHIP232_PURPOSE}','fresh_roster_rank','staff_roster_rank','launch_membership230')`,native232OwnedGrantBase(p,true)])}))`]);
+ return canonical239And([canonicalNeverSentDeleteShape284(name),`EXISTS(SELECT 1 FROM role_settlements ${p} WHERE ${parent})`]);
+}
+/** Same proof inside the original writer statement: c239_base already contains
+ * exactly these acknowledged grant bases. It contains no current-ownership or
+ * no-effect filtering, so sharing it neither creates a cycle nor revives a grant
+ * consumed by another real/unknown child. Never accept a caller-supplied CTE. */
+function canonicalNeverSentDeleteFacts284():readonly [string,string]{
+ return [
+  `c239_ns284 AS MATERIALIZED(SELECT ns284.rowid AS c239_row,ns284.* FROM role_settlements ns284 WHERE ${canonicalNeverSentDeleteShape284('ns284')})`,
+  `c239_np284 AS MATERIALIZED(SELECT ns284.c239_row FROM c239_ns284 ns284 JOIN c239_base np284 ON ${canonicalNeverSentDeleteParent284('ns284','np284')})`,
+ ];
+}
+/** Read-only audit facts for its fixed bounded subject/guild/role bind tuple.
+ * No writer capability or caller SQL is accepted. Keep the strict source shape
+ * and original ACK branches separate so the whole query fits D1's depth 100. */
+export function canonicalNeverSentDeleteAuditFacts284():string{
+ const scope=(a:string)=>canonical239And([`${a}.subject IN(SELECT value FROM json_each(?1))`,`${a}.guild_id=?2`,`${a}.role_id IN(SELECT value FROM json_each(?3))`]);
+ return [
+  `audit_never_sent_shape284 AS MATERIALIZED(SELECT audit_child284.rowid AS receipt_row,audit_child284.* FROM role_settlements audit_child284 WHERE ${canonical239And([scope('audit_child284'),canonicalNeverSentDeleteShape284('audit_child284')])})`,
+  `audit_never_sent_native284 AS MATERIALIZED(SELECT audit_parent284.* FROM role_settlements audit_parent284 WHERE ${canonical239And([scope('audit_parent284'),`audit_parent284.purpose IN('${ROUTINE_MEMBERSHIP232_PURPOSE}','fresh_roster_rank','staff_roster_rank','launch_membership230')`,native232OwnedGrantBase('audit_parent284',true)])})`,
+  `audit_never_sent_canonical284 AS MATERIALIZED(SELECT audit_parent284.* FROM role_settlements audit_parent284 WHERE ${canonical239And([scope('audit_parent284'),canonical233OwnedGrantBase('audit_parent284')])})`,
+  `audit_never_sent_migration284 AS MATERIALIZED(SELECT audit_parent284.* FROM role_settlements audit_parent284 WHERE ${canonical239And([scope('audit_parent284'),canonical233MigrationOwnedGrantBase('audit_parent284')])})`,
+  `audit_never_sent_base284 AS MATERIALIZED(SELECT * FROM audit_never_sent_native284 UNION ALL SELECT * FROM audit_never_sent_canonical284 UNION ALL SELECT * FROM audit_never_sent_migration284)`,
+  `audit_no_effect284 AS MATERIALIZED(SELECT audit_child284.receipt_row FROM audit_never_sent_shape284 audit_child284 JOIN audit_never_sent_base284 audit_parent284 ON ${canonicalNeverSentDeleteParent284('audit_child284','audit_parent284')})`,
+ ].join(',\n');
+}
+
 /** .239 facts are materialized anew inside EACH original Native statement.
  * Scope only ownership history; physical debt and reference scans remain global
  * where required. rowid is internal row identity (including NULL ids), never
@@ -1977,11 +2021,12 @@ function canonical239Facts(subject:string,guild:string,generation:string,from?:s
  for(const at of [subject,guild,generation,...(from===undefined?[]:[from])])if(!/^\?[1-9]\d*$/.test(at))throw Error('canonical239_source_parameter');
  const scope=(a:string)=>`${a}.subject=${subject} AND ${a}.guild_id=${guild} AND ${a}.subject_generation IS ${generation}`;
  const facts=[
-  `c239_no_effect280 AS MATERIALIZED(SELECT refusal280.rowid AS c239_row FROM role_settlements refusal280 WHERE (${native232LegacyNoSend('refusal280')}) OR (${canonicalDeleteRefusalSql280('refusal280')}))`,
   `c239_native AS MATERIALIZED(SELECT b239.rowid AS c239_row,b239.* FROM role_settlements b239 WHERE ${scope('b239')} AND b239.purpose IN('${ROUTINE_MEMBERSHIP232_PURPOSE}','fresh_roster_rank','staff_roster_rank','launch_membership230') AND (${native232OwnedGrantBase('b239',true)}))`,
   `c239_canonical AS MATERIALIZED(SELECT b239.rowid AS c239_row,b239.* FROM role_settlements b239 WHERE ${scope('b239')} AND (${canonical233OwnedGrantBase('b239')}))`,
   `c239_migration AS MATERIALIZED(SELECT b239.rowid AS c239_row,b239.* FROM role_settlements b239 WHERE ${scope('b239')} AND (${canonical233MigrationOwnedGrantBase('b239')}))`,
   `c239_base AS MATERIALIZED(SELECT * FROM c239_native UNION ALL SELECT * FROM c239_canonical UNION ALL SELECT * FROM c239_migration)`,
+  ...canonicalNeverSentDeleteFacts284(),
+  `c239_no_effect280 AS MATERIALIZED(SELECT r284.rowid AS c239_row FROM role_settlements r284 WHERE (${native232LegacyNoSend('r284')}) OR (${canonicalDeleteRefusalSql280('r284')}) UNION ALL SELECT c239_row FROM c239_np284)`,
   `c239_negative_self AS MATERIALIZED(SELECT d239.rowid AS c239_row,d239.*,CASE WHEN (${canonical233MigrationKnownReceipt('d239')}) AND d239.state='settled' AND d239.reason='canonical233_migration_delete_acknowledged_and_confirmed' AND typeof(d239.expires_at)='integer' AND d239.checked_at<d239.expires_at AND d239.checked_at<=${DB_NOW} THEN 1 ELSE 0 END AS c239_strict
    FROM role_settlements d239 WHERE ${scope('d239')} AND d239.purpose='canonical_migration_remove233' AND d239.desired=0 AND (d239.state='settled' OR d239.reason='canonical233_migration_delete_acknowledged_and_confirmed'))`,
   `c239_negative AS MATERIALIZED(SELECT d239.*,CASE WHEN d239.c239_strict=1 AND EXISTS(SELECT 1 FROM c239_migration target239 WHERE target239.id=d239.request_digest AND target239.subject=d239.subject AND target239.guild_id=d239.guild_id AND target239.subject_generation IS d239.subject_generation AND target239.role_id<>d239.role_id AND typeof(target239.expires_at)='integer' AND target239.expires_at=d239.expires_at AND target239.checked_at<=d239.created_at AND target239.checked_at<=${DB_NOW}) THEN 1 ELSE 0 END AS c239_edge FROM c239_negative_self d239)`,
@@ -2015,11 +2060,12 @@ function canonical239GroupedFacts(subject:string,guild:string,generation:string,
  const negativeWhere=canonical239And([scope('d239'),"d239.purpose='canonical_migration_remove233'",'d239.desired=0',"(d239.state='settled' OR d239.reason='canonical233_migration_delete_acknowledged_and_confirmed')"]);
  const target=canonical239And(['target239.id=d239.request_digest','target239.subject=d239.subject','target239.guild_id=d239.guild_id','target239.subject_generation IS d239.subject_generation','target239.role_id<>d239.role_id',"typeof(target239.expires_at)='integer'",'target239.expires_at=d239.expires_at','target239.checked_at<=d239.created_at',`target239.checked_at<=${DB_NOW}`]);
  const facts=[
-  `c239_no_effect280 AS MATERIALIZED(SELECT refusal280.rowid AS c239_row FROM role_settlements refusal280 WHERE (${native232LegacyNoSend('refusal280')}) OR (${canonicalDeleteRefusalSql280('refusal280')}))`,
   `c239_native AS MATERIALIZED(SELECT b239.rowid AS c239_row,b239.* FROM role_settlements b239 WHERE ${canonical239And([scope('b239'),`b239.purpose IN('${ROUTINE_MEMBERSHIP232_PURPOSE}','fresh_roster_rank','staff_roster_rank','launch_membership230')`,`(${native232OwnedGrantBase('b239',true)})`])})`,
   `c239_canonical AS MATERIALIZED(SELECT b239.rowid AS c239_row,b239.* FROM role_settlements b239 WHERE ${canonical239And([scope('b239'),`(${canonical233OwnedGrantBase('b239')})`])})`,
   `c239_migration AS MATERIALIZED(SELECT b239.rowid AS c239_row,b239.* FROM role_settlements b239 WHERE ${canonical239And([scope('b239'),`(${canonical233MigrationOwnedGrantBase('b239')})`])})`,
   `c239_base AS MATERIALIZED(SELECT * FROM c239_native UNION ALL SELECT * FROM c239_canonical UNION ALL SELECT * FROM c239_migration)`,
+  ...canonicalNeverSentDeleteFacts284(),
+  `c239_no_effect280 AS MATERIALIZED(SELECT r284.rowid AS c239_row FROM role_settlements r284 WHERE (${native232LegacyNoSend('r284')}) OR (${canonicalDeleteRefusalSql280('r284')}) UNION ALL SELECT c239_row FROM c239_np284)`,
   `c239_negative_self AS MATERIALIZED(SELECT d239.rowid AS c239_row,d239.*,CASE WHEN ${negativeSelf} THEN 1 ELSE 0 END AS c239_strict FROM role_settlements d239 WHERE ${negativeWhere})`,
   `c239_negative AS MATERIALIZED(SELECT d239.*,CASE WHEN ${canonical239And(['d239.c239_strict=1',`EXISTS(SELECT 1 FROM c239_migration target239 WHERE ${target})`])} THEN 1 ELSE 0 END AS c239_edge FROM c239_negative_self d239)`,
  ];
@@ -2546,7 +2592,10 @@ export async function migrateCanonicalRank233(originalEnv:Env,subject:string,b:A
     catch{await env.DB.prepare(`UPDATE role_settlements SET state=?${at+1},reason=?${at+2},checked_at=${DB_NOW} WHERE ${owned} AND state='dispatching'`).bind(...ownedValues,started?'unknown':'held',started?'canonical233_migration_outcome_unknown':'canonical233_migration_never_dispatched').run();return result(started?'unknown':'held',started?'canonical233_migration_outcome_unknown':'canonical233_migration_never_dispatched',id);}
     const after=await member(env,b,subject);allCheck();if(!after||!launch230Member(after,subject)||after.roles.includes(role)!==(desired===1))throw Error('canonical233_migration_confirmation');
     const afterRoles=filtered(after)!,wanted=desired===1?[...new Set([...expected,role])].sort():expected.filter(r=>r!==role);if(JSON.stringify(afterRoles)!==JSON.stringify(wanted))throw Error('canonical233_migration_current_roles_changed');
-    const ack=await launch230NativeIntent(env,env.DB.prepare(`${facts}UPDATE role_settlements SET state='settled',reason='${desired===1?'canonical233_migration_put_acknowledged_and_confirmed':'canonical233_migration_delete_acknowledged_and_confirmed'}',checked_at=${DB_NOW} WHERE ${canonical239And([...ownedClauses,"state='dispatching'",...guardClauses])} RETURNING *,NULL AS beta_window_id`).bind(...ownedValues),allCheck);allCheck();ack.check();
+    // The landed effect keeps its original receipt guards and clocks. Only the
+    // owned-row match is materialized; new-dispatch pacing is not an ACK gate.
+    const ackTuple280=`c239_migration_ack_tuple280 AS MATERIALIZED(SELECT rowid AS c239_row FROM role_settlements WHERE ${canonical239And([...ownedClauses,"state='dispatching'"])})`,ackFacts280=facts.slice(0,-1)+',\n'+ackTuple280+' ';
+    const ack=await launch230NativeIntent(env,env.DB.prepare(`${ackFacts280}UPDATE role_settlements SET state='settled',reason='${desired===1?'canonical233_migration_put_acknowledged_and_confirmed':'canonical233_migration_delete_acknowledged_and_confirmed'}',checked_at=${DB_NOW} WHERE ${canonical239And(['rowid IN(SELECT c239_row FROM c239_migration_ack_tuple280)',...guardClauses])} RETURNING *,NULL AS beta_window_id`).bind(...ownedValues),allCheck);allCheck();ack.check();
     if(!ack.intent||ack.intent.id!==id)throw Error('canonical233_migration_receipt_unknown');
     completedRows.push(Object.freeze(Object.fromEntries(RETIREMENT_PARENT_FIELDS.map(k=>[k,ack.intent![k]]))));receiptChecks.push(()=>{q.check();c.check();ack.check();});
     expected.splice(0,expected.length,...wanted);

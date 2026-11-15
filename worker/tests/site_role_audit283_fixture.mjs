@@ -66,14 +66,14 @@ async function setup(db,layout='canonical',adminId=ADMIN,lateFinal=null){
   // Isolated latency case only: execute the real final Native SELECT, retain
   // its actual admitted answer, then delay returning that identical response.
   // No SQL/result/clock/capability is replaced and no provider timeout is bypassed.
-  if(lateFinal&&!lateFinal.observed){
+  if(lateFinal&&lateFinal.armed!==false&&!lateFinal.observed){
    const statements=Array.isArray(packets)?packets:[packets],at=statements.findIndex(p=>/\)\s+SELECT 1 FROM role_settlements WHERE/.test(p.sql||'')&&(p.sql||'').includes("state='dispatching'")&&(p.sql||'').includes('claim_nonce'));
    if(at>=0){const decoded=JSON.parse(responseText),answers=Array.isArray(decoded)?decoded:[decoded],answer=answers[at];
     // Actual D1 transport returns columns/rows; D1 .all() projects objects only
     // above this hook. Inspect that real wire shape, never replace its answer.
     if(answer?.success===true&&answer.results?.columns?.length===1&&answer.results.columns[0]==='1'&&answer.results.rows?.length===1&&answer.results.rows[0]?.length===1&&answer.results.rows[0][0]===1){
-     lateFinal.observed={executedAt:Math.floor(Date.now()/1000),returnedAt:null,sql:statements[at].sql,columns:answer.results.columns,result:answer.results.rows};
-     await new Promise(resolve=>setTimeout(resolve,71000));lateFinal.observed.returnedAt=Math.floor(Date.now()/1000);
+     lateFinal.observed={executedAt:Math.floor(Date.now()/1000),returnedAt:null,sql:statements[at].sql,params:statements[at].params,columns:answer.results.columns,result:answer.results.rows};
+     await new Promise(resolve=>setTimeout(resolve,lateFinal.delayMilliseconds||71000));lateFinal.observed.returnedAt=Math.floor(Date.now()/1000);
     }
    }
   }
@@ -96,6 +96,71 @@ async function shortOriginalPreview(env,user,token,seconds=5){
  const iv=crypto.getRandomValues(new Uint8Array(12)),sealed='1.'+b64u(iv)+'.'+b64u(new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:new TextEncoder().encode(binding)},key,new TextEncoder().encode(JSON.stringify(value)))));
  return {token:sealed,expiresAt:value.expiresAt};
 }
+
+// One isolated case uses ordinary request boundaries as evidence phases, so
+// the host can count each physical provider mutation without clock inference.
+// Each later source is a genuinely new immutable complete roster snapshot.
+async function deleteExpiryEffect284(bindings,spec){
+ const kind='final-d1-delete-expired',subject=String(BASE+1n),step=spec.step;
+ let state=effects.get(kind);
+ const receipts=async()=> (await state.db.prepare('SELECT * FROM role_settlements WHERE subject=?1 ORDER BY created_at,id').bind(subject).all()).results;
+ const rowById=id=>state.db.prepare('SELECT * FROM role_settlements WHERE id=?1').bind(id).first();
+ const source=id=>state.db.prepare('SELECT s.*,r.guid,r.name_key,r.rank,r.rank_index FROM roster_snapshots s JOIN roster_members r ON r.snapshot_id=s.id WHERE s.id=?1 AND r.guid=?2').bind(id,'Player-4613-10000001').first();
+ const invoke=async(method,body={})=>{
+  const req=new Request('https://guild.example/api/admin/role-audit'+(method==='GET'?'?subject='+subject:''),{method,headers:{Cookie:state.cookie,Origin:'https://guild.example','X-Olympus':'2'}}),user=await currentUser(state.config,req);
+  const response=await handleSiteRoleAudit283(req,privacyBoundSiteEnv(state.config,originalUserSession(user)),user,body);
+  return {status:response.status,body:await response.json()};
+ };
+ const advance=async(id,from)=>{
+  const t=Math.floor(Date.now()/1000);
+  await state.config.DB.batch([
+   state.config.DB.prepare('INSERT INTO roster_snapshots(id,exported_at,received_at,source,member_count,complete,trusted) SELECT ?1,?2,?2,source,member_count,complete,trusted FROM roster_snapshots WHERE id=?3').bind(id,t,from),
+   state.config.DB.prepare('INSERT INTO roster_members(snapshot_id,name_key,name,guid,rank,rank_index,level) SELECT ?1,name_key,name,guid,CASE WHEN guid=?2 THEN ?3 ELSE rank END,CASE WHEN guid=?2 THEN 2 ELSE rank_index END,level FROM roster_members WHERE snapshot_id=?4').bind(id,'Player-4613-10000001',STEWARD_RANK_NAMES[2],from),
+  ]);
+  return source(id);
+ };
+ if(step==='bootstrap'){
+  if(state)return new Response(null,{status:409});
+  const saved={config,rawDB,ready},lateFinal={armed:false,observed:null,delayMilliseconds:121000},adminId='800000000000000110';
+  await setup(bindings.DB_EFFECT_final_d1_delete_expired,'recorded-live-pre-seal-20261017',adminId,lateFinal);
+  state={config:{...config,DISCORD_BOT_TOKEN:'role-audit-effect-'+kind,CANONICAL_RANKS233:JSON.stringify({version:1,enabled:true,profile:CANONICAL_PROFILE233,guildId:NATIVE_GUILD232,ranks:CANONICAL_RANKS233.map(r=>({...r,permissions:'0'}))})},db:rawDB,adminId,lateFinal,stage:'bootstrap',cookie:await cookie(adminId)};
+  effects.set(kind,state);({config,rawDB,ready}=saved);
+  // Existing synthetic identity proof remains untouched. This source records
+  // an actual Officer3 native row and the normal writer creates its real ACK.
+  await state.config.DB.prepare('UPDATE roster_members SET rank=?1,rank_index=3 WHERE snapshot_id=1 AND guid=?2').bind(STEWARD_RANK_NAMES[3],'Player-4613-10000001').run();
+  const preview=await invoke('GET'),row=preview.body.rows?.[0],action=row?.previewToken?await invoke('POST',{subject,previewToken:row.previewToken,confirm:true}):null;
+  const history=await receipts(),owned=history.find(r=>r.desired===1&&r.attempts===1&&r.state==='settled'&&r.reason==='canonical233_put_acknowledged_and_confirmed'&&r.role_id===CANONICAL_RANKS233[2].roleId);
+  if(!owned)return Response.json({step,subject,preview,action,history,error:'genuine_original_officer_ack_missing'},{status:409});
+  state.owned=owned;state.snapshot1=await source(1);
+  const t=Math.floor(Date.now()/1000);await state.config.DB.prepare("INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,attempts,claim_nonce,created_at,expires_at)VALUES(?1,?2,'canonical_consumed233',?3,?4,1,'unknown','synthetic_original_unknown',1,?5,?6,?7)").bind('8'.repeat(32),String(BASE+2n),NATIVE_GUILD232,ROLE,'7'.repeat(32),t-900,t-600).run();
+  state.unrelatedUnknown=await rowById('8'.repeat(32));state.stage='bootstrap_done';
+  return Response.json({step,subject,servingPolicy:1,preview,action,history,originalOwned:owned,snapshot1:state.snapshot1,unrelatedUnknown:state.unrelatedUnknown,actualLocalWorkerdD1:true});
+ }
+ if(!state)return new Response(null,{status:409});
+ if(step==='expire'&&state.stage==='bootstrap_done'){
+  state.stage='expiring';state.snapshot2=await advance(2,1);
+  const preview=await invoke('GET'),row=preview.body.rows?.[0];let previewExpiresAt=null;
+  const capture=await captureRoutineMembership232(state.config,subject);let nativeDeadline=null;
+  if(capture){try{nativeDeadline=routineMembership232Facts(capture).deadline;}finally{closeRoutineMembership232(capture);}}
+  if(row?.previewToken){const req=new Request('https://guild.example/api/admin/role-audit',{headers:{Cookie:state.cookie}}),user=await currentUser(state.config,req),original=await shortOriginalPreview(state.config,user,row.previewToken,120);row.previewToken=original.token;previewExpiresAt=original.expiresAt;}
+  state.lateFinal.armed=true;
+  const action=row?.previewToken?await invoke('POST',{subject,previewToken:row.previewToken,confirm:true}):null;
+  state.lateFinal.armed=false;
+  const history=await receipts(),neverSent=history.find(r=>r.desired===0&&r.attempts===1&&r.state==='held'&&r.reason==='canonical233_never_dispatched'&&r.request_digest===state.owned.id);
+  state.neverSent=neverSent;state.expiredHistory=history;state.stage='expired';
+  return Response.json({step,subject,servingPolicy:1,preview,action,previewExpiresAt,nativeDeadline,lateFinal:state.lateFinal.observed,history,originalOwned:state.owned,originalOwnedAfter:await rowById(state.owned.id),neverSent,unrelatedUnknown:state.unrelatedUnknown,unrelatedUnknownAfter:await rowById('8'.repeat(32)),snapshot1After:await source(1),snapshot2:state.snapshot2,actualLocalWorkerdD1:true});
+ }
+ if(step==='recover'&&state.stage==='expired'){
+  state.stage='recovering';const snapshot3=await advance(3,2),review=await invoke('GET');
+  // A fresh normal reconcile with a new original source may create NEW
+  // intents. The old attempted child, its nonce and snapshot2 are never reset.
+  const sweep=await reconcileRoleBatch242(state.config,[subject]),after=await invoke('GET'),history=await receipts();
+  state.stage='done';
+  return Response.json({step,subject,servingPolicy:1,review,sweep,after,history,originalOwned:state.owned,originalOwnedAfter:await rowById(state.owned.id),neverSent:state.neverSent,neverSentAfter:state.neverSent?await rowById(state.neverSent.id):null,unrelatedUnknown:state.unrelatedUnknown,unrelatedUnknownAfter:await rowById('8'.repeat(32)),snapshot1:state.snapshot1,snapshot1After:await source(1),snapshot2:state.snapshot2,snapshot2After:await source(2),snapshot3,intents:(await state.db.prepare("SELECT actor,action,subject,details FROM audit WHERE action='role.audit_requested283'").all()).results,actualLocalWorkerdD1:true});
+ }
+ return new Response(null,{status:409});
+}
+
 export default {async fetch(request,bindings){
  const path=new URL(request.url).pathname;
  if(path==='/setup'){if(ready)return new Response(null,{status:409});await setup(bindings.DB);const shortSessionExpiresAt=Math.floor(Date.now()/1000)+90;return Response.json({cookie:await cookie(),secondCookie:await cookie(SECOND_ADMIN),shortCookie:await cookie(SECOND_ADMIN,shortSessionExpiresAt),shortSessionExpiresAt,admin:ADMIN,subject:String(BASE),role:ROLE,council:CANONICAL_RANKS233[1].roleId,officer:CANONICAL_RANKS233[2].roleId,ranks:CANONICAL_RANKS233,nativeRows:1000});}
@@ -137,7 +202,7 @@ export default {async fetch(request,bindings){
   return Response.json({ok:true});
  }
  if(path==='/effect-run'){
-  const spec=await request.json(),kind=spec.kind;if(effects.has(kind))return new Response(null,{status:409});
+  const spec=await request.json(),kind=spec.kind;if(kind==='final-d1-delete-expired')return deleteExpiryEffect284(bindings,spec);if(effects.has(kind))return new Response(null,{status:409});
   const adminId=String(800000000000000100n+BigInt(['baseline','before-denied','after-denied','before-export','wrong-role','preview-expired','preview-control','preview-reserve','serving-v1','final-d1-expired'].indexOf(kind)));
   const lateFinal=kind==='final-d1-expired'?{observed:null}:null;
   const original={config,rawDB,ready};await setup(bindings['DB_EFFECT_'+kind.replaceAll('-','_')],'recorded-live-pre-seal-20261017',adminId,lateFinal);
@@ -187,10 +252,10 @@ export default {async fetch(request,bindings){
  }
  if(path==='/plans'){
   const captured=wires.flatMap(w=>Array.isArray(w.request)?w.request:[w.request]);
-  const prefixes=['SELECT wanted.value AS id,p.generation','SELECT wanted.value AS id FROM json_each','SELECT COUNT(DISTINCT c.discord_id) AS subjects'];
+  const prefixes=['WITH audit_never_sent_shape284 AS MATERIALIZED','SELECT wanted.value AS id FROM json_each','SELECT COUNT(DISTINCT c.discord_id) AS subjects'];
   const plans=[];
   for(const prefix of prefixes){const statement=captured.find(s=>s.sql?.startsWith(prefix));if(!statement)return Response.json({error:'captured_query_missing',prefix},{status:409});
-   plans.push({prefix,plan:(await rawDB.prepare('EXPLAIN QUERY PLAN '+statement.sql).bind(...statement.params).all()).results});}
+   plans.push({prefix,sqlBytes:new TextEncoder().encode(statement.sql).byteLength,bindings:statement.params.length,plan:(await rawDB.prepare('EXPLAIN QUERY PLAN '+statement.sql).bind(...statement.params).all()).results});}
   return Response.json({actualLocalWorkerdD1:true,nativeRows:1000,plans});
  }
  if(path==='/guard'){

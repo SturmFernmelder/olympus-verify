@@ -12,6 +12,7 @@ import {STEWARD_CANONICAL_PROFILE,STEWARD_NATIVE_PROFILE,STEWARD_RANK_DIGEST} fr
 import {canonicalRankWitnessMatches280} from './canonical-native-authority280';
 import {captureRoutineMembership232,closeRoutineMembership232,routineMembership232Facts,observeQualifiedMembershipPlanning283} from './routine-membership-authority232';
 import {reconcileRoleBatch242} from './role-reconcile242';
+import {canonicalNeverSentDeleteAuditFacts284} from './role-settlements';
 import {privacyBoundSiteRoleActionEnv,privacyCaptureFromColumns} from './privacy-serving-authority';
 
 export const ROLE_AUDIT_PAGE283=20;
@@ -26,7 +27,7 @@ class Held extends Error{constructor(readonly code:string,readonly status=409){s
 type ProviderMember={id:string;username:string;displayName:string;roles:string[];bot:boolean;pending:boolean;joinedAt:string|null};
 type Snapshot={id:number;exported_at:number;received_at:number;member_count:number;complete:number;trusted:number};
 type Facts={id:string;generation:string|null;revision:number|null;privacyState:string|null;privacyHeld:number;characters:string;receipts:string;characterCount:number;receiptCount:number;unknownAttempts:number;expiredUnattempted:number};
-type Receipt={id:string;role:string;desired:number;state:string;attempts:number;reason:string;created:number;expiry:number;checked:number|null;generation:string|null;parent:string|null};
+type Receipt={id:string;role:string;desired:number;state:string;attempts:number;reason:string;created:number;expiry:number;checked:number|null;generation:string|null;parent:string|null;noEffect?:number};
 type Projection={expected:string|null;cause:string;nativeRank:string|null;nativeCharacter:string|null;snapshotId:number|null;deadline:number|null;activeExpected?:string|null;activeCause?:string};
 type Cursor={after:string;issuedAt:number;expiresAt:number;page:number};
 type Preview={subject:string;issuedAt:number;expiresAt:number;snapshot:number;snapshotAt:number;expected:string;factsDigest:string;observedRoles:string[]};
@@ -38,11 +39,11 @@ const ownAck=(r:Receipt)=>r.state==='settled'&&r.attempts===1&&r.desired===1&&
 /** Informational receipt custody only, deliberately conservative. The writer
  * repeats the full original receipt graph before any removal. */
 export function classifyRoleAudit283(roles:readonly string[],expected:string|null,receipts:readonly Receipt[],generation:string|null,sourceHeld:boolean){
- const actual=roles.filter(r=>MANAGED.has(r)),unknown=receipts.filter(r=>r.attempts===1&&['dispatching','unknown'].includes(r.state));
+ const actual=roles.filter(r=>MANAGED.has(r)),unknown=receipts.filter(r=>r.noEffect!==1&&r.attempts===1&&['dispatching','unknown'].includes(r.state));
  const expiredUnattempted=receipts.filter(r=>r.attempts===0&&r.expiry<=now()&&['pending','held'].includes(r.state)).length;
  const extra=expected?actual.filter(r=>r!==expected):[];
  const extraOwned=extra.filter(role=>receipts.some(r=>r.role===role&&r.generation===generation&&ownAck(r)&&
-   !receipts.some(child=>child.parent===r.id&&child.desired===0&&(child.attempts!==0||child.state==='settled'))));
+   !receipts.some(child=>child.parent===r.id&&child.desired===0&&child.noEffect!==1&&(child.attempts!==0||child.state==='settled'))));
  const extraUnowned=extra.filter(r=>!extraOwned.includes(r)),missing=expected&&!actual.includes(expected)?[expected]:[];
  return {actual,missing,extraOwned,extraUnowned,unknown:unknown.length,expiredUnattempted,
    sourceHeld,review:sourceHeld||unknown.length>0||extraUnowned.length>0,
@@ -81,14 +82,17 @@ async function open(secret:string,binding:string,raw:unknown):Promise<Record<str
 const digest=async(value:unknown)=>b64u(new Uint8Array(await crypto.subtle.digest('SHA-256',encoder.encode(JSON.stringify(value)))));
 function clock(value:Record<string,unknown>,seconds:number){if(!Number.isSafeInteger(value.issuedAt)||!Number.isSafeInteger(value.expiresAt)||
  (value.issuedAt as number)>now()||(value.expiresAt as number)>(value.issuedAt as number)+seconds||(value.expiresAt as number)<=(value.issuedAt as number)||(value.expiresAt as number)<=now())throw new Held('preview_expired');}
-const TARGETS=`SELECT wanted.value AS id,p.generation,p.revision,p.state AS privacyState,
+// Reuse the writer's strict, full-row no-dispatch observation once for this
+// bounded target set. A reason alone never clears uncertainty or a child edge.
+const targetsSQL284=()=>`WITH ${canonicalNeverSentDeleteAuditFacts284()}
+ SELECT wanted.value AS id,p.generation,p.revision,p.state AS privacyState,
  EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.subject_id=wanted.value AND j.state IN('waiting_role','held','erasing')) AS privacyHeld,
  (SELECT COUNT(*) FROM characters c WHERE c.discord_id=wanted.value AND c.status NOT IN('unbound','denied')) AS characterCount,
  COALESCE((SELECT json_group_array(json_object('name',c.name,'status',c.status,'legacyNameFirstObservedAt',f.first_seen,'actualJoinedAt',NULL,'currentEpisodeFirstObservedAt',NULL)) FROM (SELECT name_key,name,status FROM characters WHERE discord_id=wanted.value AND status NOT IN('unbound','denied') ORDER BY name_key LIMIT ${CHARACTER_LIMIT}) c LEFT JOIN roster_first_seen f ON f.name_key=c.name_key), '[]') AS characters,
  (SELECT COUNT(*) FROM role_settlements r WHERE r.subject=wanted.value AND r.guild_id=?2 AND r.role_id IN(SELECT value FROM json_each(?3))) AS receiptCount,
- (SELECT COUNT(*) FROM role_settlements r WHERE r.subject=wanted.value AND r.guild_id=?2 AND r.role_id IN(SELECT value FROM json_each(?3)) AND r.attempts=1 AND r.state IN('dispatching','unknown')) AS unknownAttempts,
+ (SELECT COUNT(*) FROM role_settlements r WHERE r.subject=wanted.value AND r.guild_id=?2 AND r.role_id IN(SELECT value FROM json_each(?3)) AND r.attempts=1 AND r.state IN('dispatching','unknown') AND NOT EXISTS(SELECT 1 FROM audit_no_effect284 n WHERE n.receipt_row=r.rowid)) AS unknownAttempts,
  (SELECT COUNT(*) FROM role_settlements r WHERE r.subject=wanted.value AND r.guild_id=?2 AND r.role_id IN(SELECT value FROM json_each(?3)) AND r.attempts=0 AND r.expires_at<=CAST(strftime('%s','now')AS INTEGER) AND r.state IN('pending','held')) AS expiredUnattempted,
- COALESCE((SELECT json_group_array(json_object('id',r.id,'role',r.role_id,'desired',r.desired,'state',r.state,'attempts',r.attempts,'reason',r.reason,'created',r.created_at,'expiry',r.expires_at,'checked',r.checked_at,'generation',r.subject_generation,'parent',r.request_digest)) FROM (SELECT id,role_id,desired,state,attempts,reason,created_at,expires_at,checked_at,subject_generation,request_digest FROM role_settlements WHERE subject=wanted.value AND guild_id=?2 AND role_id IN(SELECT value FROM json_each(?3)) ORDER BY created_at DESC,id DESC LIMIT ${HISTORY_LIMIT}) r), '[]') AS receipts
+ COALESCE((SELECT json_group_array(json_object('id',r.id,'role',r.role_id,'desired',r.desired,'state',r.state,'attempts',r.attempts,'reason',r.reason,'created',r.created_at,'expiry',r.expires_at,'checked',r.checked_at,'generation',r.subject_generation,'parent',r.request_digest,'noEffect',r.no_effect)) FROM (SELECT r.id,r.role_id,r.desired,r.state,r.attempts,r.reason,r.created_at,r.expires_at,r.checked_at,r.subject_generation,r.request_digest,EXISTS(SELECT 1 FROM audit_no_effect284 n WHERE n.receipt_row=r.rowid) AS no_effect FROM role_settlements r WHERE r.subject=wanted.value AND r.guild_id=?2 AND r.role_id IN(SELECT value FROM json_each(?3)) ORDER BY r.created_at DESC,r.id DESC LIMIT ${HISTORY_LIMIT}) r), '[]') AS receipts
  FROM json_each(?1) wanted LEFT JOIN privacy_subjects p ON p.subject_id=wanted.value`;
 const SNAPSHOT='SELECT id,exported_at,received_at,member_count,complete,trusted FROM roster_snapshots WHERE id=(SELECT MAX(id) FROM roster_snapshots)';
 const DENOMINATOR=`SELECT COUNT(DISTINCT c.discord_id) AS subjects FROM characters c WHERE c.status='member'
@@ -123,7 +127,7 @@ export async function handleSiteRoleAudit283(request:Request,env:Env,admin:SiteU
   if(limits.limited)return apiJson({error:'slow_down',coverage:{complete:false,gap:'request_rate_limit'},...(request.method==='POST'?{outcome:'not_started',roleChangeSent:false}:{})},429,rateLimitHeaders280(limits));
   const binding=JSON.stringify([PURPOSE,env.GUILD_ID,original.u,original.v,original.e,original.g,original.n,canonical.raw,entitlements.raw]);
   const snapshotRead=async()=>{const r=await read([env.DB.prepare(SNAPSHOT)]);return r[0]?.results[0] as Snapshot|undefined;};
-  const targetsRead=async(ids:readonly string[])=>{const r=await read([env.DB.prepare(TARGETS).bind(JSON.stringify(ids),env.GUILD_ID,JSON.stringify([...MANAGED]))]);return r[0]!.results as Facts[];};
+  const targetsRead=async(ids:readonly string[])=>{const r=await read([env.DB.prepare(targetsSQL284()).bind(JSON.stringify(ids),env.GUILD_ID,JSON.stringify([...MANAGED]))]);return r[0]!.results as Facts[];};
   const project=async(id:string):Promise<Projection>=>{
    if(planning){
     check();const observation=await observeQualifiedMembershipPlanning283(env,id);
@@ -158,7 +162,7 @@ export async function handleSiteRoleAudit283(request:Request,env:Env,admin:SiteU
    if(!snapshot||snapshot.id!==preview.snapshot||snapshot.exported_at!==preview.snapshotAt||snapshot.exported_at<=now()-600||projection.snapshotId!==snapshot.id||projection.expected!==preview.expected||!target||
     target.privacyHeld||target.privacyState!==null&&target.privacyState!=='active'||target.receiptCount>HISTORY_LIMIT||target.characterCount>CHARACTER_LIMIT||await digest(target)!==preview.factsDigest)throw new Held('preview_source_changed');
    check();const receipts=JSON.parse(target.receipts) as Receipt[];
-   if(target.unknownAttempts>0||receipts.some(r=>r.attempts===1&&['dispatching','unknown'].includes(r.state)))throw new Held('historical_effect_unresolved');
+   if(target.unknownAttempts>0||receipts.some(r=>r.noEffect!==1&&r.attempts===1&&['dispatching','unknown'].includes(r.state)))throw new Held('historical_effect_unresolved');
    const rawMember=await rest<unknown>(env,'GET',`/guilds/${env.GUILD_ID}/members/${body.subject}`,undefined,1);check();await read([]);
    const member=providerPage([rawMember],'0').members[0]!;
    const current=classifyRoleAudit283(member.roles,projection.expected,receipts,target.generation,false);
@@ -225,7 +229,7 @@ export async function handleSiteRoleAudit283(request:Request,env:Env,admin:SiteU
     confirmReserveSeconds:CONFIRM_RESERVE_SECONDS,confirmBy:previewExpiresAt===null?null:previewExpiresAt-CONFIRM_RESERVE_SECONDS});
   }
   const nextCursor=singleSubject||page.complete?null:await seal(env.COOKIE_SECRET,cursorBinding,{issuedAt:cursor.issuedAt as number,expiresAt:cursor.expiresAt as number,after:last,page:(cursor.page as number)+1} satisfies Cursor);check();
-  const final=await read([env.DB.prepare(TARGETS).bind(JSON.stringify(page.members.map(m=>m.id)),env.GUILD_ID,JSON.stringify([...MANAGED])),env.DB.prepare(SNAPSHOT),env.DB.prepare(DENOMINATOR)]);check();
+  const final=await read([env.DB.prepare(targetsSQL284()).bind(JSON.stringify(page.members.map(m=>m.id)),env.GUILD_ID,JSON.stringify([...MANAGED])),env.DB.prepare(SNAPSHOT),env.DB.prepare(DENOMINATOR)]);check();
   const finalTargets=final[0]!.results as Facts[],finalSnapshot=final[1]?.results[0] as Snapshot|undefined;
   if(JSON.stringify(finalSnapshot??null)!==JSON.stringify(snapshot??null))throw new Held('roster_changed_during_page');
   if(JSON.stringify(finalTargets)!==JSON.stringify(targets))throw new Held('target_changed_during_page');
