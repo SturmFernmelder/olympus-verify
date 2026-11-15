@@ -500,10 +500,10 @@
 
     // INT-UNI-1 / CL2-105 (12 Nov 2026): every address that names nothing gets one H1 ending in "not found", a status
     // sentence and a way back to the hub (and to the nearest page that does exist, when there is one).
-    const MISSING = { guide: ["Guide", "There is no such guide in Class & profession guides."], class: ["Class guide", "There is no such class guide in Class & profession guides."],
-      race: ["Race guide", "There is no such race guide in Class & profession guides."], profession: ["Profession guide", "There is no such profession guide in Class & profession guides."],
+    const MISSING = { guide: ["Guide", "There is no such guide."], class: ["Class guide", "There is no such class guide."],
+      race: ["Race guide", "There is no such race guide."], profession: ["Profession guide", "There is no such profession guide."],
       spec: ["Spec", "There is no such spec."], track: ["Track", "Every course has three tracks: 101 Foundations, 201 Intermediate and 301 Advanced."],
-      chapter: ["Chapter", "There is no such chapter."], exam: ["Exam", "There is no such exam."], page: ["Page", "There is no such page in Class & profession guides."] };
+      chapter: ["Chapter", "There is no such chapter."], exam: ["Exam", "There is no such exam."], page: ["Page", "There is no such page."] };
     const notFound = (what, sentence, back) => {
       const [noun, fallback] = MISSING[what] || MISSING.page, title = noun + " not found";
       if (!back && what === "exam") back = ["#/guides/exams", "Browse every exam"];
