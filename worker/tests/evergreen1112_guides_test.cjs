@@ -734,6 +734,77 @@ check('REV-UNI-2: a mastery exam shows the "How to read the grades" legend with 
   }
   return bad.length === 0 || bad.join(' | ');
 });
+// Site fault f1 (15 Nov 2026; owner: "Fix all seven"): Talents Forever data is CC BY 4.0, and every .279 class view credited it
+// (guides218.js talentCredit). A University page that shows a fact citing a source published by Talents Forever (on the page,
+// or in a chapter quiz's answer) or a talent build prints that credit once, in the same words and with the same two links;
+// a page without such data prints none. Expected values are derived here from the data files, not from the page.
+const TF_CREDIT = 'Talent data from Talents Forever by Chris Baldwin, summarized by Olympus under CC BY 4.0.';
+const TF_LINKS = JSON.stringify([['https://talentsforever.com/', 'Talents Forever', '_blank', 'noopener noreferrer'], ['https://creativecommons.org/licenses/by/4.0/', 'CC BY 4.0', '_blank', 'noopener noreferrer']]);
+const tfSources = () => new Set(json(uni, 'sources.json').sources.filter(s => s.publisher === 'Talents Forever').map(s => s.id));
+// 1 = exactly one credit with the exact words and links (and the author named nowhere else on the page), 0 = none, else a description.
+const creditState = p => {
+  const c = p.container.querySelectorAll('p.uni-talent-credit'), named = p.container.textContent.split('Chris Baldwin').length - 1;
+  if (c.length === 0 && named === 0) return 0;
+  const links = c.length === 1 ? JSON.stringify(c[0].querySelectorAll('a').map(a => [a.getAttribute('href'), text(a), a.getAttribute('target'), a.getAttribute('rel')])) : '';
+  return c.length === 1 && named === 1 && text(c[0]) === TF_CREDIT && links === TF_LINKS ? 1 : 'credits ' + c.length + ', author named ' + named + ': ' + c.map(text).join(' | ') + ' ' + links;
+};
+const showsTalentData = (owner, tier, F, TF, questions, presetIds) => {
+  const chapters = owner.tracks[tier].chapters, open = chapters.filter(c => c.unavailable === undefined);
+  const ids = [...owner.overview.facts, ...chapters.flatMap(c => c.theory), ...questions.filter(q => open.some(c => c.id === q.chapter)).flatMap(q => q.facts)];
+  return ids.some(id => F.get(id).sources.some(s => TF.has(s))) || open.some(c => (c.presets || []).some(id => presetIds.has(id)));
+};
+const coursePages = () => json(uni, 'index.json').guides.filter(g => g.file).flatMap(entry => {
+  const guide = json(uni, entry.file), questions = guide.quizFiles.flatMap(f => json(uni, 'quizzes', f + '.json').questions);
+  const presetIds = new Set(entry.kind === 'class' ? json(uni, 'presets', entry.id + '.json').presets.map(p => p.id) : []);
+  return [[null, guide], ...(guide.specs || []).map(s => [s.id, s])].flatMap(([spec, owner]) => ['101', '201', '301'].map(tier =>
+    ({ kind: entry.kind + (spec ? '-spec' : ''), parts: [entry.kind, entry.id, ...(spec ? [spec] : []), tier], owner, tier, questions, presetIds })));
+});
+check('f1: every class, spec, race and profession course page prints the Talents Forever CC BY 4.0 credit once exactly when it shows Talents Forever data or a talent build', async () => {
+  const F = allFacts(), TF = tfSources(), bad = [], withData = new Set(), without = new Set(), pages = coursePages();
+  for (const x of pages) {
+    const want = showsTalentData(x.owner, x.tier, F, TF, x.questions, x.presetIds) ? 1 : 0, p = await open(x.parts), got = creditState(p);
+    (want ? withData : without).add(x.kind);
+    if (got !== want || p.container.querySelector('p[role="alert"]')) bad.push(x.parts.join('/') + ' want ' + want + ' got ' + got);
+  }
+  // 159 pages: (9 classes with 3 specs each, so 36 courses, plus 5 races and 12 professions) times three tracks.
+  return bad.length === 0 && pages.length === 159 && JSON.stringify([...withData].sort()) === '["class","class-spec","race"]'
+    && JSON.stringify([...without].sort()) === '["class","profession","race"]' || JSON.stringify({ n: pages.length, bad: bad.slice(0, 6), nBad: bad.length, withData: [...withData], without: [...without] });
+});
+check('f1: every mastery exam prints the credit once exactly when one of its drawn questions cites a Talents Forever fact', async () => {
+  const F = allFacts(), TF = tfSources(), Q = quizzes(), exams = json(uni, 'index.json').guides.flatMap(g => g.exams || []), bad = [];
+  let credited = 0;
+  for (const x of exams) {
+    const p = await open(['exam', x.scope.replace(':', '-'), x.tier]), ids = p.container.querySelectorAll('fieldset').map(b => b.getAttribute('data-question'));
+    const want = ids.some(id => Q.get(id).facts.some(f => F.get(f).sources.some(s => TF.has(s)))) ? 1 : 0, got = creditState(p);
+    credited += want;
+    if (!ids.length || got !== want) bad.push(x.scope + ':' + x.tier + ' want ' + want + ' got ' + got);
+  }
+  return bad.length === 0 && exams.length === 115 && credited > 0 && credited < exams.length || JSON.stringify({ n: exams.length, credited, bad: bad.slice(0, 6), nBad: bad.length });
+});
+check('f1: the hub, the exam index, a not-found page and an unwritten guide print no Talents Forever credit', async () => {
+  const planned = x => { const ix = json(uni, 'index.json'), d = ix.guides.find(g => g.id === 'dwarf'); d.status = 'planned'; d.file = null; delete d.exams; delete d.chapters; x.files.set('index.json', ix); };
+  const pages = [await open([]), await open(['exams']), await open(['class', 'no-such-class']), await open(['class', 'warrior', 'nope']), await open(['race', 'dwarf'], undefined, planned)];
+  const h1 = pages.map(p => text(p.container.querySelector('h1')));
+  return JSON.stringify(h1) === '["Olympus University","Mastery exams","Class guide not found","Spec not found","Dwarf guide"]' && pages.every(p => creditState(p) === 0) || JSON.stringify({ h1, state: pages.map(creditState) });
+});
+check('f1: a talent build alone, or a Talents Forever fact that only a chapter quiz shows, still brings the credit', async () => {
+  // Fixture 1: no source is published by Talents Forever, so on the Warrior pages only the talent builds call for the credit.
+  const renamed = x => { const s = json(uni, 'sources.json'); for (const r of s.sources) if (r.publisher === 'Talents Forever') r.publisher = 'Talent data fixture'; x.files.set('sources.json', s); };
+  const F = allFacts(), none = new Set(), bad = [], states = new Set();
+  for (const x of coursePages().filter(x => x.parts[0] === 'class' && x.parts[1] === 'warrior')) {
+    const want = showsTalentData(x.owner, x.tier, F, none, x.questions, x.presetIds) ? 1 : 0, got = creditState(await open(x.parts, undefined, renamed));
+    states.add(want);
+    if (got !== want) bad.push(x.parts.join('/') + ' want ' + want + ' got ' + got);
+  }
+  // Fixture 2: the Lodestone fact, which Herbalism 101 shows only in a quiz answer, also cites Talents Forever source g218-3.
+  const herb = coursePages().find(x => x.parts.join('/') === 'profession/herbalism/101');
+  const quizOnly = herb.questions.some(q => herb.owner.tracks['101'].chapters.some(c => c.id === q.chapter) && q.facts.includes('profession-mining.lodestone'))
+    && ![...herb.owner.overview.facts, ...herb.owner.tracks['101'].chapters.flatMap(c => c.theory)].includes('profession-mining.lodestone');
+  const cite = x => { const d = json(uni, 'facts', 'profession-mining.json'); d.facts.find(f => f.id === 'profession-mining.lodestone').sources.push('g218-3'); x.files.set('facts/profession-mining.json', d); };
+  const plain = await open(herb.parts), cited = await open(herb.parts, undefined, cite);
+  return bad.length === 0 && states.size === 2 && quizOnly && creditState(plain) === 0 && creditState(cited) === 1 && !cited.container.querySelector('p[role="alert"]')
+    || JSON.stringify({ bad, states: [...states], quizOnly, plain: creditState(plain), cited: creditState(cited) });
+});
 
 // Browser part (opt-in): node tests/evergreen1112_guides_test.cjs --base http://127.0.0.1:<harness> --cdp <port>
 // INT-UNI-1, INT-UNI-2 and REV-UNI-2 in the real site at 1280 and 375 px (member persona).
