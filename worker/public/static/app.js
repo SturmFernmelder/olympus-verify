@@ -150,7 +150,7 @@
     const assignments = S.settings?.appointed || {};
     const read = k => Object.prototype.hasOwnProperty.call(assignments, k) ? assignments[k] : "";
     const parent = applicationParent199(key), keys = applicationSeatKeys199(key);
-    const value = read(key) || (parent && parent.key !== key ? read(parent.key) : "") || (keys.length && !keys.includes(key) && keys.every(k => read(k)) ? (keys.length === 1 ? read(keys[0]) : "All related seats filled") : "") || (key === "treasurer" ? read("office_86") : key === "office_86" ? read("treasurer") : "");
+    const value = read(key) || (parent && parent.key !== key ? read(parent.key) : "") || (keys.length && !keys.includes(key) && keys.every(k => read(k)) ? (keys.length === 1 ? read(keys[0]) : "All related seats filled") : "") || (key === "treasurer" ? read("office_86") : key === "office_86" ? read("treasurer") : key === "co_gm" ? read("office_19") : key === "office_19" ? read("co_gm") : "");
     if (!value) return "";
     if (!S.signedIn || S.denied || !communityReader()) return "Filled; identity unavailable";
     if (appointmentPointer(value)) return "Appointed member";
@@ -4284,7 +4284,9 @@
       if (order) seats.sort((a, b) => (order.get(directory.keyToFamily[a.key]) ?? order.size) - (order.get(directory.keyToFamily[b.key]) ?? order.size));
       return seats.length ? frame("High Council portfolios", null, h("dl", { class: "kv" }, seats.map((row) => {
         const who = appointedTo(row.key);
-        return [h("dt", { text: row.label }), h("dd", { "data-council-holder": row.key }, who ? appointmentLabelNode(row.key, who, false, true) : h("span", { class: "muted", text: "No website appointment recorded." }))];
+        // The Roles catalogue's guard (officeAssignmentPanel): a malformed or ID-like old value is never shown.
+        const shown = typeof who === "string" && who.length <= 40 && !/[\u0000-\u001f\u007f<>]/.test(who) && !/^[0-9]{17,20}$/.test(who.trim()) ? who : "Name withheld";
+        return [h("dt", { text: row.label }), h("dd", { "data-council-holder": row.key }, who ? appointmentLabelNode(row.key, shown, false, true) : h("span", { class: "muted", text: "No website appointment recorded." }))];
       }))) : null;
     };
     if (shell) shell.content.replaceWith(content);
