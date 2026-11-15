@@ -5,7 +5,7 @@
 (function (root) {
   "use strict";
   const DATA_URL = "/static/guides218.json";
-  const GUIDES_TITLE = "Olympus University";
+  const GUIDES_TITLE = "Class & profession guides";
   const TALENT_LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/";
   const HOSTS = new Set(["worldofwarcraft.blizzard.com", "news.blizzard.com", "us.forums.blizzard.com", "eu.forums.blizzard.com", "warcraft.wiki.gg",
     "www.wowhead.com", "wowhead.com", "www.icy-veins.com", "icy-veins.com", "www.method.gg", "method.gg", "www.warcrafttavern.com", "warcrafttavern.com",
@@ -288,7 +288,7 @@
       const items = TOOLS.filter(t => t[0] !== id).map(([tid, name]) => ["#/guides/tools/" + tid, name]);
       if (id === "buffs") items.push(["#/guides/profession/alchemy", "Alchemy guide"], ["#/guides/profession/cooking", "Cooking guide"], ["#/guides/profession/first-aid", "First Aid guide"]);
       // The raid team guide names the leaders; their offices are on the Roles page (integrator, 12 Nov 2026).
-      if (id === "raid-structure") items.push(["#/roles/raid_leader", "Raid Leader office"], ["#/roles/class_lead", "Class Lead offices"]);      items.push(["#/talents", "Talent calculator"], ["#/addons", "Addons for Forever"], ["#/guides", "Olympus University"]);
+      if (id === "raid-structure") items.push(["#/roles/raid_leader", "Raid Leader office"], ["#/roles/class_lead", "Class Lead offices"]);      items.push(["#/talents", "Talent calculator"], ["#/addons", "Addons for Forever"], ["#/guides", "Class & profession guides"]);
       return el("nav", { class: "card guides218-section", "aria-label": "Related" }, el("h2", { text: "Related" }),
         el("ul", { class: "guides218-list" }, items.map(([href, text]) => el("li", null, link(href, text)))));
     }

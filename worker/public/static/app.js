@@ -1749,7 +1749,7 @@
       if (can("applicantWrite") && (anyCommunity() || can("armyRead"))) {
         add(nav, group("Community", visibleCommunitySections().map(({ href, label }) => [href, label])));
       }
-      const resources = [["#/guides", "Olympus University"], ["#/guide/member", "Member guide"], ["#/guide/officer", "Officer guide"], ["#/talents", "Talent calculator"], ["#/addons", "Addons"], ["#/guides/library", "Publisher library"], ["#/updates", "Game updates"]];
+      const resources = [["#/guides", "Class & profession guides"], ["#/guide/member", "Member guide"], ["#/guide/officer", "Officer guide"], ["#/talents", "Talent calculator"], ["#/addons", "Addons"], ["#/guides/library", "Publisher library"], ["#/updates", "Game updates"]];
       if (S.qrVerification && S.qrVerification.enabled === true) resources.push(["/static/qr-phase1.html", "Verify in game"]);
       add(nav, group("Resources", resources));
     }
@@ -1860,7 +1860,7 @@
       return `Community · ${event || communitySection(sub || "")?.label || "Not here"}`;
     }
     if (head === "talents") { const cls = M().classes.find(c => c.key === dec(sub || "warrior")); return cls ? `${cls.label} talents` : "Talents"; }
-    if (head === "resources") return "Olympus University";
+    if (head === "resources") return "Class & profession guides";
     if (head === "guides") return guideTitle218(sub, detail);
     if (head === "vote") { const ballot = M().ballots.find(b => b.key === dec(sub || "")); return ballot ? `${ballot.label} · Vote` : "Vote"; }
     if (head === "roles" && sub) { const role = M().positions.find(p => p.key === dec(sub)); if (role) return `${role.label} · Roles`; }
@@ -2169,12 +2169,12 @@
     if (!live()) instance.destroy();
   };
   ROUTES.addons = resourcesView("addons");
-  // Evergreen Stage 2 (12 Nov 2026, CL2-205): #/guides is Olympus University (university/university.js). The publisher library
+  // Evergreen Stage 2 (12 Nov 2026, CL2-205): #/guides is the Class & profession guides hub (university/university.js). The publisher library
   // moved to #/guides/library, #/resources stays an alias of the hub, the tools keep their .218 renderer, and the .218 class,
   // spec and profession links (#/guides/class/<c>[/<spec>], #/guides/profession/<p>) open the matching course.
   ROUTES.guides = (main, parts) => parts.length === 1 && parts[0] === "library" ? resourcesView("guides")(main)
     : parts[0] === "tools" ? guidesView218(main, parts) : universityView(main, parts);
-  ROUTES.resources = (main, parts) => parts.length ? add(main, frame("Olympus University", null, h("p", { text: "There is no such page." }), h("a", { class: "btn", href: "#/guides", text: "Olympus University" }))) : universityView(main, []);
+  ROUTES.resources = (main, parts) => parts.length ? add(main, frame("Class & profession guides", null, h("p", { text: "There is no such page." }), h("a", { class: "btn", href: "#/guides", text: "Class & profession guides" }))) : universityView(main, []);
   ROUTES.updates = resourcesView("updates");
   // .218 Olympus guides and tools (guides218.js renders them). "Attach to my application" only carries a build into the open
   // application form for the applicant to check and save; it never saves, never ticks a consent and never changes board sharing.
@@ -2189,8 +2189,8 @@
   // The five Alliance races the guides name (university/index.json); a race without a written guide says so on its page.
   const GUIDE_RACES218 = { dwarf: "Dwarf", gnome: "Gnome", human: "Human", "night-elf": "Night Elf", skyborne: "Skyborne" };
   function guideTitle218(kind, key) {
-    const k = dec(key || ""), hub = "Olympus University";
-    if (!kind) return hub;
+    const k = dec(key || ""), hub = "Guides";
+    if (!kind) return "Class & profession guides";
     if (kind === "library") return "Publisher library";
     if (kind === "class") { const cls = M().classes.find(c => c.key === k); return cls ? `${cls.label} guide · ${hub}` : hub; }
     if (kind === "race" && own(GUIDE_RACES218, k)) return `${GUIDE_RACES218[k]} guide · ${hub}`;
@@ -2210,7 +2210,7 @@
   function guidesView218(main, parts) {
     const [kind, first] = parts.map(dec);
     const view = kind === "tools" && first && parts.length === 2 ? "tool" : null;
-    if (!view) { add(main, frame("Olympus University", null, h("p", { text: "There is no such tool." }), h("a", { class: "btn", href: "#/guides", text: "Olympus University" }))); return; }
+    if (!view) { add(main, frame("Guides", null, h("p", { text: "There is no such tool." }), h("a", { class: "btn", href: "#/guides", text: "Class & profession guides" }))); return; }
     return memberTool(main, "OlympusGuides", "/static/guides218.js", "/static/guides218.css", {
       view, tool: first, talentRevision: M().talentSnapshotRevision,
     });
