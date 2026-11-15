@@ -633,6 +633,16 @@ async function university(parts, options = {}) {
   // CL2-052, CL2-057 (our 58b96f8): the class, spec and profession pages are University courses (university.js), and the
   // course and tool breadcrumbs start at "Olympus University". Site fault f1 (15 Nov 2026): a course credits the Talents
   // Forever data once exactly when it cites a Talents Forever source or shows a talent build; the changes tool keeps its credit.
+  // f1 review round: also when an overview point, praxis step or common mistake of the page (default track 101) rests on a fact
+  // citing a Talents Forever source; that text shows no citation, so it is read from the University data files.
+  const uniRead = rel => JSON.parse(fs.readFileSync(path.join(stat, 'university', rel), 'utf8'));
+  const tfIds = new Set(uniRead('sources.json').sources.filter(s => s.publisher === 'Talents Forever').map(s => s.id));
+  const uniFacts = new Map(fs.readdirSync(path.join(stat, 'university', 'facts')).filter(f => f.endsWith('.json')).flatMap(f => { const d = uniRead('facts/' + f); return d.facts.map(x => [x.id, { ...(d.defaults || {}), ...x }]); }));
+  const tfText = ([kind, id, spec]) => {
+    const g = uniRead(uniRead('index.json').guides.find(e => e.kind === kind && e.id === id).file), owner = spec ? g.specs.find(s => s.id === spec) : g;
+    return [...owner.overview.points.map(p => p.facts || []), ...owner.tracks['101'].chapters.filter(c => c.unavailable === undefined && c.praxis)
+      .flatMap(c => [...c.praxis.steps.map(s => s.facts || []), ...c.praxis.mistakes.map(m => m.facts)])].some(ids => ids.some(f => uniFacts.get(f).sources.some(s => tfIds.has(s))));
+  };
   const guideViews = [
     ...DATA.classes.flatMap(c => [['class', c.id], ...c.specs.map(s => ['class', c.id, s.id])]),
     ...DATA.professions.map(p => ['profession', p.key]),
@@ -656,7 +666,7 @@ async function university(parts, options = {}) {
       }
     }
     const credit = box.all(e => e.className.includes(course ? 'uni-talent-credit' : 'guides218-talent-credit'));
-    const talentData = course && (citationLines.some(line => line.tags('a').some(a => text(a).startsWith('Talents Forever — '))) || box.all(e => e.getAttribute('data-preset') !== null).length > 0);
+    const talentData = course && (citationLines.some(line => line.tags('a').some(a => text(a).startsWith('Talents Forever — '))) || box.all(e => e.getAttribute('data-preset') !== null).length > 0 || tfText(opts));
     assert.equal(credit.length, talentData || opts.tool === 'changes' ? 1 : 0, JSON.stringify(opts));
     if (credit.length) {
       assert.deepEqual(links(credit[0]), ['https://talentsforever.com/', 'https://creativecommons.org/licenses/by/4.0/']);
