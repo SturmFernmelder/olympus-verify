@@ -765,7 +765,7 @@
       if (comp.cls !== className || !at || at.cls !== className) continue;
       const base = { id: comp.id, talentId: comp.talentId, name: comp.name, ...place(comp.talentId), maxRank: at.talent.maxRank, tier: comp.tier, grade: comp.grade, target: comp.target,
         stat: capital(TARGET_LABEL[comp.target] || String(comp.target).replace(/[._]/g, " ")), perRank: rankSeries(comp), conditions: comp.conditions.map(conditionText) };
-      if (!entry.verified) { rows.push({ ...base, grade: "U", conditions: [], group: "withheld", kind: KIND_LABEL.withheld, perRank: "Rank text changed since review; number withheld.", atMax: "Rank text changed since review; number withheld.", maxValue: null, effects: [], sortValue: null }); continue; }
+      if (!entry.verified) { rows.push({ ...base, grade: "U", conditions: [], stat: "Withheld", group: "withheld", kind: KIND_LABEL.withheld, perRank: "Rank text changed since review; number withheld.", atMax: "Rank text changed since review; number withheld.", maxValue: null, effects: [], sortValue: null }); continue; }
       const verdict = classify(comp, meta.toggles), effect = effectOf(comp, comp.maxRank), extra = { direction: comp.direction, statBasis: comp.statBasis, sourceStat: comp.sourceStat, procEffect: comp.procEffect };
       const effects = verdict.group === "applied" || verdict.group === "conditional" || (verdict.group === "gear" && verdict.toggleable) ? isolatedEffect(model, ctx, baseEffects, comp, effect, meta.specs) : [];
       const own = effects.find(p => p.row === TARGET_ROW[comp.target] && num(p.value)) || effects.find(p => num(p.value));
