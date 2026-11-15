@@ -9,6 +9,7 @@
   "use strict";
   const BASE = "/static/university/";
   const KEY = "olympus.university.v1";
+  const TALENT_LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/";
   const TRACK_NAMES = { 101: "101 Foundations", 201: "201 Intermediate", 301: "301 Advanced" };
   const TOOLS = [["attunements", "Attunements & pre-raid checklist"], ["buffs", "World buffs & consumables"], ["raid-structure", "Raid team structure & leadership"], ["changes", "What changed in Forever"]];
   // The same one-line descriptions guides218.js shows on the tool pages.
@@ -131,9 +132,15 @@
       return node;
     };
     const uid = prefix => "uni-" + prefix + "-" + (++sequence);
-    // Links are fragments of this site's hash router or allow-listed https addresses (validate.js safeUrl).
+    // Links are fragments of this site's hash router or allow-listed https addresses (validate.js safeUrl), plus the licence.
     const link = (href, text, cls) => el("a", { href: /^#\/[a-z0-9/._:-]*$/.test(href) ? href : "#/guides", text, class: cls });
-    const external = (url, text) => R.safeUrl(url) ? el("a", { href: url, text, target: "_blank", rel: "noopener noreferrer" }) : el("span", { text });
+    const external = (url, text) => R.safeUrl(url) || url === TALENT_LICENSE_URL ? el("a", { href: url, text, target: "_blank", rel: "noopener noreferrer" }) : el("span", { text });
+    // Site fault f1 (15 Nov 2026): a page that shows a fact citing Talents Forever, or a talent build, credits the data once,
+    // in the words guides218.js uses (every .279 class view carried this credit).
+    const talentCredit = () => el("p", { class: "muted small uni-talent-credit" }, "Talent data from ",
+      external("https://talentsforever.com/", "Talents Forever"), " by Chris Baldwin, summarized by Olympus under ",
+      external(TALENT_LICENSE_URL, "CC BY 4.0"), ".");
+    const noteTalentData = (ctx, ids) => { if (ids.some(id => ctx.facts.get(id).sources.some(s => { const x = ctx.sources.get(s); return !!x && x.publisher === "Talents Forever"; }))) ctx.talentData = true; };
     const icon = (name, alt = "") => el("img", { src: "/static/wow/" + name + ".png", alt, width: 32, height: 32, class: "uni-icon", loading: "lazy" });
     const shell = el("div", { class: "uni" });
     container.appendChild(shell);
@@ -150,6 +157,7 @@
       }));
     }
     function factItem(ctx, f) {
+      noteTalentData(ctx, [f.id]);
       return el("li", { class: "uni-fact", "data-grade": f.grade },
         el("strong", { class: "uni-fact-label", text: f.label }), " ",
         el("span", { text: f.grade === "U" ? "Unavailable" : f.value }), " ", gradeBadge(f.grade),
@@ -290,6 +298,7 @@
       const trees = entry.specs.map(s => s.name), context = p.context === "pvp" ? "PvP" : p.context[0].toUpperCase() + p.context.slice(1);
       const pointsSuffix = " (" + p.treePoints.join("/") + ")", title = p.label.endsWith(pointsSuffix) ? p.label.slice(0, -pointsSuffix.length) : p.label;
       const status = el("p", { class: "muted small", role: "status" });
+      ctx.talentData = true;
       const current = !options.talentRevision || p.code.split(".")[1] === options.talentRevision;
       const attach = typeof options.onAttach === "function" && current ? el("button", { type: "button", class: "btn", text: "Attach to my application", disabled: options.canAttach === false,
         onclick: () => { status.textContent = "Opening your application with this build…"; options.onAttach(Object.freeze({ presetId: p.id, label: p.label, classId: p.classId, level: p.level, code: p.code })); } }) : null;
@@ -337,6 +346,7 @@
     function chapterQuiz(ctx, chapter) {
       const pool = ctx.questions.filter(q => q.chapter === chapter.id);
       if (!pool.length) return chapter.noQuiz ? el("p", { class: "muted small", text: "No quiz: " + chapter.noQuiz }) : null;
+      for (const q of pool) noteTalentData(ctx, q.facts);
       const key = "chapter:" + chapter.id, holder = el("div", { class: "uni-quiz" });
       const draw = () => {
         const attempt = store.attempt(key), picked = R.order(pool, q => q.id, attempt).slice(0, CHAPTER_QUIZ_SIZE);
@@ -450,7 +460,7 @@
           el("li", null, el("a", { href: guideHref(entry), class: "btn small" + (spec ? "" : " active"), "aria-current": spec ? null : "page", text: "Class course" })),
           g.specs.map(s => el("li", null, el("a", { href: guideHref(entry, s.id), class: "btn small" + (spec && spec.id === s.id ? " active" : ""), "aria-current": spec && spec.id === s.id ? "page" : null }, icon(ROLE_ICON[s.roles[0]] || "role-dps"), " " + s.name + " " + g.name))))));
       }
-      frag.push(...trackView(ctx, entry, owner, route, base, scopeKey), legend(used), related(entry));
+      frag.push(...trackView(ctx, entry, owner, route, base, scopeKey), legend(used), ctx.talentData ? talentCredit() : null, related(entry));
       return frag;
     }
 
@@ -479,9 +489,9 @@
         result.focus();
       } }, blocks, el("div", { class: "btn-row" }, submit));
       // REV-UNI-2 (12 Nov 2026): the grades the answers cite are collected before the legend is built, so the legend shows.
-      for (const q of picked) for (const fid of q.facts) ctx.used.add(ctx.facts.get(fid).grade);
+      for (const q of picked) { for (const fid of q.facts) ctx.used.add(ctx.facts.get(fid).grade); noteTalentData(ctx, q.facts); }
       frag.push(section("About this exam", el("p", { text: picked.length + " questions drawn from the " + pool.length + " in this track. Choose one answer for each, then submit. Unanswered questions count as wrong." })),
-        result, form, scoresPanel(), legend(ctx.used));
+        result, form, scoresPanel(), legend(ctx.used), ctx.talentData ? talentCredit() : null);
       return frag;
     }
 
@@ -516,7 +526,7 @@
             section("Not written yet", el("p", { text: "The " + entry.name + " guide has not been written yet. It will be built only from reviewed facts the site holds." }), link("#/guides", "Back to Olympus University", "btn")));
           return;
         }
-        const ctx = { ...(await loadGuide(entry, options.talentRevision)), used: new Set(), focus: null };
+        const ctx = { ...(await loadGuide(entry, options.talentRevision)), used: new Set(), focus: null, talentData: false };
         if (!alive) return;
         shell.replaceChildren(...(route.view === "exam" ? examView(ctx, entry, route) : guideView(ctx, entry, route)).filter(Boolean));
         if (ctx.focus) { ctx.focus.focus(); if (ctx.focus.scrollIntoView) ctx.focus.scrollIntoView({ block: "start" }); }
