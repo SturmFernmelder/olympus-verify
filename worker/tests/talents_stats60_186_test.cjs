@@ -977,12 +977,14 @@ check('.196 stat impact: every stat component of every class, at maximum rank an
       const tree = cls.trees[r.treeIndex], talent = tree.talents.find(t => t.id === r.talentId), comp = comps.find(c => c.id === r.id); assert.ok(talent, r.id); assert.equal(r.row, talent.row); assert.equal(r.pointsNeeded, 5 * (talent.row - 1)); assert.equal(r.tree, tree.name);
       // Grade and maximum rank come from the data: the five verified B components stay B, and the parry grant is U. Owner's answer 3 (15 Nov 2026,
       // "Yes, show neither"; site fault g1, stats60.js 768): a withheld row is U too and has no condition; a verified row keeps its grade and conditions.
+      // Owner's answers 7 and 8 (15 Nov 2026, "Yes, always last"; "No, only Stat, Kind, grade"; site fault g5, stats60.js 807): its grade sort key is missing.
       assert.equal(r.maxRank, talent.maxRank, r.id); assert.equal(r.grade, comp && !WITHHELD24.includes(r.id) ? comp.grade : 'U', r.id);
-      if (WITHHELD24.includes(r.id)) assert.deepEqual([r.grade, r.conditions, S.impactSortValue(r, 'grade')], ['U', [], 0], r.id);
+      if (WITHHELD24.includes(r.id)) assert.deepEqual([r.grade, r.conditions, S.impactSortValue(r, 'grade')], ['U', [], null], r.id);
       else if (comp) assert.deepEqual([r.grade, r.conditions], [comp.grade, comp.conditions.map(S.conditionText)], r.id);
-      // Owner's answer 6 (15 Nov 2026, "Yes, show "Withheld""; site fault g3, stats60.js 768): a withheld row's Stat is the text "Withheld" and its
-      // "stat" sort key is that same text; every other row keeps its own Stat text, which never reads "Withheld" in any spelling.
-      if (WITHHELD24.includes(r.id)) assert.deepEqual([r.stat, S.impactSortValue(r, 'stat')], ['Withheld', 'Withheld'], r.id);
+      // Owner's answer 6 (15 Nov 2026, "Yes, show "Withheld""; site fault g3, stats60.js 768): a withheld row's Stat is the text "Withheld";
+      // by answers 7 and 8 (site fault g5, stats60.js 807) its "stat" sort key is missing. Every other row keeps its own Stat text, which never
+      // reads "Withheld" in any spelling, as its sort key.
+      if (WITHHELD24.includes(r.id)) assert.deepEqual([r.stat, S.impactSortValue(r, 'stat')], ['Withheld', null], r.id);
       else { assert.equal(S.impactSortValue(r, 'stat'), r.stat, r.id); assert.doesNotMatch(r.stat, /withheld/i, r.id); }
       // Site fault f2 (stats60.js 768): a withheld row prints no reviewed number; its per-rank cell reads as its maximum-rank cell.
       if (WITHHELD24.includes(r.id)) assert.deepEqual([r.group, r.perRank, r.atMax, r.maxValue, r.sortValue], ['withheld', 'Rank text changed since review; number withheld.', 'Rank text changed since review; number withheld.', null, null], r.id);
@@ -1356,7 +1358,8 @@ check('.196 a guide whose ranks cannot be evaluated stays beside its tree and re
 });
 check('.196 impact sort keys are the displayed fields, text sorts alphabetically ignoring case, and the Stat, Kind and At maximum rank headers order rows by them', async () => {
   for (const cls of data.classes) for (const r of S.impactRows(model, { className: cls.id, race: S.combosFor(model, cls.id)[0].race }).rows) {
-    assert.deepEqual(['talent', 'stat', 'kind', 'max', 'change'].map(k => S.impactSortValue(r, k)), [r.name, r.stat, r.kind, r.maxValue, r.sortValue], r.id);
+    // Owner's answers 7 and 8 (15 Nov 2026; site fault g5, stats60.js 807): a withheld row has no Stat and no Kind sort key.
+    assert.deepEqual(['talent', 'stat', 'kind', 'max', 'change'].map(k => S.impactSortValue(r, k)), [r.name, WITHHELD24.includes(r.id) ? null : r.stat, WITHHELD24.includes(r.id) ? null : r.kind, r.maxValue, r.sortValue], r.id);
     assert.match(r.stat, /^[A-Z]/, r.id);
   }
   const pal = S.impactRows(model, { className: 'paladin', race: 'human' }).rows, di = pal.find(r => r.id === 'paladin-holy-divine-intellect#intellect_pct');
@@ -1372,6 +1375,88 @@ check('.196 impact sort keys are the displayed fields, text sorts alphabetically
     assert.deepEqual(bodyRows(t.impact).map(tr => tr.getAttribute('data-component')), S.sortRows(pal, r => r[field], 'ascending').map(r => r.id), label);
   }
   ui.destroy();
+});
+// Site fault g5. Owner's answers 7 and 8 (15 Nov 2026, "Yes, always last"; "No, only Stat, Kind, grade (Recommended)"; stats60.js 807): sorted by
+// Stat, Kind or Data grade, in either direction, every withheld row stands after every row that is not withheld; sorted by Talent, Tree, At
+// maximum rank or Change, and as the table opens (Tree, upward), every row stands where it stood before. The keys each row had before g5, from
+// the data and the row's own fields, not from impactSortValue: talent = the data.json name; tree = the tree's index * 1000 + the talent's place
+// among the class's data.json talents; stat and kind = the row's Stat and Kind text; max and change = its maxValue and sortValue; grade = A 5,
+// B 4, U 0 (stats60.js GRADE_ORDER). Answers 7 and 8 take away only the stat, kind and grade keys of a withheld row.
+const G5_GRADE = { A: 5, B: 4, U: 0 }, G5_TAKEN = ['stat', 'kind', 'grade'], G5_KEYS = ['talent', 'tree', 'stat', 'kind', 'max', 'change', 'grade'];
+function g5KeyBefore(cls, r, key) {
+  const talents = talentsOf(cls.id), at = talents.findIndex(t => t.id === r.talentId), tree = cls.trees.findIndex(t => t.talents.some(x => x.id === r.talentId));
+  assert.ok(at >= 0 && tree >= 0, r.id);
+  return { talent: talents[at].name, tree: tree * 1000 + at, stat: r.stat, kind: r.kind, max: r.maxValue, change: r.sortValue, grade: G5_GRADE[r.grade] }[key];
+}
+// The order before g5: a stable sort by that key, a missing key (null, undefined, a number that is not finite) last in either direction, text
+// compared in English ignoring case, ties in input order.
+function g5OrderBefore(cls, rows, key, direction) {
+  const collator = new Intl.Collator('en', { sensitivity: 'base' }), sign = direction === 'descending' ? -1 : 1, missing = v => v === null || v === undefined || (typeof v === 'number' && !Number.isFinite(v));
+  return rows.map((r, i) => ({ r, i, v: g5KeyBefore(cls, r, key) })).sort((a, b) => missing(a.v) || missing(b.v) ? (missing(a.v) === missing(b.v) ? a.i - b.i : missing(a.v) ? 1 : -1)
+    : (typeof a.v === 'string' && typeof b.v === 'string' ? collator.compare(a.v, b.v) : a.v < b.v ? -1 : a.v > b.v ? 1 : 0) * sign || a.i - b.i).map(x => x.r.id);
+}
+check('site fault g5: in every class and race a withheld row has no Stat, Kind or Data grade sort key and keeps its Talent, Tree, At maximum rank and Change keys; every other row keeps every key', () => {
+  let rows = 0, withheld = 0, grants = 0;
+  for (const cls of data.classes) for (const { race } of S.combosFor(model, cls.id)) for (const r of S.impactRows(model, { className: cls.id, race }).rows) {
+    const w = WITHHELD24.includes(r.id), grant = r.id === SPIRIT_WEAPONS + '#parry_grant';
+    rows++; if (w) withheld++; if (grant) grants++;
+    assert.deepEqual(G5_KEYS.map(k => S.impactSortValue(r, k)), G5_KEYS.map(k => w && G5_TAKEN.includes(k) ? null : g5KeyBefore(cls, r, k)), cls.id + ' ' + race + ' ' + r.id);
+    if (w) assert.deepEqual([r.group, r.stat, r.kind, r.grade, r.maxValue, r.sortValue], ['withheld', 'Withheld', 'Withheld: rank text changed', 'U', null, null], r.id);
+    else assert.ok(r.group !== 'withheld' && (grant ? r.grade === 'U' : ['A', 'B'].includes(r.grade)), r.id);
+    // The Shaman parry grant is not withheld: grade U, grade key 0.
+    if (grant) assert.deepEqual([r.grade, S.impactSortValue(r, 'grade')], ['U', 0], race);
+    assert.equal(S.impactSortValue(r, 'nonsense'), null, r.id);
+  }
+  // 56 class and race pairs (naked60-186.json races). Rows: each class's stat-effects186.json components per race, plus the parry grant for the
+  // five Shaman races = 820. Withheld: Warrior 2 x 10, Paladin 12 x 3, Hunter 1 x 8, Rogue 2 x 9, Shaman 2 x 5, Mage 3 x 6, Druid 2 x 4 = 118.
+  assert.deepEqual([rows, withheld, grants], [820, 118, 5]);
+});
+check('site fault g5: the stat impact table sorted by Stat, Kind or Data grade, up or down, shows the withheld rows after every other row; Talent, Tree, At maximum rank and Change keep their order', async () => {
+  const LABELS = [['Talent', 'talent'], ['Tree', 'tree'], ['Stat', 'stat'], ['Kind', 'kind'], ['At maximum rank', 'max'], ['Change on the sheet, alone', 'change'], ['Data grade', 'grade']];
+  const seen = {}, isWithheld = id => WITHHELD24.includes(id);
+  for (const [clsId, race] of [...data.classes.map(c => [c.id, null]), ['paladin', 'dwarf']]) {
+    const cls = data.classes.find(c => c.id === clsId), { host, ui, t } = await mountFresh(clsId), select = selectNamed(host, 'Race');
+    if (race) { select.value = race; select.dispatch('change'); }
+    const at = clsId + '/' + select.value, rows = S.impactRows(model, { className: clsId, race: select.value }).rows;
+    // Input order: the class's components in stat-effects186.json order, then the parry grant.
+    assert.deepEqual(rows.map(r => r.id), [...effects.components.filter(c => c.cls === clsId).map(c => c.id), ...(clsId === 'shaman' ? [SPIRIT_WEAPONS + '#parry_grant'] : [])], at);
+    const order = () => bodyRows(t.impact).map(tr => tr.getAttribute('data-component'));
+    const heads = () => LABELS.map(([label]) => { const button = sortButton(t.impact, label); return [label, button.parentNode.getAttribute('aria-sort'), button.children[1].textContent]; });
+    const expectHeads = (label, direction) => LABELS.map(([l]) => l === label ? [l, direction, direction === 'ascending' ? '▲' : '▼'] : [l, 'none', '']);
+    assert.deepEqual(order(), g5OrderBefore(cls, rows, 'tree', 'ascending'), at + ' as it opens'); assert.deepEqual(heads(), expectHeads('Tree', 'ascending'), at + ' as it opens');
+    seen[at + ' opening'] = order();
+    for (const [label, key] of LABELS) for (const direction of ['ascending', 'descending']) {
+      sortButton(t.impact, label).click();
+      const before = g5OrderBefore(cls, rows, key, direction), expected = G5_TAKEN.includes(key) ? [...before.filter(id => !isWithheld(id)), ...before.filter(isWithheld)] : before;
+      assert.deepEqual(heads(), expectHeads(label, direction), at + ' ' + label + ' ' + direction);
+      assert.deepEqual(order(), expected, at + ' ' + label + ' ' + direction);
+      seen[at + ' ' + key + ' ' + direction] = order();
+    }
+    ui.destroy();
+  }
+  // Literal anchors, read from stat-effects186.json and data.json. Paladin (human): 19 rows, 12 withheld; the other 7 are grade A, with the Stat
+  // texts of their targets and the Kind texts "Added to the sheet" (5), "Needs gear: adds 0 when naked" (Toughness), "Throughput: never added"
+  // (Healing Light). The 12 withheld rows follow in stat-effects186.json order.
+  const P = names => names.map(n => 'paladin-' + n);
+  const PAL_W = P(['holy-reverence#mana_regen_while_casting', 'holy-holy-power#spell_crit_chance_other', 'holy-holy-power#spell_crit_chance_named', 'holy-divine-precision#spell_school_hit_chance',
+    'protection-sacred-duty#stamina_pct', 'protection-improved-righteous-fury#damage_taken_reduction', 'protection-redoubt#block_chance_proc', 'retribution-conviction#melee_crit_chance',
+    'retribution-champion-of-the-light#spell_damage_from_intellect', 'retribution-two-handed-weapon-specialization#damage_done', 'retribution-vindication#attack_power_pct_proc', 'retribution-vengeance#phys_holy_damage_proc']);
+  const DS = 'holy-divine-strength#strength_pct', DI = 'protection-divine-intellect#intellect_pct', HL = 'holy-healing-light#healing_done', TO = 'protection-toughness#item_armor_pct',
+    PR = 'protection-precision#hit_chance', AN = 'protection-anticipation#defense_skill', DE = 'retribution-deflection#parry_chance';
+  const PAL = { 'stat ascending': [TO, AN, HL, PR, DI, DE, DS], 'stat descending': [DS, DE, DI, PR, HL, AN, TO], 'kind ascending': [DS, DI, PR, AN, DE, TO, HL],
+    'kind descending': [HL, TO, DS, DI, PR, AN, DE], 'grade ascending': [DS, DI, HL, TO, PR, AN, DE], 'grade descending': [DS, DI, HL, TO, PR, AN, DE] };
+  for (const [k, first] of Object.entries(PAL)) assert.deepEqual(seen['paladin/human ' + k], [...P(first), ...PAL_W], 'paladin ' + k);
+  for (const k of Object.keys(PAL)) assert.deepEqual(seen['paladin/dwarf ' + k], seen['paladin/human ' + k], 'paladin dwarf ' + k);
+  // Shaman (orc): two withheld rows, Mental Dexterity then Flurry; the parry grant (grade U, key 0) stays among the other rows: first under Data
+  // grade upward, last of them under Data grade downward. Mage (human): three withheld rows, Arcane Resilience, Critical Mass, Frost Warding.
+  const SH_W = ['shaman-enhancement-mental-dexterity#attack_power_from_intellect', 'shaman-enhancement-flurry#attack_speed_proc'], GRANT = SPIRIT_WEAPONS + '#parry_grant';
+  const MA_W = ['mage-arcane-arcane-resilience#armor_from_intellect', 'mage-fire-critical-mass#spell_school_crit_chance', 'mage-frost-frost-warding#self_buff_armor_pct'];
+  for (const k of Object.keys(PAL)) { assert.deepEqual(seen['shaman/orc ' + k].slice(-2), SH_W, 'shaman ' + k); assert.deepEqual(seen['mage/human ' + k].slice(-3), MA_W, 'mage ' + k); }
+  assert.equal(seen['shaman/orc grade ascending'][0], GRANT); assert.deepEqual(seen['shaman/orc grade descending'].slice(-3), [GRANT, ...SH_W]);
+  // The table as it opens and under Talent and Tree: the withheld rows stay in their places, Paladin's first withheld row third, as before.
+  assert.deepEqual(seen['paladin/human opening'].slice(0, 4), P([DS, HL, 'holy-reverence#mana_regen_while_casting', 'holy-divine-precision#spell_school_hit_chance']));
+  assert.equal(seen['paladin/human talent ascending'][0], 'paladin-protection-anticipation#defense_skill');
+  assert.deepEqual(seen['paladin/human tree ascending'], seen['paladin/human opening']);
 });
 check('.196 a conditional or gear effect reads "Would add when its assumption holds" and loses that prefix once its assumption is on; Classic-reference parts are greyed', async () => {
   const druid = (await classMounts()).find(m => m.cls.id === 'druid'), cellOf = (t, id) => bodyRows(t.impact).find(tr => tr.getAttribute('data-component') === id).children[6];
