@@ -700,7 +700,7 @@
   const appointedTo = (key) => {
     const a = S.settings?.appointed || {}, read = k => Object.prototype.hasOwnProperty.call(a, k) ? a[k] : "";
     const parent = applicationParent199(key), keys = applicationSeatKeys199(key);
-    const value = read(key) || (parent && parent.key !== key ? read(parent.key) : "") || (keys.length && !keys.includes(key) && keys.every(k => read(k)) ? (keys.length === 1 ? read(keys[0]) : "All related seats filled") : "") || (key === "treasurer" ? read("office_86") : key === "office_86" ? read("treasurer") : "");
+    const value = read(key) || (parent && parent.key !== key ? read(parent.key) : "") || (keys.length && !keys.includes(key) && keys.every(k => read(k)) ? (keys.length === 1 ? read(keys[0]) : "All related seats filled") : "") || (key === "treasurer" ? read("office_86") : key === "office_86" ? read("treasurer") : key === "co_gm" ? read("office_19") : key === "office_19" ? read("co_gm") : "");
     return appointmentPointer(value) ? "Appointed member" : value;
   };
   const appointmentLabel = (holder) => holder === "Appointed member" ? "Filled by appointment" : `Appointed: ${holder}`;
@@ -715,6 +715,8 @@
     if (children.length === 1 && has(children[0])) return children[0];
     if (key === "office_86" && has("treasurer")) return "treasurer";
     if (key === "treasurer" && has("office_86")) return "office_86";
+    if (key === "office_19" && has("co_gm")) return "co_gm";
+    if (key === "co_gm" && has("office_19")) return "office_19";
     return key;
   }
   const appointmentLabelNode = (key, holder = appointedTo(key), bare = false, sentence = false) => h("span", { "data-appointment-label": appointmentSourceKey199(key), "data-appointment-bare": bare ? "true" : "false", "data-appointment-sentence": sentence ? "true" : "false", text: appointmentLabelText(holder, bare, sentence) });
@@ -4272,6 +4274,19 @@
             : [closed ? noticeBox("warn", "icon-warning", h("p", { text: "Voting is closed right now. Your votes are kept as they are." })) : null, boardBox]),
       holder || quiet ? null : writeIns(ballot, closed));
     const anyQuiet = meta.ballots.some((b) => noVoteFor(b.key));
+    // Owner's question of 15 Nov 2026: the vote page lists every current High Council portfolio with its holder. A portfolio
+    // is a High Council catalogue record whose label is its own Council portfolio and that is not a display alias (co_gm and
+    // treasurer reach theirs through appointedTo); the holder is the website appointment record only, never a rank or a
+    // Discord role.
+    const councilHolders = () => {
+      const directory = roleDirectory203(), order = directory ? councilFamilyOrder228(directory) : null;
+      const seats = offices199().filter((row) => row.tier === "high_council" && !row.aliasOf && row.label === row.councilSeat);
+      if (order) seats.sort((a, b) => (order.get(directory.keyToFamily[a.key]) ?? order.size) - (order.get(directory.keyToFamily[b.key]) ?? order.size));
+      return seats.length ? frame("High Council portfolios", null, h("dl", { class: "kv" }, seats.map((row) => {
+        const who = appointedTo(row.key);
+        return [h("dt", { text: row.label }), h("dd", { "data-council-holder": row.key }, who ? appointmentLabelNode(row.key, who, false, true) : h("span", { class: "muted", text: "No website appointment recorded." }))];
+      }))) : null;
+    };
     if (shell) shell.content.replaceWith(content);
     else add(main, [
       h("section", { class: "frame" },
@@ -4285,6 +4300,7 @@
         summaryStatus,
         noticeBox("ok", "icon-shield", h("p", null, h("strong", { text: "Your votes are private. " }), "Nobody sees how anyone voted or how many votes anyone has, except the guild's leadership. Every voter sees the applicants in a different order, so nobody is first for everyone."))),
       h("div", { class: "board-layout" }, roleList, content),
+      councilHolders(),
       writsPanel199("vote"),
     ]);
     boardShells.set(main, { settingsKey, roleList, rolePick, summaryStatus, content, actor, actorRevision });
