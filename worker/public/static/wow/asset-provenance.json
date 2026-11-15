@@ -1888,5 +1888,329 @@
         "sha256": "4cd5904ccb4938df689f88c8b80404abb7977fc7149c2cfe028bf81c325b0741"
       }
     }
-  ]
+  ],
+  "talent_icon_client_extraction": {
+    "schema": "olympus-local-talent-icon-extraction-v1",
+    "recorded_date": "2026-11-15",
+    "scope": "Only the 17 talent icons below, used by the talent calculator (/static/talents/art.json). The other 396 files under /static/wow/talents/ (369 icon JPEGs and 27 tree backgrounds) are exact copies from talentsforever.com, not client extractions; they are recorded in /static/talents/art-provenance.json under assets. 396 + 17 = 413 files. The statements and caveats above remain historical and unchanged.",
+    "extracted_by": "Codex Root",
+    "manifest_sha256": "6a2cff460c2efd39eb5786eb3ed039ac0f6249f88eded9558d3dc889b71f0447",
+    "manifest_note": "The extraction manifest (schema olympus-local-talent-icons-v1) is kept outside the repository.",
+    "product": "wowf",
+    "clientVersion": "1.60.1.70938",
+    "buildNumber": 70938,
+    "buildKey": "3627b099867bfde3e37a17cf44f69cdc",
+    "extraction": "Every exact requested path resolved by installed wowf CASC client-name lookup with nonzero client FileNameHash and actual FileDataId; strict data checks passed",
+    "conversion": "Unresized decoded base-mip RGBA to PNG; PNG pixels read back and matched exactly",
+    "limits": "Confirms installed icon asset names and file IDs. No client Spell/Talent DB2 relationship was extracted; talent-to-icon selection remains the caller/upstream mapping.",
+    "talent_icon_relationship": "The talent-to-icon relationship rests on the retained Talents Forever export (revision 02e1e101d1a5), which names each talent’s icon; it is not taken from client data. No client Spell or Talent DB2 table was read.",
+    "assets": [
+      {
+        "clientPath": "interface/icons/ability_creature_cursed_02.blp",
+        "fileDataId": 132094,
+        "fileNameHashHex": "65d2dd5e980fc9b4",
+        "sourceBytes": 6660,
+        "sourceSha256": "b521d6892d1779b3567bf7055805bad349a699aa624c6a9ed9aa5b7efdf02c51",
+        "asset": "/static/wow/talents/icon-ability_creature_cursed_02.png",
+        "assetBytes": 5780,
+        "assetSha256": "fa71a7868887c24534b44e0165c4662cea859b0ece44d1a541265e294f8e7f19",
+        "rgbaSha256": "c74787faada8173cd0ebe9c79b5b2da43ae890b8d0d982bd3f968faa10a99c90",
+        "width": 64,
+        "height": 64,
+        "alphaExtrema": [
+          0,
+          255
+        ],
+        "talent": "rogue-subtlety-death-mark"
+      },
+      {
+        "clientPath": "interface/icons/ability_druid_lacerate.blp",
+        "fileDataId": 132131,
+        "fileNameHashHex": "f932e198f46d4184",
+        "sourceBytes": 3916,
+        "sourceSha256": "0ee9b6f7eef30fe8c482e74f52508079cff2e439e1f26c31e67b1b607aad1737",
+        "asset": "/static/wow/talents/icon-ability_druid_lacerate.png",
+        "assetBytes": 6827,
+        "assetSha256": "7d293e682f93d51108bf2e8e0d805d221abdfc8f3d282abab437ae31fb5c52f6",
+        "rgbaSha256": "5b41a0b47c73b91f398a3722ebc7f8e8c7fd186512ea3d7f8b0ccc474435d838",
+        "width": 64,
+        "height": 64,
+        "alphaExtrema": [
+          255,
+          255
+        ],
+        "talent": "druid-feral-combat-lacerate"
+      },
+      {
+        "clientPath": "interface/icons/ability_paladin_sacredcleansing.blp",
+        "fileDataId": 236261,
+        "fileNameHashHex": "8b0003a9f4b11cdd",
+        "sourceBytes": 6660,
+        "sourceSha256": "5e1874c1094a33754a1f67113a0974cf7a03c758186bc1d695f0b4d4f213bc53",
+        "asset": "/static/wow/talents/icon-ability_paladin_sacredcleansing.png",
+        "assetBytes": 6200,
+        "assetSha256": "5d9353802b85d61399a1a2a839296bc4a783a43e203f217d58eabd181ae95499",
+        "rgbaSha256": "177ea9e2df420c4311f08c115c1f097621d534c058c21e650bd0adb0225853da",
+        "width": 64,
+        "height": 64,
+        "alphaExtrema": [
+          0,
+          255
+        ],
+        "talent": "paladin-holy-boundless-light"
+      },
+      {
+        "clientPath": "interface/icons/ability_rogue_blackjack.blp",
+        "fileDataId": 458797,
+        "fileNameHashHex": "23d6253e1bcbf84e",
+        "sourceBytes": 6660,
+        "sourceSha256": "f1c7ae76855df3a66c08f2edcd21a891836820fc77a4d0520fc3e836af7411d9",
+        "asset": "/static/wow/talents/icon-ability_rogue_blackjack.png",
+        "assetBytes": 6085,
+        "assetSha256": "6fc5387423032998a115135eb7e11f05d8289e4a1f68e4c995b9392d00496096",
+        "rgbaSha256": "35da08d266b2b3a27c6732dc916c5f5147cf6b94a1236005be76c3015c96e237",
+        "width": 64,
+        "height": 64,
+        "alphaExtrema": [
+          0,
+          255
+        ],
+        "talent": "rogue-subtlety-quick-getaway"
+      },
+      {
+        "clientPath": "interface/icons/ability_rogue_fleetfooted.blp",
+        "fileDataId": 132296,
+        "fileNameHashHex": "c43f5fb01ef837ab",
+        "sourceBytes": 6660,
+        "sourceSha256": "d482f69285b608faaf151cddd9d6c7498264a6dfb03291344df26290227ffb4d",
+        "asset": "/static/wow/talents/icon-ability_rogue_fleetfooted.png",
+        "assetBytes": 6576,
+        "assetSha256": "f89b14caa4a71e080514344fc3810fa02554e601f84053057b7bbda384345dd2",
+        "rgbaSha256": "b3c37be343ac0403684f3c3e5f2f8230c5717117f2c42a47c410bc2b1f93c504",
+        "width": 64,
+        "height": 64,
+        "alphaExtrema": [
+          0,
+          255
+        ],
+        "talent": "rogue-combat-composure"
+      },
+      {
+        "clientPath": "interface/icons/ability_rogue_restlessblades.blp",
+        "fileDataId": 458731,
+        "fileNameHashHex": "4327e0770e2c02fc",
+        "sourceBytes": 6660,
+        "sourceSha256": "e30ea0467da599f9e2b66172076c51dd854aaaddc3fc085b48b254c78c283aeb",
+        "asset": "/static/wow/talents/icon-ability_rogue_restlessblades.png",
+        "assetBytes": 5533,
+        "assetSha256": "a77d6f531208fb4e9be79750ec5ac413dce61e11acd2b714844764e98e235469",
+        "rgbaSha256": "feae54e113d2471f72d64254a871c7ab43cd74919be019ae77d10e55dccaf6af",
+        "width": 64,
+        "height": 64,
+        "alphaExtrema": [
+          0,
+          255
+        ],
+        "talent": "rogue-combat-flash-of-steel"
+      },
+      {
+        "clientPath": "interface/icons/ability_warrior_bloodfrenzy.blp",
+        "fileDataId": 132334,
+        "fileNameHashHex": "b66a3d0800d82650",
+        "sourceBytes": 6660,
+        "sourceSha256": "d07edec799976ad1e6219918675dfec819188936b4d7f42d19bd2a5baca72bbd",
+        "asset": "/static/wow/talents/icon-ability_warrior_bloodfrenzy.png",
+        "assetBytes": 5432,
+        "assetSha256": "c5ac0d4f4adea666128dc96ee8e81ffa5c6ecd51009bf12deb5274fd843aa891",
+        "rgbaSha256": "976323009f921b523e4731c2a7ab7d26b6b72fcd04cd270e63186fdb755ab427",
+        "width": 64,
+        "height": 64,
+        "alphaExtrema": [
+          0,
+          255
+        ],
+        "talent": "warrior-fury-reckless-swings"
+      },
+      {
+        "clientPath": "interface/icons/inv_misc_herb_felblossom.blp",
+        "fileDataId": 134206,
+        "fileNameHashHex": "45095d393aea3b46",
+        "sourceBytes": 6660,
+        "sourceSha256": "0ba4b9260e48ed2131193573db753bb01a4182a2d82c94731a606c241073c069",
+        "asset": "/static/wow/talents/icon-inv_misc_herb_felblossom.png",
+        "assetBytes": 6223,
+        "assetSha256": "aafd02a0ec7e9b55d0343be5b9f709af660b62ddee70bd5ff923e956cd9fb5c6",
+        "rgbaSha256": "f90ff44913d2d266d016c33322ae0e4f40513172def774163141808e4330ceaf",
+        "width": 64,
+        "height": 64,
+        "alphaExtrema": [
+          0,
+          255
+        ],
+        "talent": "druid-restoration-bloom"
+      },
+      {
+        "clientPath": "interface/icons/inv_sword_32.blp",
+        "fileDataId": 135342,
+        "fileNameHashHex": "dd4b46bae8e21946",
+        "sourceBytes": 6660,
+        "sourceSha256": "8993c8da1a2e57bd9741cbff013f1767c27ee456fa2cc112fd1e1b91cb96891b",
+        "asset": "/static/wow/talents/icon-inv_sword_32.png",
+        "assetBytes": 5074,
+        "assetSha256": "bdacfda938798b3cef1158d58836c0295430567c9aff6dcb9c781d68599a6ca0",
+        "rgbaSha256": "e470a618aa5e8d4cc00fd2335ff384518e2baf7503bcde5255471777f121e0d3",
+        "width": 64,
+        "height": 64,
+        "alphaExtrema": [
+          0,
+          255
+        ],
+        "talent": "rogue-subtlety-boot-knife"
+      },
+      {
+        "clientPath": "interface/icons/spell_druid_savagery.blp",
+        "fileDataId": 1033484,
+        "fileNameHashHex": "4516e6779ef3b7b4",
+        "sourceBytes": 6660,
+        "sourceSha256": "c0516325f4528972a3c28e18bf51f614d9431f4db0f8d5b8a657fde539b98ae9",
+        "asset": "/static/wow/talents/icon-spell_druid_savagery.png",
+        "assetBytes": 5788,
+        "assetSha256": "d28bcea56937e670ea6039b3fd935933c5ee3b9c6be6f36b24f9ba5a3e32c67b",
+        "rgbaSha256": "197dac02a26c23792a19a2557b6527e80c80f11c898711ae74aed32a922ed544",
+        "width": 64,
+        "height": 64,
+        "alphaExtrema": [
+          0,
+          255
+        ],
+        "talent": "druid-feral-combat-predatory-discipline"
+      },
+      {
+        "clientPath": "interface/icons/spell_holy_greaterblessingoflight.blp",
+        "fileDataId": 135909,
+        "fileNameHashHex": "f3ee61bf594fb785",
+        "sourceBytes": 6660,
+        "sourceSha256": "b06d6ac3b3bc1e2498a99591690cb5e5a7eb696df6b699bc1816fe60e4bd37a7",
+        "asset": "/static/wow/talents/icon-spell_holy_greaterblessingoflight.png",
+        "assetBytes": 6486,
+        "assetSha256": "d9a6004240faf1b91e06404a33b7fc3f4cbda5cf5a1cb50afed1b8d21277f674",
+        "rgbaSha256": "3856fb7df4a936695b0da97e713ead0e4cb0c84ed01db75f256cd517fca8d3f4",
+        "width": 64,
+        "height": 64,
+        "alphaExtrema": [
+          0,
+          255
+        ],
+        "talent": "paladin-holy-oath-of-light"
+      },
+      {
+        "clientPath": "interface/icons/spell_holy_greaterblessingofsanctuary.blp",
+        "fileDataId": 135911,
+        "fileNameHashHex": "26deea1ece7ddaef",
+        "sourceBytes": 6660,
+        "sourceSha256": "fb1b58c09c245d93082e69e7cb423f73607f1fb6d578cf17f81517cad2d53aab",
+        "asset": "/static/wow/talents/icon-spell_holy_greaterblessingofsanctuary.png",
+        "assetBytes": 6631,
+        "assetSha256": "37d74b9ef16d8fcb2bcb407806215a4f7c43b570637634a4bc6d2fdf39499bcd",
+        "rgbaSha256": "0958f724f1b34552d199d141b3353c972fa3b86ca2dade638bd453bc6bd4e58a",
+        "width": 64,
+        "height": 64,
+        "alphaExtrema": [
+          0,
+          255
+        ],
+        "talent": "paladin-protection-shieldsworn"
+      },
+      {
+        "clientPath": "interface/icons/spell_holy_mindsooth.blp",
+        "fileDataId": 135933,
+        "fileNameHashHex": "bac4160998dba55e",
+        "sourceBytes": 3916,
+        "sourceSha256": "a8d988715f589dee9afdeca98a86733b1f526a747018dcd4603b138210746bb7",
+        "asset": "/static/wow/talents/icon-spell_holy_mindsooth.png",
+        "assetBytes": 4714,
+        "assetSha256": "7a61cd0e1f46429a63d98d7f73bb00ceb32a8d7f925ba13a31068de195d74b39",
+        "rgbaSha256": "50a8f3704d37c4576d88e18ff057cdb70f6d76f79f374a4d18ae7923c7e2fe36",
+        "width": 64,
+        "height": 64,
+        "alphaExtrema": [
+          255,
+          255
+        ],
+        "talent": "paladin-holy-divine-precision"
+      },
+      {
+        "clientPath": "interface/icons/spell_holy_stoicism.blp",
+        "fileDataId": 135978,
+        "fileNameHashHex": "f185a995bc5380fe",
+        "sourceBytes": 6660,
+        "sourceSha256": "e8e5607064cac4af77a16ee617b7913795097714ab1ad4e1e72d6f7c1804d131",
+        "asset": "/static/wow/talents/icon-spell_holy_stoicism.png",
+        "assetBytes": 5435,
+        "assetSha256": "4f226327c1696579b4b674d58d47b9191332dbe01e539b883b7462771306ad85",
+        "rgbaSha256": "6d159fbaabfe8b14d4e16fc57fdfda82f3404ab059f836572d0e953655e22dc3",
+        "width": 64,
+        "height": 64,
+        "alphaExtrema": [
+          0,
+          255
+        ],
+        "talent": "paladin-protection-stoicism"
+      },
+      {
+        "clientPath": "interface/icons/spell_holy_turnundead.blp",
+        "fileDataId": 135983,
+        "fileNameHashHex": "b58cf5c8602c557d",
+        "sourceBytes": 3916,
+        "sourceSha256": "4d1a56c3a97c2cd8ff193be039f12aee37900654e7d7e98ecbb649135b574aea",
+        "asset": "/static/wow/talents/icon-spell_holy_turnundead.png",
+        "assetBytes": 6693,
+        "assetSha256": "6097f1267467f434673aedabcd06e11e331d343eb5b2adbcce03842febfcc6b6",
+        "rgbaSha256": "0aa1a6d0629912301d9f78e930a0abd5c414f1ff5f3e1b0cea1b7ee2a08acb04",
+        "width": 64,
+        "height": 64,
+        "alphaExtrema": [
+          255,
+          255
+        ],
+        "talent": "paladin-retribution-turn-evil"
+      },
+      {
+        "clientPath": "interface/icons/spell_nature_callstorm.blp",
+        "fileDataId": 136014,
+        "fileNameHashHex": "d77c37f860701bc3",
+        "sourceBytes": 6660,
+        "sourceSha256": "464c6a2bb1ce6a300da9d9c164223fb71436717eea2e6b6e397b3b7d608626a0",
+        "asset": "/static/wow/talents/icon-spell_nature_callstorm.png",
+        "assetBytes": 6435,
+        "assetSha256": "7215ad3fc4e56efd14cae1bb6040bc5e89514a240103565fa4a54d2f50566a67",
+        "rgbaSha256": "1f902e0a5a016fd91187681659c8b8c09454f198a8b408098d510a5a4f049561",
+        "width": 64,
+        "height": 64,
+        "alphaExtrema": [
+          0,
+          255
+        ],
+        "talent": "shaman-elemental-call-of-thunder"
+      },
+      {
+        "clientPath": "interface/icons/spell_nature_unrelentingstorm.blp",
+        "fileDataId": 136111,
+        "fileNameHashHex": "e2d0dcba99c974e5",
+        "sourceBytes": 6660,
+        "sourceSha256": "e332c6e69348515635dd05b7d6028b82b68f9fcfc1f554c25d6883fea34bc864",
+        "asset": "/static/wow/talents/icon-spell_nature_unrelentingstorm.png",
+        "assetBytes": 5760,
+        "assetSha256": "644185f5ea3cbe6781c2dee89eadb1f826b00110db05ebd1b11a0b70428ab90b",
+        "rgbaSha256": "14c1134e4b8daeba74222297877d0e1a29b16d59c7c01c5bd3442255bb8d1e2d",
+        "width": 64,
+        "height": 64,
+        "alphaExtrema": [
+          0,
+          255
+        ],
+        "talent": "shaman-elemental-lightning-mastery"
+      }
+    ]
+  }
 }
