@@ -184,7 +184,10 @@ const orgStatus1115 = p.main.all(n => n.getAttribute('role') === 'status' && /^\
 const orgCards1115 = data.terms.map(t => [t, rawOfficeCard218(t.officeKey)]), orgRows1115 = p.main.all(n => n.classList.contains('org-list-row'));
 const orgButtons1115 = new Map(p.main.all(n => !!n.getAttribute('data-organization-node')).map(n => [n.getAttribute('data-organization-node'), n]));
 const orgLc1115 = s => String(s).toLowerCase();
-const orgCurrent1115 = t => orgLc1115([t.label, t.applicationLabel, ...(t.applicationAliases || []), t.officeKey, t.department, t.tierLabel, directory203.families.find(row => row.key === directory203.keyToFamily[t.officeKey])?.label].filter(Boolean).join(' '));
+// Owner's answer of 15 Nov 2026 to question 4 ("Yes, stop matching", claude/stage2/SITE-FAULTS-282-FOLLOWUP.md): aliases the
+// register files under "Historical application & ballot labels" are not current terms; plain "Retained portfolio labels" are.
+const orgFiledHistorical1115 = t => rawOfficeCard218(t.officeKey).all(n => n.getAttribute('data-historical-application-labels218') === t.officeKey).length === 1;
+const orgCurrent1115 = t => orgLc1115([t.label, t.applicationLabel, ...(orgFiledHistorical1115(t) ? [] : t.applicationAliases || []), t.officeKey, t.department, t.tierLabel, directory203.families.find(row => row.key === directory203.keyToFamily[t.officeKey])?.label].filter(Boolean).join(' '));
 const orgNodeText1115 = data.nodes.map((n, i) => orgLc1115([orgRows1115[i]?.all(x => x.tagName === 'STRONG')[0]?.textContent, n.title, n.remit, n.limits, ...data.terms.filter(t => t.nodeId === n.id).map(orgCurrent1115)].join(' ')));
 const orgSearch1115 = q => {
   officeSearch.value = q; officeSearch.dispatch('input'); const needle = orgLc1115(q.trim());
@@ -206,7 +209,31 @@ const orgFinds1115 = pick => { const pairs = data.terms.flatMap(t => pick(t).fil
   return r.cards.includes(t.officeKey) && r.rows.includes(t.nodeId) && (!orgButtons1115.has(t.nodeId) || r.chart.includes(t.nodeId)) && orgExact1115(r); }); };
 check("CL2-190 every current office label finds its own register card, list row and chart node, and only offices whose current terms carry it", orgFinds1115(t => [t.label]));
 check("CL2-190 every application label finds its own register card, list row and chart node, and only offices whose current terms carry it", orgFinds1115(t => [t.applicationLabel]));
-check("CL2-190 every application alias finds its own register card, list row and chart node, and only offices whose current terms carry it", orgFinds1115(t => t.applicationAliases || []));
+// Owner's answer 4 of 15 Nov 2026 (above): of the application aliases only the retained portfolio labels stay current terms.
+check("CL2-190 every retained portfolio label finds its own register card, list row and chart node, and only offices whose current terms carry it", orgFinds1115(t => orgFiledHistorical1115(t) ? [] : t.applicationAliases || []));
+const orgAliasTerms1115 = data.terms.filter(t => t.applicationAliases?.length);
+const orgFiledByData1115 = t => directory203.families.find(row => row.key === directory203.keyToFamily[t.officeKey])?.kind === 'institution' || !!t.applicationMetadataScope;
+check("exactly the four cards whose aliases the page files as historical keep them in a closed 'Historical application & ballot labels' drawer; every other alias stays a plain 'Retained portfolio labels' line",
+  JSON.stringify(orgAliasTerms1115.filter(orgFiledHistorical1115).map(t => t.officeKey)) === '["office_03","office_26","office_67","office_94"]'
+  && JSON.stringify(orgAliasTerms1115.filter(orgFiledByData1115).map(t => t.officeKey)) === '["office_03","office_26","office_67","office_94"]'
+  && p.main.all(n => !!n.getAttribute('data-historical-application-labels218')).length === 4
+  && orgAliasTerms1115.filter(t => !orgFiledHistorical1115(t)).flatMap(t => t.applicationAliases).length === 19
+  && orgAliasTerms1115.every(t => { const card = rawOfficeCard218(t.officeKey), line = 'Retained portfolio labels: ' + t.applicationAliases.join(' · ');
+    const d = card.all(n => n.getAttribute('data-historical-application-labels218') === t.officeKey);
+    if (!orgFiledByData1115(t)) return d.length === 0 && card.children.filter(n => n.tagName === 'P' && n.textContent === line).length === 1;
+    return d.length === 1 && d[0].tagName === 'DETAILS' && !d[0].open && d[0].getAttribute('open') === null && d[0].children.length === 3
+      && d[0].children[0].tagName === 'SUMMARY' && d[0].children[0].textContent === 'Historical application & ballot labels'
+      && d[0].children[1].textContent === (t.applicationMetadataScope || 'Earlier application vocabulary is retained for record compatibility; it does not open this institution to applications.')
+      && d[0].children[2].tagName === 'P' && d[0].children[2].textContent === line && !card.children.some(n => n.tagName === 'P' && n.textContent === line); }));
+const orgFiledQueries1115 = [...new Set(orgAliasTerms1115.filter(orgFiledHistorical1115).flatMap(t => t.applicationAliases))];
+const orgFiledResults1115 = orgFiledQueries1115.map(q => [q, orgSearch1115(q)]);
+check("a name the page files as a historical application label finds neither its card nor its chart node; only offices whose current terms carry the same words match",
+  JSON.stringify(orgFiledQueries1115) === JSON.stringify(['Systems Architect', 'Head of Justice', 'Privy Council / Judiciary', 'Judicial Portfolio', 'MAIN Raid & PvP Leads', 'PvE War Council Director'])
+  && orgFiledResults1115.every(([, r]) => orgExact1115(r))
+  && orgAliasTerms1115.filter(orgFiledHistorical1115).every(t => t.applicationAliases.every(q => { const r = orgFiledResults1115.find(([x]) => x === q)[1], own = orgCurrent1115(t).includes(orgLc1115(q));
+    return r.cards.includes(t.officeKey) === own && r.rows.includes(t.nodeId) === data.nodes.some((n, i) => n.id === t.nodeId && orgNodeText1115[i].includes(orgLc1115(q))); }))
+  && JSON.stringify(orgFiledResults1115.map(([q, r]) => [q, r.cards, r.chart, r.count])) === JSON.stringify([['Systems Architect', ['office_03'], ['systems'], 1], ['Head of Justice', [], [], 0],
+    ['Privy Council / Judiciary', ['office_67'], ['council'], 1], ['Judicial Portfolio', [], [], 0], ['MAIN Raid & PvP Leads', [], [], 0], ['PvE War Council Director', [], [], 0]]));
 check("CL2-190 every office key finds its own register card, list row and chart node, and only offices whose current terms carry it", orgFinds1115(t => [t.officeKey]));
 const orgHistoryDrawers1115 = p.main.all(n => !!n.getAttribute('data-historical-office-labels'));
 check("each historical office label drawer renders closed under its own summary with exactly that office's former labels",
