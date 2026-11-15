@@ -234,6 +234,14 @@ check("a name the page files as a historical application label finds only the of
     return r.cards.includes(t.officeKey) === own && r.rows.includes(t.nodeId) === data.nodes.some((n, i) => n.id === t.nodeId && orgNodeText1115[i].includes(orgLc1115(q))); }))
   && JSON.stringify(orgFiledResults1115.map(([q, r]) => [q, r.cards, r.chart, r.count])) === JSON.stringify([['Systems Architect', ['office_03'], ['systems'], 1], ['Head of Justice', [], [], 0],
     ['Privy Council / Judiciary', ['office_67'], ['council'], 1], ['Judicial Portfolio', [], [], 0], ['MAIN Raid & PvP Leads', [], [], 0], ['PvE War Council Director', [], [], 0]]));
+// Owner's answer 4 (above): a filed name leaves the index even where its words repeat a current label of its card, so the term
+// just before a card's first filed alias, joined to that alias with a space as the index joins its terms, matches no office.
+const orgFiledSeams1115 = orgAliasTerms1115.filter(orgFiledHistorical1115).map(t => (t.applicationLabel || t.label) + ' ' + t.applicationAliases[0]);
+const orgSeamResults1115 = orgFiledSeams1115.map(q => orgSearch1115(q));
+check("a historical application label joined to the term before it in the search index finds no office in the register, the list or the chart",
+  JSON.stringify(orgFiledSeams1115) === JSON.stringify(['Addon / Discord Architect · Systems Architect Systems Architect', 'Council of Justice Head of Justice',
+    'Privy Council · Privy Council / Judiciary Privy Council / Judiciary', 'War Directorate (historical shared template) MAIN Raid & PvP Leads'])
+  && orgSeamResults1115.every(r => orgExact1115(r) && r.terms.length === 0 && r.cards.length === 0 && r.rows.length === 0 && r.chart.length === 0 && r.count === 0));
 check("CL2-190 every office key finds its own register card, list row and chart node, and only offices whose current terms carry it", orgFinds1115(t => [t.officeKey]));
 const orgHistoryDrawers1115 = p.main.all(n => !!n.getAttribute('data-historical-office-labels'));
 check("each historical office label drawer renders closed under its own summary with exactly that office's former labels",
