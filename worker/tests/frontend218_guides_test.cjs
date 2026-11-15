@@ -104,15 +104,17 @@ const visibility218=(p,hidden=false)=>{
   const p = await openPage(MEMBER); const head = head218(p); const guides = [], library = [], university = [];
   record218(p, "OlympusGuides", guides); record218(p, "OlympusResources", library); record218(p, "OlympusUniversity", university);
   const resources = group218(p, "Resources"), hrefs = resources ? resources.querySelectorAll("a").map(a => a.getAttribute("href")) : [];
-  // CL2-205 (our 58b96f8): the first entry is Olympus University at #/guides; the publisher library is #/guides/library.
+  // CL2-205 (our 58b96f8): the first entry is the guides hub at #/guides; the publisher library is #/guides/library.
+  // Unit h1 guidesname (owner, 15 Nov 2026): the entry is named "Class & profession guides" again, as before 58b96f8.
   check(".228 the Resources menu distinguishes Olympus guides from the publisher library and keeps every entry", hrefs[0] === "#/guides"
-    && resources.querySelectorAll("a")[0].textContent === "Olympus University"
+    && resources.querySelectorAll("a")[0].textContent === "Class & profession guides"
     && resources.querySelector('a[href="#/guides/library"]').textContent === "Publisher library"
     && ["#/guide/member", "#/guide/officer", "#/talents", "#/addons", "#/guides/library", "#/updates"].every(h => hrefs.filter(x => x === h).length === 1));
   await p.go("#/resources"); await rules218(p); await waitFor(() => university.length === 1, "guides hub");
-  // CL2-205 (our 58b96f8): #/resources stays an alias of the hub, which is now Olympus University with no route parts.
+  // CL2-205 (our 58b96f8): #/resources stays an alias of the hub (OlympusUniversity) with no route parts.
+  // Unit h1 guidesname (owner, 15 Nov 2026): its page title is "Class & profession guides" again, as before 58b96f8.
   check(".218 #/resources mounts the Olympus guides hub with the pinned talent revision", university.length === 1 && JSON.stringify(university[0].options.parts) === "[]" && university[0].options.talentRevision === p.boot.meta.talentSnapshotRevision
-    && head.querySelectorAll('link[data-olympus-tool="OlympusUniversity"]').length === 1 && guides.length === 0 && p.document.title === "Olympus University — Olympus");
+    && head.querySelectorAll('link[data-olympus-tool="OlympusUniversity"]').length === 1 && guides.length === 0 && p.document.title === "Class & profession guides — Olympus");
   await p.go("#/guides"); await waitFor(() => university.length === 2, "hub at #/guides");
   await p.go("#/guides/library"); await waitFor(() => library.length === 1, "publisher library");
   // CL2-205 (our 58b96f8): #/guides itself is the hub; the reviewed publisher library is #/guides/library.
@@ -120,8 +122,9 @@ const visibility218=(p,hidden=false)=>{
     && library.length === 1 && library[0].options.view === "guides" && university[0].destroyed === 1 && university[1].destroyed === 1 && guides.length === 0 && p.document.title === "Publisher library — Olympus");
   await p.go("#/guides/class/warrior/arms"); await waitFor(() => university.length === 3, "class guide");
   // CL2-205 (our 58b96f8): the .218 class and spec link opens the matching course; the University reads the class and spec from its parts.
+  // Unit h1 guidesname (owner, 15 Nov 2026): the page title ends in " · Guides" again, as before 58b96f8.
   check(".218 a class guide route passes the class, the spec and the attach handler", university.length === 3 && JSON.stringify(university[2].options.parts) === '["class","warrior","arms"]'
-    && typeof university[2].options.onAttach === "function" && university[2].options.canAttach === true && p.document.title === "Warrior guide · Olympus University — Olympus");
+    && typeof university[2].options.onAttach === "function" && university[2].options.canAttach === true && p.document.title === "Warrior guide · Guides — Olympus");
   await p.go("#/guides/class/mage"); await waitFor(() => university.length === 4, "class guide without spec");
   // CL2-205/CL2-202 (our 58b96f8): a class address without a spec reaches the University with no spec part.
   check(".218 a class guide without a spec leaves the spec to the module", university.length === 4 && JSON.stringify(university[3].options.parts) === '["class","mage"]');
@@ -129,8 +132,8 @@ const visibility218=(p,hidden=false)=>{
   // CL2-205 (our 58b96f8): the .218 profession link opens the matching course with the profession key unchanged.
   check(".218 a profession guide route passes the profession key", university.length === 5 && JSON.stringify(university[4].options.parts) === '["profession","first-aid"]');
   await p.go("#/guides/tools/buffs"); await waitFor(() => guides.length === 1, "tool");
-  // CL2-205 (our 58b96f8): tools keep guides218.js; their page titles end in the hub's name, Olympus University.
-  check(".218 a tool route passes the tool and titles the page", guides.length === 1 && guides[0].options.view === "tool" && guides[0].options.tool === "buffs" && p.document.title === "World buffs & consumables · Olympus University — Olympus");
+  // CL2-205 (our 58b96f8): tools keep guides218.js. Unit h1 guidesname (owner, 15 Nov 2026): their page titles end in " · Guides" again, as before 58b96f8.
+  check(".218 a tool route passes the tool and titles the page", guides.length === 1 && guides[0].options.view === "tool" && guides[0].options.tool === "buffs" && p.document.title === "World buffs & consumables · Guides — Olympus");
   await p.go("#/guides/nothing/here/at/all"); await waitFor(() => university.length === 6, "unknown guide route");
   // CL2-205 (our 58b96f8): app.js hands every other #/guides address to the University; its "Guide not found" page for an
   // address that names no class, race or profession (INT-UNI-1 / CL2-105) is asserted by evergreen1112_guides_test.cjs.
@@ -139,9 +142,24 @@ const visibility218=(p,hidden=false)=>{
   // CL2-205 (our 58b96f8): the counts follow the moved hub; #/resources/extra still mounts nothing.
   check(".218 the hub has no sub-pages", p.app.textContent.includes("There is no such page.") && guides.length === 1 && university.length === 6);
   await p.go("#/guides/tools/raid-structure"); await waitFor(() => guides.length === 2, "raid structure guide");
-  // CL2-205 (our 58b96f8): the second tool mount; the title ends in Olympus University.
+  // CL2-205 (our 58b96f8): the second tool mount. Unit h1 guidesname (owner, 15 Nov 2026): the title ends in " · Guides" again.
   check("the raid structure guide opens through the normal member tool route with its page title", guides.length === 2 && guides[1].options.view === "tool"
-    && guides[1].options.tool === "raid-structure" && p.document.title === "Raid team structure & leadership · Olympus University — Olympus");
+    && guides[1].options.tool === "raid-structure" && p.document.title === "Raid team structure & leadership · Guides — Olympus");
+  // Unit h1 guidesname (owner, 15 Nov 2026: "Instead of university rename it back to its old name that it had for the guides."): the hub's
+  // title is "Class & profession guides" and every other guides title ends in " · Guides", with the fallback "Guides", as before 58b96f8
+  // (race and exam titles use the same suffix); the frames of #/guides/tools (no tool named) and #/resources/<x> are titled as then and lead
+  // back with "Class & profession guides".
+  const titles218 = [];
+  for (const [hash, count] of [["#/guides", 7], ["#/guides/race/dwarf", 8], ["#/guides/exam/class-warrior/101", 9], ["#/guides/exams", 10], ["#/guides/class/no-such-class", 11], ["#/guides/nothing", 12]]) {
+    await p.go(hash); await waitFor(() => university.length === count, hash); titles218.push(p.document.title);
+  }
+  const frame218 = async hash => { await p.go(hash); await Promise.resolve(); const frames = p.app.querySelectorAll(".frame"), plaque = frames.length === 1 ? frames[0].querySelector(".plaque") : null;
+    return [frames.length, plaque ? plaque.textContent : null, p.document.title, ...(frames.length === 1 ? frames[0].querySelectorAll("a.btn") : []).map(a => [a.getAttribute("href"), a.textContent])]; };
+  const frames218 = [await frame218("#/guides/tools"), await frame218("#/resources/extra")];
+  check("h1: the guides hub, race, exam, fallback and not-found pages use the section's old names", JSON.stringify(titles218) === JSON.stringify(["Class & profession guides — Olympus", "Dwarf guide · Guides — Olympus",
+    "Mastery exam · Guides — Olympus", "Mastery exams · Guides — Olympus", "Guides — Olympus", "Guides — Olympus"])
+    && JSON.stringify(frames218) === JSON.stringify([[1, "Guides", "Guides — Olympus", ["#/guides", "Class & profession guides"]], [1, "Class & profession guides", "Class & profession guides — Olympus", ["#/guides", "Class & profession guides"]]])
+    && guides.length === 2 && university.length === 12);
 
   console.log("\n== .218: Attach to my application (prefill only) ==");
   // CL2-205 (our 58b96f8): the class guide that offers Attach is now an Olympus University course.
