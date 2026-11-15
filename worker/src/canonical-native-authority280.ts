@@ -1,7 +1,7 @@
 /** Policy-specific rank-source checks only. These predicates never mint an
  * issuer, identity, ownership ACK or permission to dispatch a role effect. */
 import {currentOriginalCanonicalPolicy233,currentDirectiveCanonicalPolicy233,NATIVE_NAMES233,type CanonicalRankPolicy233} from './canonical-ranks233';
-import {nativeSnapshotSource,qualifiedNativeSnapshotSource,nativeRankTable,nativeRankSchemeForCanonical,type NativeRankTable} from './native-rank-schemes';
+import {nativeSnapshotSource,qualifiedNativeSnapshotSource,unqualifiedNativeSnapshotSource,nativeRankTable,nativeRankScheme,nativeRankSchemeForCanonical,STEWARD_NATIVE_PROFILE,type NativeRankTable} from './native-rank-schemes';
 import {directiveAndSql280,directiveSnapshotSql280} from './directive-native-authority';
 import {parseLaunchNativeScope} from './launch-verification227';
 
@@ -30,10 +30,19 @@ export function originalObservedCanonicalTable280(source:unknown,guild:string,re
   const parsed:unknown=JSON.parse(source.slice(16));
   if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))return null;
   const value=parsed as Record<string,unknown>;
-  if(value.rankProfile!==null||value.rankSchemeDigest!==null)return null;
   const table=nativeRankTable({version:1,names:value.rankNames});
-  // A Directive table roundtrips to qualified metadata, never to null/null.
-  return table&&source===nativeSnapshotSource(guild,realm,table,[])?table:null;
+   if(!table)return null;
+   const scheme=nativeRankScheme(table);
+   // A new stamp cannot turn off serving v1 semantics for the real table. The
+   // exact reviewed Steward observation attests its rows, not v3 rank mapping.
+   if(scheme?.profile===STEWARD_NATIVE_PROFILE){
+    return source===qualifiedNativeSnapshotSource(guild,realm,scheme)
+      ||source===unqualifiedNativeSnapshotSource(guild,realm,table)?table:null;
+   }
+   if(value.rankProfile!==null||value.rankSchemeDigest!==null||scheme)return null;
+   // Unknown names keep their original per-linked-character holds. Qualified
+   // Directive, mixed/unknown profiles and noncanonical metadata stay refused.
+   return source===unqualifiedNativeSnapshotSource(guild,realm,table)?table:null;
  }catch{return null;}
 }
 export function canonicalRankSource280(policy:CanonicalRankPolicy233|null,source:string,guild:string,realm:string):CanonicalRankSource280|null{

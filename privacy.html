@@ -340,15 +340,22 @@ change a staff member makes is recorded in the dated log under their Discord use
 may post to a staff channel how many things wait for an officer, as counts only, never a name or an ID. A staff
 rank-planning page keeps its draft in that administrator's own browser and stores nothing on the server; that browser
 copy outlives signing out and any deletion on the server until the administrator clears their browser's data.</p>
-<p>A separate private staff page compares current Discord roles with verified native roster evidence. For linked
-accounts and accounts holding a managed guild role, it can show Discord user ID, username, display name, Discord join
-time, role labels, linked guild characters and bounded role-operation history. This can include server members without
-a website account. Other accounts contribute counts only; accounts under a privacy cleanup hold are withheld from the
-identifiable list and export. These are dated observations: a Discord join time is not an in-game guild join date.
-Administrators may download the collected observations as a private CSV on their own computer; signing out or deleting
-server data cannot recall that file. A planning view changes no roles. A separately confirmed correction rechecks current
-evidence through the existing role reconciler, records the requesting administrator and operation outcomes, and keeps
-uncertain outcomes for review rather than automatically resending them. It does not change in-game guild ranks.</p>
+<p>Site administrators have a private role-check page. It reads the guild's Discord server through the bot and, for
+accounts with a linked character or an Olympus guild role, can show Discord user ID, username, display name, Discord
+join time, Olympus guild roles, the in-game character and rank on the roster and the guild role that rank supports,
+linked characters with the date each
+name was first seen on a roster, and summary counts and status flags from retained role-operation records. This can
+include people without a website account. Other accounts are only counted. Accounts under a privacy hold or being
+deleted, accounts still in Discord's membership screening, and bots are withheld from identifiable rows and exports.
+These are dated observations; a Discord join time or a name's first appearance is not an in-game guild join date.
+Administrators may download a CSV subset of the named rows (Discord ID, username, display name, character, ranks,
+expected and observed guild roles, and summary counts) to their own computer; signing out or deleting server data
+cannot recall that file. The page does not save its fetched Discord role observations on the server. Its planning
+view changes no roles. An administrator can read one member again and separately confirm a correction: the existing
+role system rechecks the evidence and may add the supported guild role and remove a guild role the bot itself gave.
+The administrator's Discord user ID and request are recorded in the dated log; the role system keeps separate
+operation receipts, including uncertain attempts. Uncertain outcomes stay for review and are not automatically
+resent by this page. In-game ranks are never changed.</p>
 
 <h2>Optional guild census preview</h2>
 <p>If enabled, confirmed guild members can paste an optional addon export to preview guild observations. The accepted format contains an addon version, guild names, realm and faction, character and online counts, and observation times; it has no player-list field. These are unsigned community observations, not proof of a person's membership or character ownership. Older observations remain historical and are labelled with their age.</p>

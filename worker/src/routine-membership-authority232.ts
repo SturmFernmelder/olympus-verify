@@ -81,7 +81,23 @@ const INERT_LEGACY=(canonical:string,cutoff:string)=>`(((json_extract(${canonica
  AND NOT EXISTS(SELECT 1 FROM roster_members legacy WHERE legacy.snapshot_id=s.id AND (legacy.name_key=c.name_key OR legacy.guid=c.guid)))`;
 type SourceRow={at:number;generation:string|null;state:string|null;id:number;exported_at:number;source:string;member_count:number;complete:number;trusted:number;previous_count:number;rows_json:string;links_json:string;standing_json:string;guid_unique:number};
 
-export async function captureRoutineMembership232(env:Env,subject:string):Promise<RoutineMembership232|null>{
+/** Dated read-only planning data. Its guards protect this captured read, never
+ * grant current writer authority; callers still revalidate their whole page. */
+export type QualifiedMembershipPlanningObservation283=Readonly<{
+ subject:string;subjectGeneration:string|null;snapshotId:number;snapshotExportedAt:number;deadline:number;
+ cause:RoutineMembership232Facts['cause'];primary:RoutineMembership232Facts['primary'];rankQualified:true;rankProfile:string;rankSchemeDigest:string;
+ activeCause:RoutineMembership232Facts['cause']|'source_or_identity_held';activePrimary:RoutineMembership232Facts['primary'];activeSourceQualified:boolean;
+ current:()=>boolean;close:()=>void;
+}>;
+export function captureRoutineMembership232(env:Env,subject:string):Promise<RoutineMembership232|null>{
+ return captureValidatedMembership232(env,subject,'writer');
+}
+export function observeQualifiedMembershipPlanning283(env:Env,subject:string):Promise<QualifiedMembershipPlanningObservation283|null>{
+ return captureValidatedMembership232(env,subject,'planning');
+}
+function captureValidatedMembership232(env:Env,subject:string,mode:'writer'):Promise<RoutineMembership232|null>;
+function captureValidatedMembership232(env:Env,subject:string,mode:'planning'):Promise<QualifiedMembershipPlanningObservation283|null>;
+async function captureValidatedMembership232(env:Env,subject:string,mode:'writer'|'planning'):Promise<RoutineMembership232|QualifiedMembershipPlanningObservation283|null>{
  try{
   if(!ID.test(subject)||/[^0-9]/.test(subject))return null;const originalSelection=captureNativeRankConfig232(env),launch=captureLaunchVerification(env),canonical=captureCanonicalRankConfig233(env);
   if(canonical.present&&(canonical.mode!=='enabled'||!canonical.current()))return null;
@@ -102,29 +118,37 @@ export async function captureRoutineMembership232(env:Env,subject:string):Promis
   if(!Number.isSafeInteger(at)||at<1||!Number.isSafeInteger(row.id)||row.id<1||!Number.isSafeInteger(row.exported_at)||row.exported_at>at||row.exported_at<=at-600||row.exported_at<cutoff||!nativeMembershipSourceMatches(row.source,NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)||row.complete!==1||row.trusted!==1||row.guid_unique!==1||row.state!==null&&row.state!=='active'||row.generation!==null&&(row.generation.length!==32||!HEX32.test(row.generation)))return null;
   const rows=JSON.parse(row.rows_json) as unknown[][],links=JSON.parse(row.links_json) as unknown[][],standing=JSON.parse(row.standing_json) as number[];
   if(!Array.isArray(rows)||rows.length!==row.member_count||rows.length<floor||rows.length>1000||!Number.isSafeInteger(row.previous_count)||(row.previous_count-rows.length)*100>shrink*row.previous_count||!Array.isArray(links)||!links.length||links.length>100||standing.length!==3||standing.some(v=>v!==0&&v!==1))return null;
-  const scheme=nativeRankSchemeFromSource(row.source),rankNames=scheme?.names??NATIVE_RANK_NAMES232;
+  const scheme=nativeRankSchemeFromSource(row.source);
   const rankQualified=!!scheme&&rows.every(r=>Array.isArray(r)&&r.length===4&&typeof r[3]==='number'&&Number.isInteger(r[3])&&r[3]>=0&&r[3]<10&&r[2]===scheme.names[r[3]]);
+  if(mode==='planning'&&!rankQualified)return null; // No observational profile or row fallback.
    const canonicalSource=canonical.mode==='enabled'?canonicalRankSource280(canonical.policy,row.source,NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm):null;
+  // V1 keeps its original name-qualified eligibility, including Steward/Alt
+  // unknown-link holds, even when ingress now stamps that reviewed observation.
+  const writerRankNames=canonicalSource==='original-native-v1'||canonicalSource==='original-native-v2'?NATIVE_RANK_NAMES232:scheme?.names??NATIVE_RANK_NAMES232;
+  const rankNames=mode==='planning'?scheme!.names:writerRankNames;
    const canonicalNames=canonicalSource==='directive-native-v2'?scheme?.names:canonicalSource==='original-native-v2'?originalObservedCanonicalTable280(row.source,NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)?.names:null;
    const canonicalRankProfile=canonicalSource&&(canonicalSource==='original-native-v1'||!!canonicalNames&&rows.every(r=>Array.isArray(r)&&r.length===4&&typeof r[3]==='number'&&Number.isInteger(r[3])&&r[3]>=0&&r[3]<10&&r[2]===canonicalNames[r[3]]))?canonical.policy!.profile:null;
-  const byGuid=new Map<string,Readonly<{guid:string;nameKey:string;rank:string;index:number}>>(),names=new Set<string>(),unknownGuidKeys=new Set<string>(),seenNativeGuids=new Set<string>(),unknownRankKeys=new Set<string>(),unknownRankGuids=new Set<string>();
+  const byGuid=new Map<string,Readonly<{guid:string;nameKey:string;rank:string;index:number}>>(),names=new Set<string>(),unknownGuidKeys=new Set<string>(),seenNativeGuids=new Set<string>(),unknownRankKeys=new Set<string>(),unknownRankGuids=new Set<string>(),activeUnknownRankKeys=new Set<string>(),activeUnknownRankGuids=new Set<string>();
   for(const r of rows){if(!Array.isArray(r)||r.length!==4)return null;const [key,guid,rank,index]=r;
    if(typeof key!=='string'||!key||names.has(key))return null;
    names.add(key);
    // .237: unknown ranks prove no rank or departure. Keep every identity in
    // the global fences, while holding only accounts linked to those rows.
    const rankKnown=typeof index==='number'&&Number.isInteger(index)&&index>=0&&index<=9&&rank===rankNames[index];
+   const activeRankKnown=typeof index==='number'&&Number.isInteger(index)&&index>=0&&index<=9&&rank===writerRankNames[index];
    if(!rankKnown)unknownRankKeys.add(key);
+   if(mode==='planning'&&!activeRankKnown)activeUnknownRankKeys.add(key);
    // Offline unrelated members can lack a GUID. They prove no identity and do
    // not block a different fully proved character's rank. Target names whose
    // identity is unknown remain held, including an apparent old departure.
    if(guid===null||guid===''){unknownGuidKeys.add(key);continue;}
    if(typeof guid!=='string'||guid!==guid.trim()||!GUID.test(guid)||seenNativeGuids.has(guid))return null;
    seenNativeGuids.add(guid);
+   if(mode==='planning'&&!activeRankKnown)activeUnknownRankGuids.add(guid);
    if(!rankKnown){unknownRankGuids.add(guid);continue;}
    byGuid.set(guid,Object.freeze({guid,nameKey:key,rank:rank as string,index}));
   }
-  const eligible:Readonly<{guid:string;nameKey:string;rank:string;index:number}>[]=[],seenLinks=new Set<string>();let qualifiedLinks=0;
+  const eligible:Readonly<{guid:string;nameKey:string;rank:string;index:number}>[]=[],seenLinks=new Set<string>();let qualifiedLinks=0,activeRankHeld=false;
    // READ and every later SQL admission require a qualified neutral anchor
    // for any other original source; the raw label alone proves nothing.
   for(const l of links){if(!Array.isArray(l)||l.length!==7)return null;const [key,guid,status,bound,verified,source,anchor]=l;
@@ -133,6 +157,7 @@ export async function captureRoutineMembership232(env:Env,subject:string):Promis
    if(status==='verified'||status==='queued')continue;
    if(typeof key!=='string'||!key||typeof guid!=='string'||guid!==guid.trim()||!GUID.test(guid)||seenLinks.has(guid)||typeof bound!=='number'||!Number.isSafeInteger(bound)||bound<1||bound>at||typeof verified!=='number'||!Number.isSafeInteger(verified)||verified<bound||verified>at||source!==null&&typeof source!=='string'||!['member','left_pending','left'].includes(String(status)))return null;
    seenLinks.add(guid);
+   if(mode==='planning'&&(activeUnknownRankKeys.has(key)||activeUnknownRankGuids.has(guid)))activeRankHeld=true;
    // Match either identity direction before legacy exclusion or left handling;
    // an uncertain higher alt must not disappear and lower another alt's rank.
    if(unknownRankKeys.has(key)||unknownRankGuids.has(guid))return null;
@@ -153,13 +178,29 @@ export async function captureRoutineMembership232(env:Env,subject:string):Promis
   if(!qualifiedLinks)return null; // Unfinished/inert legacy links prove neither identity nor departure.
   // Native slots are an observed guild ladder, not canonical role precedence.
   // The reviewed Steward table places Alt(7) before Member(8), while canonical
-  // Member access outranks Alt. Use only the exact source-issued scheme here;
-  // the original unqualified source retains its historical ordinal ordering.
-  const precedence=(row:typeof eligible[number])=>scheme?.canonicalIndexes[row.index]??row.index;
+  // Member access outranks Alt only under its active matching new policy. The
+  // original serving v1 policy retains its name checks and ordinal ordering.
+  const precedenceScheme=mode==='planning'||canonicalSource==='directive-native-v2'?scheme:null;
+  const precedence=(row:typeof eligible[number])=>precedenceScheme?.canonicalIndexes[row.index]??row.index;
   eligible.sort((a,b)=>precedence(a)-precedence(b)||a.index-b.index||(a.guid<b.guid?-1:a.guid>b.guid?1:0));
   const cause:RoutineMembership232Facts['cause']=standing[0]===1||standing[1]===1?'ban':standing[2]===1?'rename_hold':eligible.length?'eligible':'departure';
   const primary=cause==='eligible'?eligible[0]!:null,deadline=Math.min(at+300,row.exported_at+600);
   const facts=Object.freeze({subject,subjectGeneration:row.generation,snapshotId:row.id,snapshotExportedAt:row.exported_at,deadline,primary,policyRaw:selection.raw,cause,rankQualified,rankProfile:rankQualified?scheme!.profile:null,canonicalRankProfile});
+  if(mode==='planning'){
+   check();resultCheck();
+   const activeScheme=canonicalSource==='directive-native-v2'?scheme:null;
+   const activeOrder=(r:typeof eligible[number])=>activeScheme?.canonicalIndexes[r.index]??r.index;
+   const activeEligible=[...eligible].sort((a,b)=>activeOrder(a)-activeOrder(b)||a.index-b.index||(a.guid<b.guid?-1:a.guid>b.guid?1:0));
+   const activeCause:QualifiedMembershipPlanningObservation283['activeCause']=activeRankHeld?'source_or_identity_held':cause;
+   // Fixed read guards expose no DB, Env, SQL, effect callback or issuer cap.
+   // In particular this object never enters the writer's originals WeakMap.
+   const current=()=>{try{check();resultCheck();return Math.floor(Date.now()/1000)<deadline&&privacyProviderCustodyDatabase(env)===db;}catch{return false;}};
+   return Object.freeze({subject,subjectGeneration:row.generation,snapshotId:row.id,snapshotExportedAt:row.exported_at,deadline,cause,primary,
+    rankQualified:true as const,rankProfile:scheme!.profile,rankSchemeDigest:scheme!.digest,
+    activeCause,activePrimary:!activeRankHeld&&cause==='eligible'?activeEligible[0]??null:null,
+    activeSourceQualified:!activeRankHeld&&canonicalRankWitnessMatches280(canonical.policy,canonicalRankProfile,rankQualified),
+    current,close:()=>{active=false;}});
+  }
   const values=Object.freeze([subject,row.generation,row.id,row.exported_at,row.source,row.member_count,row.rows_json,row.links_json,row.standing_json,deadline,cutoff,row.previous_count,selection.raw,canonical.mode==='enabled'?canonical.raw:'null']);
   const effectCheck=(effect:Env)=>{check();const d=Object.getOwnPropertyDescriptor(effect,'DB');if(!d||!Object.hasOwn(d,'value')||d.value!==sourceDB&&d.value!==db)return held();
    for(const key of CONFIG){const a=Object.getOwnPropertyDescriptor(env,key),b=Object.getOwnPropertyDescriptor(effect,key);if(a===undefined?!!b||key in effect:!b||!Object.hasOwn(b,'value')||!Object.is(a.value,b.value))return held();}};

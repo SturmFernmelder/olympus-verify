@@ -8,14 +8,17 @@ import {apiJson,b64u,isSiteAdmin,originalUserSession,PAGE_VERSION,sameOrigin,typ
 import {admittedReadAs,FENCE_REFUSED,type CommunitySubject} from './community-context';
 import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 import {captureCanonicalRankConfig233,captureCanonicalEntitlements233,CANONICAL_MANAGED_ROLE_IDS233,CANONICAL_RANKS233,parseCanonicalRankPolicy233,highestCanonicalRank233} from './canonical-ranks233';
-import {STEWARD_CANONICAL_PROFILE,STEWARD_NATIVE_PROFILE} from './native-rank-constants';
+import {STEWARD_CANONICAL_PROFILE,STEWARD_NATIVE_PROFILE,STEWARD_RANK_DIGEST} from './native-rank-constants';
 import {canonicalRankWitnessMatches280} from './canonical-native-authority280';
-import {captureRoutineMembership232,closeRoutineMembership232,routineMembership232Facts} from './routine-membership-authority232';
+import {captureRoutineMembership232,closeRoutineMembership232,routineMembership232Facts,observeQualifiedMembershipPlanning283} from './routine-membership-authority232';
 import {reconcileRoleBatch242} from './role-reconcile242';
 import {privacyBoundSiteRoleActionEnv,privacyCaptureFromColumns} from './privacy-serving-authority';
 
 export const ROLE_AUDIT_PAGE283=20;
 const PROVIDER_PAGE=1000,CURSOR_SECONDS=900,PREVIEW_SECONDS=300,PURPOSE='private-role-audit283-v1';
+// Advisory UI allowance for an ordinary two-job removal+grant plan. The
+// original writer still determines actual jobs/reserves at every dispatch.
+const CONFIRM_RESERVE_SECONDS=112;
 const HISTORY_LIMIT=100,CHARACTER_LIMIT=50;
 const ID=/^[1-9][0-9]{16,19}$/,encoder=new TextEncoder();
 const validId=(v:unknown):v is string=>typeof v==='string'&&ID.test(v)&&BigInt(v)<=18446744073709551615n;
@@ -117,21 +120,32 @@ export async function handleSiteRoleAudit283(request:Request,env:Env,admin:SiteU
    env.DB.prepare('SELECT NOT EXISTS(SELECT 1 FROM members WHERE discord_id=?1 AND banned=1) AS ok').bind(original.u),...statements]);check();
    if(result===FENCE_REFUSED||(result[0]?.results[0] as {ok?:number}|undefined)?.ok!==1)throw new Held('original_actor_no_longer_admitted',403);return result.slice(1);};
   const limits=consumeRateLimit280('role-audit283:'+request.method+':'+original.u,request.method==='GET'?90:10,60);
-  if(limits.limited)return apiJson({error:'slow_down',coverage:{complete:false,gap:'request_rate_limit'}},429,rateLimitHeaders280(limits));
+  if(limits.limited)return apiJson({error:'slow_down',coverage:{complete:false,gap:'request_rate_limit'},...(request.method==='POST'?{outcome:'not_started',roleChangeSent:false}:{})},429,rateLimitHeaders280(limits));
   const binding=JSON.stringify([PURPOSE,env.GUILD_ID,original.u,original.v,original.e,original.g,original.n,canonical.raw,entitlements.raw]);
   const snapshotRead=async()=>{const r=await read([env.DB.prepare(SNAPSHOT)]);return r[0]?.results[0] as Snapshot|undefined;};
   const targetsRead=async(ids:readonly string[])=>{const r=await read([env.DB.prepare(TARGETS).bind(JSON.stringify(ids),env.GUILD_ID,JSON.stringify([...MANAGED]))]);return r[0]!.results as Facts[];};
   const project=async(id:string):Promise<Projection>=>{
-   check();const cap=await captureRoutineMembership232(env,id);check();if(!cap)return {expected:null,cause:'source_or_identity_held',nativeRank:null,nativeCharacter:null,snapshotId:null,deadline:null};
-   try{const f=routineMembership232Facts(cap),extra=entitlements.manifest?.entries.filter(e=>e.subject===id&&e.generation===f.subjectGeneration).map(e=>canonical.policy!.ranks.find(r=>r.key===e.roleKey)!.roleId)??[];
+   if(planning){
+    check();const observation=await observeQualifiedMembershipPlanning283(env,id);
+    if(!observation){check();return {expected:null,cause:'source_or_identity_held',nativeRank:null,nativeCharacter:null,snapshotId:null,deadline:null,activeExpected:null,activeCause:'source_or_identity_held'};}
+    try{
+     check();
+     if(!observation.current()||observation.subject!==id)throw new Held('planning_observation_changed');
+     const extra=entitlements.manifest?.entries.filter(e=>e.subject===id&&e.generation===observation.subjectGeneration).map(e=>canonical.policy!.ranks.find(r=>r.key===e.roleKey)!.roleId)??[];
+     // Read-only source facts are never a RoutineMembership issuer or active
+     // canonical witness. Both policy projections use this one validated read.
+     const wanted=proposed&&observation.cause==='eligible'&&observation.primary&&observation.rankQualified&&observation.rankProfile===STEWARD_NATIVE_PROFILE&&observation.rankSchemeDigest===STEWARD_RANK_DIGEST&&entitlements.mode!=='held'?highestCanonicalRank233(proposed,{index:observation.primary.index,name:observation.primary.rank},extra)?.roleId??null:null;
+     const activeExpected=observation.activeCause==='eligible'&&observation.activePrimary&&observation.activeSourceQualified&&entitlements.mode!=='held'?highestCanonicalRank233(canonical.policy!,{index:observation.activePrimary.index,name:observation.activePrimary.rank},extra)?.roleId??null:null;
+     if(!observation.current())throw new Held('planning_observation_changed');check();
+     return {expected:wanted,cause:wanted?'eligible':observation.cause==='eligible'?'rank_source_held':observation.cause,nativeRank:observation.primary?.rank??null,nativeCharacter:observation.primary?.nameKey??null,snapshotId:observation.snapshotId,deadline:observation.deadline,
+      activeExpected,activeCause:activeExpected?'eligible':observation.activeCause==='eligible'?'rank_source_held':observation.activeCause};
+    }finally{observation.close();}
+   }
+   check();const cap=await captureRoutineMembership232(env,id);if(!cap){check();return {expected:null,cause:'source_or_identity_held',nativeRank:null,nativeCharacter:null,snapshotId:null,deadline:null};}
+   try{check();const f=routineMembership232Facts(cap),extra=entitlements.manifest?.entries.filter(e=>e.subject===id&&e.generation===f.subjectGeneration).map(e=>canonical.policy!.ranks.find(r=>r.key===e.roleKey)!.roleId)??[];
     const choose=(policy:NonNullable<typeof canonical.policy>)=>f.cause==='eligible'&&!!f.primary&&entitlements.mode!=='held'&&canonicalRankWitnessMatches280(policy,f.canonicalRankProfile,f.rankQualified)?highestCanonicalRank233(policy,{index:f.primary.index,name:f.primary.rank},extra)?.roleId??null:null;
-    const activeExpected=choose(canonical.policy!);
-    // The inactive view has no serving canonical witness. Its pure projection
-    // requires the real Native issuer's exact recognized qualified source;
-    // those facts are never copied into an active-policy/writer witness.
-    const wanted=proposed?(f.cause==='eligible'&&f.primary&&f.rankQualified&&f.rankProfile===STEWARD_NATIVE_PROFILE&&entitlements.mode!=='held'?highestCanonicalRank233(proposed,{index:f.primary.index,name:f.primary.rank},extra)?.roleId??null:null):activeExpected;
-    return {expected:wanted,cause:wanted?'eligible':f.cause==='eligible'?'rank_source_held':f.cause,nativeRank:f.primary?.rank??null,nativeCharacter:f.primary?.nameKey??null,snapshotId:f.snapshotId,deadline:f.deadline,
-     ...(planning?{activeExpected,activeCause:activeExpected?'eligible':f.cause==='eligible'?'rank_source_held':f.cause}:{})};
+    const wanted=choose(canonical.policy!);
+    return {expected:wanted,cause:wanted?'eligible':f.cause==='eligible'?'rank_source_held':f.cause,nativeRank:f.primary?.rank??null,nativeCharacter:f.primary?.nameKey??null,snapshotId:f.snapshotId,deadline:f.deadline};
    }finally{closeRoutineMembership232(cap);}
   };
   if(request.method==='POST'){
@@ -169,9 +183,10 @@ export async function handleSiteRoleAudit283(request:Request,env:Env,admin:SiteU
   const cursor=rawCursor?await open(env.COOKIE_SECRET,cursorBinding,rawCursor):{after:'0',issuedAt:now(),expiresAt:Math.min(now()+CURSOR_SECONDS,original.e),page:0};check();clock(cursor,CURSOR_SECONDS);
   if(Object.keys(cursor).sort().join(',')!=='after,expiresAt,issuedAt,page'||cursor.after!=='0'&&!validId(cursor.after)||!Number.isSafeInteger(cursor.page)||(cursor.page as number)<0||(cursor.page as number)>100000)throw new Held('invalid_cursor',400);
   const snapshot=await snapshotRead();check();
-  const raw=await rest<unknown>(env,'GET',singleSubject?`/guilds/${env.GUILD_ID}/members/${singleSubject}`:`/guilds/${env.GUILD_ID}/members?limit=${PROVIDER_PAGE}&after=${cursor.after}`,undefined,1);check();await read([]);
-  const sourcePage=providerPage(singleSubject?[raw]:raw,cursor.after as string);
-  if(singleSubject&&sourcePage.members[0]?.id!==singleSubject)throw new Held('discord_reply_unconfirmed',503);
+  let raw:unknown;try{raw=await rest<unknown>(env,'GET',singleSubject?`/guilds/${env.GUILD_ID}/members/${singleSubject}`:`/guilds/${env.GUILD_ID}/members?limit=${PROVIDER_PAGE}&after=${cursor.after}`,undefined,1);}
+  catch(error){if(singleSubject&&error instanceof DiscordError&&error.status===404)raw=null;else throw error;}check();await read([]);
+  const sourcePage=providerPage(singleSubject?(raw===null?[]:[raw]):raw,cursor.after as string);
+  if(singleSubject&&raw!==null&&sourcePage.members[0]?.id!==singleSubject)throw new Held('discord_reply_unconfirmed',503);
   const candidateRead=await read([env.DB.prepare(`SELECT wanted.value AS id FROM json_each(?1) wanted WHERE EXISTS(SELECT 1 FROM characters c WHERE c.discord_id=wanted.value AND c.status NOT IN('unbound','denied'))`).bind(JSON.stringify(sourcePage.members.map(m=>m.id)))]);
   const linked=new Set((candidateRead[0]!.results as {id:string}[]).map(r=>r.id));
   const candidates=sourcePage.members.filter(m=>linked.has(m.id)||m.roles.some(r=>MANAGED.has(r))),selected=candidates.slice(0,ROLE_AUDIT_PAGE283),overflow=candidates.length>selected.length;
@@ -188,6 +203,9 @@ export async function handleSiteRoleAudit283(request:Request,env:Env,admin:SiteU
    if(privateHeld){withheld.privacy++;continue;}if(member.pending){withheld.membershipScreening++;continue;}if(member.bot){withheld.bots++;continue;}
    const projection=await project(member.id);check();
    const sourceHeld=!projection.expected||!snapshot||projection.snapshotId!==snapshot.id;
+   // A chosen ID receives no distinguishable target-specific hold reason.
+   // Only a readable qualified single-account observation is returned.
+   if(singleSubject&&sourceHeld)continue;
    const classification=classifyRoleAudit283(member.roles,projection.expected,JSON.parse(target.receipts),target.generation,sourceHeld);
    const historyTruncated=target.receiptCount>HISTORY_LIMIT||target.characterCount>CHARACTER_LIMIT;
    classification.unknown=target.unknownAttempts;
@@ -203,28 +221,32 @@ export async function handleSiteRoleAudit283(request:Request,env:Env,admin:SiteU
     bot:false,pending:false,...classification,...projection,activationRequired:planning,maxPlannedEffects:2,
     characters:JSON.parse(target.characters),historyWithheld:false,historyTruncated,
     retainedReceiptCount:Math.min(target.receiptCount,HISTORY_LIMIT),retainedCharacterCount:Math.min(target.characterCount,CHARACTER_LIMIT),
-    firstObservedProvenance:'Legacy name-only roster observation; not current character/GUID episode, native guild join time or a grace clock',previewToken:preview,previewIssuedAt,previewExpiresAt});
+    firstObservedProvenance:'Legacy name-only roster observation; not current character/GUID episode, native guild join time or a grace clock',previewToken:preview,previewIssuedAt,previewExpiresAt,
+    confirmReserveSeconds:CONFIRM_RESERVE_SECONDS,confirmBy:previewExpiresAt===null?null:previewExpiresAt-CONFIRM_RESERVE_SECONDS});
   }
   const nextCursor=singleSubject||page.complete?null:await seal(env.COOKIE_SECRET,cursorBinding,{issuedAt:cursor.issuedAt as number,expiresAt:cursor.expiresAt as number,after:last,page:(cursor.page as number)+1} satisfies Cursor);check();
   const final=await read([env.DB.prepare(TARGETS).bind(JSON.stringify(page.members.map(m=>m.id)),env.GUILD_ID,JSON.stringify([...MANAGED])),env.DB.prepare(SNAPSHOT),env.DB.prepare(DENOMINATOR)]);check();
   const finalTargets=final[0]!.results as Facts[],finalSnapshot=final[1]?.results[0] as Snapshot|undefined;
   if(JSON.stringify(finalSnapshot??null)!==JSON.stringify(snapshot??null))throw new Held('roster_changed_during_page');
   if(JSON.stringify(finalTargets)!==JSON.stringify(targets))throw new Held('target_changed_during_page');
+  if(singleSubject&&rows.length===0)return apiJson({rows:[],counts:{subjects:0,unavailable:1},nextCursor:null,automaticApply:false,
+   coverage:{scope:'single_discord_member_read',complete:false,singleMemberReadComplete:true,atomicSnapshot:false,convergenceConfirmed:false}});
   const counts={subjects:rows.length,missing:rows.filter(r=>r.missing.length).length,extraOwned:rows.filter(r=>r.extraOwned.length).length,extraUnowned:rows.filter(r=>r.extraUnowned.length).length,
    review:rows.filter(r=>r.review).length,unknown:rows.filter(r=>r.unknown>0).length,historyWithheld:withheld.privacy,withheldCandidates:withheld.privacy+withheld.membershipScreening+withheld.bots,sourceHeld:rows.filter(r=>r.sourceHeld).length,repairable:rows.filter(r=>r.repairable).length};
-  return apiJson({guildId:env.GUILD_ID,generatedAt:now(),source:snapshot??null,managedRoles:canonical.policy.ranks,rows,counts,withheld,nextCursor,
+  const returnedCounts=singleSubject?{subjects:counts.subjects,missing:counts.missing,extraOwned:counts.extraOwned,extraUnowned:counts.extraUnowned,review:counts.review,unknown:counts.unknown,sourceHeld:counts.sourceHeld,repairable:counts.repairable,unavailable:0}:counts;
+  return apiJson({guildId:env.GUILD_ID,generatedAt:now(),source:snapshot??null,managedRoles:canonical.policy.ranks,rows,counts:returnedCounts,...(singleSubject?{}:{withheld}),nextCursor,
    view:planning?'steward-v3':'active',activationRequired:planning,activePolicy:{version:canonical.policy.version,profile:canonical.policy.profile},proposedPolicy:proposed?{version:proposed.version,profile:proposed.profile}:null,
-   coverage:{scope:singleSubject?'single_discord_member_read':'one_discord_inventory_page',complete:singleSubject?false:page.complete,singleMemberReadComplete:!!singleSubject,atomicSnapshot:false,providerRowsFetched:sourcePage.scanned,providerRowsProcessed:processed.length,observedOnly,returned:rows.length,traversalExpiresAt:singleSubject?null:cursor.expiresAt,
-    nativeLinkedCandidateSubjects:(final[2]?.results[0] as {subjects:number}|undefined)?.subjects??null,nativeLinkedAccountsAbsentFromDiscord:'not_individually_checked',convergenceConfirmed:false,
+   coverage:{scope:singleSubject?'single_discord_member_read':'one_discord_inventory_page',complete:singleSubject?false:page.complete,singleMemberReadComplete:!!singleSubject,atomicSnapshot:false,providerRowsFetched:singleSubject?null:sourcePage.scanned,providerRowsProcessed:singleSubject?null:processed.length,observedOnly:singleSubject?null:observedOnly,returned:rows.length,traversalExpiresAt:singleSubject?null:cursor.expiresAt,
+    nativeLinkedCandidateSubjects:singleSubject?null:(final[2]?.results[0] as {subjects:number}|undefined)?.subjects??null,nativeLinkedAccountsAbsentFromDiscord:'not_individually_checked',convergenceConfirmed:false,
     note:'Includes unlinked role holders present in Discord. The separate native-linked candidate count is not an overlap or absence proof. Absent accounts were not individually checked; no removal is inferred. Other Discord roles and website appointments are preserved.'},
    custodyMeaning:'Extra-owned means an acknowledged grant receipt was found. Only the existing writer can authorize its removal.',automaticApply:false});
  }catch(error){
   // An actor who lost admission receives no subject/result details. Entering
   // the writer is enough to make an interrupted response outcome uncertain.
   if(writerEntered)return apiJson({error:'repair_outcome_unconfirmed',outcome:'roles_may_have_changed',automaticRetry:false,maxPlannedEffects:2},error instanceof Held?error.status:503);
-  if(error instanceof Held)return apiJson({error:error.code,coverage:{complete:false,gap:error.code},automaticRetry:false},error.status);
+  if(error instanceof Held)return apiJson({error:error.code,coverage:{complete:false,gap:error.code},automaticRetry:false,...(request.method==='POST'?{outcome:'not_started',roleChangeSent:false}:{})},error.status);
   const status=error instanceof DiscordError?error.status:503;
   const gap=status===403?'discord_forbidden_members_intent_or_permissions':status===429?'discord_rate_limited':'provider_or_admission_unavailable';
-  return apiJson({error:'role_audit_unavailable',coverage:{complete:false,gap},automaticRetry:false},status===403?403:status===429?429:503);
+  return apiJson({error:'role_audit_unavailable',coverage:{complete:false,gap},automaticRetry:false,...(request.method==='POST'?{outcome:'not_started',roleChangeSent:false}:{})},status===403?403:status===429?429:503);
  }
 }

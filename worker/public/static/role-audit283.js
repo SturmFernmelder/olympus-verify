@@ -2,7 +2,7 @@
  * Reading pages is sequential; repairs are individual deliberate clicks. */
 window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
   let destroyed = false, busy = false, paused = false, cursor = null, finished = false;
-  let pages = 0, processed = 0, observedOnly = 0, withheld = 0, firstSource = null, nativeLinkedCandidates = null;
+  let pages = 0, processed = 0, observedOnly = 0, withheld = 0, unavailableReads = 0, firstSource = null, nativeLinkedCandidates = null;
   const rows = new Map(), labels = new Map();
   const el = (tag, text, cls) => {
     const node = document.createElement(tag);
@@ -37,7 +37,7 @@ window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
   function summary() {
     const all = [...rows.values()];
     const count = test => all.filter(test).length;
-    coverage.textContent = `${policy.value === 'steward-v3' ? 'Inactive v3 planning view: activation requires a separately reviewed rollout; no repair tokens or writes. ' : ''}${pages} pages · ${processed} Discord accounts processed · ${observedOnly} outside the managed / linked comparison (counts only) · ${withheld} privacy-held, erased, screening-pending or bot candidates withheld (counts only; identity, history and completeness unavailable) · ${all.length} unique visible candidates. Missing: ${count(r => r.missing.length)}; extra with grant receipts: ${count(r => r.extraOwned.length)}; extra unowned: ${count(r => r.extraUnowned.length)}; known unknown effects: ${count(r => r.unknown)}; source held: ${count(r => r.sourceHeld)}. Separate native-linked candidate count: ${nativeLinkedCandidates ?? 'unconfirmed'} (not an overlap or absence proof). Accounts absent from Discord were not individually checked; no removal is inferred. Traversal is not atomic and does not confirm full convergence.`;
+    coverage.textContent = `${policy.value === 'steward-v3' ? 'Inactive v3 planning view: activation requires a separately reviewed rollout; no repair tokens or writes. ' : ''}${pages} pages · ${processed} Discord accounts processed · ${observedOnly} outside the managed / linked comparison (counts only) · ${withheld} privacy-held, erased, screening-pending or bot candidates withheld in traversal (counts only; identity, history and completeness unavailable) · ${unavailableReads} chosen-account reads unavailable (no classification disclosed) · ${all.length} unique visible candidates. Missing: ${count(r => r.missing.length)}; extra with grant receipts: ${count(r => r.extraOwned.length)}; extra unowned: ${count(r => r.extraUnowned.length)}; known unknown effects: ${count(r => r.unknown)}; source held: ${count(r => r.sourceHeld)}. Separate native-linked candidate count: ${nativeLinkedCandidates ?? 'unconfirmed'} (not an overlap or absence proof). Accounts absent from Discord were not individually checked; no removal is inferred. Traversal is not atomic and does not confirm full convergence.`;
   }
   async function review(row, button, message) {
     if (busy || destroyed || policy.value !== 'active' || row.activationRequired) return;
@@ -50,12 +50,12 @@ window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
       if (!Array.isArray(data.rows) || data.rows.length > 1 || data.nextCursor || data.coverage?.scope !== 'single_discord_member_read' || data.coverage.singleMemberReadComplete !== true || data.coverage.atomicSnapshot !== false) throw new Error('Single-account coverage was not confirmed');
       for (const item of data.managedRoles || []) labels.set(item.roleId, item.name);
       const fresh = data.rows.find(item => item.id === row.id && !item.historyWithheld && item.cause !== 'privacy_held' && !item.pending && !item.bot);
-      if (!fresh) { rows.delete(row.id); withheld += data.counts?.withheldCandidates || 0; status.textContent = 'This account is unavailable for this comparison or its identity is withheld. No confirmation or repair was sent.'; return; }
+      if (!fresh) { rows.delete(row.id); unavailableReads++; status.textContent = 'This account is unavailable for this comparison. No reason is disclosed; no confirmation or repair was sent.'; return; }
       const signature = item => JSON.stringify([item.expected, item.snapshotId, item.nativeCharacter, item.nativeRank, [...item.actual].sort(), [...item.missing].sort(), [...item.extraOwned].sort(), [...item.extraUnowned].sort()]);
       const changed = signature(fresh) !== signature(row);
-      const ready = !changed && fresh.repairable && !fresh.sourceHeld && !fresh.activationRequired && !fresh.extraUnowned.length && fresh.maxPlannedEffects === 2 && !!fresh.previewToken && Number.isSafeInteger(fresh.previewExpiresAt) && fresh.previewExpiresAt > Math.floor(Date.now() / 1000);
+      const ready = !changed && fresh.repairable && !fresh.sourceHeld && !fresh.activationRequired && !fresh.extraUnowned.length && fresh.maxPlannedEffects === 2 && !!fresh.previewToken && Number.isSafeInteger(fresh.previewExpiresAt) && Number.isSafeInteger(fresh.confirmBy) && fresh.confirmReserveSeconds >= 112 && fresh.confirmBy <= fresh.previewExpiresAt - 112 && fresh.confirmBy > Math.floor(Date.now() / 1000);
       rows.set(row.id, {...fresh, observedAt: data.generatedAt, reviewed: ready, previewToken: ready ? fresh.previewToken : null});
-      status.textContent = ready ? 'Fresh account preview loaded. Review the updated facts and consequences, then use the separate Confirm button.' : changed ? 'The account or native source changed. Updated facts are shown; review this row again before confirming. No repair was sent.' : 'The current account/source is held or needs no repair. No confirmation or repair was sent.';
+      status.textContent = ready ? 'Fresh account preview loaded. Review the updated facts and consequences, then use the separate Confirm button.' : changed ? 'The account or native source changed. Updated facts are shown; review this row again before confirming. No repair was sent.' : fresh.repairable && fresh.previewToken ? 'This preview has insufficient confirmation reserve. Review again for a new read; a fresh native export or session may be needed. No repair was sent.' : 'The current account/source is held or needs no repair. No confirmation or repair was sent.';
     } catch (error) {
       if (!destroyed) status.textContent = `Fresh preview unavailable: ${error?.data?.error || error?.message || 'read unavailable'}. No repair was sent and no automatic retry occurred.`;
     } finally {
@@ -64,7 +64,7 @@ window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
   }
   async function repair(row, button, message) {
     if (busy || destroyed || !row.reviewed || !row.previewToken || row.activationRequired || row.extraUnowned.length || row.maxPlannedEffects !== 2 || policy.value !== 'active') return;
-    if (!Number.isSafeInteger(row.previewExpiresAt) || row.previewExpiresAt <= Math.floor(Date.now() / 1000)) { row.previewToken = null; row.reviewed = false; status.textContent = 'The original preview expired. Review this account again for a new read before confirming.'; render(); return; }
+    if (!Number.isSafeInteger(row.confirmBy) || row.confirmBy <= Math.floor(Date.now() / 1000)) { row.previewToken = null; row.reviewed = false; status.textContent = 'The original preview no longer has the full confirmation reserve. Review this account again for a new read. No role change was sent by this request.'; render(); return; }
     busy = true; policy.disabled = true; scan.disabled = true; restart.disabled = true; button.disabled = true;
     const token = row.previewToken; row.previewToken = null; row.reviewed = false;
     message.textContent = 'Rechecking current Native authority and Discord roles…';
@@ -72,9 +72,9 @@ window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
       const data = await api('POST', '/api/admin/role-audit', {subject: row.id, previewToken: token, confirm: true});
       if (destroyed) return;
       const result = data.result?.results?.find(item => item.subject === row.id);
-      message.textContent = result ? `${result.state}: ${result.reason}. The writer may have performed managed-role changes, including compensation. Run a fresh audit to confirm current roles; do not repeat an uncertain request.` : 'Outcome unconfirmed: managed roles may have changed. Run a fresh audit and inspect the retained receipts; do not repeat an uncertain request.';
+      message.textContent = result ? data.result.requests === 0 ? `${result.state}: ${result.reason}. No role change was sent by this request. Review this account again before confirming.` : result.state === 'unknown' ? `Outcome unconfirmed: ${result.reason}. Managed roles may have changed. Run a fresh audit and inspect the retained receipts; do not repeat an uncertain request.` : `${result.state}: ${result.reason}. Run a fresh audit to confirm current roles and inspect retained receipts before another correction. No automatic retry occurred.` : 'Outcome unconfirmed: managed roles may have changed. Run a fresh audit and inspect the retained receipts; do not repeat an uncertain request.';
     } catch (error) {
-      if (!destroyed) message.textContent = `Outcome unconfirmed: managed roles may have changed (${error?.data?.error || error?.message || 'reply unavailable'}). Run a fresh audit and inspect the retained receipts; do not repeat an uncertain request.`;
+      if (!destroyed) message.textContent = error?.data?.outcome === 'not_started' && error.data.roleChangeSent === false ? `Request refused before the writer: ${error.data.error}. No role change was sent by this request. Review this account again before confirming.` : `Outcome unconfirmed: managed roles may have changed (${error?.data?.error || error?.message || 'reply unavailable'}). Run a fresh audit and inspect the retained receipts; do not repeat an uncertain request.`;
     } finally {
       busy = false; if (!destroyed) { policy.disabled = false; scan.disabled = finished; restart.disabled = false; }
     }
@@ -105,7 +105,7 @@ window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
         ['Native observation meaning', 'Not current character/GUID episode evidence, native guild join time or a grace clock. Current episode and actual join dates are unconfirmed.']].forEach(([label, value]) => { list.append(el('dt', label), el('dd', value)); });
       card.append(list);
       if (row.repairable && !row.activationRequired && !row.extraUnowned.length && row.maxPlannedEffects === 2 && policy.value === 'active') {
-        const button = el('button', row.reviewed ? `Confirm ${role(row.expected)} reconciliation (up to 2 planned changes)` : `Review reconciliation to ${role(row.expected)}`), message = el('p', `Desired role: ${role(row.expected)}. Up to two planned managed-role changes may occur: an acknowledged unwanted-role removal and/or the desired grant. If authority changes, an additional owned compensation may undo this action's grant. Other owned extras may remain after this bounded action. Review fetches this account again; only a separate confirmation can submit its new original preview, valid for up to five minutes and bounded by the native source/session. The writer rechecks custody and identity. No native promotion is requested.${row.reviewed ? ' Confirm this current plan before ' + stamp(row.previewExpiresAt) + '.' : ''}`);
+        const button = el('button', row.reviewed ? `Confirm ${role(row.expected)} reconciliation (up to 2 planned changes)` : `Review reconciliation to ${role(row.expected)}`), message = el('p', `Desired role: ${role(row.expected)}. Observed acknowledged-grant removal candidates: ${names(row.extraOwned)}. These candidates still need the original writer's custody approval; its actual plan may differ. Up to two planned managed-role changes may occur: an acknowledged unwanted-role removal and/or the desired grant. If authority changes, an additional owned compensation may undo this action's grant. Other owned extras may remain after this bounded action. Review fetches this account again. The original token/source deadline lasts at most five minutes; confirmation is offered earlier to retain a conservative 112-second allowance for up to two jobs. This UI allowance grants no writer authority. No native promotion is requested.${row.reviewed ? ' Confirm before ' + stamp(row.confirmBy) + '; original token expires ' + stamp(row.previewExpiresAt) + '.' : ''}`);
         button.disabled = busy; button.addEventListener('click', () => row.reviewed ? repair(row, button, message) : review(row, button, message)); card.append(button, message);
       }
       fragment.append(card);
@@ -145,7 +145,7 @@ window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
     }
   }
   scan.addEventListener('click', scanPages); pause.addEventListener('click', () => { paused = true; pause.disabled = true; });
-  const reset = () => { if (busy) return; rows.clear(); labels.clear(); cursor = null; pages = processed = observedOnly = withheld = 0; firstSource = nativeLinkedCandidates = null; finished = false; paused = false; scan.disabled = false; scan.textContent = 'Scan server'; status.textContent = 'Ready for a fresh read-only scan.'; render(); };
+  const reset = () => { if (busy) return; rows.clear(); labels.clear(); cursor = null; pages = processed = observedOnly = withheld = unavailableReads = 0; firstSource = nativeLinkedCandidates = null; finished = false; paused = false; scan.disabled = false; scan.textContent = 'Scan server'; status.textContent = 'Ready for a fresh read-only scan.'; render(); };
   restart.addEventListener('click', reset); policy.addEventListener('change', reset);
   filter.addEventListener('change', render); sort.addEventListener('change', render); search.addEventListener('input', render);
   exportButton.addEventListener('click', () => {

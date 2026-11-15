@@ -93,10 +93,7 @@ receipt is retained outside Git; no request headers or member identifier were co
 
 The .283 source preparation keeps the original canonical v1 serving policy.
 Steward v3 is an explicitly read-only planning view until real grant/removal
-counts and the treatment of old owned Raider roles are reviewed. The existing
-canonical order selects Member before a linked Alt even though the Steward
-native ladder places Alt in a lower numbered slot. Deployment of this preparation
-does not enable automatic v3 reconciliation. A later v3 activation needs its own
+counts and the treatment of old owned Raider roles are reviewed. The proposed v3 primary-selection logic uses canonical precedence to select Member before a linked Alt even though the Steward native ladder places Alt in a lower numbered slot. This is new selection code, not a claim that the live v1 implementation already used that ordering. The successor must preserve live v1 name-qualified grants and corrections on the exact real table: slots 0, 2–6, 8 and 9 remain eligible, while Steward1 and Alt7 retain their original name-based holds. V1 keeps its original primary ordering. Table recognition alone does not enable native promotions: discovery and selected promotion pages remain held under v1 until a separately reviewed policy activation and fresh native evidence. Deployment of this preparation does not enable automatic v3 reconciliation. A later v3 activation needs its own
 qualified export, effect inventory and reviewed configuration. Rolling back to a
 v1-only build after such a future activation would hold the new-profile source;
 neither old ordinal meanings nor role ownership may be reconstructed as a fallback.
@@ -142,3 +139,19 @@ The successor audit component passed80/80 genuine Workerd/D1 and18/18 DOM checks
 The native correction component passed all11affected Lua suites,32package checks and51download checks. Verify0.6.39 contains22files (777226bytes), ZIP SHA256f9817c1f7c19b95baaef55c71b4cfe604e4f83fc0d16984738cec25f357fe31e. The earlier setup/fixture/UI failures and initial type-shape errors are retained outside Git. Full current-head qualification and native-client acceptance remain separate.
 
 A final read-only retained-snapshot lookup found no matches for the2content fingerprints across3archived roster entries. This recovers no delivery outcome and absence under retention does not prove nondelivery. All429original unknowns, clocks and the archive digest remain unchanged. Two earlier read invocations yielded unusable capture/summary output and are preserved separately; no write or replay occurred.
+
+
+## Independent review block and successor (15 November)
+
+Actual Claude rejected f0f0739a despite its successful hosted gate: stamping the real table as Steward caused the active v1 authority to reject every current-table rank grant and correction. Root accepts this HIGH regression; f0 is withdrawn from release candidacy. Its automated results remain scoped evidence and cannot substitute for a passing source review. The compatibility smoke had replaced the real table with an unrepresentative name; the successor restores genuine real-table v1 checks for all ten ranks and multi-character ordering. Unknown, mixed and mismatched tables remain held. No production change occurred from the rejected head.
+
+The successor also removes target-specific privacy-hold classification from unavailable single-account reads and tightens the policy and UI descriptions. The planning audit exposes acknowledged-grant candidates rather than the complete central-writer ownership and eligibility graph; a complete effects inventory and explicit old-owned Raider treatment remain prerequisites for v3 activation. No current candidate-count label authorizes a removal or resolves a historical unknown. The final corrected source/head and actual Claude review remain pending.
+
+
+## Coherent successor component results (15 November; final head still pending)
+
+The corrected working tree passed fresh TypeScript plus the genuine reconciliation/real-v1 smoke, all25serving-v1real-tablecases including original/copy planning-observation refusal by the actual writer, and fourv3Member/Altcases. Original v1 grants/corrections and unknown-name holds are preserved; v3 remains inactive. The dedicated planning observer shares one original validated capture, returns frozen dated data and local read guards, and never registers a writer capability or returns an effect environment. Its active-v1 and proposed-v3 projections use the same read. The handler retains final actor/target/snapshot checks and closes each non-null resource even if its post-await check fails.
+
+The current audit component passed85/85Workerd/D1checks and22/22DOMchecks. A separate real-time final-D1-result regression passed4/4: the admitted original result was delivered after the sealed preview expired, no physicalPUT/DELETE was sent, the original claimed nonce stayed held/never-dispatched, its Native expiry was unchanged, and an unrelated unknown remained byte-identical. The first non-engaged delay fixture failed and is preserved separately; it supplied no expiry coverage. This71secondcase is isolated from the ordinary suite and runs explicitly in CI under its unchanged180secondcap.
+
+The first corrected v1matrix had two wrong neutral-custody assertions (zero role requests in both held-name cases); its failed72/74receipt is preserved. After the assertion-only correction, the complete current25case matrix passed. The first observer typecheck also failed literal-union inference; an explicitly typed local fixed it without changing runtime logic. None of these component results is final combined-head qualification, native-client acceptance, production convergence or a substitute for actual Claude's source review.

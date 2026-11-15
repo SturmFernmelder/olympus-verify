@@ -15,10 +15,10 @@ import {STEWARD_CANONICAL_PROFILE,STEWARD_RANK_NAMES,NATIVE_RANK_SCHEMES,qualifi
 import {SHARED_MEMBER230_CONTRACT,SHARED_MEMBER230_SEAL_PREFIX,sharedMember230SHA256} from '../src/shared-membership-cutover230.ts';
 import {reconcileRoleBatch242} from '../src/role-reconcile242.ts';
 const ADMIN='800000000000000001',SECOND_ADMIN='800000000000000002',BASE=800000000000001000n,EPOCH='a'.repeat(32),BIRTH='b'.repeat(32),SECOND_BIRTH='c'.repeat(32),SECRET='synthetic-role-audit-cookie',ROLE=CANONICAL_RANKS233[9].roleId;
-let config,rawDB,physical=0,wires=[],ready=false,savedExport=null;const effects=new Map();
+let config,rawDB,physical=0,wires=[],ready=false,savedExport=null,savedAlt=null;const effects=new Map();
 const method=(o,k)=>{for(let p=o;p;p=Object.getPrototypeOf(p)){const d=Object.getOwnPropertyDescriptor(p,k);if(d)return d.value;}throw Error('fixture method missing');};
 const h=n=>n.toString(16).padStart(32,'0');
-async function setup(db,layout='canonical',adminId=ADMIN){
+async function setup(db,layout='canonical',adminId=ADMIN,lateFinal=null){
  const catalogue=layout==='canonical'?JSON.parse(ADMISSION_EXPECTED_JSON):JSON.parse(ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON).recordedLive.profile;
  const objects=[...catalogue.tables,...catalogue.indexes].map(o=>db.prepare(o.sql));objects.push(db.prepare(catalogue.slotSQL));
  while(objects.length)await db.batch(objects.splice(0,40));
@@ -62,7 +62,22 @@ async function setup(db,layout='canonical',adminId=ADMIN){
  const fetcher=Object.getOwnPropertyDescriptor(db,'fetcher').value,send=method(fetcher,'fetch');
  Object.defineProperty(fetcher,'fetch',{configurable:true,value:async function(input,init){
   const packets=JSON.parse(init.body);physical+=Array.isArray(packets)?packets.length:1;
-  const response=await Reflect.apply(send,fetcher,[input,init]);wires.push({request:packets,status:response.status,response:await response.clone().text()});return response;
+  const response=await Reflect.apply(send,fetcher,[input,init]),responseText=await response.clone().text();wires.push({request:packets,status:response.status,response:responseText});
+  // Isolated latency case only: execute the real final Native SELECT, retain
+  // its actual admitted answer, then delay returning that identical response.
+  // No SQL/result/clock/capability is replaced and no provider timeout is bypassed.
+  if(lateFinal&&!lateFinal.observed){
+   const statements=Array.isArray(packets)?packets:[packets],at=statements.findIndex(p=>/\)\s+SELECT 1 FROM role_settlements WHERE/.test(p.sql||'')&&(p.sql||'').includes("state='dispatching'")&&(p.sql||'').includes('claim_nonce'));
+   if(at>=0){const decoded=JSON.parse(responseText),answers=Array.isArray(decoded)?decoded:[decoded],answer=answers[at];
+    // Actual D1 transport returns columns/rows; D1 .all() projects objects only
+    // above this hook. Inspect that real wire shape, never replace its answer.
+    if(answer?.success===true&&answer.results?.columns?.length===1&&answer.results.columns[0]==='1'&&answer.results.rows?.length===1&&answer.results.rows[0]?.length===1&&answer.results.rows[0][0]===1){
+     lateFinal.observed={executedAt:Math.floor(Date.now()/1000),returnedAt:null,sql:statements[at].sql,columns:answer.results.columns,result:answer.results.rows};
+     await new Promise(resolve=>setTimeout(resolve,71000));lateFinal.observed.returnedAt=Math.floor(Date.now()/1000);
+    }
+   }
+  }
+  return response;
  }});ready=true;
 }
 async function cookie(adminId=ADMIN,expiresAt=Math.floor(Date.now()/1000)+3600){
@@ -110,6 +125,8 @@ export default {async fetch(request,bindings){
   if(body.kind==='stale')await config.DB.prepare("UPDATE roster_snapshots SET exported_at=CAST(strftime('%s','now')AS INTEGER)-601 WHERE id=1").run();
   if(body.kind==='source-change'){savedExport=(await config.DB.prepare('SELECT exported_at FROM roster_snapshots WHERE id=1').first()).exported_at;await config.DB.prepare('UPDATE roster_snapshots SET exported_at=exported_at-1 WHERE id=1').run();}
   if(body.kind==='source-restore'&&savedExport!==null){await config.DB.prepare('UPDATE roster_snapshots SET exported_at=?1 WHERE id=1').bind(savedExport).run();savedExport=null;}
+  if(body.kind==='alt-case'){savedAlt=await config.DB.prepare("SELECT rank,rank_index FROM roster_members WHERE snapshot_id=1 AND name_key='synthetic 2'").first();await config.DB.prepare("UPDATE roster_members SET rank='Alt',rank_index=7 WHERE snapshot_id=1 AND name_key='synthetic 2'").run();}
+  if(body.kind==='alt-restore'&&savedAlt){await config.DB.prepare("UPDATE roster_members SET rank=?1,rank_index=?2 WHERE snapshot_id=1 AND name_key='synthetic 2'").bind(savedAlt.rank,savedAlt.rank_index).run();savedAlt=null;}
   if(body.kind==='unknown')await config.DB.prepare("INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,attempts,created_at,expires_at)VALUES(?1,?2,'canonical_consumed233',?3,?4,1,'unknown','synthetic_lost_reply',1,?5,?6)").bind('d'.repeat(32),String(BASE),NATIVE_GUILD232,ROLE,Math.floor(Date.now()/1000)-900,Math.floor(Date.now()/1000)-600).run();
   return Response.json({ok:true});
  }
@@ -121,9 +138,17 @@ export default {async fetch(request,bindings){
  }
  if(path==='/effect-run'){
   const spec=await request.json(),kind=spec.kind;if(effects.has(kind))return new Response(null,{status:409});
-  const adminId=String(800000000000000100n+BigInt(['baseline','before-denied','after-denied','before-export','wrong-role','preview-expired','preview-control','preview-reserve'].indexOf(kind)));
-  const original={config,rawDB,ready};await setup(bindings['DB_EFFECT_'+kind.replaceAll('-','_')],'recorded-live-pre-seal-20261017',adminId);
+  const adminId=String(800000000000000100n+BigInt(['baseline','before-denied','after-denied','before-export','wrong-role','preview-expired','preview-control','preview-reserve','serving-v1','final-d1-expired'].indexOf(kind)));
+  const lateFinal=kind==='final-d1-expired'?{observed:null}:null;
+  const original={config,rawDB,ready};await setup(bindings['DB_EFFECT_'+kind.replaceAll('-','_')],'recorded-live-pre-seal-20261017',adminId,lateFinal);
   const state={config:{...config,DISCORD_BOT_TOKEN:'role-audit-effect-'+kind},db:rawDB,adminId};effects.set(kind,state);({config,rawDB,ready}=original);
+  const effectSubject=kind==='serving-v1'?String(BASE+2n):String(BASE);
+  if(kind==='serving-v1')state.config.CANONICAL_RANKS233=JSON.stringify({version:1,enabled:true,profile:CANONICAL_PROFILE233,guildId:NATIVE_GUILD232,ranks:CANONICAL_RANKS233.map(r=>({...r,permissions:'0'}))});
+  let unrelatedUnknown=null;
+  if(kind==='final-d1-expired'){
+   const t=Math.floor(Date.now()/1000);await state.config.DB.prepare("INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,attempts,claim_nonce,created_at,expires_at)VALUES(?1,?2,'canonical_consumed233',?3,?4,1,'unknown','synthetic_original_unknown',1,?5,?6,?7)").bind('8'.repeat(32),String(BASE+1n),NATIVE_GUILD232,ROLE,'7'.repeat(32),t-900,t-600).run();
+   unrelatedUnknown=await state.db.prepare('SELECT * FROM role_settlements WHERE id=?1').bind('8'.repeat(32)).first();
+  }
   const ownedId='f'.repeat(32);
   if(['preview-control','preview-reserve'].includes(kind)){
    const t=Math.floor(Date.now()/1000);
@@ -132,14 +157,14 @@ export default {async fetch(request,bindings){
   }
   const originalOwned=['preview-control','preview-reserve'].includes(kind)?await state.db.prepare('SELECT * FROM role_settlements WHERE id=?1').bind(ownedId).first():null;
   const cookieValue=await cookie(adminId),start=physical,invoke=async(method,body={})=>{
-   const req=new Request('https://guild.example/api/admin/role-audit'+(method==='GET'?'?subject='+String(BASE):''),{method,headers:{Cookie:cookieValue,Origin:'https://guild.example','X-Olympus':'2'}}),user=await currentUser(state.config,req);
+   const req=new Request('https://guild.example/api/admin/role-audit'+(method==='GET'?'?subject='+effectSubject:''),{method,headers:{Cookie:cookieValue,Origin:'https://guild.example','X-Olympus':'2'}}),user=await currentUser(state.config,req);
    const response=await handleSiteRoleAudit283(req,privacyBoundSiteEnv(state.config,originalUserSession(user)),user,body);return {status:response.status,body:await response.json()};
   };
   const preview=await invoke('GET'),row=preview.body.rows?.[0];let action,previewExpiresAt=null;
-  const nativeCapture=await captureRoutineMembership232(state.config,String(BASE));let nativeDeadline=null;
+  const nativeCapture=await captureRoutineMembership232(state.config,effectSubject);let nativeDeadline=null;
   if(nativeCapture){try{nativeDeadline=routineMembership232Facts(nativeCapture).deadline;}finally{closeRoutineMembership232(nativeCapture);}}
-  if(['preview-expired','preview-control','preview-reserve'].includes(kind)&&row?.previewToken){
-   const req=new Request('https://guild.example/api/admin/role-audit',{headers:{Cookie:cookieValue}}),user=await currentUser(state.config,req),shortened=await shortOriginalPreview(state.config,user,row.previewToken,kind==='preview-control'?120:kind==='preview-reserve'?30:5);
+  if(['preview-expired','preview-control','preview-reserve','final-d1-expired'].includes(kind)&&row?.previewToken){
+   const req=new Request('https://guild.example/api/admin/role-audit',{headers:{Cookie:cookieValue}}),user=await currentUser(state.config,req),shortened=await shortOriginalPreview(state.config,user,row.previewToken,kind==='preview-control'?120:kind==='preview-reserve'?30:kind==='final-d1-expired'?70:5);
    row.previewToken=shortened.token;previewExpiresAt=shortened.expiresAt;
   }
   if(kind==='wrong-role'){
@@ -147,11 +172,12 @@ export default {async fetch(request,bindings){
    const bound=privacyBoundSiteRoleActionEnv(privacyBoundSiteEnv(state.config,originalUserSession(user)),originalUserSession(user),{subject:String(BASE),snapshotId:1,snapshotAt:snapshot.exported_at,expectedRole:ROLE,expiresAt:Math.floor(Date.now()/1000)+120});
    action={status:200,body:await reconcileRoleBatch242(bound,[String(BASE)])};
   }else action=row?.previewToken?await invoke('POST',{subject:row.id,previewToken:row.previewToken,confirm:true}):{status:409,body:{error:'fixture_preview_not_ready',preview:preview.body.error}};
-  const receipts=(await state.db.prepare('SELECT id,purpose,role_id,desired,state,reason,attempts,request_digest,claim_nonce,created_at,expires_at FROM role_settlements WHERE subject=?1 ORDER BY created_at,id').bind(String(BASE)).all()).results;
+  const receipts=(await state.db.prepare('SELECT id,purpose,role_id,desired,state,reason,attempts,request_digest,claim_nonce,created_at,expires_at,native_profile,native_rank,native_rank_name FROM role_settlements WHERE subject=?1 ORDER BY created_at,id').bind(effectSubject).all()).results;
   const actor=await state.db.prepare('SELECT denied,in_server FROM site_users WHERE discord_id=?1').bind(state.adminId).first();
   const intents=(await state.db.prepare("SELECT actor,action,subject,details FROM audit WHERE action='role.audit_requested283'").all()).results;
   const originalOwnedAfter=originalOwned?await state.db.prepare('SELECT * FROM role_settlements WHERE id=?1').bind(ownedId).first():null;
-  return Response.json({previewStatus:preview.status,previewReady:!!row?.previewToken,previewExpiresAt,nativeDeadline,action,receipts,actor,intents,originalOwned,originalOwnedAfter,statements:physical-start,actualLocalWorkerdD1:true});
+  const unrelatedUnknownAfter=unrelatedUnknown?await state.db.prepare('SELECT * FROM role_settlements WHERE id=?1').bind('8'.repeat(32)).first():null;
+  return Response.json({subject:effectSubject,servingPolicy:JSON.parse(state.config.CANONICAL_RANKS233).version,previewStatus:preview.status,previewReady:!!row?.previewToken,previewExpiresAt,nativeDeadline,action,receipts,actor,intents,originalOwned,originalOwnedAfter,lateFinal:lateFinal?.observed??null,unrelatedUnknown,unrelatedUnknownAfter,statements:physical-start,actualLocalWorkerdD1:true});
  }
  if(path==='/unit'){
   const t=Math.floor(Date.now()/1000),manual=CANONICAL_RANKS233[2].roleId;

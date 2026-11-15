@@ -80,7 +80,7 @@ export interface ReleaseNote {
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
     build: ".283", date: "2026-11-15", lines: [
-      "Verify 0.6.39 and Watcher 0.6.40 recognize the reviewed Steward rank table. Older plans and unresolved promotion attempts remain preserved.",
+      "Verify 0.6.39 and Watcher 0.6.40 identify the Steward rank table. Promotion buttons still need the separately reviewed policy activation and fresh evidence; old attempts stay preserved.",
       "Admins can compare live Discord roles and preview the inactive Steward mapping. Activation needs reviewed effects; corrections keep holds on manual roles and unknown outcomes.",
     ],
   },

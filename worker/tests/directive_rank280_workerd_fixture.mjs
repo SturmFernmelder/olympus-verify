@@ -7,7 +7,10 @@ import {betaResetReceiptRetentionStatements} from '../src/beta-reset-retention.t
 import {NATIVE_RANK_NAMES232,NATIVE_SCOPE232} from '../src/native-rank-reconciliation232.ts';
 import {CANONICAL_RANKS233,CANONICAL_PROFILE233,parseCanonicalRankPolicy233,canonicalNativeRole233} from '../src/canonical-ranks233.ts';
 import {NATIVE_RANK_SCHEMES,qualifiedNativeSnapshotSource} from '../src/native-rank-schemes.ts';
-import {directiveCanonicalSweepSelect280} from '../src/full-release-roles.ts';
+import {directiveCanonicalSweepSelect280,ORIGINAL_CANONICAL_SWEEP280_SELECT} from '../src/full-release-roles.ts';
+import {observeQualifiedMembershipPlanning283} from '../src/routine-membership-authority232.ts';
+import {reconcileCanonicalRanks233} from '../src/role-settlements.ts';
+import {captureRuntimeVenue230} from '../src/shared-membership-cutover230.ts';
 const OLD230_DEBT='2bc8a653168cd702a7804fc1631abc6a68ee8200c500fb1345b3087387b89f86';
 const hex=b=>Array.from(new Uint8Array(b),x=>x.toString(16).padStart(2,'0')).join(''),H=async x=>hex(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(x)));
 const method=(o,k)=>{for(let p=o;p;p=Object.getPrototypeOf(p)){const d=Object.getOwnPropertyDescriptor(p,k);if(d){if(!Object.hasOwn(d,'value')||typeof d.value!=='function')throw Error('original_method');return d.value;}}throw Error('original_method');};
@@ -17,9 +20,9 @@ export function fixture280(seed){const scheme=NATIVE_RANK_SCHEMES[seed.steward?1
  const kind=name;if(request.method!=='POST'||spent.has(kind))return new Response(null,{status:404});spent.add(kind);
  const db=bindings['DB_'+kind.replaceAll('-','_')];if(!db)return new Response(null,{status:404});
  const subject=seed.tables.find(t=>t.name==='pending').rows[0].discord_id,oldPolicy=kind.startsWith('old-policy'),oldSource=oldPolicy||kind.startsWith('old-source');
- const index=kind==='entitlement'?5:kind.startsWith('own-replace-')?0:/^[a-z-]+[0-9]$/.test(kind)?Number(kind.at(-1)):0,names=oldSource?NATIVE_RANK_NAMES232:DIRECTIVE_RANK_NAMES;
+  const index=kind==='verify-member-with-alt'?scheme.member:kind==='entitlement'?5:kind.startsWith('own-replace-')?0:/^[a-z-]+[0-9]$/.test(kind)?Number(kind.at(-1)):0,names=oldSource?NATIVE_RANK_NAMES232:DIRECTIVE_RANK_NAMES;
  const closure={...JSON.parse(seed.config.SHARED_MEMBERSHIP230_CLOSURE_JSON),debtPredicateSHA256:OLD230_DEBT,createdAt:seed.now-3600,expiresAt:seed.now-3300},closureJSON=JSON.stringify(closure),scope={version:1,...NATIVE_SCOPE232};
- const policy=JSON.stringify({version:oldPolicy?1:seed.steward?3:2,enabled:true,profile:oldPolicy?CANONICAL_PROFILE233:DIRECTIVE_CANONICAL_PROFILE,guildId:seed.config.GUILD_ID,ranks:CANONICAL_RANKS233.map(r=>({...r,permissions:'0'}))});
+  const policy=JSON.stringify({version:oldPolicy||seed.activeV1?1:seed.steward?3:2,enabled:true,profile:oldPolicy||seed.activeV1?CANONICAL_PROFILE233:DIRECTIVE_CANONICAL_PROFILE,guildId:seed.config.GUILD_ID,ranks:CANONICAL_RANKS233.map(r=>({...r,permissions:'0'}))});
  const config={...seed.config,VERIFY_NATIVE_SCOPE:JSON.stringify(scope),NATIVE_RANK_SYNC232:'off',QR_NATIVE_ROLE_MAP:'off',FULL_RELEASE_ROLES:'off',CANONICAL_RANKS233:policy,SHARED_MEMBERSHIP230_CLOSURE_JSON:closureJSON,SHARED_MEMBERSHIP230_CLOSURE_SHA256:await H(closureJSON),DISCORD_BOT_TOKEN:seed.config.DISCORD_BOT_TOKEN+'-'+kind};
  const source=oldSource?'addon-native-v1:'+JSON.stringify(scope):kind==='unqualified'?'addon-native-v2:'+JSON.stringify({version:2,guild:scope.guild,realm:scope.realm,rankProfile:null,rankSchemeDigest:null,rankNames:null}):qualifiedNativeSnapshotSource(scope.guild,scope.realm,scheme);
  if(kind==='entitlement')config.CANONICAL_ENTITLEMENTS233=JSON.stringify({version:1,profile:CANONICAL_PROFILE233,guildId:config.GUILD_ID,packetSHA256:'4'.repeat(64),entries:[{subject,generation:null,roleKey:'branch-gm'}]});
@@ -27,12 +30,13 @@ export function fixture280(seed){const scheme=NATIVE_RANK_SCHEMES[seed.steward?1
  const order=['privacy_write_admission','privacy_rejection_expiry_control','site_settings','pending','roster_snapshots','roster_members','roster_first_seen','roster_effect_runs','audit'];
  for(const table of [...seed.tables].sort((a,b)=>order.indexOf(a.name)-order.indexOf(b.name)))for(const original of table.rows){const row={...original};if(table.name==='site_settings'&&row.key==='membership230:closure:'+closure.operationId)row.value=closureJSON;if(table.name==='roster_snapshots'){row.source=source;row.member_count=907;}if(table.name==='roster_members'){row.rank=names[index];row.rank_index=index;}const keys=Object.keys(row);await db.prepare('INSERT INTO "'+table.name+'"('+keys.map(n=>'"'+n+'"').join(',')+')VALUES('+keys.map(()=>'?').join(',')+')').bind(...keys.map(n=>row[n])).run();}
  const roster=await db.prepare('SELECT snapshot_id FROM roster_members LIMIT 1').first(),fill=[];for(let i=0;i<906;i++){const name='Synthetic '+i;fill.push(db.prepare('INSERT INTO roster_members(snapshot_id,name,name_key,guid,rank,rank_index,level)VALUES(?1,?2,?3,?4,?5,?6,60)').bind(roster.snapshot_id,name,name.toLowerCase(),'Player-4613-'+(0x10000000+i).toString(16).toUpperCase(),kind==='wrong-row'&&i===17?'Wrong rank':names[oldSource||kind==='empty-ranks'?index:i%10],oldSource||kind==='empty-ranks'?index:i%10));}while(fill.length)await db.batch(fill.splice(0,40));
- if(kind==='legacy-anchor'||kind==='member-with-alt'){
+ if(kind==='legacy-anchor'||kind==='member-with-alt'||kind==='planning-cap-forgery'||kind.startsWith('restore')){
   await db.prepare('INSERT OR IGNORE INTO members(discord_id)VALUES(?1)').bind(subject).run();
   await db.prepare("INSERT INTO characters(name_key,name,discord_id,status,bound_at,verified_at,source,guid)VALUES('fern melder','Fern Melder',?1,'member',?2,?2,'whisper','Player-4613-12345678')").bind(subject,seed.now-20).run();
   await db.prepare("INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,attempts,claim_nonce,request_digest,created_at,expires_at,checked_at,roster_id,native_guid,native_profile,native_rank,native_rank_name)VALUES(?1,?2,'canonical_consumed233',?3,?4,1,'settled','canonical233_put_acknowledged_and_confirmed',1,?5,?6,?7,?8,?9,1,'Player-4613-12345678',?10,0,'Guild Master')").bind('a'.repeat(32),subject,config.GUILD_ID,CANONICAL_RANKS233[0].roleId,'b'.repeat(32),'c'.repeat(64),seed.now-10,seed.now+290,seed.now-9,CANONICAL_PROFILE233).run();
-  await db.prepare("UPDATE roster_members SET rank=?1,rank_index=?2 WHERE guid='Player-4613-12345678'").bind(scheme.names[scheme.member],scheme.member).run();
-  if(kind==='member-with-alt'){
+  const targetIndex=kind.startsWith('restore')?index:scheme.member;
+  await db.prepare("UPDATE roster_members SET rank=?1,rank_index=?2 WHERE guid='Player-4613-12345678'").bind(scheme.names[targetIndex],targetIndex).run();
+  if(kind==='member-with-alt'||kind==='planning-cap-forgery'){
    // Independent retained control proof for the second linked character. It
    // grants no ownership: current authority still comes from this exact D1
    // snapshot, and both original historical rows must survive the visit.
@@ -40,6 +44,12 @@ export function fixture280(seed){const scheme=NATIVE_RANK_SCHEMES[seed.steward?1
    await db.prepare("UPDATE roster_members SET rank=?1,rank_index=?2 WHERE guid='Player-4613-10000000'").bind(scheme.names[scheme.alt],scheme.alt).run();
    await db.prepare("INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,attempts,claim_nonce,request_digest,created_at,expires_at,checked_at,roster_id,native_guid,native_profile,native_rank,native_rank_name)VALUES(?1,?2,'canonical_identity233',?3,?4,1,'settled','canonical233_original_control_verified',0,NULL,?5,?6,?7,?8,1,'Player-4613-10000000',?9,8,'Member')").bind('1'.repeat(32),subject,config.GUILD_ID,CANONICAL_RANKS233[9].roleId,'2'.repeat(64),seed.now-10,seed.now+290,seed.now-9,CANONICAL_PROFILE233).run();
   }
+ }
+ if(kind==='verify-member-with-alt'){
+  await db.prepare('INSERT OR IGNORE INTO members(discord_id)VALUES(?1)').bind(subject).run();
+  await db.prepare("INSERT INTO characters(name_key,name,discord_id,status,bound_at,verified_at,source,guid)VALUES('synthetic 0','Synthetic 0',?1,'member',?2,?2,'whisper','Player-4613-10000000')").bind(subject,seed.now-20).run();
+  await db.prepare("UPDATE roster_members SET rank=?1,rank_index=?2 WHERE guid='Player-4613-10000000'").bind(scheme.names[scheme.alt],scheme.alt).run();
+  await db.prepare("INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,attempts,claim_nonce,request_digest,created_at,expires_at,checked_at,roster_id,native_guid,native_profile,native_rank,native_rank_name)VALUES(?1,?2,'canonical_identity233',?3,?4,1,'settled','canonical233_original_control_verified',0,NULL,?5,?6,?7,?8,1,'Player-4613-10000000',?9,8,'Member')").bind('1'.repeat(32),subject,config.GUILD_ID,CANONICAL_RANKS233[9].roleId,'2'.repeat(64),seed.now-10,seed.now+290,seed.now-9,CANONICAL_PROFILE233).run();
  }
  if(kind==='old-unknown')await db.prepare("INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,attempts,subject_generation,created_at,expires_at,native_profile)VALUES(?1,?2,'canonical_consumed233',?3,?4,1,'unknown','synthetic_old_unresolved',1,?5,?6,?6,?7)").bind('e'.repeat(32),subject,config.GUILD_ID,CANONICAL_RANKS233[1].roleId,'f'.repeat(32),seed.now-900,CANONICAL_PROFILE233).run();
  const triggers=seed.objects.filter(x=>x.type==='trigger').map(x=>db.prepare(x.sql));while(triggers.length)await db.batch(triggers.splice(0,40));
@@ -52,10 +62,26 @@ export function fixture280(seed){const scheme=NATIVE_RANK_SCHEMES[seed.steward?1
  }});
  const env={...config,DB:createPrivacyWriteAdmissionDatabase(db,'writer','recorded-live-pre-seal-20261017',config.PRIVACY_WRITE_ADMISSION_EPOCH)};active.set(kind,{env,subject,scope});let result,error=null,repeat=null,retention=null,original=null,originalAfter=null,selector=null;const start=wires.length;
  try{
-  if(kind==='legacy-anchor'||kind==='member-with-alt'){original=(await db.prepare("SELECT * FROM role_settlements WHERE id IN(?1,?2) ORDER BY id").bind('a'.repeat(32),'1'.repeat(32)).all()).results;result=await runNativeSubject232(env,subject,callBudget(env));originalAfter=(await db.prepare("SELECT * FROM role_settlements WHERE id IN(?1,?2) ORDER BY id").bind('a'.repeat(32),'1'.repeat(32)).all()).results;}
+  if(kind==='legacy-anchor'||kind==='member-with-alt'||kind==='planning-cap-forgery'||kind.startsWith('restore')){
+   original=(await db.prepare("SELECT * FROM role_settlements WHERE id IN(?1,?2) ORDER BY id").bind('a'.repeat(32),'1'.repeat(32)).all()).results;
+   if(kind==='planning-cap-forgery'){
+    const observation=await observeQualifiedMembershipPlanning283(env,subject),venue=await captureRuntimeVenue230(env),budget=callBudget(env);
+    if(!observation||venue.mode!=='enabled')throw Error('actual_planning_observation_or_venue_unavailable');
+    const beforeCurrent=observation.current(),first=await reconcileCanonicalRanks233(env,observation,venue.venue,budget,2),copy=await reconcileCanonicalRanks233(env,{...observation},venue.venue,budget,2);
+    const forbidden=['db','env','DB','sql','values','effectEnv','effectCheck','policyRaw','canonicalRankProfile'];
+    result={first,copy,requests:budget.attempts,sourcePrimary:observation.primary?.index,activePrimary:observation.activePrimary?.index??null,
+     activeCause:observation.activeCause,activeSourceQualified:observation.activeSourceQualified,rankProfile:observation.rankProfile,
+     frozen:Object.isFrozen(observation)&&(!observation.primary||Object.isFrozen(observation.primary))&&(!observation.activePrimary||Object.isFrozen(observation.activePrimary)),
+     exposesAuthority:forbidden.some(k=>k in observation),beforeCurrent};
+    observation.close();result.closedCurrent=observation.current();
+   }else result=await runNativeSubject232(env,subject,callBudget(env));
+   originalAfter=(await db.prepare("SELECT * FROM role_settlements WHERE id IN(?1,?2) ORDER BY id").bind('a'.repeat(32),'1'.repeat(32)).all()).results;
+  }
   else{
+   if(kind==='verify-member-with-alt')original=(await db.prepare('SELECT * FROM role_settlements WHERE id=?1').bind('1'.repeat(32)).all()).results;
    const now=seed.now,guid='Player-4613-12345678',scopeHash=(await H('native-scope|1|'+scope.guild+'|'+scope.realm)).slice(0,16),key=await crypto.subtle.importKey('raw',new TextEncoder().encode(config.VERIFY_SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']),mac=hex(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode('membership|1|fern melder|'+guid+'|'+seed.code+'|1|'+now+'|'+scopeHash))).slice(0,32);
    const response=await postVerify(env,{character:'Fern Melder',code:seed.code,source:'whisper',guid,nativeMembership:{version:1,member:true,observedAt:now,scopeHash,mac}});result={status:response.status,body:await response.json()};
+   if(kind==='verify-member-with-alt')originalAfter=(await db.prepare('SELECT * FROM role_settlements WHERE id=?1').bind('1'.repeat(32)).all()).results;
   }
   if(['put-unknown','own-replace','cleanup-ban','cleanup-departure','manual-preserved','profile-swap'].includes(kind)||kind.startsWith('own-replace-budget')||kind==='own-replace-job1'||kind==='own-replace-expiring'){
    if(kind==='own-replace'||kind.startsWith('own-replace-budget')||kind==='own-replace-job1'||kind==='own-replace-expiring'||kind==='manual-preserved'||kind==='profile-swap')await env.DB.prepare("UPDATE roster_members SET rank='Member',rank_index=7 WHERE guid='Player-4613-12345678'").run();
@@ -66,7 +92,7 @@ export function fixture280(seed){const scheme=NATIVE_RANK_SCHEMES[seed.steward?1
    const calls=callBudget(env);if(kind.startsWith('own-replace-budget'))calls.limit=Number(kind.slice('own-replace-budget'.length));
    repeat=await runNativeSubject232(env,subject,calls,kind==='own-replace-job1'?1:2);
   }
-  selector=(await env.DB.prepare(directiveCanonicalSweepSelect280(scheme.canonicalProfile)).bind(config.GUILD_ID,'',8,0,'d'.repeat(32)).all()).results;
+  selector=(await env.DB.prepare(seed.activeV1?ORIGINAL_CANONICAL_SWEEP280_SELECT:directiveCanonicalSweepSelect280(scheme.canonicalProfile)).bind(config.GUILD_ID,'',8,0,'d'.repeat(32)).all()).results;
   const retentionStart=wires.length,out=await env.DB.batch(betaResetReceiptRetentionStatements(env));retention={start:retentionStart,end:wires.length,success:out.every(r=>r.success===true)};
  }catch(e){error=String(e?.stack||e);}
  const end=wires.length,rows=await db.prepare('SELECT id,purpose,role_id,desired,state,reason,attempts,request_digest,claim_nonce,native_profile,native_rank,native_rank_name FROM role_settlements ORDER BY created_at,id').all(),characters=await db.prepare('SELECT status,guid FROM characters WHERE discord_id=?1').bind(subject).all(),control=await db.prepare('SELECT epoch,mode,active,nonce,purpose FROM privacy_write_admission').first(),after=await db.prepare('SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY type,name').all();

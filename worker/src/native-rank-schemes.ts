@@ -26,6 +26,18 @@ export function nativeRankSchemeByProfile(profile:unknown,digest?:unknown):Nativ
  return NATIVE_RANK_SCHEMES.find(p=>p.profile===profile&&(digest===undefined||digest===p.digest))??null;
 }
 export function nativeRankSchemeForCanonical(profile:unknown):NativeRankScheme|null{return NATIVE_RANK_SCHEMES.find(p=>p.canonicalProfile===profile)??null;}
+/** Pure ordering only. Callers must separately qualify active policy/source;
+ * native ordinals remain the identity recorded in receipts and scheduling. */
+export function nativeRankPrecedenceSql(scheme:NativeRankScheme,slot:string):string{
+ if(!NATIVE_RANK_SCHEMES.includes(scheme)||!/^(?:[0-9]|[a-z][a-z0-9_]*\.rank_index)$/.test(slot))throw Error('native_rank_precedence_sql');
+ return `(CASE ${slot} ${scheme.canonicalIndexes.map((rank,index)=>`WHEN ${index} THEN ${rank}`).join(' ')} END)`;
+}
+/** Exact pre-profile observed transport, retained for original-v1 source custody.
+ * This serializer itself confers no rank eligibility or dispatch authority. */
+export function unqualifiedNativeSnapshotSource(guild:string,realm:string,table:NativeRankTable):string{
+ const observed=nativeRankTable(table);if(!observed)throw Error('native_rank_table');
+ return 'addon-native-v2:'+JSON.stringify({version:2,guild,realm,rankProfile:null,rankSchemeDigest:null,rankNames:observed.names});
+}
 export function directiveMemberRanks(members:readonly {rank?:unknown;rankIndex?:unknown}[],table:unknown):boolean{
  const observed=directiveRankTable(table);return !!observed&&members.every(row=>typeof row.rankIndex==='number'&&Number.isInteger(row.rankIndex)&&row.rankIndex>=0&&row.rankIndex<10&&row.rank===observed.names[row.rankIndex]);
 }

@@ -25,6 +25,7 @@ import type {OriginalConsumedMembership230} from './ingest';
 import {captureNativeRankConfig232,historicalNativeRankPolicy232,nativeRankProducerHeld232,NATIVE_RANK_PROFILE232,NATIVE_RANK_NAMES232,NATIVE_SCOPE232,SHARED_MEMBER232,NATIVE_STAFF232} from './native-rank-reconciliation232';
 import type {RoutineMembership232} from './routine-membership-authority232';
 import {captureCanonicalRankConfig233,captureCanonicalEntitlements233,highestCanonicalRank233,canonicalNativeRole233,currentOriginalCanonicalPolicy233,currentDirectiveCanonicalPolicy233,canonicalProducerHeld233,CANONICAL_PROFILE233,CANONICAL_RANKS233,CANONICAL_MANAGED_ROLE_IDS233,LEGACY_RANK_ROLE_IDS233,NATIVE_CANONICAL_INDEX233,CANONICAL_GUILD233} from './canonical-ranks233';
+import {nativeRankSchemeForCanonical,nativeRankSchemeFromSource,nativeRankPrecedenceSql} from './native-rank-schemes';
 import {DIRECTIVE_CANONICAL_PROFILE,STEWARD_CANONICAL_PROFILE,NATIVE_RANK_SCHEMES,type NativeRankScheme} from './native-rank-constants';
 import {canonicalRankSnapshotSql280,canonicalRankWitnessMatches280} from './canonical-native-authority280';
 import {captureCanonicalMigration233,canonicalMigrationProducerHeld233,CANONICAL_MIGRATION_PROFILE233,CANONICAL_MIGRATION_ROLE_IDS233} from './canonical-migration233';
@@ -1669,7 +1670,12 @@ export async function queueAndSettleLaunchMembership230(env:Env,cap:OriginalCons
    // The new whisper proves this identity only. A higher current linked alt is
    // resolved by the full original routine issuer, never downgraded here.
    sourceIdentityGuard=`${canonicalRankSnapshotSql280(canonical.policy,'?7',NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm,f.source.provenance)} AND EXISTS(SELECT 1 FROM roster_members cr WHERE cr.snapshot_id=?7 AND cr.guid=?8 AND cr.rank_index=${nativeRank} AND cr.rank='${nativeName.replace(/'/g,"''")}')`;
-   sourceRankGuard=`${sourceIdentityGuard} AND NOT EXISTS(SELECT 1 FROM characters cc JOIN roster_members cr ON cr.guid=cc.guid AND cr.name_key=cc.name_key WHERE cc.discord_id=?2 AND cc.status='member' AND cr.snapshot_id=?7 AND cr.rank_index<${nativeRank})`;
+   // Only an active matching Directive policy uses canonical precedence. V1
+   // retains its original ordinal/unknown-name behavior and receipt vocabulary.
+   const orderScheme=currentDirectiveCanonicalPolicy233(canonical.policy)?nativeRankSchemeForCanonical(canonical.policy.profile):null;
+   if(orderScheme&&nativeRankSchemeFromSource(f.source.provenance)!==orderScheme)return result('held','canonical233_native_profile_held');
+   const higher=orderScheme?`${nativeRankPrecedenceSql(orderScheme,'cr.rank_index')}<${nativeRankPrecedenceSql(orderScheme,String(nativeRank))}`:`cr.rank_index<${nativeRank}`;
+   sourceRankGuard=`${sourceIdentityGuard} AND NOT EXISTS(SELECT 1 FROM characters cc JOIN roster_members cr ON cr.guid=cc.guid AND cr.name_key=cc.name_key WHERE cc.discord_id=?2 AND cc.status='member' AND cr.snapshot_id=?7 AND ${higher})`;
   }
   const grantPurpose=canonical.present?'canonical_consumed233':LAUNCH_MEMBERSHIP230_PURPOSES.grant,profile=canonical.present?canonical.policy!.profile:'prime-native-230',roleAdmission=canonical.present?canonical233RoleOnly:launch230RoleOnly;
   let queueCheck=()=>{},claimCheck=()=>{};
@@ -2217,7 +2223,7 @@ async function settleRoutineTarget232(env:Env,cap:RoutineMembership232,venue:Run
   const finalAdmission280=effectTuple280([...ownedClauses,"state='dispatching'",`expires_at>${DB_NOW}`]);
   const final=async()=>{allCheck();restrictionCheck();const r=await env.DB.prepare(`${finalAdmission280.facts}SELECT 1 FROM role_settlements WHERE ${finalAdmission280.where}`).bind(...ownedValues).first();allCheck();restrictionCheck();return !!r;};
   const path280=`/guilds/${v.guildId}/members/${f.subject}/roles/${role}`;
-  const beforeDispatch280=()=>{allCheck();restrictionCheck();if(now()>=f.deadline)throw Error('native232_expired');started=true;};
+  const beforeDispatch280=()=>{allCheck();restrictionCheck();if(now()>=I.routineMembership232EffectDeadline(env,cap))throw Error('native232_expired');started=true;};
   try{await request(env,b,desired===1?'PUT':'DELETE',path280,final,beforeDispatch280,admission);acknowledged=true;}
   catch(error){
    if(canonical233&&desired===0&&started){try{
