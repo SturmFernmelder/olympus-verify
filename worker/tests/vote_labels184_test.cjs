@@ -106,14 +106,18 @@ Object.defineProperty(Element.prototype, 'value', { ...value184, set(value) {
   const rows184 = page => JSON.stringify((panelOf184(page)?.querySelectorAll('dd') || []).map(dd => [dd.getAttribute('data-council-holder'), dd.textContent, dd.querySelector('[data-appointment-label]')?.getAttribute('data-appointment-label') || null]));
   const expected184 = holders => JSON.stringify(register184.map(([key]) => [key, ...(holders[key] || [none184, null])]));
   const note184 = page => page.app.querySelector('.board-role-content .notice-box');
-  const openHolders184 = async (appointed, hash, answer) => {
+  // No fixed pause: the page is ready when the Worker has answered its identity read (the answer hook runs after the
+  // Worker and before the page sees the reply), or when the page holds no appointment label to read, or when the state
+  // the caller names is reached.
+  const identitiesSettled184 = (page, answered) => answered.length > 0 || !page.app.querySelector('[data-appointment-label]') && !page.app.querySelector('[data-appointment-title]');
+  const openHolders184 = async (appointed, hash, { answer = null, settled = identitiesSettled184, what = hash + ' identity read answered, or no appointment label to read', boot = null } = {}) => {
     await fixtureRun("UPDATE site_settings SET value=? WHERE key='appointed'", JSON.stringify(appointed));
-    const page = await openPage(MEMBER), reads = [];
+    const page = await openPage(MEMBER, {}, boot ? { bootTransform: boot } : {}), reads = [], answered = [];
     page.before(pathname => { reads.push(pathname); return false; });
-    if (answer) page.answer(answer);
+    page.answer((pathname, init) => { if (pathname.startsWith('/api/appointed-identities')) answered.push(pathname); return answer ? answer(pathname, init) : null; });
     await page.go(hash);
-    await waitFor(() => page.app.querySelector('.board-summary-status')?.textContent === '' && !!panelOf184(page), hash + ' summary and holders panel');
-    await new Promise(resolve => setTimeout(resolve, 250));
+    await waitFor(() => page.app.querySelector('.board-summary-status')?.textContent === '' && !!panelOf184(page), hash + ' summary and holders panel', 15000);
+    await waitFor(() => settled(page, answered), what, 15000);
     return { page, reads };
   };
 
@@ -136,10 +140,92 @@ Object.defineProperty(Element.prototype, 'value', { ...value184, set(value) {
     && !option184(ranks184.page, 'co_gm')?.textContent.endsWith('(appointed)') && !option184(ranks184.page, 'treasurer')?.textContent.endsWith('(appointed)') && !marker184(ranks184.page, 'co_gm', 'appointed') && !marker184(ranks184.page, 'treasurer', 'appointed'), rows184(ranks184.page));
 
   // The page's existing projection reader names an account holder by the stored key; this reply has the contract's shape.
-  const projected184 = await openHolders184({ co_gm: '<@' + OTHER + '>' }, '#/vote/officer', pathname => pathname.startsWith('/api/appointed-identities')
-    ? { scope: 'qualified_community_readers', identities: [{ role: 'co_gm', appointment: '<@' + OTHER + '>', displayName: 'Projected Hand', username: 'projected_hand', characters: [] }], revision: 'A'.repeat(43), nextCursor: null, complete: true } : null);
+  const projected184 = await openHolders184({ co_gm: '<@' + OTHER + '>' }, '#/vote/officer', { answer: pathname => pathname.startsWith('/api/appointed-identities')
+    ? { scope: 'qualified_community_readers', identities: [{ role: 'co_gm', appointment: '<@' + OTHER + '>', displayName: 'Projected Hand', username: 'projected_hand', characters: [] }], revision: 'A'.repeat(43), nextCursor: null, complete: true } : null,
+    settled: (page, answered) => answered.includes('/api/appointed-identities?role=co_gm') && page.app.querySelector('[data-council-holder="office_19"]')?.textContent === 'Appointed: Projected Hand (projected_hand).',
+    what: 'the co_gm identity stub answered and the office_19 portfolio label set to its name' });
   check('h3 the identity reader asks for the stored key co_gm and its name fills the office_19 portfolio only', shape184(projected184.page) && projected184.reads.includes('/api/appointed-identities?role=co_gm')
     && rows184(projected184.page) === expected184({ office_19: ['Appointed: Projected Hand (projected_hand).', 'co_gm'] }), rows184(projected184.page), JSON.stringify(projected184.reads));
+
+  // Unit h3, lead's decisions after the review. The fallback row is one muted span.
+  const fallbacks184 = (panelOf184(seeded184.page)?.querySelectorAll('dd') || []).filter(dd => !dd.querySelector('[data-appointment-label]'));
+  check('h3 each portfolio without a record holds one muted span with the fallback text', fallbacks184.length === 11 && fallbacks184.every(dd => dd.children.length === 1 && dd.children[0].tagName === 'SPAN' && dd.children[0].getAttribute('class') === 'muted' && dd.textContent === none184));
+
+  // The panel applies the Roles catalogue's guard (officeAssignmentPanel): a stored holder text longer than 40 characters,
+  // with a control character or an angle bracket, or of 17 to 20 digits shows "Name withheld". The Worker already cleans
+  // the first two on save and on read, so they reach the page here only through the test's boot hook (an old or malformed
+  // value); the other two come through the Worker.
+  const withheld184 = 'Appointed: Name withheld.';
+  const odd184 = { office_58: 'A'.repeat(41), office_98: 'B'.repeat(40), office_59: 'Tab\there', office_96: 'Holder <b>', office_97: '123456789012345678', office_99: '1234567890123456' };
+  const guarded184 = await openHolders184({}, '#/vote/officer', { boot: boot => { boot.settings.appointed = { ...odd184 }; } });
+  const holderRow184 = (page, keys) => JSON.stringify(keys.map(key => { const dd = page.app.querySelector('[data-council-holder="' + key + '"]'); return [dd?.textContent, dd?.querySelector('[data-appointment-label]')?.getAttribute('data-appointment-label') || null]; }));
+  check('h3 a recorded holder text longer than 40 characters shows "Name withheld" in the panel; one of 40 shows as recorded', holderRow184(guarded184.page, ['office_58', 'office_98']) === JSON.stringify([[withheld184, 'office_58'], ['Appointed: ' + 'B'.repeat(40) + '.', 'office_98']]), holderRow184(guarded184.page, ['office_58', 'office_98']));
+  check('h3 a recorded holder text with a control character or an angle bracket shows "Name withheld" in the panel', holderRow184(guarded184.page, ['office_59', 'office_96']) === JSON.stringify([[withheld184, 'office_59'], [withheld184, 'office_96']]), holderRow184(guarded184.page, ['office_59', 'office_96']));
+  check('h3 a recorded holder text of 17 to 20 digits shows "Name withheld" in the panel; one of 16 digits shows as recorded', holderRow184(guarded184.page, ['office_97', 'office_99']) === JSON.stringify([[withheld184, 'office_97'], ['Appointed: 1234567890123456.', 'office_99']]), holderRow184(guarded184.page, ['office_97', 'office_99']));
+  check('h3 with those records every other portfolio shows the fallback, and the office_58 and office_59 ballot rows keep the recorded text', rows184(guarded184.page) === expected184({ office_58: [withheld184, 'office_58'], office_98: ['Appointed: ' + 'B'.repeat(40) + '.', 'office_98'], office_59: [withheld184, 'office_59'], office_96: [withheld184, 'office_96'], office_97: [withheld184, 'office_97'], office_99: ['Appointed: 1234567890123456.', 'office_99'] })
+    && option184(guarded184.page, 'office_58')?.textContent === label184(guarded184.page, 'office_58') + ' (appointed)' && guarded184.page.app.querySelector('.role-item[href="#/vote/office_58"] .n')?.getAttribute('title') === 'Appointed: ' + odd184.office_58 && guarded184.page.app.querySelector('.role-item[href="#/vote/office_59"] .n')?.getAttribute('title') === 'Appointed: ' + odd184.office_59, rows184(guarded184.page));
+
+  // The panel belongs to the board's shell, which the route rebuilds when settings.appointed changes (settingsKey). Here the
+  // mounted page learns of a new record from the Worker's refusal of the office_14 board as appointed.
+  const kept184 = await openHolders184({}, '#/vote/officer'), keptPanel184 = panelOf184(kept184.page), keptRows184 = rows184(kept184.page);
+  await fixtureRun("UPDATE site_settings SET value=? WHERE key='appointed'", JSON.stringify({ office_14: 'Later Chancellor' }));
+  await kept184.page.go('#/vote/office_14');
+  await waitFor(() => kept184.page.app.querySelector('[data-council-holder="office_14"]')?.textContent === 'Appointed: Later Chancellor.', 'the Worker refused the office_14 board as appointed and the mounted page rebuilt its portfolio panel', 15000);
+  check('h3 when the appointed map changes while #/vote stays mounted, the board shell and its portfolio panel are rebuilt with the new record', keptRows184 === expected184({}) && !!keptPanel184 && panelOf184(kept184.page) !== keptPanel184
+    && rows184(kept184.page) === expected184({ office_14: ['Appointed: Later Chancellor.', 'office_14'] }) && option184(kept184.page, 'office_14')?.textContent === label184(kept184.page, 'office_14') + ' (appointed)' && !!marker184(kept184.page, 'office_14', 'appointed')
+    && kept184.reads.some(pathname => pathname.startsWith('/api/board/office_14')), rows184(kept184.page));
+
+  // Nothing else on the vote page changes. The panel is taken out of main and the rest is compared with anchors: the board
+  // introduction, the role list, the role picker, the selected board's frame and the Royal Writs panel. The order of the
+  // ballots and the introduction are literal, taken from the base page (a4d35f0f) as this fixture rendered it; labels come
+  // from the boot's ballots and Royal Writs, the appointed rows from the stored map. Anchors rather than a render of the base
+  // script, so that the check needs no git history and stays true when app.js changes outside #/vote.
+  const intro184 = "Leadership applications boardChoose a role, read its retained applications and record a view for or against a candidate. Leadership seats are filled by appointment; these views inform the leadership review.Leader, High Council and Officer Corps seats are reserved appointments. You cannot apply for them, including when no holder is listed.Search the Roles directory · Open application tracksHow the board worksLeadership applicants are on this board under each voted role they chose, first choice or backup, with their answers. Vote for the people you want in a role and against the ones you do not; click again to take a vote back. You can change your mind until voting closes.Roles marked with the crown  are chosen by the guild's leadership without a public vote: they have no board and no write-ins.Your votes are private. Nobody sees how anyone voted or how many votes anyone has, except the guild's leadership. Every voter sees the applicants in a different order, so nobody is first for everyone.";
+  const groups184 = [['Sovereign & High Council', ['guild_master', 'co_gm', 'treasurer', 'office_14', 'office_58', 'office_59', 'office_28', 'office_45', 'office_57', 'office_26', 'office_67', 'office_94']],
+    ['Officer Corps & Branch Command', ['officer', 'office_01', 'office_03', 'office_02', 'office_09', 'office_10', 'office_72', 'office_37', 'office_65', 'office_34', 'office_35', 'office_36', 'office_38', 'office_15', 'office_22', 'community', 'office_39', 'office_40', 'office_29', 'liaison', 'office_06', 'office_20', 'office_30', 'office_31', 'office_32', 'office_08', 'office_49', 'leveling', 'office_50', 'office_53', 'office_54', 'moderator', 'office_60', 'office_44', 'office_77', 'recruitment', 'office_78', 'office_82', 'office_83', 'office_88', 'office_95', 'office_63']],
+    ['Raid, PvP & Class Leadership', ['office_16', 'office_17', 'class_lead:druid', 'class_lead:hunter', 'class_lead:mage', 'class_lead:paladin', 'class_lead:priest', 'class_lead:rogue', 'class_lead:shaman', 'class_lead:warlock', 'class_lead:warrior', 'raid_leader_na', 'raid_leader_eu', 'loot_council', 'office_52', 'raid_assist_na', 'raid_assist_eu', 'pvp_leader', 'office_70']],
+    ['Guild Workshop & Master Artisans', ['professions']]];
+  const portfolioPanel184 = el => el.tagName === 'SECTION' && el.querySelector('.plaque')?.textContent === 'High Council portfolios';
+  const restActual184 = page => {
+    const kids = (page.app.querySelector('main')?.children || []).filter(el => !portfolioPanel184(el)), nav = kids[1]?.children[0], content = kids[1]?.children[1], writs = kids[2] || null, pick = content?.querySelector('.role-pick');
+    return JSON.stringify({ kids: kids.map(el => [el.tagName, el.getAttribute('class')]), intro: kids[0]?.textContent,
+      nav: (nav?.children || []).map(el => el.tagName !== 'A' ? [el.tagName, el.getAttribute('class'), el.textContent] : [el.getAttribute('href'), el.getAttribute('class'), el.getAttribute('aria-current'), el.textContent, el.querySelector('.n')?.getAttribute('class'),
+        el.classList.contains('appointed') || el.classList.contains('novote') ? el.querySelector('.n')?.getAttribute('title') : null, (el.querySelector('.n')?.querySelectorAll('img') || []).map(img => img.getAttribute('alt'))]),
+      contentKids: (content?.children || []).map(el => [el.tagName, el.getAttribute('class')]), pick: (pick?.children || []).map(group => [group.getAttribute('label'), group.children.map(option => [option.getAttribute('value'), option.textContent])]),
+      plaque: content?.children[1]?.querySelector('.plaque')?.textContent,
+      writs: writs && [writs.tagName, writs.getAttribute('class'), writs.getAttribute('data-royal-writ-page'), writs.querySelector('summary')?.textContent, writs.querySelectorAll('[data-writ-key]').map(card => card.getAttribute('data-writ-key'))] });
+  };
+  const restExpected184 = (page, holders, writs) => {
+    const ballot = key => page.boot.meta.ballots.find(row => row.key === key), royal = page.boot.meta.royalWrits || [];
+    const state = key => holders[key] ? 'appointed' : key === 'pvp_leader' ? 'novote' : 'open';
+    return JSON.stringify({ kids: [['SECTION', 'frame'], ['DIV', 'board-layout'], ...(writs ? [['SECTION', 'royal-writs199']] : [])], intro: intro184,
+      nav: [['P', 'role-list-hint small muted', 'Scroll this list for every role.'], ...groups184.flatMap(([label, keys]) => [['DIV', 'group-label', label], ...keys.map(key => ['#/vote/' + encodeURIComponent(key), 'role-item' + (state(key) === 'open' ? '' : ' ' + state(key)), key === 'officer' ? 'page' : null,
+        (ballot(key).group === 'class' ? ballot(key).label.replace(' Class Lead', '') : ballot(key).label) + (state(key) !== 'open' ? '' : key === 'officer' ? '0/1' : '—'), 'n',
+        state(key) === 'appointed' ? 'Appointed: ' + holders[key] : state(key) === 'novote' ? 'No public vote: the leadership chooses' : null, state(key) === 'appointed' ? ['appointed'] : state(key) === 'novote' ? ['no public vote'] : []])])],
+      contentKids: [['SELECT', 'role-pick'], ['SECTION', 'frame'], ['SECTION', 'frame']],
+      pick: groups184.map(([label, keys]) => [label, keys.map(key => [key, ballot(key).label + (state(key) === 'appointed' ? ' (appointed)' : state(key) === 'novote' ? ' (no public vote)' : key === 'officer' ? ' (1)' : ' (0)')])]),
+      plaque: ' ' + ballot('officer').label + '1 applicant',
+      writs: writs ? ['SECTION', 'royal-writs199', 'vote', 'Schedule of Royal Writs, Indulgences & Guild Services', [...royal.filter(row => !row.activation), ...royal.filter(row => row.activation)].map(row => row.key)] : null });
+  };
+  // The ballot rows each map closes: the seeded and typed records are as before; office_19 alone now closes co_gm (the pair).
+  const maps184 = [['seeded', { co_gm: 'Example Co-GM', treasurer: 'Example Treasurer' }, { co_gm: 'Example Co-GM', treasurer: 'Example Treasurer' }], ['empty', {}, {}],
+    ['typed', { office_101: 'Recorded Justiciar', office_86: 'Exchequer record', office_96: '<@' + OTHER + '>' }, { treasurer: 'Exchequer record' }], ['office_19-only', { office_19: 'Recorded Hand' }, { co_gm: 'Recorded Hand' }]];
+  for (const writs184 of [false, true]) {
+    if (writs184) await fixtureRun("INSERT INTO site_settings(key,value,updated_at) VALUES('royalWritsOn','1',?) ON CONFLICT(key) DO UPDATE SET value='1'", now);
+    const placed184 = [];
+    for (const [name184, appointed184x, ballots184] of maps184) {
+      await fixtureRun("UPDATE site_settings SET value=? WHERE key='appointed'", JSON.stringify(appointed184x));
+      const page = await openPage(MEMBER);
+      await page.go('#/vote/officer');
+      await waitFor(() => page.app.querySelector('.board-summary-status')?.textContent === '' && page.app.querySelector('.board-results')?.getAttribute('aria-busy') === 'false', name184 + ' map, Royal Writs ' + (writs184 ? 'on' : 'off') + ': summary and officer board delivered', 15000);
+      check('h3 apart from the panel, #/vote/officer with the ' + name184 + ' appointment map and Royal Writs ' + (writs184 ? 'on' : 'off') + ' shows the board introduction, role list, role picker, board frame' + (writs184 ? ' and Royal Writs panel' : '') + ' as before',
+        restActual184(page) === restExpected184(page, ballots184, writs184) && (!writs184 || (page.boot.meta.royalWrits || []).length > 0), restActual184(page));
+      const kids = page.app.querySelector('main')?.children || [];
+      placed184.push(kids.length === (writs184 ? 4 : 3) && kids[0].querySelector('.plaque')?.textContent === 'Leadership applications board' && kids[1].classList.contains('board-layout') && portfolioPanel184(kids[2]) && (!writs184 || kids[3].classList.contains('royal-writs199')));
+    }
+    check(writs184 ? 'h3 with Royal Writs on, the portfolio panel stands after the board layout and before the Royal Writs panel, for all four maps' : 'h3 with Royal Writs off, main holds the board introduction, the board layout and the portfolio panel in this order, for all four maps', placed184.length === 4 && placed184.every(Boolean), JSON.stringify(placed184));
+  }
+  await fixtureRun("DELETE FROM site_settings WHERE key='royalWritsOn'");
   console.log('\n' + ok + '/' + n + ' vote labels184 checks passed'); process.exit(ok === n ? 0 : 1);
 })().catch(error => { console.error(error); process.exit(1); });
 `;
