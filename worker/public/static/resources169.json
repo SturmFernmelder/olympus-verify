@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "checkedAt": "2026-10-19T00:26:49Z",
+  "checkedAt": "2026-11-15T23:42:22Z",
   "disclaimer": "A curated selection reviewed on the date shown, not a complete directory or a guarantee of in-game compatibility. Publisher dates and advertised scope are separate from that review; beta routes and game data can change. Links open the original publisher; no guide packages or addon files are redistributed here.",
   "viewNotes": {
     "addons": "This is not every addon. Choose the author's Forever file for your actual client and check its dependencies before installing. The combat log is reported closed to addons on Forever, so features built on it, such as Classic-style threat meters, Spy-style enemy detection and cast-bar or aura triggers, behave differently, and Olympus made no install, FPS or memory measurements.",
@@ -13,8 +13,8 @@
       "category": "Questing",
       "rationale": "Quest objectives, map markers and quest tracking.",
       "status": "Author lists Forever support",
-      "version": "12.3.1 + QuestieDB 1.0.9",
-      "releasedAt": "2026-10-26",
+      "version": "v12.9.0",
+      "releasedAt": "2026-11-14",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/questie",
       "sourceKind": "Author project page",
@@ -29,12 +29,13 @@
       "category": "Conveniences",
       "rationale": "Optional looting, vendor, quest and interface conveniences.",
       "status": "Author lists Forever file",
-      "version": "1.60.25-forever",
-      "releasedAt": "2026-10-21",
+      "version": "1.60.30-forever",
+      "releasedAt": "2026-11-11",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/leatrix-plus",
       "sourceKind": "Author project page",
       "limitations": [
+        "Acts for you: only the options you turn on act, and the author says nothing is on until you choose it. They can pick up and hand in quests, accept summons and resurrections, release your spirit in PvP, sell junk and repair at vendors, accept party invites from friends and invite players who whisper you a keyword.",
         "Choose the Forever file; some options differ between game versions.",
         "Enable only the modules you want; features can overlap other addons."
       ]
@@ -45,8 +46,8 @@
       "category": "Maps",
       "rationale": "Optional world-map scaling, positioning and map conveniences.",
       "status": "Author lists Forever file",
-      "version": "1.60.25-forever",
-      "releasedAt": "2026-10-21",
+      "version": "1.60.31-forever",
+      "releasedAt": "2026-11-12",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/leatrix-maps",
       "sourceKind": "Author project page",
@@ -60,8 +61,8 @@
       "category": "Economy",
       "rationale": "Auction-house pricing, buying and posting tools.",
       "status": "Author lists Forever file",
-      "version": "12.1.5",
-      "releasedAt": "2026-10-13",
+      "version": "347",
+      "releasedAt": "2026-11-14",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/auctionator",
       "sourceKind": "Author project page",
@@ -76,8 +77,8 @@
       "category": "Bags",
       "rationale": "A combined inventory window and bag searching.",
       "status": "Author lists Forever file",
-      "version": "12.1.7",
-      "releasedAt": "2026-10-15",
+      "version": "12.1.10",
+      "releasedAt": "2026-11-14",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/bagnon",
       "sourceKind": "Author project page",
@@ -91,8 +92,8 @@
       "category": "Bags",
       "rationale": "Categorized or single-view inventory management.",
       "status": "Author lists Forever file",
-      "version": "12.1.5",
-      "releasedAt": "2026-10-28",
+      "version": "860",
+      "releasedAt": "2026-11-15",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/baganator",
       "sourceKind": "Author project page",
@@ -107,8 +108,8 @@
       "category": "Maps",
       "rationale": "Coordinate waypoints and navigation assistance.",
       "status": "Author lists Forever file",
-      "version": "4.3.12-release",
-      "releasedAt": "2026-10-06",
+      "version": "v4.4.1-release",
+      "releasedAt": "2026-11-07",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/tomtom",
       "sourceKind": "Author project page",
@@ -122,8 +123,8 @@
       "category": "Combat",
       "rationale": "Combat analysis for damage, healing and encounters.",
       "status": "Author lists Forever file",
-      "version": "Details.20261015.15339.172",
-      "releasedAt": "2026-10-16",
+      "version": "Details.20261109.15410.172",
+      "releasedAt": "2026-11-09",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/details",
       "sourceKind": "Author project page",
@@ -137,8 +138,8 @@
       "category": "Combat",
       "rationale": "Threat bars for your group on the current target.",
       "status": "Author lists Forever file",
-      "version": "2.75-forever",
-      "releasedAt": "2026-10-10",
+      "version": "2.77-forever",
+      "releasedAt": "2026-11-07",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/threatclassic2",
       "sourceKind": "Author project page",
@@ -154,13 +155,13 @@
       "category": "Combat",
       "rationale": "Spots group members with removable harmful effects and cleanses them from prioritized frames.",
       "status": "Author lists Forever release candidate",
-      "version": "2.9.0-RC3-forever",
-      "releasedAt": "2026-10-04",
+      "version": "2.9.0-RC4-forever",
+      "releasedAt": "2026-11-04",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/decursive",
       "sourceKind": "Author project page",
       "limitations": [
-        "The Forever file is a release candidate, not a final release.",
+        "The Forever file is a release candidate (RC4), not a final release.",
         "The author does not say how Forever's restricted (secret) auras affect dispel detection."
       ]
     },
@@ -170,8 +171,8 @@
       "category": "Raid frames",
       "rationale": "Party and raid frames built from configurable indicators.",
       "status": "Author lists Forever file",
-      "version": "4.1.9-forever",
-      "releasedAt": "2026-10-21",
+      "version": "4.1.12-forever",
+      "releasedAt": "2026-11-14",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/grid2",
       "sourceKind": "Author project page",
@@ -186,7 +187,7 @@
       "category": "Cooldowns",
       "rationale": "Customizable cooldown text; OmniCC's page points modern clients to it.",
       "status": "Author lists Forever file",
-      "version": "12.1.4",
+      "version": "v12.1.4",
       "releasedAt": "2026-10-11",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/tullactc",
@@ -197,47 +198,47 @@
     },
     {
       "id": "dbm",
-      "name": "Deadly Boss Mods Core",
+      "name": "DBM - Deadly Boss Mods (DBM-Core)",
       "category": "Encounters",
       "rationale": "Encounter warnings and boss-mod framework.",
       "status": "Author lists Forever file",
-      "version": "12.1.18",
-      "releasedAt": "2026-10-26",
+      "version": "12.1.23",
+      "releasedAt": "2026-11-13",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/deadly-boss-mods",
       "sourceKind": "Author project page",
       "limitations": [
         "A compatible core does not establish complete new-Forever encounter modules.",
-        "For Vanilla raids, add the separate DBM - SoD and Vanilla pack.",
+        "For Vanilla and Forever raids, add the separate DBM - Forever and Vanilla pack.",
         "Choose an encounter suite that covers the content you actually play."
       ]
     },
     {
       "id": "dbm-vanilla",
-      "name": "DBM - SoD and Vanilla",
+      "name": "DBM - Forever and Vanilla",
       "category": "Encounters",
-      "rationale": "Vanilla and Season of Discovery raid modules for Deadly Boss Mods.",
+      "rationale": "Vanilla, Season of Discovery and Forever raid modules for Deadly Boss Mods.",
       "status": "Author lists Forever file",
-      "version": "r834",
-      "releasedAt": "2026-10-26",
+      "version": "DBM-Vanilla_SoD-r835",
+      "releasedAt": "2026-11-03",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/dbm-vanilla",
       "sourceKind": "Author project page",
       "limitations": [
         "Requires Deadly Boss Mods Core.",
-        "No modules for Forever's new raids (Barrow Deeps, Hyjal Summit) were found on the 30 October 2026 review. Raid unlock date: 9 December 2026."
+        "The author says it has boss modules for all Forever raids but does not name them; Olympus has not checked them in game."
       ]
     },
     {
       "id": "bigwigs",
-      "name": "BigWigs",
+      "name": "BigWigs (Boss Timers & Tools)",
       "category": "Encounters",
       "rationale": "An alternative encounter warning and timer suite.",
       "status": "Author lists Forever file",
-      "version": "427.8",
-      "releasedAt": "2026-10-23",
+      "version": "v427.9",
+      "releasedAt": "2026-11-08",
       "gameBuild": "Forever 1.60.1",
-      "url": "https://www.curseforge.com/wow/addons/big-wigs",
+      "url": "https://www.curseforge.com/wow/addons/bigwigs",
       "sourceKind": "Author project page",
       "limitations": [
         "On Forever its loader uses the BigWigs_Classic pack, whose modules cover only Molten Core, Blackwing Lair and the Ahn'Qiraj raids; no Onyxia or Forever-raid modules were found.",
@@ -246,18 +247,19 @@
     },
     {
       "id": "restedxp",
-      "name": "RestedXP Guides",
+      "name": "RestedXP Guide",
       "category": "Leveling routes",
       "rationale": "Step-by-step leveling routes and developing dungeon routing.",
       "status": "Released addon; guide-package coverage varies",
-      "version": "4.11.26",
-      "releasedAt": "2026-10-17",
+      "version": "v4.11.36",
+      "releasedAt": "2026-11-11",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/restedxp-guide",
       "sourceKind": "Author project page",
       "limitations": [
+        "Acts for you: the author lists automatic quest accept and turn-in and other automation options; the page does not say which are on by default.",
         "The addon is free; expanded guide packages are paid.",
-        "The publisher reported levels 1–35 complete on October 9; testing above the beta cap remains limited.",
+        "The publisher reported levels 1–35 complete on October 9, before launch. The routes the addon page says come with it are for MoP (1–25), Vanilla (1–20) and Retail (1–10); it names no Forever route.",
         "Check the publisher's current package contents and price; full 1–60 coverage is not assured."
       ]
     },
@@ -267,8 +269,8 @@
       "category": "Leveling routes",
       "rationale": "Free route-following addon and a separate guide module.",
       "status": "Author lists Forever guide file",
-      "version": "Guidelime 6.008; TUGs Forever file",
-      "releasedAt": "2026-10-18",
+      "version": "TUGs: GuideLime_TUGs_Forever.zip; Guidelime: v6.021 (2026-11-11)",
+      "releasedAt": "2026-11-15",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/guidelime_tugs",
       "sourceKind": "Guide author's project page",
@@ -299,9 +301,9 @@
       "category": "Forever discoveries",
       "rationale": "Highlights quests absent from its original-Classic baseline.",
       "status": "Forever-focused release",
-      "version": "0.6.2",
-      "releasedAt": "2026-10-18",
-      "gameBuild": "Forever 1.60.1 / interface 16001",
+      "version": "ForeverQuestTint-0.7.4.zip",
+      "releasedAt": "2026-11-15",
+      "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/forever-quest-tint",
       "sourceKind": "Author project page",
       "limitations": [
@@ -315,13 +317,13 @@
       "category": "Forever discoveries",
       "rationale": "Highlights new or changed quests, items and spells against Classic.",
       "status": "Forever-focused release",
-      "version": "1.0.2",
+      "version": "ForeverChanges-1.0.2.zip",
       "releasedAt": "2026-10-15",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/foreverchanges",
       "sourceKind": "Author project page",
       "limitations": [
-        "Baseline comparisons can be corrected as beta data changes.",
+        "Baseline comparisons can be corrected as game data changes.",
         "Avoid enabling overlapping quest tint effects unintentionally."
       ]
     },
@@ -331,8 +333,8 @@
       "category": "Forever discoveries",
       "rationale": "Long-term goals, step-by-step progress and cross-character tracking.",
       "status": "Forever-focused; also supports Classic Era",
-      "version": "2.15.2",
-      "releasedAt": "2026-10-18",
+      "version": "v2.18.2",
+      "releasedAt": "2026-11-15",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/forever-goal-tracker",
       "sourceKind": "Author project page",
@@ -346,8 +348,8 @@
       "category": "Forever discoveries",
       "rationale": "Quest map assistance built for Forever.",
       "status": "Forever-focused release",
-      "version": "0.2.22",
-      "releasedAt": "2026-10-18",
+      "version": "v1.0.7",
+      "releasedAt": "2026-11-15",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/forever-quest-pins",
       "sourceKind": "Author project page",
@@ -361,8 +363,8 @@
       "category": "Forever discoveries",
       "rationale": "Character and play statistics for Forever.",
       "status": "Forever-focused release",
-      "version": "0.2.54",
-      "releasedAt": "2026-10-12",
+      "version": "ForeverStatistics-0.2.55.zip",
+      "releasedAt": "2026-11-05",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/foreverstatistics",
       "sourceKind": "Author project page",
@@ -376,12 +378,13 @@
       "category": "Forever discoveries",
       "rationale": "Modular convenience suite with a shared settings interface.",
       "status": "Forever-focused release",
-      "version": "2.1.2",
-      "releasedAt": "2026-10-18",
+      "version": "ForeverForge_2.7.1.zip",
+      "releasedAt": "2026-11-14",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/foreverforge",
       "sourceKind": "Author project page",
       "limitations": [
+        "Acts for you: its Auto Quest accepts and turns in quests at quest givers and can pick a quest reward for you; the author says it is off until you turn it on. Its other automations loot at once, skip gossip, and sell grey items, repair and restock supplies at vendors; the page does not say which of these are on by default. It can also post a chat line when a guild or group member has a newer version, if you choose.",
         "Modules overlap bag, auction, quest and interface addons; select features deliberately."
       ]
     },
@@ -391,13 +394,13 @@
       "category": "Forever discoveries",
       "rationale": "Unit and raid-frame interface for Forever.",
       "status": "Forever-focused release",
-      "version": "0.31.2",
-      "releasedAt": "2026-10-18",
+      "version": "Forever Unit Frames 0.60.1",
+      "releasedAt": "2026-11-15",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/forever-unit-frames",
       "sourceKind": "Author project page",
       "limitations": [
-        "Check compatibility with your other frame replacements and beta client."
+        "Check overlap with your other frame replacements."
       ]
     },
     {
@@ -406,8 +409,8 @@
       "category": "Forever discoveries",
       "rationale": "Luna-style unit frames rebuilt from scratch for Forever and Retail.",
       "status": "Author lists Forever and Retail support",
-      "version": "0.17.3",
-      "releasedAt": "2026-10-26",
+      "version": "LizzaricksUnitFrames-0.17.11.zip",
+      "releasedAt": "2026-11-12",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/lizzaricks-unit-frames",
       "sourceKind": "Author project page",
@@ -418,12 +421,12 @@
     },
     {
       "id": "foreverauras",
-      "name": "ForeverAuras",
+      "name": "ForeverAuras - A WeakAura Fork",
       "category": "Forever discoveries",
       "rationale": "An unofficial Forever-only fork of WeakAuras.",
       "status": "Author says it is still under development",
-      "version": "1.1.0",
-      "releasedAt": "2026-10-28",
+      "version": "1.4.3",
+      "releasedAt": "2026-11-15",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/foreverauras",
       "sourceKind": "Author project page",
@@ -438,12 +441,13 @@
       "category": "Forever discoveries",
       "rationale": "An unofficial port of WeakAuras 5.22.0 to the Forever client.",
       "status": "Unofficial Forever port",
-      "version": "1.14.0",
-      "releasedAt": "2026-10-22",
+      "version": "Musca Auras 1.18.1",
+      "releasedAt": "2026-11-15",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/musca-auras",
       "sourceKind": "Author project page",
       "limitations": [
+        "Acts for you: its optional Announcements pack tells your group about battle resurrections, soulstones and summons by itself; its other packs act only on your click.",
         "Combat-log triggers never fire, and in combat buffs update only through the modern Aura trigger.",
         "In combat, conditions change only appearance; other players' casts and enemy IDs in instances are hidden.",
         "Do not install it alongside another WeakAuras build, as the author warns."
@@ -455,14 +459,714 @@
       "category": "Forever discoveries",
       "rationale": "A Forever-only threat meter for your current target, with threat sharing between users.",
       "status": "Forever-focused release",
-      "version": "0.2.6",
-      "releasedAt": "2026-10-17",
+      "version": "v0.3.6",
+      "releasedAt": "2026-11-09",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/foreverthreat",
       "sourceKind": "Author project page",
       "limitations": [
-        "An early 0.2 release with a small user base.",
+        "An early 0.3 release with a small user base; the newer 0.3.7 files are betas.",
         "Keeps no combat history and skips restricted (secret) identity values, as the author notes."
+      ]
+    },
+    {
+      "id": "tradeskill-master",
+      "name": "TradeSkillMaster",
+      "category": "Economy",
+      "rationale": "Gold-making suite for auctioning, crafting queues, mailing, vendoring and bank moves.",
+      "status": "Author lists Forever file",
+      "version": "v4.15.7",
+      "releasedAt": "2026-11-13",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/tradeskill-master",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The page does not mention Forever or any limit there; it points to the TSM website for premium features."
+      ]
+    },
+    {
+      "id": "gathermate2",
+      "name": "GatherMate2",
+      "category": "Maps",
+      "rationale": "Records where you gathered herbs, ore, fish and treasures and shows the spots on the map and minimap.",
+      "status": "Author lists Forever file",
+      "version": "1.52.7",
+      "releasedAt": "2026-11-13",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/gathermate2",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The author notes that original-game node names differ between Retail and Forever.",
+        "Pre-filled nodes come from the optional GatherMate2_Data, which the page says now covers Forever."
+      ]
+    },
+    {
+      "id": "attune",
+      "name": "Attune",
+      "category": "Questing",
+      "rationale": "Shows attunement and dungeon pre-quest chains and which guild members are on each step.",
+      "status": "Author lists Forever file",
+      "version": "Attune-Forever-v16001-41",
+      "releasedAt": "2026-11-13",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/attune",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Guild progress comes only from members who also run it; it asks their copies only when you press its survey button.",
+        "The page does not list which Forever attunements are covered."
+      ]
+    },
+    {
+      "id": "spoken",
+      "name": "Spoken",
+      "category": "Questing",
+      "rationale": "Plays voiced quest text, NPC gossip, zone stories and books.",
+      "status": "Author lists Forever file",
+      "version": "3.9.0",
+      "releasedAt": "2026-11-14",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/spoken",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The page calls it AI voiceover with pre-recorded lines and does not say how the voices were made.",
+        "Without its voice packs, per module or the English bundle, it is silent; translated quest packs are only on GitHub.",
+        "While a line plays it lowers the game music, ambience and NPC voices."
+      ]
+    },
+    {
+      "id": "whats-training",
+      "name": "What's Training?",
+      "category": "Conveniences",
+      "rationale": "Lists the spells your trainer offers, with their cost, and on Forever the recipes and where they come from.",
+      "status": "Author lists Forever file",
+      "version": "11.4.8",
+      "releasedAt": "2026-11-15",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/whats-training",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The page states no limits; hiding ignored spells at the trainer needs the separate Class Trainer Plus."
+      ]
+    },
+    {
+      "id": "pawn",
+      "name": "Pawn",
+      "category": "Conveniences",
+      "rationale": "Scores gear with stat weights and marks upgrades in tooltips.",
+      "status": "Author lists Forever file",
+      "version": "2.14.3 (Forever)",
+      "releasedAt": "2026-11-13",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/pawn",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Its built-in weights come from Ask Mr. Robot and others; the page does not say they were made for Forever.",
+        "It picks the scale for your current spec but equips nothing."
+      ]
+    },
+    {
+      "id": "scrap",
+      "name": "Scrap (Junk Seller)",
+      "category": "Conveniences",
+      "rationale": "Sells the items you mark as junk, not only grey ones, and tags junk in your bags.",
+      "status": "Author lists Forever file",
+      "version": "12.1.9",
+      "releasedAt": "2026-11-12",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/scrap",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Acts for you: when you visit a merchant it sells your junk by itself, and it can also repair your equipment automatically; the page does not say whether repair is on by default.",
+        "A community compatibility list notes that Forever merchants already have a button to sell grey items and repair."
+      ]
+    },
+    {
+      "id": "prat",
+      "name": "Prat 3.0",
+      "category": "Conveniences",
+      "rationale": "Chat improvements in 30+ modules: filters, timestamps, history, copying and alerts.",
+      "status": "Author lists Forever file",
+      "version": "3.9.117",
+      "releasedAt": "2026-11-08",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/prat-3-0",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The author marks settings sync across your account and the spam filter as beta.",
+        "The page says nothing specific to Forever."
+      ]
+    },
+    {
+      "id": "lfg-group-bulletin-board",
+      "name": "LFG Group Bulletin Board",
+      "category": "Conveniences",
+      "rationale": "Collects dungeon group requests from the chat channels into one sorted, filtered window.",
+      "status": "Author lists Forever file",
+      "version": "v3.57",
+      "releasedAt": "2026-11-07",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/lfg-group-finder-bulletin-board",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "It recognises English, German, French and Russian requests, and entries drop after 150 seconds.",
+        "The maintainer says it updates an abandoned addon and may carry bugs.",
+        "Only on your command does it create an LFG chat tab and move the LFG channels there."
+      ]
+    },
+    {
+      "id": "layerswap",
+      "name": "Layer-Swap",
+      "category": "Conveniences",
+      "rationale": "Shows which layer you are on and lets you ask other users to move you to another layer, or host them.",
+      "status": "Author lists Forever file",
+      "version": "LayerSwap-1.14.25",
+      "releasedAt": "2026-11-15",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/layer",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Acts for you: hosting is on at every login. It then invites players who ask through the addon, whisper you or ask in your guild, at most six invites in ten minutes, and sets that group's loot to Free for All. A swap request of your own turns hosting on for that request and for four minutes after a swap that worked, then restores an earlier off setting. Your request goes out of sight to players on your zone map, and after a swap it leaves the host's group a few seconds later (Auto leave can be turned off), or by itself when the move failed.",
+        "It writes nothing in guild chat by itself; Ask your guild sends only on your click.",
+        "It reads your layer from nearby creatures, so it must see an NPC first, and only a host in your own zone can move you."
+      ]
+    },
+    {
+      "id": "nova-instance-tracker",
+      "name": "Nova Instance Tracker",
+      "category": "Conveniences",
+      "rationale": "Tracks instance lockouts, per-run statistics, gold trades and your alts' rested XP.",
+      "status": "Author lists Forever file",
+      "version": "v2.32",
+      "releasedAt": "2026-10-31",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/nova-instance-tracker",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Acts for you: it tells your group when you reset an instance and can post your dungeon statistics to group chat when you leave; the page says that statistics message can be turned on or off, not whether it is on by default.",
+        "Its hourly and daily lockout counts and its re-entry detection, which needs mobs nearby, are described without mention of Forever."
+      ]
+    },
+    {
+      "id": "altoholic",
+      "name": "Altoholic",
+      "category": "Conveniences",
+      "rationale": "Shows your characters' gold, bags, mail, professions and more in one window.",
+      "status": "Author lists Forever file",
+      "version": "v1.60.005",
+      "releasedAt": "2026-10-14",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/altoholic",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The author lists one current issue: sharing between accounts does not work.",
+        "Its data comes from the author's DataStore modules; the page says nothing specific to Forever."
+      ]
+    },
+    {
+      "id": "bugsack",
+      "name": "BugSack",
+      "category": "Conveniences",
+      "rationale": "Shows the Lua errors of your session with their stack, ready to copy into a bug report.",
+      "status": "Author lists Forever file",
+      "version": "v12.1.9",
+      "releasedAt": "2026-10-26",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/bugsack",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Requires BugGrabber, which captures the errors; BugGrabber's author says it should not be run alone."
+      ]
+    },
+    {
+      "id": "simulationcraft",
+      "name": "Simulationcraft",
+      "category": "Conveniences",
+      "rationale": "Exports your character as a text profile for the SimulationCraft simulator.",
+      "status": "Author lists Forever file",
+      "version": "12.1.5-04",
+      "releasedAt": "2026-11-05",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/simulationcraft",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The export needs the separate SimulationCraft program outside the game.",
+        "The page does not say whether the simulator supports Forever characters."
+      ]
+    },
+    {
+      "id": "handynotes",
+      "name": "HandyNotes",
+      "category": "Maps",
+      "rationale": "A framework for map notes that other authors extend with plugins.",
+      "status": "Author lists Forever file",
+      "version": "v1.6.32",
+      "releasedAt": "2026-11-03",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/handynotes",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "It does little by itself; the content comes from plugins."
+      ]
+    },
+    {
+      "id": "rarescanner",
+      "name": "RareScanner",
+      "category": "Maps",
+      "rationale": "Alerts you to nearby rare NPCs, treasures and events and marks them on the map.",
+      "status": "Author lists Forever file",
+      "version": "RareScanner_FOREVER_1.60.1.7",
+      "releasedAt": "2026-11-14",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/rarescanner",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Forever has no vignettes, so it relies on nameplates, which must be on, and on a scan macro you press yourself."
+      ]
+    },
+    {
+      "id": "openmap",
+      "name": "OpenMap",
+      "category": "Maps",
+      "rationale": "A seamless, zoomable world map in the original art style.",
+      "status": "Author lists Forever file",
+      "version": "v0.8.9",
+      "releasedAt": "2026-11-14",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/openmap",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The author says to turn off other world-map addons, naming Leatrix Maps, Mapster and Magnify.",
+        "Vendors, spirit healers and rares on its map need Questie; the download is 137.9 MB."
+      ]
+    },
+    {
+      "id": "atlas",
+      "name": "Atlas",
+      "category": "Maps",
+      "rationale": "An in-game browser for dungeon and raid maps.",
+      "status": "Author lists Forever file",
+      "version": "v1.54.07",
+      "releasedAt": "2026-11-11",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/atlas",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The core holds no maps; install a map module such as Atlas Kalimdor & Eastern Kingdoms from the same author."
+      ]
+    },
+    {
+      "id": "skillup-forever",
+      "name": "SkillUp Forever",
+      "category": "Economy",
+      "rationale": "Shows skill-up chances, recipe costs and colour thresholds in the Professions window, with leveling routes and shopping lists.",
+      "status": "Author lists Forever file",
+      "version": "v1.10.1-forever",
+      "releasedAt": "2026-11-14",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/skillup-forever",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Prices use the cheapest known vendor or Auctionator price, and unknown prices stay unknown.",
+        "Some trainer requirements are guessed until a trainer confirms them; the author says it was built with AI assistance.",
+        "It keeps an Auctionator shopping list up to date but does not buy for you."
+      ]
+    },
+    {
+      "id": "profession-shopping-list",
+      "name": "Profession Shopping List",
+      "category": "Economy",
+      "rationale": "Tracks recipes you want to craft, the materials they need and recipe cooldowns.",
+      "status": "Author lists Forever file",
+      "version": "v244",
+      "releasedAt": "2026-11-07",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/profession-shopping-list",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Many described features are Retail systems, such as profession knowledge and crafting orders; the page does not say which work on Forever."
+      ]
+    },
+    {
+      "id": "plater",
+      "name": "Plater Nameplates",
+      "category": "Combat",
+      "rationale": "Configurable nameplates with debuff tracking, threat colours and user scripts.",
+      "status": "Author lists Forever file",
+      "version": "Plater-v664",
+      "releasedAt": "2026-11-15",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/plater-nameplates",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The page does not say how scripts or threat colours behave on Forever.",
+        "Updating scripts and profiles from wago.io uses the optional WeakAuras-Companion desktop app."
+      ]
+    },
+    {
+      "id": "threat-plates",
+      "name": "Threat Plates",
+      "category": "Combat",
+      "rationale": "Nameplates that change size and colour with your threat, for tanks and damage dealers.",
+      "status": "Author lists Forever file",
+      "version": "ThreatPlates-13.3.8",
+      "releasedAt": "2026-11-09",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/tidy-plates-threat-plates",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The author marks its scripting feature as beta and still restricted.",
+        "The page says nothing specific to Forever."
+      ]
+    },
+    {
+      "id": "gtfo",
+      "name": "GTFO",
+      "category": "Combat",
+      "rationale": "Plays a warning sound when you stand in something harmful.",
+      "status": "Author lists Forever file",
+      "version": "6.12.3",
+      "releasedAt": "2026-11-06",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/gtfo",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The author's limits are written for Retail: only spells that apply a trackable debuff are caught.",
+        "The page lists Retail and Classic as supported and says nothing about Forever."
+      ]
+    },
+    {
+      "id": "skada",
+      "name": "Skada Damage Meter",
+      "category": "Combat",
+      "rationale": "A modular damage meter with several window styles and per-fight segments.",
+      "status": "Author lists Forever file",
+      "version": "v2.6.7",
+      "releasedAt": "2026-11-15",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/skada",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The page describes the Midnight edition built on Blizzard's session combat data; Forever gets the same file, and the page says nothing specific to Forever.",
+        "A community compatibility list notes that Forever has a built-in damage meter."
+      ]
+    },
+    {
+      "id": "quartz",
+      "name": "Quartz",
+      "category": "Combat",
+      "rationale": "Replaces the cast bars and adds optional latency, global cooldown, swing and buff timers.",
+      "status": "Author lists Forever file",
+      "version": "3.8.0",
+      "releasedAt": "2026-11-13",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/quartz",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The flight module needs FlightMap or InFlight.",
+        "A community list advised against it before this Forever file existed; the page does not describe its behaviour on Forever."
+      ]
+    },
+    {
+      "id": "clique",
+      "name": "Clique",
+      "category": "Combat",
+      "rationale": "Click-casting: binds spells and actions to mouse clicks on unit frames.",
+      "status": "Author lists Forever file",
+      "version": "v5.1.5-release",
+      "releasedAt": "2026-11-08",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/clique",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Since a 21 June 2026 change you must bind Target and Show unit menu yourself, and bindings cannot be changed in combat."
+      ]
+    },
+    {
+      "id": "maxdps",
+      "name": "MaxDps Rotation Helper",
+      "category": "Combat",
+      "rationale": "Highlights on your action bars the spell its rotation module suggests next; you press the buttons.",
+      "status": "Author lists Forever file",
+      "version": "v11.3.94-forever",
+      "releasedAt": "2026-11-14",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/maxdps-rotation-helper",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Rotations come from separate per-class modules.",
+        "The description dates from Battle for Azeroth and says nothing about Forever."
+      ]
+    },
+    {
+      "id": "pallypower",
+      "name": "PallyPower",
+      "category": "Combat",
+      "rationale": "Lets paladins assign blessings, auras and seals across the group, with buff buttons you click.",
+      "status": "Author lists Forever file",
+      "version": "v1.6.5-classic",
+      "releasedAt": "2026-11-07",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/pally-power",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Assignments need the other paladins to run it and leader or assistant rank; its buff buttons do not work in combat.",
+        "The newer files v1.6.6 to v1.6.9 are betas."
+      ]
+    },
+    {
+      "id": "capping",
+      "name": "Capping Battleground Timers",
+      "category": "Combat",
+      "rationale": "Battleground and arena timers: queue, node and flag timers and final-score estimates.",
+      "status": "Author lists Forever file",
+      "version": "v12.1.7",
+      "releasedAt": "2026-10-22",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/capping-bg-timers",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Acts for you: it turns in Alterac Valley quests by itself; whether that is on by default was not read.",
+        "The page does not say which battlegrounds exist or work on Forever."
+      ]
+    },
+    {
+      "id": "tellmewhen",
+      "name": "TellMeWhen",
+      "category": "Cooldowns",
+      "rationale": "Shows icons, sounds and text for cooldowns, buffs, debuffs and other combat states you set up.",
+      "status": "Author lists Forever file",
+      "version": "12.1.5",
+      "releasedAt": "2026-10-12",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/tellmewhen",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The page says nothing specific to Forever; the author takes bug reports on GitHub, not in CurseForge comments."
+      ]
+    },
+    {
+      "id": "vuhdo",
+      "name": "VuhDo",
+      "category": "Raid frames",
+      "rationale": "Raid and party frames with click-healing: spells, items and macros bound to mouse clicks.",
+      "status": "Author lists Forever file",
+      "version": "v3.220",
+      "releasedAt": "2026-11-05",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/vuhdo",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The newer files v3.221-beta-1 and v3.221-beta-2 are betas; the newest full release is v3.220.",
+        "Overlaps other group-frame addons; choose one main raid-frame setup."
+      ]
+    },
+    {
+      "id": "healbot-continued",
+      "name": "HealBot Continued",
+      "category": "Raid frames",
+      "rationale": "Healing unit frames with click-casting, many skins and action icons.",
+      "status": "Author lists Forever file",
+      "version": "26.11.14",
+      "releasedAt": "2026-11-14",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/heal-bot-continued",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The page names Classic and Retail and says nothing specific to Forever; the author advises setting up spells, debuffs and buffs first.",
+        "Overlaps other group-frame addons; choose one main raid-frame setup."
+      ]
+    },
+    {
+      "id": "littlewigs",
+      "name": "LittleWigs",
+      "category": "Encounters",
+      "rationale": "BigWigs boss modules for 5-player dungeons and scenarios.",
+      "status": "Author lists Forever file",
+      "version": "v12.1.23",
+      "releasedAt": "2026-11-04",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/littlewigs",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Requires BigWigs.",
+        "The page does not say which Forever dungeons have modules."
+      ]
+    },
+    {
+      "id": "northern-sky-raid-tools",
+      "name": "Northern Sky Raid Tools",
+      "category": "Encounters",
+      "rationale": "Raid toolkit: encounter alerts and reminders, aura tracking, ready-check gear and buff checks, and addon version checks.",
+      "status": "Author lists Forever file",
+      "version": "12.1.33",
+      "releasedAt": "2026-11-02",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/northern-sky-raid-tools",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Acts for you: it can rearrange the raid group by preset rules and, as an option, share your nickname with your guild automatically; whether these are on by default was not read.",
+        "Some features work only if the whole raid runs it; the description is written for Retail and says nothing about Forever."
+      ]
+    },
+    {
+      "id": "method-raid-tools",
+      "name": "Method Raid Tools",
+      "category": "Encounters",
+      "rationale": "Raid-leader toolkit: raid cooldown bars, shared notes, reminders, consumable checks, raid inspect, attendance and loot history.",
+      "status": "Author lists Forever file",
+      "version": "v.5335",
+      "releasedAt": "2026-10-13",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/method-raid-tools",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Acts for you: its invite tool can invite guildmates, accept invites, promote, disband and re-invite; it can place raid marks automatically and turns on combat logging in raid zones; whether these are on by default was not read.",
+        "The author marks several modules as only for Classic versions; the page does not say which work on Forever."
+      ]
+    },
+    {
+      "id": "atlasloot-forever",
+      "name": "AtlasLoot Classic Forever",
+      "category": "Encounters",
+      "rationale": "Browsable raid and dungeon loot tables, best-in-slot lists per class and spec, and a currency tracker.",
+      "status": "Author lists Forever file",
+      "version": "1.4.0-151126-16001",
+      "releasedAt": "2026-11-15",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/atlasloot-forever",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The honor rank calculator is marked work in progress for Forever, and the best-in-slot lists give no source.",
+        "A fork of AtlasLootClassic; some page captions still name TBC Anniversary."
+      ]
+    },
+    {
+      "id": "dungeonjournal",
+      "name": "DungeonJournal",
+      "category": "Encounters",
+      "rationale": "An in-game journal of dungeon bosses, drops, quests and rewards, with an optional no-spoiler mode.",
+      "status": "Author lists Forever file",
+      "version": "2.0.8",
+      "releasedAt": "2026-11-15",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/dungeonjournal",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The author says loot and quest-reward data is still being corrected and asks for error reports; the download is 58.6 MB."
+      ]
+    },
+    {
+      "id": "gargul",
+      "name": "Gargul",
+      "category": "Guild tools",
+      "rationale": "A loot-master tool for rolls, soft reserves, wishlists and gold auctions of raid loot.",
+      "status": "Author lists Forever file",
+      "version": "v8.1.0-forever",
+      "releasedAt": "2026-11-13",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/gargul",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Acts for you: with rules you set, it sends looted items to chosen players, rolls need, greed or pass for you, runs gold auctions (GDKP) and splits the gold, and invites and sorts raid members from a signup; the page does not say that any of this is on by default.",
+        "The author says that for most features only the loot master needs it.",
+        "The author's notes for this Forever release say several fixes are untested because master loot of poor and common items is bugged in Forever."
+      ]
+    },
+    {
+      "id": "talents-forever",
+      "name": "Talents Forever",
+      "category": "Leveling routes",
+      "rationale": "The talentsforever.com talent planner inside the game: plan, share and import builds.",
+      "status": "Author lists Forever file",
+      "version": "0.38.25",
+      "releasedAt": "2026-11-12",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/talents-forever",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Acts for you: if you choose, it applies a planned build or places your talent points for you as you level; the author says every feature has an off switch.",
+        "Popular builds refresh from the author's site every day.",
+        "The author says it was built with AI assistance by one person, with talent data from the game files checked in game.",
+        "Release 0.38.25 removed a Game talents button that could make action bars vanish in combat; /reload restores a missing bar."
+      ]
+    },
+    {
+      "id": "bartender4",
+      "name": "Bartender4",
+      "category": "Interface and action bars",
+      "rationale": "Replaces the action bars with movable, configurable bars.",
+      "status": "Author lists Forever file",
+      "version": "4.18.4.1",
+      "releasedAt": "2026-11-14",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/bartender4",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Hold-to-cast is not available to addons; the page has no Forever-specific text."
+      ]
+    },
+    {
+      "id": "dominos",
+      "name": "Dominos",
+      "category": "Interface and action bars",
+      "rationale": "Replaces the main action bar with movable, configurable bars.",
+      "status": "Author lists Forever file",
+      "version": "12.0.3",
+      "releasedAt": "2026-11-15",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/dominos",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The page states no limits and nothing specific to Forever; the author says addons that work on the game's own action buttons should also work with it.",
+        "An alternative to Bartender4; choose one action-bar addon."
+      ]
+    },
+    {
+      "id": "ellesmereui",
+      "name": "EllesmereUI",
+      "category": "Interface and action bars",
+      "rationale": "A modular interface suite with a visual layout editor and modules for bars, frames, nameplates, bags, chat and more.",
+      "status": "Author lists Forever file",
+      "version": "v9.8.6",
+      "releasedAt": "2026-11-14",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/ellesmereui",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Several listed modules belong to Retail, such as the Mythic+ timer and Skyriding HUD; the page does not say which modules work on Forever.",
+        "It overlaps many listed addons; enable only the modules you want."
+      ]
+    },
+    {
+      "id": "titan-panel",
+      "name": "Titan Panel",
+      "category": "Interface and action bars",
+      "rationale": "Adds information bars along the screen edges, with built-in and Data Broker plugins.",
+      "status": "Author lists Forever file",
+      "version": "9.3.6",
+      "releasedAt": "2026-11-15",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/titan-panel",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The author lists Forever issues with the loot-type plugin and with gamepads.",
+        "Since 9.3.0 the author asks you not to drag plugins, as they may disappear on reload."
+      ]
+    },
+    {
+      "id": "consoleport",
+      "name": "ConsolePort",
+      "category": "Interface and action bars",
+      "rationale": "Lets you play with a gamepad: bindings, radial menus, an on-screen keyboard and gamepad-friendly menus.",
+      "status": "Author lists Forever file",
+      "version": "3.3.13",
+      "releasedAt": "2026-10-30",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/console-port",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The page's description is empty apart from picture captions, so it states no limits and nothing specific to Forever.",
+        "It needs a gamepad."
       ]
     }
   ],
@@ -472,18 +1176,6 @@
       "name": "WeakAuras",
       "note": "No Forever flavor is listed, and Icy Veins reported on 30 Oct 2026 that it does not work on Forever. Alternatives: Blizzard's built-in Cooldown Manager, ForeverAuras or Musca Auras.",
       "url": "https://www.curseforge.com/wow/addons/weakauras-2"
-    },
-    {
-      "id": "tradeskill-master",
-      "name": "TradeSkillMaster",
-      "note": "No Forever flavor is listed; its October 2026 release covers Retail, MoP Classic, Classic and Classic TBC, and no Forever announcement was found. Auctionator is in the curated list.",
-      "url": "https://www.curseforge.com/wow/addons/tradeskill-master"
-    },
-    {
-      "id": "gathermate2",
-      "name": "GatherMate2",
-      "note": "The project page names Forever, but every release file shown is tagged Retail, and its optional node data describes retail zones rather than Forever.",
-      "url": "https://www.curseforge.com/wow/addons/gathermate2"
     },
     {
       "id": "omnicc",
@@ -506,7 +1198,7 @@
     {
       "id": "spy",
       "name": "Spy",
-      "note": "The original lists Retail only and reads enemy actions from the combat log. The community Spy (Forever) port's file is dated 29 Sep 2026 and detects enemies only through nameplates, target, focus and mouseover.",
+      "note": "The original lists Retail only and reads enemy actions from the combat log. The community Spy (Forever) port now has a current Forever release, dated 15 Nov 2026, and detects enemies only through nameplates, target, focus and mouseover. The guild has not decided whether an enemy-detection addon belongs in this list.",
       "url": "https://www.curseforge.com/wow/addons/spy"
     },
     {
@@ -520,6 +1212,12 @@
       "name": "Luna Unit Frames",
       "note": "The official repository supports WoW Classic only and was archived in October 2025. Lizzarick's Unit Frames, in the curated list, is a Luna-style rebuild.",
       "url": "https://github.com/Aviana/LunaUnitFrames"
+    },
+    {
+      "id": "foreverautoquest",
+      "name": "ForeverAutoQuest",
+      "note": "Its only file is a 2.7 KB release from 18 Sep 2026, before the launch, with no update since. It accepts and turns in quests by itself; ForeverForge, in the curated list, also does this.",
+      "url": "https://www.curseforge.com/wow/addons/foreverautoquest"
     }
   ],
   "guides": [
