@@ -491,6 +491,14 @@ check('the mounted sheet renders graded cells, a greyed Classic label, an SVG ch
     assert.notEqual(want, about, label); assert.equal(byClass(variantHost, 's60-about')[0].textContent, want, label);
     variantUi.destroy();
   }
+  // The snapshot it names is the record's own: with every file moved to another (synthetic) revision, the sentence names that revision.
+  assert.equal(about.split('02e1e101d1a5').length, 2);
+  const otherData = clone(data), otherNaked = clone(naked), otherEffects = clone(effects);
+  otherData.revision = otherNaked.build.talentRevision = otherEffects.source.talentRevision = otherEffects.source.textRecheck.talentRevision = 'feedc0ffee12';
+  const otherHost = document.createElement('div'), otherUi = S.mount(otherHost, { data: otherData, build, naked: otherNaked, effects: otherEffects, guides: guidesFor('paladin') });
+  assert.equal(await otherUi.ready, true);
+  assert.equal(byClass(otherHost, 's60-about')[0].textContent, about.replace(' against talent snapshot 02e1e101d1a5 on ', ' against talent snapshot feedc0ffee12 on '));
+  otherUi.destroy();
   assert.match(about, /1\.60\.1\.70009 is not used/); assert.ok(byClass(host, 's60-about')[0].tagName === 'DETAILS' && !host.all(n => n.tagName === 'A' || n.tagName === 'IMG').length);
   ui.destroy(); assert.equal(byClass(host, 'talents-stats60').length, 0);
 });
