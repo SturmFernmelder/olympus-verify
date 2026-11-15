@@ -360,8 +360,9 @@ async function university(parts, options = {}) {
   m = await university(['class', cls.id, 'nope']);
   check('an unknown spec says the class has no spec by that name', text(m.box).includes(cls.name + ' has no spec by that name.'));
   m = await university(['class', 'nope']);
-  // Unit h1 guidesname (owner, 15 Nov 2026): the sentence names the section "Class & profession guides".
-  check('an unknown class says there is no such guide', text(m.box).includes('There is no such class guide in Class & profession guides.'));
+  // Unit h1 guidesname (owner, 15 Nov 2026; the lead's decision in its finishing round): the sentence does not name the
+  // section, as the guides pages before 58b96f8 did not ("There is no such guide.").
+  check('an unknown class says there is no such guide', text(m.box).includes('There is no such class guide.'));
 
   // 7. Grades: U renders "Unavailable", never a number.
   // Our 58b96f8, 1fe1725: a grade-U fact renders "Unavailable" in place of a value, with the grade legend (university.js:155, :161-165).
