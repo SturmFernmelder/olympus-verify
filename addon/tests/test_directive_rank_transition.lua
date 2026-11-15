@@ -204,12 +204,24 @@ crossed.e.ROSTER[1].rank='Steward'
 crossed.e.ROSTER[2].rankIndex=8;crossed.e.ROSTER[2].rank='Member'
 crossed.e.NOW=crossed.e.NOW+1;crossed.emit('GUILD_ROSTER_UPDATE')
 assert(crossed.e.OlympusVerifyDB.launchPromotionAttempts[crossId].state=='unknown','another profile with the same ordinal cannot acknowledge an original attempt')
+for _,kind in ipairs({'missing-freshness','missing-page','discovery-only'}) do
+  local missing=fixture(false,true);local current=missing.q.Current();local id=missing.e.ROSTER[2].guid
+  if kind=='missing-freshness' then current.freshness[id]=nil
+  elseif kind=='missing-page' then current.freshness[id].page=nil
+  else current.freshness[id].kind='discovery' end
+  missing.q.Current=function()return current end
+  assert(not missing.click() and missing.clicks==0 and missing.direct==0,'a missing selected plan cannot arm hardware: '..kind)
+  local printed=table.concat(missing.e.PRINTS,'\n')
+  assert(printed:find('fresh Directive selected plan is required',1,true) and not printed:find('rank table differs',1,true),'a missing selected plan is explained without inventing a native table mismatch: '..kind)
+  assert(not next(missing.e.OlympusVerifyDB.launchPromotionAttempts or {}),'missing plan creates no attempt history: '..kind)
+end
 for _,isSteward in ipairs({false,true}) do
   local mixed=fixture(false,isSteward)
   local other=mixed.e.OlympusVerifyNativeRankConstants.profiles[isSteward and 1 or 2]
   local names={};for i,name in ipairs(other.names) do names[i]=name end
   mixed.e.OlympusLaunchSelected.page.rankNames=names
   local current=mixed.q.Current()
-  assert(current==nil or current.actionHeld==true and #current.promotions==0,'mixed profile metadata cannot produce a positive recommendation; an advisory held context may remain')
+  assert(current==nil or current.actionHeld==true and #current.invites==0 and #current.promotions==0 and #current.riskBuffer==0 and #current.held==0,'mixed profile metadata leaves no invite, promotion, risk or held action rows; an advisory held context may remain')
+  assert(current==nil or current.selection and current.selection.reason:find('rank table',1,true),'mixed profile metadata preserves the rank-specific hold reason')
   assert(not mixed.click() and mixed.clicks==0,'reviewed names cannot be mixed with another profile and digest for a native action')
 end

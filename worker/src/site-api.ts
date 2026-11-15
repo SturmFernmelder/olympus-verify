@@ -458,8 +458,8 @@ export function validateApplication(body: Record<string, unknown>, selfId: strin
   const first = roleKeyOf(position, classLead);
   if (taken(first)) {
     return position === "class_lead"
-      ? fail("classLead", `${roleLabel(first)} has been appointed (${generalAppointmentLabel(appointed[first])}): choose another class.`)
-      : fail("position", `${roleLabel(first)} has been appointed (${generalAppointmentLabel(appointed[first])}): choose another first choice.`);
+      ? fail("classLead", `${roleLabel(first)} has been appointed (${generalAppointmentLabel(appointed[recordedAppointmentKey283({appointed},first)??first])}): choose another class.`)
+      : fail("position", `${roleLabel(first)} has been appointed (${generalAppointmentLabel(appointed[recordedAppointmentKey283({appointed},first)??first])}): choose another first choice.`);
   }
 
   // Up to two backups, in order: roles they would also take if the first choice goes to someone else.
@@ -471,7 +471,7 @@ export function validateApplication(body: Record<string, unknown>, selfId: strin
     if (!c) return fail("backups", "One of the backup choices does not exist.");
     if (key === first) return fail("backups", "A backup choice is the same as your first choice.");
     if (backups.includes(key)) return fail("backups", "The two backup choices are the same.");
-    if (taken(key)) return fail("backups", `${c.label} has been appointed (${generalAppointmentLabel(appointed[key])}): choose another backup, or none.`);
+    if (taken(key)) return fail("backups", `${c.label} has been appointed (${generalAppointmentLabel(appointed[recordedAppointmentKey283({appointed},key)??key])}): choose another backup, or none.`);
     backups.push(key);
   }
   // Any leadership choice brings the leadership questions; only one that is voted on brings the board (.45: a role

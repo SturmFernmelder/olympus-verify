@@ -12,7 +12,7 @@ local REMINDER = "Hi! In Asmongold's Discord, use Get my code in #⚡olympus-ver
 local LABEL = { verified = "Verified", unverified = "Not verified", pending = "Verifying", unknown = "Unknown", stale = "Stale list" }
 local COLOR = { verified = "|cff8ac69a", unverified = "|cffe57572", pending = "|cffe8be65", unknown = "|cff9ea3ad", stale = "|cffe8be65" }
 local nativeNames, nativeGuids, nativeAliases, nativeAt, loadedIdentity, changedGuild = {}, {}, {}, nil, nil, false
-local sourceIndex, historyIndex
+local sourceIndex, historyIndex, nativeRankScheme
 local hosts, bridgeEnabled = {}, false -- session-only opt-in, never SavedVariables
 -- Round 5 item 2 (13 Nov 2026): set when combat skipped a layout change; PLAYER_REGEN_ENABLED applies it at once.
 local layoutPending = false
@@ -60,12 +60,16 @@ local function Fresh(at, now)
 end
 local function Scan()
   local names, guids, aliases, count = {}, {}, {}, GetNumGuildMembers and GetNumGuildMembers() or 0
+  nativeRankScheme = nil
   if type(count) ~= "number" or count ~= math.floor(count) or count < 0 or count > MAX_MEMBERS then nativeNames, nativeGuids, nativeAliases, nativeAt = {}, {}, {}, nil; return end
+  -- Observe the complete table once with this cached roster, never once per row.
+  local ranks = OlympusVerifyNativeRanks
+  if ranks and type(ranks.Observe)=="function" and type(ranks.Scheme)=="function" then nativeRankScheme = ranks.Scheme(ranks.Observe()) end
   for i = 1, count do
-    local name, _, rankIndex, _, _, _, _, _, online, _, _, _, _, _, _, _, guid = GetGuildRosterInfo(i)
+    local name, rankName, rankIndex, _, _, _, _, _, online, _, _, _, _, _, _, _, guid = GetGuildRosterInfo(i)
     name, guid = Text(name), Text(guid, 40)
     if name then
-      local m = { name = name, guid = guid, rankIndex = rankIndex, online = online and true or false }
+      local m = { name = name, guid = guid, rankName = Text(rankName), rankIndex = rankIndex, online = online and true or false }
       local nk = Key(name)
       if names[nk] ~= nil then names[nk] = false else names[nk] = m end
       if guid then if guids[guid] ~= nil then guids[guid] = false else guids[guid] = m end end
@@ -214,7 +218,7 @@ local function Verification(name, guid)
   end
   if not nativeAt or now < nativeAt or now - nativeAt > 5 then
     local ok = pcall(Scan)
-    if not ok then nativeNames, nativeGuids, nativeAliases, nativeAt = {}, {}, {}, nil end
+    if not ok then nativeNames, nativeGuids, nativeAliases, nativeAt, nativeRankScheme = {}, {}, {}, nil, nil end
   end
   if not nativeAt then return { status = "unknown", reason = "The current native guild roster could not be read." } end
   local m = Live(Text(name), Text(guid, 40))
@@ -376,7 +380,9 @@ end
 local function PromotionInput(name,guid,result)
   local id=Text(guid,40)
   local member=id and Live(Text(name),id) -- A name-only native row cannot bind an action or a selected read.
-  return {guid=member and member.guid,rankIndex=member and member.rankIndex,status=result.status,
+  return {guid=member and member.guid,rankIndex=member and member.rankIndex,rank=member and member.rankName,status=result.status,
+    nativeMember=member and nativeRankScheme and member.rankIndex==nativeRankScheme.member
+      and member.rankName==nativeRankScheme.names[nativeRankScheme.member+1] or false,
     verification=result,historicalLinked=result.historicalLinked}
 end
 local function PromotionState(rows)
@@ -397,7 +403,7 @@ end
 local function PromotionControl(input,result,ready,detail,bound,current)
   local launch=OlympusLaunch229
   if ready and bound then return "Promote",true,"promote" end
-  if input.rankIndex==7 and OlympusVerifyNativeRanks and OlympusVerifyNativeRanks.Qualified(OlympusVerifyNativeRanks.Observe()) then return "Member",false,nil end -- Native rank and attempt history are separate facts.
+  if input.nativeMember then return "Member",false,nil end -- Exact observed scheme; attempt history remains separate.
   if not bound then return "Unavailable",false,nil end
   if detail and detail.state=="recheck" and type(launch.Select)=="function" then return "Check next",true,"check" end
   if detail and detail.label=="Target rank observed (history retained)" then return "Observed",false,nil end

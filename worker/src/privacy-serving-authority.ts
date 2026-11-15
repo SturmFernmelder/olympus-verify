@@ -165,7 +165,9 @@ export function privacyBoundSiteRoleActionEnv(env:Env,session:OriginalSiteSessio
 }
 /** Capture before provider custody deliberately strips ordinary session SQL.
  * Only registered source-owned contexts can carry an attended action. A Native
- * issuer embeds this predicate in new-effect admissions, never in ACK custody. */
+ * issuer embeds this predicate in new-effect admissions. Landed PUT confirmation
+ * and its receipt keep the conservative current-admission check; the original
+ * DELETE receipt and owned compensation have their separate retained custody. */
 export function captureSiteRoleActionAuthority283(env:Env):SiteRoleActionAuthority283|null{
  const original=authorityBase(env);let db=original.base;const found:SiteRoleActionAuthority283[]=[];
  for(let depth=0;depth<32;depth++){

@@ -372,6 +372,43 @@ for _,case in ipairs({"global-save-conflict","per-guid-save-hold","malformed-sav
 end
 
 do
+  local f=guildUI(nil,true);local e=f.e;local b=f.buttons()[1]
+  local steward=e.OlympusVerifyNativeRankConstants.profiles[2]
+  for i,name in ipairs(steward.names) do f.names[i]=name end
+  local held={state="unknown",target=8};e.OlympusVerifyDB.launchPromotionAttempts={[e.ROSTER[1].guid]=held}
+  e.ROSTER[1].rankIndex=7;f.rosterEvent();f.tick()
+  check("Steward Alt at native index 7 remains Held rather than being mislabeled Member",b.promote:GetText()=="Held" and not b.promote:IsEnabled()
+    and e.OlympusVerifyDB.launchPromotionAttempts[e.ROSTER[1].guid]==held and held.state=="unknown" and f.promotions==0)
+  e.ROSTER[1].rankIndex=8;f.rosterEvent();f.tick()
+  b.promote:GetScript("OnEnter")(b.promote)
+  check("Steward Member at native index 8 is labeled from its exact observed scheme without resolving history",b.promote:GetText()=="Member" and not b.promote:IsEnabled()
+    and table.concat(f.tooltipLines,"\n"):find("does not confirm an earlier attempt",1,true) and held.state=="unknown" and f.promotions==0)
+  e.ROSTER[1].rankLabel="Alt";f.rosterEvent();f.tick()
+  check("a Member slot with a conflicting native rank label is not certified as Member",b.promote:GetText()~="Member" and held.state=="unknown")
+  e.ROSTER[1].rankLabel=nil;f.names[2]="Unreviewed Rank";f.rosterEvent();f.tick()
+  check("an unrecognised complete native table cannot inherit a Member display target",b.promote:GetText()~="Member" and f.promotions==0)
+end
+do
+  local f=guildUI(1000,true);local e=f.e;local steward=e.OlympusVerifyNativeRankConstants.profiles[2]
+  for i,name in ipairs(steward.names) do f.names[i]=name end
+  for _,row in ipairs(e.ROSTER) do row.rankIndex=7 end
+  -- Isolate the display cache from the launch authority's separate read path.
+  e.OlympusVerifyRosterModel.Promotions=function()
+    local details={byGuid={}}
+    for _,row in ipairs(e.ROSTER) do details.byGuid[row.guid]={state="recheck",reason="Synthetic acknowledged continuation"} end
+    return {},details
+  end
+  local names,counts=0,0;local readName,readCount=e.GuildControlGetRankName,e.GuildControlGetNumRanks
+  e.GuildControlGetRankName=function(i) names=names+1;return readName(i) end
+  e.GuildControlGetNumRanks=function() counts=counts+1;return readCount() end
+  f.rosterEvent();f.tick();local nativeReads=f.reads
+  for _=1,5 do f.tick() end
+  check("Steward Alt continuation is Check next rather than Member",f.buttons()[1].promote:GetText()=="Check next" and f.buttons()[1].promote.mode=="check")
+  check("Guild rank display captures one exact ten-rank table per cached generation, never per visible row",names==10 and counts==2 and f.reads==nativeReads)
+  f.now=f.now+6;f.tick()
+  check("rank display cache refreshes with its native roster generation",names==20 and counts==4 and f.reads==nativeReads+1000 and f.promotions==0)
+end
+do
   local f=guildUI(1000);local nativeReads=f.reads;local current=f.launch.Current;local sourceReads=0
   f.launch.Current=function()sourceReads=sourceReads+1;return current()end
   for _=1,5 do f.tick()end

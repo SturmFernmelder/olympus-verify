@@ -88,3 +88,8 @@ activated_at = "2026-11-10T19:28:25Z"
 # Source review record only; no provider deployment or Link activation is asserted.
 activation_profile_sha256 = "5adef1881d2180e67ed56d9724efc0cb6aabc9309ae823a24de61bcbe3d6bc9f"
 activated_at = "2026-11-15T18:29:42Z"
+# .283 SOURCE PREPARATION supersedes the earlier v3 configuration proposal above.
+# Serving policy remains original v1. No provider deployment or v3 activation.
+# activated_at is the legacy parser field for source-file parity, not a live receipt.
+activation_profile_sha256 = "afa5c5f5d03d3adbbfb0a647c43d8ccab54d6b34e7fc756e7ad95be8a4d20311"
+activated_at = "2026-11-15T19:29:58Z"

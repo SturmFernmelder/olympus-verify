@@ -238,6 +238,7 @@ local INTENT_KEYS={version=true,id=true,actorGuid=true,targetGuid=true,name=true
   originSnapshotId=true,originSnapshotAt=true,originContext=true,startSlot=true,finalSlot=true,reason=true,issuedAt=true,expiresAt=true,
   acknowledgedSteps=true,lastSnapshotId=true,lastObservedAt=true}
 DirectiveIntent=function(row,page,identity,now)
+  if type(row)~="table" or type(page)~="table" then return false end
   local p=row.intent
   local ranks=OlympusVerifyNativeRanks and OlympusVerifyNativeRanks.Profile(page.rankProfile,page.rankSchemeDigest)
   if not ranks or not ExactKeys(p,INTENT_KEYS) or p.version~=1 or not Text(p.id,160) or #p.id<8
@@ -356,8 +357,11 @@ local function SelectedCurrent(identity, now, control)
     or page.nextCursor~=nil or page.pageCursor~=nil then return held end
   -- The owner's longer window applies only to new selected-promotion observations.
   -- Legacy selected results and all discovery actions keep their original 60-second cap.
-  local checked=HistoricalCurrent({version=3,controlId=control.id,scanComplete=false,pages={page}},true,600)
-  if not checked then return held end
+  local checked,why,code=HistoricalCurrent({version=3,controlId=control.id,scanComplete=false,pages={page}},true,600)
+  if not checked then
+    if code=="rank_scheme" then held.reason=why end -- Keep the validated rank-specific cause visible in a held selection.
+    return held
+  end
   for _,kind in ipairs({"promotions","held","riskBuffer"}) do
     for _,row in ipairs(checked[kind]) do if not covered[row.guid] then return held end end
   end
@@ -795,9 +799,11 @@ local function PreparePromotion(target)
   if not row then Say("No current promotion matches that GUID/index."); return false end
   local fresh = current.freshness[row.guid]
   local scheme=current.nativeRankScheme
-  if not scheme or not fresh or not fresh.page or fresh.page.rankProfile~=scheme.profile or fresh.page.rankSchemeDigest~=scheme.digest then
+  if type(fresh)~="table" or fresh.kind~="selected" or type(fresh.page)~="table" then
+    Say("A fresh Directive selected plan is required before a promotion click; discovery remains advisory.");return false end
+  if not scheme or fresh.page.rankProfile~=scheme.profile or fresh.page.rankSchemeDigest~=scheme.digest then
     Say("The current native rank table differs from the selected plan; no promotion sent.");return false end
-  if not fresh or fresh.kind~="selected" or not DirectiveIntent(row,fresh.page,current.identity,time()) then
+  if not DirectiveIntent(row,fresh.page,current.identity,time()) then
     Say("A fresh Directive selected plan is required before a promotion click; discovery remains advisory.");return false end
   if not fresh or (fresh.actionHeld==nil and current.actionHeld or fresh.actionHeld) or not Number(fresh.expiresAt,1,2147483647)
     or not Number(fresh.scanExpiresAt,1,2147483647) or time() >= fresh.expiresAt or time() >= fresh.scanExpiresAt then Say("This page is stale or stopped. Explicitly recheck it and reload before acting."); return false end

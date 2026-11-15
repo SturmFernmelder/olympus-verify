@@ -151,7 +151,12 @@ export async function captureRoutineMembership232(env:Env,subject:string):Promis
    else if(status!=='left'||unknownGuidKeys.has(key))return null;
   }
   if(!qualifiedLinks)return null; // Unfinished/inert legacy links prove neither identity nor departure.
-  eligible.sort((a,b)=>a.index-b.index||(a.guid<b.guid?-1:a.guid>b.guid?1:0));
+  // Native slots are an observed guild ladder, not canonical role precedence.
+  // The reviewed Steward table places Alt(7) before Member(8), while canonical
+  // Member access outranks Alt. Use only the exact source-issued scheme here;
+  // the original unqualified source retains its historical ordinal ordering.
+  const precedence=(row:typeof eligible[number])=>scheme?.canonicalIndexes[row.index]??row.index;
+  eligible.sort((a,b)=>precedence(a)-precedence(b)||a.index-b.index||(a.guid<b.guid?-1:a.guid>b.guid?1:0));
   const cause:RoutineMembership232Facts['cause']=standing[0]===1||standing[1]===1?'ban':standing[2]===1?'rename_hold':eligible.length?'eligible':'departure';
   const primary=cause==='eligible'?eligible[0]!:null,deadline=Math.min(at+300,row.exported_at+600);
   const facts=Object.freeze({subject,subjectGeneration:row.generation,snapshotId:row.id,snapshotExportedAt:row.exported_at,deadline,primary,policyRaw:selection.raw,cause,rankQualified,rankProfile:rankQualified?scheme!.profile:null,canonicalRankProfile});
@@ -178,6 +183,12 @@ export function assertOriginalRoutineSourceIntegrity280(env:Env,cap:RoutineMembe
  const r=originals.get(cap);if(!r)return held();r.sourceIntegrity(env);
 }
 export function routineMembership232Facts(cap:RoutineMembership232):RoutineMembership232Facts{const r=originals.get(cap);if(!r)return held();r.check();return r.facts;}
+/** Current new-effect time only. The attended preview cannot extend the Native
+ * capture; neither deadline changes original landed-effect receipt custody. */
+export function routineMembership232EffectDeadline(env:Env,cap:RoutineMembership232):number{
+ assertRoutineMembership232(env,cap);const r=originals.get(cap)!;
+ return Math.min(r.facts.deadline,r.siteRoleAction?.selection?.expiresAt??r.facts.deadline);
+}
 export function routineMembership232Environment(env:Env,cap:RoutineMembership232):Env{assertRoutineMembership232(env,cap);return originals.get(cap)!.effectEnv;}
 export function closeRoutineMembership232(cap:RoutineMembership232):void{originals.get(cap)?.close();}
 /** A private attended repair must retain the exact expected canonical role.

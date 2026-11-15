@@ -4,6 +4,7 @@ const assert = require('node:assert/strict'), fs = require('node:fs'), path = re
 const root = path.resolve(__dirname, '../..');
 const {load} = require('../../worker/tests/helpers/privacy129_fixture.cjs');
 const index = load('index').default, {armyReporterPage} = load('army-pages');
+const {VERIFY_ADDON_VERSION, VERIFY_ADDON_ZIP_PATH} = load('verify-addon-download');
 const pack = require('../build-verify-addon.cjs');
 const paths = ['/' + pack.ZIP.slice('worker/public/'.length), '/' + pack.MANIFEST.slice('worker/public/'.length)];
 const calls = [];
@@ -19,6 +20,13 @@ let passed = 0;
 async function check(label, fn) { await fn(); passed++; console.log('PASS ' + label); }
 async function fetchAt(host, file, method = 'GET') { return index.fetch(new Request('https://' + host + file, {method, headers:{Cookie:'private=not-forwarded', Authorization:'not-forwarded'}}), env, ctx); }
 (async () => {
+  await check('served version, package manifest and setup consumer use the same current artifact', async () => {
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, pack.MANIFEST), 'utf8'));
+    assert.equal(VERIFY_ADDON_VERSION, pack.VERSION);
+    assert.equal(VERIFY_ADDON_ZIP_PATH, paths[0]);
+    assert.equal(manifest.version, pack.VERSION);
+    assert.equal(manifest.archive.path, VERIFY_ADDON_ZIP_PATH);
+  });
   for (let i = 0; i < paths.length; i++) {
     const file = paths[i], bytes = fs.readFileSync(path.join(root, 'worker/public', file));
     await check('anonymous real entry serves exact bytes and safe headers: ' + file, async () => {
@@ -45,8 +53,10 @@ async function fetchAt(host, file, method = 'GET') { return index.fetch(new Requ
   });
   await check('an earlier package path cannot bypass the current public download allowlist', async () => {
     const before = calls.length;
-    const r = await fetchAt('site.example', '/static/olympus-verify/olympus-verify-0.6.29.zip');
-    assert.equal(r.status, 404); assert.equal(calls.length, before);
+    for (const version of ['0.6.29', '0.6.38']) {
+      const r = await fetchAt('site.example', `/static/olympus-verify/olympus-verify-${version}.zip`);
+      assert.equal(r.status, 404); assert.equal(calls.length, before);
+    }
   });
   await check('setup HTML links Verify update while preserving Olympus Guild and Army retirement', async () => {
     const html = await armyReporterPage(new Request('https://site.example/army/report')).text();

@@ -276,6 +276,30 @@ do
 end
 
 do
+  local f=fixture();local e=f.e;local c=e.OlympusVerifyNativeRankConstants.profiles[2]
+  e.GuildControlGetRankName=function(i)return c.names[i]end
+  e.GetGuildInfo=function()return "OLYMPUS PRIME","High Council",2,"Native Realm" end
+  e.ROSTER[1].rankIndex=2
+  local native=e.GetGuildRosterInfo
+  e.GetGuildRosterInfo=function(i)
+    local values={native(i)};if values[1] then values[2]=c.names[values[3]+1] end
+    return unpack(values,1,17)
+  end
+  f.publish({specs={{guid="Player-1-0000B002",name="Alpha",start=9,final=8}}})
+  f.sp.rankProfile,f.sp.rankSchemeDigest,f.sp.rankNames=c.profile,c.digest,{unpack(c.names)}
+  local intent=f.sp.promotions[1].intent;intent.rankProfile,intent.rankSchemeDigest=c.profile,c.digest
+  f.emit("GUILD_ROSTER_UPDATE");f.w.clearButton:Click();f.choose(f.w.actionFilterButton,2)
+  local shown
+  for _,row in ipairs(f.w.rows) do if row.member and row.member.name=="Alpha" then shown=row end end
+  check("Steward selected Initiate appears in Ready with its exact Member8 target and visible row button",f.names()=="Alpha" and shown and shown.promote:IsShown() and plain(shown.promote.label:GetText())=="To Member")
+  if shown then shown.promote:Click() end
+  f.emit("GUILD_ROSTER_UPDATE");f.w.Refresh()
+  local history=e.OlympusVerifyDB.launchPromotionAttempts["Player-1-0000B002"]
+  check("Steward roster row button requests one native step to Member8 and records only its own confirmed receipt",f.attempts==1 and f.directCalls==0 and e.ROSTER[3].rankIndex==8
+    and history and history.rankProfile==c.profile and history.target==8 and history.state=="confirmed" and history.completed)
+end
+
+do
   local f = fixture(1000); f.reads = 0
   f.w.clearButton:Click(); local frames = #f.e.FRAMES
   for _ = 1, 20 do f.search("Synthetic"); f.search(""); f.sort("level"); f.sort("level") end

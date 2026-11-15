@@ -283,7 +283,15 @@ local function PromotionCandidates()
 end
 
 local function Eligible(m, candidates)
-  return type(m.guid) == "string" and candidates[m.guid] == true and type(m.rankIndex)=="number" and m.rankIndex>=6 and m.rankIndex<=9
+  local action=ActionFor(m)
+  local scheme=OlympusVerifyNativeRanks and OlympusVerifyNativeRanks.Profile(action.rankProfile,action.rankSchemeDigest)
+  if type(issecretvalue)=="function" then
+    local ok,secret=pcall(issecretvalue,m.rank);if not ok or secret then return false end
+    ok,secret=pcall(issecretvalue,m.rankIndex);if not ok or secret then return false end
+  end
+  return type(m.guid)=="string" and candidates[m.guid]==true and action.state=="ready" and scheme
+    and type(m.rankIndex)=="number" and m.rankIndex==math.floor(m.rankIndex)
+    and m.rankIndex>scheme.veteran and m.rankIndex<=scheme.initiate and m.rank==scheme.names[m.rankIndex+1] or false
 end
 
 local function CurrentRank()

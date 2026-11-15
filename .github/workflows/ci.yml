@@ -66,6 +66,16 @@ jobs:
           node tests/community_census_route_test.cjs --focus=closed-logs
           node tests/resources_admission169_test.cjs --focus=closed-logs
         working-directory: worker
+      - name: Current native ranks and private attended role audit
+        timeout-minutes: 4
+        run: |
+          node tests/directive_rank280_workerd_test.cjs --steward --only new0,new1,new7,new8,new9,member-with-alt --out "$RUNNER_TEMP/steward-ranks"
+          node tests/site_role_audit283_workerd_test.cjs
+          node tests/site_role_audit283_ui_test.cjs
+          node tests/directive_promotion_intent_test.cjs
+          node tests/stored_application_intent283_test.cjs
+          node ../scripts/tests/verify-addon-download.test.cjs
+        working-directory: worker
       - name: Concurrent sweep progress and completed-erasure regression
         run: |
           node tests/lane_progress280_test.cjs --layout canonical --only ordinary-last,ban-last,erase-late,read-unknown --out "$RUNNER_TEMP/role-progress-canonical"

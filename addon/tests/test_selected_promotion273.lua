@@ -27,7 +27,8 @@ local function selected(f,negative,o)
 end
 local function model(f)
  setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyRosterModel.lua")),f.env)()
- return f.env.OlympusVerifyRosterModel.Promotions({{guid=id,rankIndex=f.env.ROSTER[2].rankIndex,status="stale"}},f.q,f.env.NOW)
+ local _,rank,slot=f.env.GetGuildRosterInfo(2) -- Match the native label/slot shape supplied by the real Guild and roster views.
+ return f.env.OlympusVerifyRosterModel.Promotions({{guid=id,rank=rank,rankIndex=slot,status="stale"}},f.q,f.env.NOW)
 end
 do
  local f=fixture();f.env.NOW=f.env.NOW+700;f.emit("GUILD_ROSTER_UPDATE")

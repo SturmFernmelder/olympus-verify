@@ -2323,6 +2323,12 @@ export async function reconcileCanonicalRanks233(env:Env,cap:RoutineMembership23
  try{
   const I=await import('./routine-membership-authority232');env=I.routineMembership232Environment(env,cap);I.assertRoutineMembership232(env,cap);assertRuntimeVenue230(env,venue);
   const c=captureCanonicalRankConfig233(env),entitlements=captureCanonicalEntitlements233(env),old=captureNativeRankConfig232(env),historical=historicalNativeRankPolicy232(),f=I.routineMembership232Facts(cap);if(c.mode!=='enabled'||!c.policy||!c.current()||entitlements.mode==='held'||maxJobs!==1&&maxJobs!==2)return done('held','canonical233_configuration_held');
+  // A late attended preview cannot borrow the longer Native capture window for
+  // a DELETE+PUT conversion. Reserve against the smaller original deadline
+  // before the first effect. This reserve adds no new receipt clock: landed
+  // PUT currentness stays conservative, while original DELETE receipt and
+  // owned compensation custody keep their existing separate checks.
+  const effectDeadline=I.routineMembership232EffectDeadline(env,cap);
   const extra=entitlements.manifest?.entries.filter(e=>e.subject===f.subject&&e.generation===f.subjectGeneration).map(e=>c.policy!.ranks.find(r=>r.key===e.roleKey)!.roleId)??[];
   const restriction=native232Restrictions.get(cap);restriction?.check();
   if(f.cause==='eligible'&&!restriction&&!canonicalRankWitnessMatches280(c.policy,f.canonicalRankProfile,f.rankQualified))return done('held','directive280_current_rank_authority_required');
@@ -2342,7 +2348,7 @@ export async function reconcileCanonicalRanks233(env:Env,cap:RoutineMembership23
   const originalManual280=maxJobs===2&&f.cause==='eligible'&&!restriction&&wanted?rows.find(row=>row.role_id!==wanted&&row.manual280===1):undefined;
   if(originalManual280){
    if(!Number.isSafeInteger(b.limit)||!Number.isSafeInteger(b.attempts)||b.limit-b.attempts<5)return done('held','role_request_budget');
-   if(f.deadline-now()<40)return done('held','canonical233_absence_observation_deadline_insufficient');
+   if(effectDeadline-now()<40)return done('held','canonical233_absence_observation_deadline_insufficient');
    const observed=await member(env,b,f.subject);I.assertRoutineMembership232(env,cap);
    if(!c.current()||!old.current()||!entitlements.current()||!observed||!launch230Member(observed,f.subject))return done('held','canonical233_absence_observation_held');
    if(observed.roles.includes(originalManual280.role_id))return done('held','canonical233_provider_refused_manual');
@@ -2356,7 +2362,7 @@ export async function reconcileCanonicalRanks233(env:Env,cap:RoutineMembership23
   const jobs=[...rows.filter(r=>r.role_id!==wanted).map(r=>({role:r.role_id,desired:0 as const})),...wanted?[{role:wanted,desired:1 as const}]:[]];
   if(maxJobs===2&&f.cause==='eligible'&&!restriction&&wanted&&jobs.length>maxJobs){
    if(!Number.isSafeInteger(b.limit)||!Number.isSafeInteger(b.attempts)||b.limit-b.attempts<5)return done('held','role_request_budget');
-   if(f.deadline-now()<40)return done('held','canonical233_absence_observation_deadline_insufficient');
+   if(effectDeadline-now()<40)return done('held','canonical233_absence_observation_deadline_insufficient');
    const observed=await member(env,b,f.subject);I.assertRoutineMembership232(env,cap);
    if(!c.current()||!old.current()||!entitlements.current()||!observed||!launch230Member(observed,f.subject))return done('held','canonical233_absence_observation_held');
    const absent=rows.find(r=>r.role_id!==wanted&&!observed.roles.includes(r.role_id));
@@ -2371,7 +2377,7 @@ export async function reconcileCanonicalRanks233(env:Env,cap:RoutineMembership23
    const unwanted=rows.filter(r=>r.role_id!==wanted&&observed.roles.includes(r.role_id));
    if(unwanted.length>1){
     if(b.limit-b.attempts<6)return done('held','role_request_budget');
-    if(f.deadline-now()<48)return done('held','canonical233_removal_progress_deadline_insufficient');
+    if(effectDeadline-now()<48)return done('held','canonical233_removal_progress_deadline_insufficient');
     const priority=(role:string)=>{
      const current=c.policy!.ranks.findIndex(rank=>rank.roleId===role);if(current>=0)return current;
      const oldRank=historical.ranks.find(rank=>rank.roleId===role);return oldRank?NATIVE_CANONICAL_INDEX233[oldRank.index]??100:100;
@@ -2392,7 +2398,7 @@ export async function reconcileCanonicalRanks233(env:Env,cap:RoutineMembership23
    // credentialFetch's eight-second request bound is a conservative admission
    // reserve, not a database/provider latency guarantee. Original checks remain
    // adjacent to every individual dispatch and confirmation.
-   if(f.deadline-now()<required*8)return done('held','canonical233_plan_deadline_insufficient');
+   if(effectDeadline-now()<required*8)return done('held','canonical233_plan_deadline_insufficient');
   }
   const removed=new Set<string>();
   for(const j of jobs.slice(0,maxJobs)){

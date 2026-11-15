@@ -44,18 +44,40 @@ check("a missing printer is refused without a client call", OlympusVerifyRanks.P
 local guide = {}
 check("the standalone guide can use a supplied printer", OlympusVerifyRanks.Print(function(line) guide[#guide + 1] = line end), true)
 local expectedRanks = { "Leader (Guild Master)", "High Council", "Officer", "Officer Alt", "Raid Leader", "Veteran", "Raider", "Member", "Alt", "Initiate" }
-check("the heading distinguishes a recommended preset from live configuration", guide[1], "Recommended ten-rank preset (highest first; native indices 0-9):")
+check("missing native APIs leave the current profile explicitly unconfirmed", contains(guide, "Current native profile: unconfirmed."), true)
+check("the heading distinguishes the historical preset from live configuration", guide[2], "Historical recommended preset (9 October 2026; native indices 0-9):")
 for i, rank in ipairs(expectedRanks) do
-  check("native index " .. (i - 1) .. " is " .. rank, guide[i + 1], "  " .. (i - 1) .. ": " .. rank)
+  check("historical native index " .. (i - 1) .. " is " .. rank, guide[i + 2], "  " .. (i - 1) .. ": " .. rank)
 end
-check("current native ranks and appointments remain distinct", guide[12], "Appointments: Co-Guild Master (Co-GM) and Treasurer are High Council offices (native index 1, second rank), not extra native ranks. Officer is native index 2; Officer Alt is native index 3.")
+check("historical native ranks and appointments remain distinct", guide[13], "Historical preset appointments: Co-Guild Master (Co-GM) and Treasurer are High Council offices (native index 1, second rank), not extra native ranks. Officer is native index 2; Officer Alt is native index 3.")
 check("withdrawal and tab management explicitly apply to every High Council member", contains(guide, "every High Council member Withdraw Gold and Modify Bank Tabs"), true)
-check("Raid Leader keeps the authenticator safeguard", contains(guide, "Raid Leader retains the authenticator safeguard"), true)
+check("historical Raid Leader keeps the authenticator safeguard", contains(guide, "Raid Leader retains the authenticator safeguard"), true)
 check("numeric bank allowances are explicitly unapproved", contains(guide, "No numeric bank withdrawal allowances have been approved"), true)
 check("setup and review still require attended Guild Master action", contains(guide, "native Guild Master setup and permission review remain attended in-game actions"), true)
 check("the guide explains its read-only boundary", contains(guide, "This command changes no ranks, appointments or permissions"), true)
-check("the guide does not certify the live game rank", contains(guide, "This recommendation does not verify anyone’s current game rank"), true)
-check("the complete guide has ten rank lines plus six guidance lines", #guide, 16)
+check("the historical guide does not certify the live game rank", contains(guide, "This preset does not verify anyone’s current game rank"), true)
+check("the unconfirmed guide has one observation notice plus sixteen historical lines", #guide, 17)
+
+assert(loadfile("../OlympusVerify/OlympusVerifyNativeRankConstants.lua"))("OlympusVerify", {})
+assert(loadfile("../OlympusVerify/OlympusVerifyNativeRanks.lua"))("OlympusVerify", {})
+for _, scheme in ipairs(OlympusVerifyNativeRankConstants.profiles) do
+  local countReads, nameReads = 0, 0
+  GuildControlGetNumRanks=function() countReads=countReads+1;return 10 end
+  GuildControlGetRankName=function(i) nameReads=nameReads+1;return scheme.names[i] end
+  local current={};OlympusVerifyRanks.Print(function(line) current[#current+1]=line end)
+  check("current profile is observed separately: "..scheme.profile, current[1], "Current observed native profile: "..scheme.profile.." (highest first; native indices 0-9):")
+  for i, rank in ipairs(scheme.names) do check("observed "..scheme.profile.." index "..(i-1),current[i+1],"  "..(i-1)..": "..rank) end
+  check("current targets follow this exact profile: "..scheme.profile, contains(current,"Veteran "..scheme.veteran.."; Member "..scheme.member.."; Alt "..scheme.alt.."; Initiate "..scheme.initiate),true)
+  check("the original historical ladder remains below the observed table",current[13],guide[2])
+  check("one command captures the ten rank names only once",nameReads==10 and countReads==2,true)
+end
+GuildControlGetRankName=function(i) return i==2 and "Unreviewed Rank" or OlympusVerifyNativeRankConstants.names[i] end
+local unrecognised={};OlympusVerifyRanks.Print(function(line) unrecognised[#unrecognised+1]=line end)
+check("an unrecognised complete table does not inherit either supported profile",contains(unrecognised,"Current native profile: unconfirmed."),true)
+GuildControlGetNumRanks=function() return 9 end
+local incomplete={};OlympusVerifyRanks.Print(function(line) incomplete[#incomplete+1]=line end)
+check("an incomplete native table does not fabricate a current ladder",contains(incomplete,"Current native profile: unconfirmed."),true)
+GuildControlGetNumRanks, GuildControlGetRankName = nil, nil
 
 local tocFile = assert(io.open("../OlympusVerify/OlympusVerify.toc", "r"))
 local toc = tocFile:read("*a"); tocFile:close()

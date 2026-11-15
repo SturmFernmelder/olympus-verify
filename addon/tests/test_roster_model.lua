@@ -192,6 +192,31 @@ do
 end
 
 do
+  for _,kind in ipairs({"missing-page","string-slot","missing-slot"}) do
+    local f=fixture(true);local current=f.q.Current();f.q.Current=function()return current end
+    local id=f.rows[1].guid
+    if kind=="missing-page" then current.freshness[id].page=nil
+    elseif kind=="string-slot" then f.selRow.currentSlot="9"
+    else f.selRow.currentSlot=nil end
+    local ok,ready=pcall(f.read)
+    check("malformed recommendation "..kind.." is safely withheld without a historical default or comparison error",ok and not ready[id] and f.effects==0)
+  end
+  local f=fixture(true);f.rows[1].rank="Alt"
+  local ready,d=f.read()
+  check("a current slot with a conflicting native label cannot become ready",not ready[f.rows[1].guid] and d.byGuid[f.rows[1].guid].label=="Native rank label unconfirmed" and f.effects==0)
+end
+do
+  local f=fixture(true);local c=f.e.OlympusVerifyNativeRankConstants.profiles[2]
+  f.sp.rankProfile,f.sp.rankSchemeDigest,f.sp.rankNames=c.profile,c.digest,{unpack(c.names)}
+  f.selRow.targetSlot=8
+  f.selRow.intent.rankProfile,f.selRow.intent.rankSchemeDigest,f.selRow.intent.finalSlot=c.profile,c.digest,8
+  f.rows[4].rankIndex,f.rows[4].rank=6,"Veteran"
+  local ready,d=f.read()
+  check("Steward Initiate readiness uses Member8 and records its exact profile for the roster button",ready[f.rows[1].guid] and d.byGuid[f.rows[1].guid].targetSlot==8
+    and d.byGuid[f.rows[1].guid].rankProfile==c.profile and d.byGuid[f.rows[1].guid].rankSchemeDigest==c.digest)
+  check("Steward Veteran6 is outside that profile's supported promotion source ranks",not ready[f.rows[4].guid] and d.byGuid[f.rows[4].guid].state=="wrong_rank" and f.effects==0)
+end
+do
   local f = fixture(true)
   for index = #f.rows + 1, 1000 do
     f.rows[index] = { name = "Synthetic " .. index, guid = string.format("Player-1-%08X", index + 10000), rankIndex = 7, status = "verified" }
