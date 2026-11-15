@@ -309,14 +309,15 @@ check('the Discord talent replies name the 10 November data, not the 16 October 
 
 // --- Docs (follow-up item 11, 12 Nov 2026): the two talent docs state the 10 November snapshot, and every paragraph or
 // bullet that still gives a 16 October number is labelled historical.
+// h4 (15 Nov 2026, owner: "Codex extracts them from the game"): the 17 talents use client icons and none is listed, so the doc says so.
 check('docs: talents-data169.md and talents-stats60-186.md describe the 10 November data and label the 16 October facts historical', () => {
   const doc = name => readText(repo, 'docs', name), bad = [];
   const d169 = doc('talents-data169.md'), s60 = doc('talents-stats60-186.md');
-  const want169 = ['02e1e101d1a5', '1.60.1.70755', '3, 4, 6 and 10 November', '467 talents and 1,297 rank descriptions', '/static/talents/archive/260cf99b52db/', 'The 17 talents whose icon is not on file',
+  const want169 = ['02e1e101d1a5', '1.60.1.70755', '3, 4, 6 and 10 November', '467 talents and 1,297 rank descriptions', '/static/talents/archive/260cf99b52db/', 'The 17 talents whose icon was not on file use icons\nextracted by Codex Root from the installed game client, build 1.60.1.70938, as 64 by 64 PNG files; none is listed in\n`talentIconsUnavailable`.',
     String(data.source.rawBytes).replace(/\B(?=(\d{3})+(?!\d))/g, ','), data.source.rawSHA256];
   for (const w of want169) if (!d169.includes(w)) bad.push('talents-data169.md lacks ' + w);
   const art = JSON.parse(readText(folder, 'art.json'));
-  if (art.talentIconsUnavailable.length !== 17 || data.counts.talents !== 467 || data.counts.ranks !== 1297) bad.push('the stated counts no longer match the shipped files');
+  if (art.talentIconsUnavailable.length !== 0 || data.counts.talents !== 467 || data.counts.ranks !== 1297) bad.push('the stated counts no longer match the shipped files');
   const effects = JSON.parse(readText(folder, 'stat-effects186.json'));
   const c = effects.counts, wantS60 = [c.components + ' components in ' + c.talents + ' talents', c.textMatchesCurrent + ' components match byte for byte', c.withheldTextChanged + ' have changed rank text', '02e1e101d1a5'];
   for (const w of wantS60) if (!s60.includes(w)) bad.push('talents-stats60-186.md lacks ' + w);
