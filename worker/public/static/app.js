@@ -1851,7 +1851,7 @@
   // Titles identify the section, never a private account, event or case from an address.
   function routeTitle(route) {
     const [head, sub, detail, action] = route.split("/");
-    const staff = { "": "Overview", applications: detail ? "Application details" : "Applications", votes: "Votes", names: "Reserved names", "launch-operations": "Launch operations & MOTD", friends: "Friends", lookup: "Lookup", settings: "Settings", ranks: "Rank planner", treasury: "Treasury", "donation-ledger": "Donation ledger", "approved-guilds": "Signed guild list", renames: "Renames", news: "News", audit: "Audit log", "ruleset-publication": "Ruleset publication", "directory-visibility": "Discord member list preferences", community: "Community" };
+    const staff = { "": "Overview", applications: detail ? "Application details" : "Applications", votes: "Votes", names: "Reserved names", "launch-operations": "Launch operations & MOTD", friends: "Friends", lookup: "Lookup", settings: "Settings", appointments: "Appointed roles", ranks: "Rank planner", treasury: "Treasury", "donation-ledger": "Donation ledger", "approved-guilds": "Signed guild list", renames: "Renames", news: "News", audit: "Audit log", "ruleset-publication": "Ruleset publication", "directory-visibility": "Discord member list preferences", community: "Community" };
     const staffCommunity = { trials: "Trials", departures: "Departures", cases: "Restriction cases", ledger: "Contribution ledger", inbox: "Private requests", claims: "Character claims" };
     if (head === "admin") return `Admin · ${sub === "community" && own(staffCommunity, detail) ? staffCommunity[detail] : own(staff, sub || "") ? staff[sub || ""] : "Overview"}`;
     if (head === "community") {
