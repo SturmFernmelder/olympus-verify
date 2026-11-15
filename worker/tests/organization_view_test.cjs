@@ -186,8 +186,8 @@ const orgButtons1115 = new Map(p.main.all(n => !!n.getAttribute('data-organizati
 const orgLc1115 = s => String(s).toLowerCase();
 // Owner's answer of 15 Nov 2026 to question 4 ("Yes, stop matching", claude/stage2/SITE-FAULTS-282-FOLLOWUP.md): aliases the
 // register files under "Historical application & ballot labels" are not current terms; plain "Retained portfolio labels" are.
-// VG-2 (follow-up check of 15 Nov 2026): p is rendered once and a search only hides cards, so the cards that carry that
-// drawer are read once from p instead of walking the whole page for every card on every query.
+// VG-2 (follow-up check of 15 Nov 2026): p is rendered once and no search renders a drawer again (a search sets hidden,
+// marks chart nodes and rewrites the status), so the cards that carry that drawer are read once from p, not on every query.
 const orgFiledKeys1115 = new Set(data.terms.filter(t => rawOfficeCard218(t.officeKey).all(n => n.getAttribute('data-historical-application-labels218') === t.officeKey).length === 1).map(t => t.officeKey));
 const orgFiledHistorical1115 = t => orgFiledKeys1115.has(t.officeKey);
 const orgCurrent1115 = t => orgLc1115([t.label, t.applicationLabel, ...(orgFiledHistorical1115(t) ? [] : t.applicationAliases || []), t.officeKey, t.department, t.tierLabel, directory203.families.find(row => row.key === directory203.keyToFamily[t.officeKey])?.label].filter(Boolean).join(' '));
