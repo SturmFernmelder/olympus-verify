@@ -200,7 +200,7 @@ check('app.js routes #/guides to the university, the library to #/guides/library
 check('the privacy policy says quiz scores stay in the browser, and the generated policy module matches', () => {
   const html = readText(repo, 'policies/privacy.html'), mod = readText(worker, 'src/policy-content.ts');
   const r = cp.spawnSync(process.execPath, [path.join(worker, 'scripts/build-policy-content.mjs'), '--check'], { cwd: worker, encoding: 'utf8', timeout: 60000 });
-  return /Olympus University quiz scores\.<\/strong> Your answers and best scores[^<]*never sent to Olympus/.test(html) && /Olympus University quiz scores/.test(mod) && r.status === 0 || (r.stdout + r.stderr).slice(-300);
+  return /Guide quiz scores\.<\/strong> Your answers and best scores[^<]*never sent to Olympus/.test(html) && /Guide quiz scores/.test(mod) && r.status === 0 || (r.stdout + r.stderr).slice(-300);
 });
 
 // ---------- The real renderer in a small DOM shim ----------
