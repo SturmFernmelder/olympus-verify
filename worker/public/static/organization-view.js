@@ -194,6 +194,9 @@ export function renderOrganization(main, data, ui) {
   function focusNode(id) { if (branchMode) branchLayout(); const p = position.get(id); if (!p) return; scale = Math.max(.85, scale); x = viewport.clientWidth / 2 - p.x * scale; y = Math.max(50, viewport.clientHeight / 3) - p.y * scale; transform(); }
   const reservedTerm201 = term => term.reservedSeat201 || ["leader", "high_council", "officer_corps"].includes(term.tier);
   const termFamily218 = term => ui.roleDirectory203?.families?.find(row => row.key === ui.roleDirectory203.keyToFamily[term.officeKey]);
+  // Owner ruling 15 Nov 2026: one test decides where a card's application aliases are filed; the register drawer and the
+  // search index both use it, so a name filed as historical adds nothing to the search and a retained label always does.
+  const historicalAliases1115 = term => termFamily218(term)?.kind === "institution" || !!term.applicationMetadataScope;
   // CL2-036: one eligibility rule with /#/roles. A link appears exactly where the directory lists an intent the Worker
   // accepts (validateApplicationIntent199). Since the owner's ruling of 14 Nov 2026 those are Guild Member, Raider and
   // Artisan (office_07) only; Core Raider (office_25) and Crafter (office_27) are not targets.
@@ -376,7 +379,7 @@ export function renderOrganization(main, data, ui) {
       const closed = ui.officeAvailability?.[t.officeKey] === false;
       const family = termFamily218(t), target = termTarget1112(t);
       const aliasLabels = t.applicationAliases?.length ? h("p", { class: "small", text: "Retained portfolio labels: " + t.applicationAliases.join(" · ") }) : null;
-      const historicalAliases = aliasLabels && (family?.kind === "institution" || t.applicationMetadataScope) ? h("details", {class:"org-register-context218", "data-historical-application-labels218":t.officeKey},
+      const historicalAliases = aliasLabels && historicalAliases1115(t) ? h("details", {class:"org-register-context218", "data-historical-application-labels218":t.officeKey},
         h("summary", {text:"Historical application & ballot labels"}), h("p", {class:"small muted",text:t.applicationMetadataScope || "Earlier application vocabulary is retained for record compatibility; it does not open this institution to applications."}), aliasLabels) : aliasLabels;
       const historicalOfficeLabels = t.historicalOfficeLabels?.length ? h("details", { class: "org-register-context218", "data-historical-office-labels": t.officeKey },
         h("summary", { text: "Historical office labels" }), h("p", { class: "small", text: t.historicalOfficeLabels.join(" · ") })) : null;
@@ -400,7 +403,8 @@ export function renderOrganization(main, data, ui) {
   }
   // CL2-190: one index per title (labels, aliases, key and department) serves the chart and the register. Owner ruling
   // 15 Nov 2026: current titles only; a historical office label stays in its history drawer and does not match a search.
-  const termIndex1112 = t => [t.label, t.applicationLabel, ...(t.applicationAliases || []), t.officeKey, t.department, t.tierLabel, termFamily218(t)?.label].filter(Boolean).join(" ").toLowerCase();
+  // Owner ruling 15 Nov 2026 ("Yes, stop matching"): aliases filed under "Historical application & ballot labels" do not match either.
+  const termIndex1112 = t => [t.label, t.applicationLabel, ...(historicalAliases1115(t) ? [] : t.applicationAliases || []), t.officeKey, t.department, t.tierLabel, termFamily218(t)?.label].filter(Boolean).join(" ").toLowerCase();
   search.addEventListener("input", () => {
     const q = search.value.trim().toLowerCase(); let count = 0, outside = 0;
     for (const n of data.nodes) {
