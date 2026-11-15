@@ -441,8 +441,10 @@ check('INT-UNI-1: an unknown class, spec, profession, race, track, chapter, exam
 // Unit h1 guidesname (owner, 15 Nov 2026: "Instead of university rename it back to its old name that it had for the guides."):
 // every place of university.js and index.json that names the section reads as before 58b96f8: "Class & profession guides" as
 // heading, breadcrumb root and way back; the loading and failure lines of guides218.js then ("Opening the guides…", "The guides
-// could not be loaded. Try again in a moment."). New places keep their other words. No string of the four site files says
-// "Olympus University" any more (comments and the module names OlympusUniversity are not shown to members).
+// could not be loaded. Try again in a moment."). The five not-found sentences do not name the section, as the guides pages
+// before 58b96f8 did not ("There is no such guide."); the scope note begins "These guides cite" (both the lead's decision of
+// 15 Nov 2026, finishing round of unit h1). No string of the four site files says "Olympus University" any more (comments
+// and the module names OlympusUniversity are not shown to members).
 check('h1: every university page names the section "Class & profession guides", with the old loading and failure lines and no "Olympus University" left', async () => {
   const NAME = 'Class & profession guides', bad = [], rev = json(stat, 'guides218.json').talentRevision;
   const early = page(); early.ctx.OlympusUniversity.mount(early.container, { parts: [], talentRevision: rev, canAttach: true, onAttach() {} });
@@ -451,16 +453,16 @@ check('h1: every university page names the section "Class & profession guides", 
   failing.ctx.OlympusUniversity.mount(failing.container, { parts: [], talentRevision: rev, canAttach: true, onAttach() {} });
   await settle(failing, x => !!x.container.querySelector('p[role="alert"]'));
   const alerts = failing.container.querySelectorAll('p[role="alert"]').map(text);
-  const hub = await open([]), scope = hub.container.querySelectorAll('p').map(text).filter(t => /^Class & profession guides cites /.test(t));
+  const hub = await open([]), scope = hub.container.querySelectorAll('p').map(text).filter(t => /^These guides cite /.test(t));
   const planned = x => { const ix = json(uni, 'index.json'), d = ix.guides.find(g => g.id === 'dwarf'); d.status = 'planned'; d.file = null; delete d.exams; delete d.chapters; x.files.set('index.json', ix); };
   const crumbPages = [['exams'], ['class', 'warrior'], ['class', 'warrior', 'arms'], ['race', 'human'], ['profession', 'alchemy'], ['exam', 'class-warrior', '101'], ['class', 'no-such-class']];
   for (const parts of crumbPages) {
     const p = await open(parts), root = p.container.querySelectorAll('nav[aria-label="Breadcrumb"]').map(n => n.querySelectorAll('a')[0]);
     if (root.length !== 1 || text(root[0]) !== NAME || root[0].getAttribute('href') !== '#/guides') bad.push(parts.join('/') + ' crumb ' + JSON.stringify(root.map(text)));
   }
-  const missing = [[['nonsense'], 'There is no such guide in Class & profession guides.'], [['class', 'no-such-class'], 'There is no such class guide in Class & profession guides.'],
-    [['race', 'orc'], 'There is no such race guide in Class & profession guides.'], [['profession', 'no-such-profession'], 'There is no such profession guide in Class & profession guides.'],
-    [['class', 'warrior', 'arms', '101', 'x', 'y'], 'There is no such page in Class & profession guides.']];
+  const missing = [[['nonsense'], 'There is no such guide.'], [['class', 'no-such-class'], 'There is no such class guide.'],
+    [['race', 'orc'], 'There is no such race guide.'], [['profession', 'no-such-profession'], 'There is no such profession guide.'],
+    [['class', 'warrior', 'arms', '101', 'x', 'y'], 'There is no such page.']];
   for (const [parts, sentence] of missing) {
     const p = await open(parts), status = p.container.querySelectorAll('[role="status"]').map(text), back = p.container.querySelectorAll('a').filter(a => a.getAttribute('href') === '#/guides').map(text);
     if (JSON.stringify(status) !== JSON.stringify([sentence]) || JSON.stringify(back) !== JSON.stringify([NAME, 'Back to ' + NAME])) bad.push(parts.join('/') + ' ' + JSON.stringify({ status, back }));
@@ -472,7 +474,7 @@ check('h1: every university page names the section "Class & profession guides", 
     .concat(/Olympus University/.test(readText(uni, 'index.json')) ? ['university/index.json'] : []);
   return JSON.stringify(loading) === '["Opening the guides…"]' && JSON.stringify(alerts) === '["The guides could not be loaded. Try again in a moment."]'
     && text(hub.container.querySelector('h1')) === NAME
-    && JSON.stringify(scope) === JSON.stringify(['Class & profession guides cites Blizzard’s notes, the talent calculator’s 10 November data and published Forever guides. Every fact carries a grade and a source, Classic 1.12 numbers are labelled, and anything not known yet says so.'])
+    && JSON.stringify(scope) === JSON.stringify(['These guides cite Blizzard’s notes, the talent calculator’s 10 November data and published Forever guides. Every fact carries a grade and a source, Classic 1.12 numbers are labelled, and anything not known yet says so.'])
     && bad.length === 0 && left.length === 0 || JSON.stringify({ loading, alerts, scope, bad, left });
 });
 check('renderer: the Related rail links the talent calculator, hub tools, the Class Lead office, the Workshop charter and the exam index (CL2-207)', async () => {
