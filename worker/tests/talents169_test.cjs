@@ -683,6 +683,36 @@ async function detailRenderRegression() {
   const staleClassN03=classButtonsN03().find(node=>node.getAttribute('data-class')==='mage'),beforeDisposedN03=unknownChangesN03.length;
   unknownControllerN03.destroy();staleClassN03.click();sharedControllerN03.destroy();
   check('.218 a disposed unavailable-class recovery cannot revive its callback or alter snapshot data',unknownChangesN03.length===beforeDisposedN03&&initialJSON===JSON.stringify(data));
+  // f5 (15 Nov 2026 site fault, our 1c88699): the archive failure message of CL2-087 (our 2848069) is kept and the
+  // unavailable-class recovery follows it once. This suite's fetch answers archive URLs with the current snapshot,
+  // whose revision loadArchive refuses, so the 16 October archive load fails here. app.js passes build "" without a code.
+  const unavailableF5 = 'That linked class is unavailable. Showing a blank Warrior plan; choose a supported class below.';
+  const archiveFailedF5 = 'The archived 16 October beta data could not be loaded, so this build cannot be shown. Reopen the link to try again.';
+  const archiveDataF5 = JSON.parse(fs.readFileSync(path.join(folder, 'archive/260cf99b52db/data.json')));
+  const archivedCodeF5 = api.serializeBuild(archiveDataF5, api.emptyBuild(archiveDataF5, 'warrior', 60));
+  const realArchivedCodeF5 = archivedCodeF5.startsWith('ot1.260cf99b52db.warrior.60.') && api.parseBuild(archiveDataF5, archivedCodeF5).ok && !api.parseBuild(data, archivedCodeF5).ok;
+  const mountF5 = async options => {
+    const host = document.createElement('main'), changesF5 = [], readsBefore = reads;
+    const mounted = await browserModule.exports.mount(host, { ...options, onBuildChange: value => changesF5.push(value) });
+    const result = { feedback: byClass(host, 'talents-feedback').map(node => node.textContent), shown: byClass(host, 'talents-tool')[0]?.getAttribute('data-class'), changes: changesF5.length, reads: reads - readsBefore };
+    mounted.destroy();
+    return result;
+  };
+  const warriorArchiveF5 = await mountF5({ className: 'warrior', build: archivedCodeF5 });
+  check('.282-f5 a Warrior link with a 16 October code whose archive fails to load shows the archive failure message alone on a blank Warrior plan without emitting a change',
+    realArchivedCodeF5 && warriorArchiveF5.reads === 2 && warriorArchiveF5.feedback.length === 1 && warriorArchiveF5.feedback[0] === archiveFailedF5
+    && warriorArchiveF5.shown === 'warrior' && warriorArchiveF5.changes === 0 && initialJSON === JSON.stringify(data));
+  const unknownArchiveF5 = await mountF5({ className: 'no_such_class', build: archivedCodeF5 });
+  check('.282-f5 an unavailable class with a 16 October code whose archive fails to load keeps the archive failure message followed once by the blank Warrior recovery',
+    realArchivedCodeF5 && unknownArchiveF5.reads === 2 && unknownArchiveF5.feedback.length === 1 && unknownArchiveF5.feedback[0] === archiveFailedF5 + ' ' + unavailableF5
+    && unknownArchiveF5.shown === 'warrior' && unknownArchiveF5.changes === 0 && initialJSON === JSON.stringify(data));
+  const unknownEmptyF5 = await mountF5({ className: 'no_such_class', build: '' });
+  check('.282-f5 an unavailable class with the empty code the route passes shows the blank Warrior recovery once without emitting a change',
+    unknownEmptyF5.reads === 0 && unknownEmptyF5.feedback.length === 1 && unknownEmptyF5.feedback[0] === unavailableF5 && unknownEmptyF5.shown === 'warrior' && unknownEmptyF5.changes === 0);
+  const warriorEmptyF5 = await mountF5({ className: 'warrior', build: '' });
+  check('.282-f5 a Warrior link with the empty code the route passes shows the ordinary help line, not the unavailable-class recovery',
+    warriorEmptyF5.reads === 0 && warriorEmptyF5.feedback.length === 1 && warriorEmptyF5.feedback[0] === 'Left-click adds a point; right-click or Shift-click refunds. Hover or focus a talent to read every rank.'
+    && warriorEmptyF5.shown === 'warrior' && warriorEmptyF5.changes === 0);
   console.log('\n' + ok + '/' + n + ' passed');
   if (ok !== n) process.exitCode = 1;
 }
