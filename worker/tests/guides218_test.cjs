@@ -630,15 +630,20 @@ async function university(parts, options = {}) {
   const uniPrefixed = uniSourceLink((await university(['class', 'paladin'])).box, prefixed.url);
   check('a source title starting with its publisher renders that publisher once and keeps its topic',
     !!uniPrefixed && text(uniPrefixed) === prefixed.publisher + ' — ' + prefixed.label.slice(prefixed.publisher.length + 2));
+  // CL2-052, CL2-057 (our 58b96f8): the class, spec and profession pages are University courses (university.js), and the
+  // course and tool breadcrumbs start at "Olympus University". Site fault f1 (15 Nov 2026): a course credits the Talents
+  // Forever data once exactly when it cites a Talents Forever source or shows a talent build; the changes tool keeps its credit.
   const guideViews = [
-    ...DATA.classes.flatMap(c => [{ view: 'class', classId: c.id }, ...c.specs.map(s => ({ view: 'class', classId: c.id, specId: s.id }))]),
-    ...DATA.professions.map(p => ({ view: 'profession', profession: p.key })),
+    ...DATA.classes.flatMap(c => [['class', c.id], ...c.specs.map(s => ['class', c.id, s.id])]),
+    ...DATA.professions.map(p => ['profession', p.key]),
     ...['attunements', 'buffs', 'raid-structure', 'changes'].map(tool => ({ view: 'tool', tool }))
   ];
   for (const opts of guideViews) {
-    const { box } = await mounted({ ...opts, talentRevision: talents.revision });
+    const course = Array.isArray(opts);
+    const { box } = course ? await university(opts) : await mounted({ ...opts, talentRevision: talents.revision });
     const purposeByName = new Map();
-    for (const line of sourceLines(box)) {
+    const citationLines = course ? box.all(node => node.className === 'uni-sources') : sourceLines(box);
+    for (const line of citationLines) {
       const anchors = line.tags('a');
       assert.equal(new Set(links(line)).size, anchors.length, JSON.stringify(opts) + ': repeated destination in one citation');
       for (const a of anchors) {
@@ -650,8 +655,9 @@ async function university(parts, options = {}) {
         purposeByName.set(name, href);
       }
     }
-    const credit = box.all(e => e.className.includes('guides218-talent-credit'));
-    assert.equal(credit.length, opts.view === 'class' || opts.tool === 'changes' ? 1 : 0, JSON.stringify(opts));
+    const credit = box.all(e => e.className.includes(course ? 'uni-talent-credit' : 'guides218-talent-credit'));
+    const talentData = course && (citationLines.some(line => line.tags('a').some(a => text(a).startsWith('Talents Forever — '))) || box.all(e => e.getAttribute('data-preset') !== null).length > 0);
+    assert.equal(credit.length, talentData || opts.tool === 'changes' ? 1 : 0, JSON.stringify(opts));
     if (credit.length) {
       assert.deepEqual(links(credit[0]), ['https://talentsforever.com/', 'https://creativecommons.org/licenses/by/4.0/']);
       assert.equal(text(credit[0]).match(/CC BY 4\.0/g).length, 1);
@@ -659,7 +665,7 @@ async function university(parts, options = {}) {
     assert.ok(box.tags('a').filter(a => /^https:/.test(a.getAttribute('href') || ''))
       .every(a => a.getAttribute('target') === '_blank' && a.getAttribute('rel') === 'noopener noreferrer'), JSON.stringify(opts));
     const breadcrumbs = box.all(e => e.getAttribute('aria-label') === 'Breadcrumb')[0];
-    assert.equal(text(breadcrumbs.tags('a')[0]), 'Class & profession guides');
+    assert.equal(text(breadcrumbs.tags('a')[0]), 'Olympus University');
   }
   check('all guide pages use distinct names for different citations, safe source links, relevant credits and consistent breadcrumbs', guideViews.length === 52);
   let calls = 0; const failing = page(async () => { calls++; return { ok: false, status: 503, json: async () => ({}) }; });
