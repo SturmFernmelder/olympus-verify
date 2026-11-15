@@ -452,6 +452,19 @@ check('the mounted sheet renders graded cells, a greyed Classic label, an SVG ch
   assert.deepEqual([effects.components.length, kept.length, data.source.clientBuilds, kept.filter(c => c.grade === 'A').length, kept.filter(c => c.grade === 'B').length, effects.source.db2Build, effects.source.db2CrossCheckBuild, naked.build.client], [136, 112, ['1.60.1.70755'], 107, 5, '1.60.1.70425', '1.60.1.70450', '1.60.1.70450']);
   assert.equal(byClass(host, 's60-about')[0].children[1].textContent, 'Exact: the talent values. Of the 136 talent stat components, 112 equal their Talents Forever rank text for client 1.60.1.70755 and 24 are withheld because their rank text changed since review; of the 112, 107 also equal the client\'s own talent curves (grade A, DB2 1.60.1.70425, cross-checked in 1.60.1.70450) and 5 carry a semantic reading of client data (grade B: values read from spell effects, or an exact curve whose stat is read from its aura). Racial traits come from DB2 SpellEffect 1.60.1.70450 (grade B).');
   assert.match(about, /cropped to the stat panel only/);
+  // Review round: the withheld clause is said once, and the sentence follows the loaded data. With Divine Intellect's rank text changed (as in the
+  // stat impact check) 111 equal and 25 are withheld; of the 111, grade A 106 (Divine Intellect is grade A) and B 5. Champion of the Light, withheld,
+  // lists its data.json maximum (5; 3 when reviewed) in the contribution list.
+  assert.equal(about.split('are withheld because their rank text changed since review').length, 2);
+  const changedData = clone(data); changedData.classes.find(c => c.id === 'paladin').trees.flatMap(t => t.talents).find(t => t.id === 'paladin-protection-divine-intellect').descriptions[4] = 'Increases your total Intellect by 99%.';
+  const kept111 = kept.filter(c => c.talentId !== 'paladin-protection-divine-intellect');
+  assert.deepEqual([kept111.length, kept111.filter(c => c.grade === 'A').length, kept111.filter(c => c.grade === 'B').length, talentsOf('paladin').find(t => t.id === 'paladin-retribution-champion-of-the-light').maxRank], [111, 106, 5, 5]);
+  const changedHost = document.createElement('div'), changedUi = S.mount(changedHost, { data: changedData, build: legalBuild('paladin', [['paladin-retribution-champion-of-the-light', 3]]), naked, effects, guides: guidesFor('paladin') });
+  assert.equal(await changedUi.ready, true);
+  assert.equal(byClass(changedHost, 's60-about')[0].children[1].textContent, 'Exact: the talent values. Of the 136 talent stat components, 111 equal their Talents Forever rank text for client 1.60.1.70755 and 25 are withheld because their rank text changed since review; of the 111, 106 also equal the client\'s own talent curves (grade A, DB2 1.60.1.70425, cross-checked in 1.60.1.70450) and 5 carry a semantic reading of client data (grade B: values read from spell effects, or an exact curve whose stat is read from its aura). Racial traits come from DB2 SpellEffect 1.60.1.70450 (grade B).');
+  const champion = byClass(changedHost, 's60-group-withheld')[0].all(n => n.tagName === 'LI').filter(li => li.children[0].textContent === 'Champion of the Light');
+  assert.equal(champion.length, 1); assert.ok(champion[0].textContent.startsWith('Champion of the Light 3/5 · Retribution · tier A '), champion[0].textContent);
+  changedUi.destroy();
   assert.match(about, /1\.60\.1\.70009 is not used/); assert.ok(byClass(host, 's60-about')[0].tagName === 'DETAILS' && !host.all(n => n.tagName === 'A' || n.tagName === 'IMG').length);
   ui.destroy(); assert.equal(byClass(host, 'talents-stats60').length, 0);
 });
@@ -871,6 +884,8 @@ check('.196 stat impact: every stat component of every class, at maximum rank an
       assert.equal(r.maxRank, talent.maxRank, r.id); assert.equal(r.grade, comp ? comp.grade : 'U', r.id);
       // Site fault f2 (stats60.js 768): a withheld row prints no reviewed number; its per-rank cell reads as its maximum-rank cell.
       if (WITHHELD24.includes(r.id)) assert.deepEqual([r.group, r.perRank, r.atMax, r.maxValue, r.sortValue], ['withheld', 'Rank text changed since review; number withheld.', 'Rank text changed since review; number withheld.', null, null], r.id);
+      // Site fault f2, review round: and no other row is withheld here, so a verified row keeps its numbers.
+      assert.equal(r.group === 'withheld', WITHHELD24.includes(r.id), r.id);
     }
   }
   const pal = S.impactRows(model, { className: 'paladin', race: 'human' }).rows, find = (rows, id) => rows.find(r => r.id === id);
@@ -883,6 +898,10 @@ check('.196 stat impact: every stat component of every class, at maximum rank an
   // CL2-087 (our b4065db): Divine Precision changed rank text and is withheld; data.json puts it in row 4 with no prerequisite.
   const precision = find(pal, 'paladin-holy-divine-precision#spell_school_hit_chance');
   assert.deepEqual([precision.group, precision.requires, precision.effects.length, precision.sortValue, precision.conditions], ['withheld', null, 0, null, ['for Holy spells']]);
+  // Review round: the scoped property moves to a verified scoped component of the same kind. Holy Precision: stat-effects186.json add_pp hit.spell
+  // 6 / 12 / 18, condition school:holy; data.json Discipline row 2, 3 ranks, no prerequisite. A scoped row is listed, never added.
+  const holyPrecision = find(S.impactRows(model, { className: 'priest', race: 'human' }).rows, 'priest-discipline-holy-precision#spell_school_hit_chance');
+  assert.deepEqual([holyPrecision.group, holyPrecision.requires, holyPrecision.effects.length, holyPrecision.sortValue, holyPrecision.conditions], ['scoped', null, 0, null, ['for Holy spells']]);
   const vigor = find(S.impactRows(model, { className: 'rogue', race: 'gnome' }).rows, 'rogue-assassination-vigor#max_energy');
   assert.deepEqual(vigor.effects.map(e => [e.label, e.text, e.grade, e.value]), [['Maximum energy', '+10 (modifier)', 'A', 10], ['Maximum energy on the sheet', '+11 after percentage bonuses and Classic rounding', 'E', 11]]);
   assert.deepEqual([vigor.perRank, vigor.atMax, vigor.sortValue], ['5 / 10 energy', '+10 maximum energy', 10]);
