@@ -223,6 +223,10 @@ check('worked example 2: Divine Intellect 5/5 gives Int 70 to 77 and mana +105; 
   assert.equal(row(all, 'spellDamage').total.none, true);
   // Site fault f2 (stats60.js 609): a withheld contribution's rank count is the data's (Champion of the Light: 5 in data.json, 3 when reviewed).
   for (const id of ['paladin-protection-sacred-duty', 'paladin-retribution-champion-of-the-light']) { const c = all.contributions.find(c => c.talentId === id); assert.equal(c.group, 'withheld', id); assert.deepEqual(c.effects, [], id); assert.equal(c.maxRank, talentsOf('paladin').find(t => t.id === id).maxRank, id); }
+  // Owner's answer 3 (15 Nov 2026, "Yes, show neither"; site fault g1, stats60.js 610): a withheld contribution shows grade U, no tier and no condition;
+  // an applied one keeps its own tier and grade (Divine Intellect: tier A, grade A in stat-effects186.json).
+  for (const id of ['paladin-protection-sacred-duty', 'paladin-retribution-champion-of-the-light']) { const c = all.contributions.find(c => c.talentId === id); assert.deepEqual([c.grade, c.tier, c.conditions], ['U', null, []], id); }
+  assert.deepEqual([contribution.grade, contribution.tier], ['A', 'A']);
 });
 check('worked example 3: exact flat modifiers keep their own grade (Precision +3 hit A, Anticipation +20 defense A) while derived effects stay E', () => {
   const r = evaluate('paladin', 'human', [['paladin-protection-precision', 3], ['paladin-protection-anticipation', 5]]);
@@ -462,9 +466,31 @@ check('the mounted sheet renders graded cells, a greyed Classic label, an SVG ch
   const changedHost = document.createElement('div'), changedUi = S.mount(changedHost, { data: changedData, build: legalBuild('paladin', [['paladin-retribution-champion-of-the-light', 3]]), naked, effects, guides: guidesFor('paladin') });
   assert.equal(await changedUi.ready, true);
   assert.equal(byClass(changedHost, 's60-about')[0].children[1].textContent, 'Exact: the talent values. Of the 136 talent stat components, 111 equal their Talents Forever rank text for client 1.60.1.70755 and 25 are withheld because their rank text changed since review; of the 111, 106 also equal the client\'s own talent curves (grade A, DB2 1.60.1.70425, cross-checked in 1.60.1.70450) and 5 carry a semantic reading of client data (grade B: values read from spell effects, or an exact curve whose stat is read from its aura). Racial traits come from DB2 SpellEffect 1.60.1.70450 (grade B).');
-  const champion = byClass(changedHost, 's60-group-withheld')[0].all(n => n.tagName === 'LI').filter(li => li.children[0].textContent === 'Champion of the Light');
-  assert.equal(champion.length, 1); assert.ok(champion[0].textContent.startsWith('Champion of the Light 3/5 · Retribution · tier A '), champion[0].textContent);
+  const withheldItems = byClass(changedHost, 's60-group-withheld')[0].all(n => n.tagName === 'LI'), champion = withheldItems.filter(li => li.children[0].textContent === 'Champion of the Light');
+  // Owner's answer 3 (15 Nov 2026, "Yes, show neither"; site fault g1, stats60.js 610 and 1082): a withheld item shows grade U, no old tier and no condition.
+  assert.equal(champion.length, 1); assert.equal(champion[0].textContent, 'Champion of the Light 3/5 · Retribution URank text changed since review; number withheld.');
+  assert.ok(withheldItems.length >= 1 && withheldItems.every(li => !li.textContent.includes(' · tier ') && li.children.length === 3 && li.children[2].textContent === 'Rank text changed since review; number withheld.'));
+  for (const li of withheldItems) { const mark = li.all(n => n.tagName === 'ABBR')[0]; assert.deepEqual([mark.textContent, mark.className, mark.getAttribute('title'), mark.hidden], ['U', 's60-grade s60-grade-U', 'Grade U: Unavailable', false], li.textContent); }
   changedUi.destroy();
+  // An applied item keeps its tier and grade (Divine Intellect: tier A, grade A in stat-effects186.json; its modifier from the worked example 2 above).
+  const intellectItem = byClass(host, 's60-group-applied')[0].all(n => n.tagName === 'LI').filter(li => li.children[0].textContent === 'Divine Intellect');
+  assert.equal(intellectItem.length, 1); assert.ok(intellectItem[0].textContent.startsWith('Divine Intellect 5/5 · Protection · tier A A+10% Intellect (total)'), intellectItem[0].textContent);
+  // Owner's answer 2 (15 Nov 2026, "Yes, correct it"; site fault g1, stats60.js 1018): the data-files sentence is built from the stat file's own re-check
+  // record when it names the snapshot the sheet runs on. naked60-186.json generatedAt; stat-effects186.json source.textRecheck talentRevision and checkedAt; data.json revision.
+  assert.deepEqual([naked.generatedAt, effects.source.textRecheck.talentRevision, data.revision, effects.source.textRecheck.checkedAt], ['2026-10-21T19:46:00Z', '02e1e101d1a5', '02e1e101d1a5', '2026-11-12']);
+  assert.equal(byClass(host, 's60-about')[0].children[4].textContent, 'Data files naked60-186.json and stat-effects186.json were generated 2026-10-21T19:46:00Z and were revised and re-checked against talent snapshot 02e1e101d1a5 on 2026-11-12; every DB2 export they use is pinned by SHA-256 inside the files. Older HolyMinMax data from client 1.60.1.70009 is not used.');
+  assert.equal(about.split('re-checked').length, 2);
+  // Without such a record (none, or one for another snapshot) the sentence keeps its former form, and no other word of the box changes; with another
+  // date in the record the sentence names that date.
+  const recheckVariants = [['none', e => { delete e.source.textRecheck; }], ['other snapshot', e => { e.source.textRecheck.talentRevision = e.source.textRecheck.previousRevision; }], ['other date', e => { e.source.textRecheck.checkedAt = '2026-11-13'; }]];
+  for (const [label, change] of recheckVariants) {
+    const variant = clone(effects); change(variant);
+    const variantHost = document.createElement('div'), variantUi = S.mount(variantHost, { data, build, naked, effects: variant, guides: guidesFor('paladin') });
+    assert.equal(await variantUi.ready, true, label);
+    const want = label === 'other date' ? about.replace(' on 2026-11-12;', ' on 2026-11-13;') : about.replace(' and were revised and re-checked against talent snapshot 02e1e101d1a5 on 2026-11-12;', ' for talent snapshot 02e1e101d1a5;');
+    assert.notEqual(want, about, label); assert.equal(byClass(variantHost, 's60-about')[0].textContent, want, label);
+    variantUi.destroy();
+  }
   assert.match(about, /1\.60\.1\.70009 is not used/); assert.ok(byClass(host, 's60-about')[0].tagName === 'DETAILS' && !host.all(n => n.tagName === 'A' || n.tagName === 'IMG').length);
   ui.destroy(); assert.equal(byClass(host, 'talents-stats60').length, 0);
 });
@@ -880,8 +906,11 @@ check('.196 stat impact: every stat component of every class, at maximum rank an
     assert.deepEqual(result.rows.map(r => r.id).sort(), [...comps.map(c => c.id), ...(cls.id === 'shaman' ? [SPIRIT_WEAPONS + '#parry_grant'] : [])].sort(), cls.id);
     for (const r of result.rows) {
       const tree = cls.trees[r.treeIndex], talent = tree.talents.find(t => t.id === r.talentId), comp = comps.find(c => c.id === r.id); assert.ok(talent, r.id); assert.equal(r.row, talent.row); assert.equal(r.pointsNeeded, 5 * (talent.row - 1)); assert.equal(r.tree, tree.name);
-      // Grade and maximum rank come from the data: the six B components stay B, and the parry grant is U.
-      assert.equal(r.maxRank, talent.maxRank, r.id); assert.equal(r.grade, comp ? comp.grade : 'U', r.id);
+      // Grade and maximum rank come from the data: the five verified B components stay B, and the parry grant is U. Owner's answer 3 (15 Nov 2026,
+      // "Yes, show neither"; site fault g1, stats60.js 768): a withheld row is U too and has no condition; a verified row keeps its grade and conditions.
+      assert.equal(r.maxRank, talent.maxRank, r.id); assert.equal(r.grade, comp && !WITHHELD24.includes(r.id) ? comp.grade : 'U', r.id);
+      if (WITHHELD24.includes(r.id)) assert.deepEqual([r.grade, r.conditions, S.impactSortValue(r, 'grade')], ['U', [], 0], r.id);
+      else if (comp) assert.deepEqual([r.grade, r.conditions], [comp.grade, comp.conditions.map(S.conditionText)], r.id);
       // Site fault f2 (stats60.js 768): a withheld row prints no reviewed number; its per-rank cell reads as its maximum-rank cell.
       if (WITHHELD24.includes(r.id)) assert.deepEqual([r.group, r.perRank, r.atMax, r.maxValue, r.sortValue], ['withheld', 'Rank text changed since review; number withheld.', 'Rank text changed since review; number withheld.', null, null], r.id);
       // Site fault f2, review round: and no other row is withheld here, so a verified row keeps its numbers.
@@ -896,8 +925,9 @@ check('.196 stat impact: every stat component of every class, at maximum rank an
   const anticipation = find(pal, 'paladin-protection-anticipation#defense_skill');
   assert.deepEqual(anticipation.effects.map(e => [e.label, e.text, e.grade]), [['Dodge %', '+0.8 pp', 'E'], ['Parry %', '+0.8 pp', 'E'], ['Defense skill', '+20', 'A']]); assert.equal(anticipation.sortValue, 20);
   // CL2-087 (our b4065db): Divine Precision changed rank text and is withheld; data.json puts it in row 4 with no prerequisite.
+  // Owner's answer 3 (15 Nov 2026, "Yes, show neither"; site fault g1, stats60.js 768): as a withheld row it carries no condition note.
   const precision = find(pal, 'paladin-holy-divine-precision#spell_school_hit_chance');
-  assert.deepEqual([precision.group, precision.requires, precision.effects.length, precision.sortValue, precision.conditions], ['withheld', null, 0, null, ['for Holy spells']]);
+  assert.deepEqual([precision.group, precision.requires, precision.effects.length, precision.sortValue, precision.conditions], ['withheld', null, 0, null, []]);
   // Review round: the scoped property moves to a verified scoped component of the same kind. Holy Precision: stat-effects186.json add_pp hit.spell
   // 6 / 12 / 18, condition school:holy; data.json Discipline row 2, 3 ranks, no prerequisite. A scoped row is listed, never added.
   const holyPrecision = find(S.impactRows(model, { className: 'priest', race: 'human' }).rows, 'priest-discipline-holy-precision#spell_school_hit_chance');
@@ -1058,7 +1088,7 @@ const mountFresh = async (cls, extra = {}) => { const document = makeDocument(),
 let sharedMounts = null;
 const classMounts = () => sharedMounts ||= Promise.all(data.classes.map(async cls => { const m = await mountFresh(cls.id, { guides: guidesFor(cls.id) }); return { cls, ...m, race: selectNamed(m.host, 'Race').value }; }));
 check('.196 each tree table lists exactly that tree\'s stat components in talent order, with row, requirement, rank and grade from the data, for all nine classes', async () => {
-  let total = 0, bGrades = 0;
+  let total = 0, aGrades = 0, bGrades = 0, uGrades = 0;
   for (const { cls, t } of await classMounts()) {
     const overview = S.specOverview(model, cls.id);
     cls.trees.forEach((tree, i) => {
@@ -1074,17 +1104,29 @@ check('.196 each tree table lists exactly that tree\'s stat components in talent
         assert.equal(byClass(tr, 's60-row-note')[0].textContent, tal.maxRank + (tal.maxRank === 1 ? ' rank' : ' ranks'), id);
         assert.equal(tr.children[1].textContent, 'Row ' + tal.row + (tal.row > 1 ? ', ' + 5 * (tal.row - 1) + ' points in earlier rows' : ', no earlier points') + (prior ? '; requires ' + prior + ' at maximum rank' : ''), id);
         // Stat, kind, per-rank and maximum-rank text agree with the impact table's row for the same component.
-        const twin = bodyRows(t.impact).find(x => x.getAttribute('data-component') === id), comp = effects.components.find(c => c.id === id), want = comp ? comp.grade : 'U';
+        // Owner's answer 3 (15 Nov 2026, "Yes, show neither"; site fault g1, stats60.js 768): a withheld row shows grade U, as the parry grant does.
+        const twin = bodyRows(t.impact).find(x => x.getAttribute('data-component') === id), comp = effects.components.find(c => c.id === id), want = comp && !WITHHELD24.includes(id) ? comp.grade : 'U';
         assert.deepEqual([2, 3, 4, 5].map(k => tr.children[k].textContent), [2, 3, 4, 5].map(k => twin.children[k].textContent), id);
         // Site fault f2 (stats60.js 768): a withheld row's per-rank cell prints no reviewed value.
         if (WITHHELD24.includes(id)) assert.equal(tr.children[4].textContent, 'Rank text changed since review; number withheld.', id);
+        // Site fault g1 (owner's answer 3): and its "At maximum rank" cell carries no condition note.
+        if (WITHHELD24.includes(id)) assert.equal(tr.children[5].textContent, 'Rank text changed since review; number withheld.', id);
         assert.equal(badgeOf(tr.children[6]).textContent, want, id); assert.equal(badgeOf(twin.children[7]).textContent, want, id);
+        // The Data grade cell is rendered the same way for every grade: U reads "Grade U: Unavailable" (naked60-186.json grades.U.label), A and B the stat file's legend.
+        const shape = td => { const mark = badgeOf(td); return [td.className, mark.textContent, mark.className, mark.getAttribute('title'), mark.hidden]; };
+        const wantShape = ['s60-cell', want, 's60-grade s60-grade-' + want, want === 'U' ? 'Grade U: Unavailable' : 'Grade ' + want + ': ' + effects.grades[want], false];
+        assert.deepEqual(shape(tr.children[6]), wantShape, id); assert.deepEqual(shape(twin.children[7]), wantShape, id);
+        aGrades += (want === 'A') + (badgeOf(twin.children[7]).textContent === 'A');
         bGrades += (want === 'B') + (badgeOf(twin.children[7]).textContent === 'B');
+        uGrades += (want === 'U') + (badgeOf(twin.children[7]).textContent === 'U');
       }
     });
   }
-  // CL2-087 (our b4065db): 136 components (five left with their talents) plus the Spirit Weapons parry grant; the six B components show B once in their tree table and once in the impact table.
-  assert.equal(total, 137); assert.equal(bGrades, 12);
+  // CL2-087 (our b4065db): 136 components (five left with their talents) plus the Spirit Weapons parry grant. Owner's answer 3 (site fault g1): each row
+  // shows its grade once in its tree table and once in the impact table: the 107 verified A and 5 verified B components (stat-effects186.json grades
+  // A130 B6 minus the withheld 23 A and 1 B of WITHHELD24) as A and B, the 24 withheld rows and the parry grant as U: 214 A, 10 B, 50 U.
+  assert.equal(total, 137); assert.deepEqual([aGrades, bGrades, uGrades], [214, 10, 50]);
+  assert.deepEqual([WITHHELD24.filter(id => effects.components.find(c => c.id === id).grade === 'A').length, WITHHELD24.filter(id => effects.components.find(c => c.id === id).grade === 'B').length], [23, 1]);
   const pal = (await classMounts()).find(m => m.cls.id === 'paladin').t;
   // CL2-087 (our b4065db): data.json puts Divine Precision in Holy row 4 with no prerequisite, and Divine Intellect in Protection row 1.
   assert.equal(bodyRows(pal.trees[0]).find(tr => tr.getAttribute('data-component') === 'paladin-holy-divine-precision#spell_school_hit_chance').children[1].textContent, 'Row 4, 15 points in earlier rows');
