@@ -152,8 +152,8 @@ async function applicationTrackWorker199(){
  check('h3 with records under both keys of a pair, each key reads its own record first',JSON.stringify(['co_gm','office_19','treasurer','office_86'].map(key=>seat283({co_gm:'Co-GM record',office_19:'Hand record',treasurer:'Treasurer record',office_86:'Exchequer record'},key)))==='[["Co-GM record","co_gm"],["Hand record","office_19"],["Treasurer record","treasurer"],["Exchequer record","office_86"]]');
  check('h3 an account pointer under office_19 stays the opaque label on co_gm',JSON.stringify(seat283({office_19:'<@300000000000000004>'},'co_gm'))==='["Appointed member","office_19"]');
  check('h3 no third pair: the High Council rank, the historical Treasurer rank key, the High Council office and the Vice Guild Master share no seat with co_gm, office_19, treasurer or office_86',['rank_high_council','rank_treasurer','office_45','office_92'].every(stored=>['co_gm','office_19','treasurer','office_86'].every(key=>JSON.stringify(seat283({[stored]:'Other record'},key))===JSON.stringify(['',key])&&JSON.stringify(seat283({[key]:'Pair record'},stored))===JSON.stringify(['',stored]))));
- // Unit h3, lead's decision after the review: displayHolder (Roles office tier cards) follows the same two pairs, so
- // the Roles cards and the vote page call the same seats filled.
+ // Unit h3, lead's decision after the review: displayHolder follows the same two pairs, so that it and appointedTo call
+ // the same seats filled.
  const holderWrong283=[];
  for(const stored of seatKeys283){
   browserState199.settings={appointed:{[stored]:'Recorded holder'},noVote:[]};
