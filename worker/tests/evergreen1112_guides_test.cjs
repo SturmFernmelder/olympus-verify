@@ -837,6 +837,24 @@ check('f1: a talent build alone, or a Talents Forever fact that only a chapter q
   return bad.length === 0 && states.size === 2 && quizOnly && creditState(plain) === 0 && creditState(cited) === 1 && !cited.container.querySelector('p[role="alert"]')
     || JSON.stringify({ bad, states: [...states], quizOnly, plain: creditState(plain), cited: creditState(cited) });
 });
+// f1 review round: the praxis-step and common-mistake paths, each alone, on Herbalism 101 (no Talents Forever data). The
+// fixtures give one fact the Talents Forever source g218-3; they supply data, never the credit.
+check('f1: a Talents Forever fact that only a praxis step, or only a common mistake, cites still brings the credit', async () => {
+  const F = allFacts(), TF = tfSources(), herb = coursePages().find(x => x.parts.join('/') === 'profession/herbalism/101'), all = herb.owner.tracks['101'].chapters;
+  const written = all.filter(c => c.unavailable === undefined && c.praxis), steps = written.flatMap(c => c.praxis.steps.flatMap(s => s.facts || [])), mistakes = written.flatMap(c => c.praxis.mistakes.flatMap(m => m.facts));
+  const rest = [...herb.owner.overview.facts, ...herb.owner.overview.points.flatMap(p => p.facts || []), ...all.flatMap(c => c.theory), ...herb.questions.filter(q => all.some(c => c.id === q.chapter && c.unavailable === undefined)).flatMap(q => q.facts)];
+  const stepOnly = 'profession-cooking.bigger-camps', isStepOnly = steps.includes(stepOnly) && !mistakes.includes(stepOnly) && !rest.includes(stepOnly);
+  const files = json(uni, 'professions/herbalism.json').factFiles;
+  // A fact the page loads but does not show, which a common mistake may cite on its own (not unavailable, no re-check, not superseded).
+  const spare = files.flatMap(f => json(uni, 'facts', f + '.json').facts.map(x => x.id)).find(id => ![...steps, ...mistakes, ...rest].includes(id) && F.get(id).grade !== 'U' && !F.get(id).recheck && !F.get(id).supersededBy);
+  const cite = id => x => { const f = files.find(n => json(uni, 'facts', n + '.json').facts.some(y => y.id === id)), d = json(uni, 'facts', f + '.json'), fact = d.facts.find(y => y.id === id);
+    fact.sources = [...(fact.sources || d.defaults.sources), 'g218-3']; x.files.set('facts/' + f + '.json', d); };
+  const inMistake = x => { cite(spare)(x); const g = json(uni, 'professions/herbalism.json'); g.tracks['101'].chapters.find(c => c.id === written[0].id).praxis.mistakes[0].facts.push(spare); x.files.set('professions/herbalism.json', g); };
+  const plain = await open(herb.parts), step = await open(herb.parts, undefined, cite(stepOnly)), mistake = await open(herb.parts, undefined, inMistake);
+  const alerts = [step, mistake].filter(p => p.container.querySelector('p[role="alert"]')).length;
+  return TF.has('g218-3') && isStepOnly && !!spare && creditState(plain) === 0 && creditState(step) === 1 && creditState(mistake) === 1 && alerts === 0
+    || JSON.stringify({ g218_3: TF.has('g218-3'), isStepOnly, spare, plain: creditState(plain), step: creditState(step), mistake: creditState(mistake), alerts });
+});
 
 // Browser part (opt-in): node tests/evergreen1112_guides_test.cjs --base http://127.0.0.1:<harness> --cdp <port>
 // INT-UNI-1, INT-UNI-2 and REV-UNI-2 in the real site at 1280 and 375 px (member persona).
