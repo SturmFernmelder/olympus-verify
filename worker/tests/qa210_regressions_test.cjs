@@ -55,10 +55,11 @@ check('.210 the top bar is not pinned on narrow or short screens, and scroll off
   && /window\.scrollY - pinnedBarHeight\(\) - 12/.test(app) && /let y = pinnedBarHeight\(\) \+ 8;/.test(app));
 
 // Every admin tab has its own document title (Directory preferences read "Admin · Overview").
+// CL2-215 (our e1076a7): the groups live in adminGroups(); CL2-014 (our a6f591d): Appointed roles is a 19th grouped key.
 const staffTitles = /const staff = \{([^}]*)\}/.exec(app)?.[1] || '';
-const groupedTabs = /function adminTabs\(sub\) \{\s*const groups = \[([\s\S]*?)\n    \];/.exec(app)?.[1] || '';
+const groupedTabs = /function adminGroups\(\) \{\s*return \[([\s\S]*?)\n    \];/.exec(app)?.[1] || '';
 const adminTabs = [...groupedTabs.matchAll(/\["([a-z-]*)", "[^"]+"\]/g)].map(m => m[1]);
-check('.210 every grouped admin tab key has a page title', adminTabs.length === 18 && new Set(adminTabs).size === 18 && adminTabs.includes("launch-operations") && adminTabs.includes("donation-ledger")
+check('.210 every grouped admin tab key has a page title', adminTabs.length === 19 && new Set(adminTabs).size === 19 && adminTabs.includes("launch-operations") && adminTabs.includes("donation-ledger")
   && adminTabs.every(key => new RegExp('(^|[ ,{])"?' + key + '"?:').test(staffTitles))
   && /"directory-visibility": "Discord member list preferences"/.test(staffTitles));
 
