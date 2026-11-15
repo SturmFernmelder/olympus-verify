@@ -56,12 +56,14 @@ check('.210 the top bar is not pinned on narrow or short screens, and scroll off
 
 // Every admin tab has its own document title (Directory preferences read "Admin · Overview").
 // CL2-215 (our e1076a7): the groups live in adminGroups(); CL2-014 (our a6f591d): Appointed roles is a 19th grouped key.
+// Site fault f4 (owner 15 Nov 2026): the Appointed roles page carries its own tab label as title, and no other page does.
 const staffTitles = /const staff = \{([^}]*)\}/.exec(app)?.[1] || '';
 const groupedTabs = /function adminGroups\(\) \{\s*return \[([\s\S]*?)\n    \];/.exec(app)?.[1] || '';
 const adminTabs = [...groupedTabs.matchAll(/\["([a-z-]*)", "[^"]+"\]/g)].map(m => m[1]);
 check('.210 every grouped admin tab key has a page title', adminTabs.length === 19 && new Set(adminTabs).size === 19 && adminTabs.includes("launch-operations") && adminTabs.includes("donation-ledger")
   && adminTabs.every(key => new RegExp('(^|[ ,{])"?' + key + '"?:').test(staffTitles))
-  && /"directory-visibility": "Discord member list preferences"/.test(staffTitles));
+  && /"directory-visibility": "Discord member list preferences"/.test(staffTitles)
+  && /appointments: "Appointed roles"/.test(staffTitles) && staffTitles.split('"Appointed roles"').length === 2);
 
 // Date-only values (trial due dates, dues weeks, case review/expiry) are stored as 00:00 UTC and must print as that UTC day.
 const utcFormatters = /const fmtDayUtc = [^\n]*timeZone: "UTC"/.test(app) && /const fmtShortUtc = [^\n]*timeZone: "UTC"/.test(app);
