@@ -886,7 +886,8 @@
     const gradeLabel = grade => (model && model.naked.grades[grade] && (model.naked.grades[grade].label || model.naked.grades[grade].meaning)) || GRADE_FALLBACK[grade] || grade;
     const isReference = grade => grade === "E" || grade === "D";
     // A talent component's data grade is named by the stat file's own legend (A: a DB2 trait curve equals the rank text), not by the
-    // sheet legend, whose A also covers in-game measurements that have not been made.
+    // sheet legend, whose A also covers in-game measurements that have not been made. A withheld row's grade U is not in the stat
+    // file's legend, so it is named by the sheet legend.
     const componentLabel = grade => model && model.effects.grades && typeof model.effects.grades[grade] === "string" && model.effects.grades[grade] ? model.effects.grades[grade] : null;
     function badge(node, grade, legend) { node.textContent = grade; node.className = "s60-grade s60-grade-" + grade; node.setAttribute("title", "Grade " + grade + ": " + (legend || gradeLabel(grade))); node.hidden = false; }
     function valueCell(label, extra) {
