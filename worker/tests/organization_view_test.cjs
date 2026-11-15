@@ -177,6 +177,43 @@ officeSearch.value = 'Lord High Chancellor'; officeSearch.dispatch('input');
 check("the former judicial label stays in the closed history drawer and out of current office search",
   previousJusticeLabel?.tagName === 'DETAILS' && !previousJusticeLabel.open && previousJusticeLabel.textContent.includes('formerly styled Lord High Chancellor')
   && rawOfficeCard218('office_101').hidden && !rawOfficeCard218('office_14').hidden);
+// Owner ruling of 15 Nov 2026 ("No, current titles only", claude/stage2/SITE-FAULTS-282.md question 2) with CL2-190 (our
+// 4c7b542: one index over titles, aliases and keys serves the chart and the register): the register, the list and the chart
+// match exactly the offices whose current terms or node text contain the query; a historical office label adds nothing.
+const orgStatus1115 = p.main.all(n => n.getAttribute('role') === 'status' && /^\d+ offices or groups match/.test(n.textContent))[0];
+const orgCards1115 = data.terms.map(t => [t, rawOfficeCard218(t.officeKey)]), orgRows1115 = p.main.all(n => n.classList.contains('org-list-row'));
+const orgButtons1115 = new Map(p.main.all(n => !!n.getAttribute('data-organization-node')).map(n => [n.getAttribute('data-organization-node'), n]));
+const orgLc1115 = s => String(s).toLowerCase();
+const orgCurrent1115 = t => orgLc1115([t.label, t.applicationLabel, ...(t.applicationAliases || []), t.officeKey, t.department, t.tierLabel, directory203.families.find(row => row.key === directory203.keyToFamily[t.officeKey])?.label].filter(Boolean).join(' '));
+const orgNodeText1115 = data.nodes.map((n, i) => orgLc1115([orgRows1115[i]?.all(x => x.tagName === 'STRONG')[0]?.textContent, n.title, n.remit, n.limits, ...data.terms.filter(t => t.nodeId === n.id).map(orgCurrent1115)].join(' ')));
+const orgSearch1115 = q => {
+  officeSearch.value = q; officeSearch.dispatch('input'); const needle = orgLc1115(q.trim());
+  const nodes = data.nodes.filter((n, i) => orgNodeText1115[i].includes(needle)).map(n => n.id);
+  return { terms: data.terms.filter(t => orgCurrent1115(t).includes(needle)).map(t => t.officeKey), nodes, chartNodes: nodes.filter(id => orgButtons1115.has(id)),
+    cards: orgCards1115.filter(([, li]) => !li.hidden).map(([t]) => t.officeKey), rows: data.nodes.filter((n, i) => !orgRows1115[i].hidden).map(n => n.id),
+    chart: data.nodes.filter(n => orgButtons1115.get(n.id)?.classList.contains('org-node-match')).map(n => n.id), count: Number(/^(\d+) offices or groups match/.exec(orgStatus1115?.textContent)?.[1]) };
+};
+const orgExact1115 = r => JSON.stringify(r.cards) === JSON.stringify(r.terms) && JSON.stringify(r.rows) === JSON.stringify(r.nodes) && JSON.stringify(r.chart) === JSON.stringify(r.chartNodes) && r.count === r.nodes.length;
+const orgChancellor1115 = orgSearch1115('Lord High Chancellor');
+check("the Justiciar's former style 'Lord High Chancellor' shows only the current Lord High Chancellor in the register, the list and the chart",
+  orgRows1115.length === data.nodes.length && orgExact1115(orgChancellor1115) && JSON.stringify(orgChancellor1115.cards) === '["office_14"]'
+  && JSON.stringify(orgChancellor1115.rows) === '["intake"]' && JSON.stringify(orgChancellor1115.chart) === '["intake"]' && !orgButtons1115.get('justiciar').classList.contains('org-node-match'));
+const orgHistoryQueries1115 = [...new Set(data.terms.flatMap(t => t.historicalOfficeLabels || []).flatMap(label => { const parts = label.split(',').map(s => s.trim()).filter(Boolean); return [label, ...parts, ...parts.map(s => s.replace(/^formerly styled\s+/i, ''))]; }))];
+check("no historical office label or part of one finds an office through its history in the register, the list or the chart",
+  JSON.stringify(orgHistoryQueries1115) === JSON.stringify(['Head of Justice, formerly styled Lord High Chancellor', 'Head of Justice', 'formerly styled Lord High Chancellor', 'Lord High Chancellor'])
+  && orgHistoryQueries1115.every(q => orgExact1115(orgSearch1115(q))));
+const orgFinds1115 = pick => { const pairs = data.terms.flatMap(t => pick(t).filter(Boolean).map(q => [t, q])); return pairs.length > 0 && pairs.every(([t, q]) => { const r = orgSearch1115(q);
+  return r.cards.includes(t.officeKey) && r.rows.includes(t.nodeId) && (!orgButtons1115.has(t.nodeId) || r.chart.includes(t.nodeId)) && orgExact1115(r); }); };
+check("CL2-190 every current office label finds its own register card, list row and chart node, and only offices whose current terms carry it", orgFinds1115(t => [t.label]));
+check("CL2-190 every application label finds its own register card, list row and chart node, and only offices whose current terms carry it", orgFinds1115(t => [t.applicationLabel]));
+check("CL2-190 every application alias finds its own register card, list row and chart node, and only offices whose current terms carry it", orgFinds1115(t => t.applicationAliases || []));
+check("CL2-190 every office key finds its own register card, list row and chart node, and only offices whose current terms carry it", orgFinds1115(t => [t.officeKey]));
+const orgHistoryDrawers1115 = p.main.all(n => !!n.getAttribute('data-historical-office-labels'));
+check("each historical office label drawer renders closed under its own summary with exactly that office's former labels",
+  orgHistoryDrawers1115.length === data.terms.filter(t => t.historicalOfficeLabels?.length).length && data.terms.filter(t => t.historicalOfficeLabels?.length).every(t => {
+    const d = rawOfficeCard218(t.officeKey).all(n => n.getAttribute('data-historical-office-labels') === t.officeKey);
+    return d.length === 1 && d[0].tagName === 'DETAILS' && !d[0].open && d[0].getAttribute('open') === null && d[0].children.length === 2 && d[0].children[0].tagName === 'SUMMARY'
+      && d[0].children[0].textContent === 'Historical office labels' && d[0].children[1].textContent === t.historicalOfficeLabels.join(' · '); }));
 officeSearch.value = ''; officeSearch.dispatch('input');
 check("support, advisers and the current composition do not issue votes or permission", council.textContent.includes("Systems & Heraldry sets stewardship and heraldic standards") && council.textContent.includes("not automatically voting councillors") && council.textContent.includes("does not itself issue an eligible vote, individual warrant, native rank or permission") && council.textContent.includes("One person still has one vote, subject to recusal"));
 check("current .222 Council reference and historical owner directions remain distinct", p.one("org-composition-status").textContent === data.councilComposition.formalStatus && data.councilComposition.recordedAt === '2026-11-04' && data.councilComposition.founderRatificationRecorded===false && data.councilComposition.eligibleSeatIssued===false && data.councilComposition.permissionsApplied===false && data.councilComposition.previousDirection.recordedAt==='2026-10-23' && data.councilComposition.historicalDirection.recordedAt==='2026-10-19');
