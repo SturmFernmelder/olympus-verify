@@ -986,6 +986,8 @@ check('.196 stat impact: every stat component of every class, at maximum rank an
       else { assert.equal(S.impactSortValue(r, 'stat'), r.stat, r.id); assert.doesNotMatch(r.stat, /withheld/i, r.id); }
       // Site fault f2 (stats60.js 768): a withheld row prints no reviewed number; its per-rank cell reads as its maximum-rank cell.
       if (WITHHELD24.includes(r.id)) assert.deepEqual([r.group, r.perRank, r.atMax, r.maxValue, r.sortValue], ['withheld', 'Rank text changed since review; number withheld.', 'Rank text changed since review; number withheld.', null, null], r.id);
+      // Site fault g3, review round: answer 6 changes the Stat text only; a withheld row keeps its kind (stats60.js 671, KIND_LABEL.withheld).
+      if (WITHHELD24.includes(r.id)) assert.equal(r.kind, 'Withheld: rank text changed', r.id);
       // Site fault f2, review round: and no other row is withheld here, so a verified row keeps its numbers.
       assert.equal(r.group === 'withheld', WITHHELD24.includes(r.id), r.id);
     }
@@ -1164,6 +1166,16 @@ check('.196 each tree table lists exactly that tree\'s stat components in talent
   let total = 0, aGrades = 0, bGrades = 0, uGrades = 0;
   const andWords = words => words.length > 1 ? words.slice(0, -1).join(', ') + ' and ' + words[words.length - 1] : words[0] || '';
   const treeStat = [], impactStat = [];
+  // Site fault g3, review round: the Stat text of every row that is not withheld, by its target in stat-effects186.json (the parry grant: parry).
+  // Each text is the Stat text the base sheet (5530763a) printed for that target, which answer 6 leaves unchanged: 40 targets, 113 rows.
+  const STAT_BY_TARGET = { armor: 'Armor', armor_penetration: 'Target armor', attack_power: 'Attack power', block: 'Block chance', buff_effect: 'The buff\'s effect',
+    'crit.all': 'Crit chance (all attacks and spells)', 'crit.melee': 'Melee crit chance', 'crit.melee_ranged': 'Melee and ranged crit chance', 'crit.melee_spell': 'Melee and spell crit chance',
+    'crit.spell': 'Spell crit chance', crit_damage: 'Critical strike damage bonus', damage_and_healing_done: 'Damage and healing done', damage_done: 'Damage done', damage_taken: 'Damage taken',
+    defense: 'Defense skill', dodge: 'Dodge chance', expertise: 'Chance to be dodged or parried', healing_done: 'Healing done', healing_power: 'Healing', health: 'Maximum health',
+    health_regen: 'Health regeneration', 'hit.all': 'Hit chance (attacks and spells)', 'hit.melee': 'Melee hit chance', 'hit.melee_ranged': 'Melee and ranged hit chance', 'hit.spell': 'Spell hit chance',
+    hit_taken: 'Chance to be hit', int: 'Intellect', mana: 'Maximum mana', mana_regen_casting: 'Mana regeneration while casting', max_energy: 'Maximum energy', parry: 'Parry chance',
+    rage_generation: 'Rage', ranged_attack_power: 'Ranged attack power', resistances: 'All resistances', spell_damage: 'Spell damage', spell_penetration: 'Target resistances',
+    spell_power: 'Spell damage and healing', spi: 'Spirit', sta: 'Stamina', str: 'Strength' };
   for (const { cls, t, race } of await classMounts()) {
     const overview = S.specOverview(model, cls.id), impactModel = S.impactRows(model, { className: cls.id, race }).rows;
     for (const tr of bodyRows(t.impact)) if (/withheld/i.test(tr.children[2].textContent)) impactStat.push(tr.getAttribute('data-component') + ' ' + tr.children[2].textContent);
@@ -1187,6 +1199,9 @@ check('.196 each tree table lists exactly that tree\'s stat components in talent
         if (WITHHELD24.includes(id)) assert.equal(tr.children[4].textContent, 'Rank text changed since review; number withheld.', id);
         // Site fault g1 (owner's answer 3): and its "At maximum rank" cell carries no condition note.
         if (WITHHELD24.includes(id)) assert.equal(tr.children[5].textContent, 'Rank text changed since review; number withheld.', id);
+        // Site fault g3, review round: answer 6 changes the Stat cell only; a withheld row's Kind cell (both tables, stats60.js 671) and its Change cell
+        // (impact table, stats60.js 1221) keep their text.
+        if (WITHHELD24.includes(id)) assert.deepEqual([tr.children[3].textContent, twin.children[3].textContent, twin.children[6].textContent], ['Withheld: rank text changed', 'Withheld: rank text changed', 'Number withheld'], id);
         // Review round (owner's answer 3, "Verified rows are unchanged"): in both tables every row's "At maximum rank" cell is the model's maximum-rank
         // text plus its own condition note (the conditions are asserted in the stat impact check), and its label is the talent's data.json name.
         const r = impactModel.find(x => x.id === id), note = r.conditions.length ? ' — ' + andWords(r.conditions) : '';
@@ -1195,6 +1210,10 @@ check('.196 each tree table lists exactly that tree\'s stat components in talent
         // Stat cell of a withheld row reads exactly "Withheld"; every other row's Stat cell is the model's Stat text (literal anchors below).
         const statWant = WITHHELD24.includes(id) ? 'Withheld' : r.stat;
         assert.deepEqual([tr.children[2].getAttribute('data-label'), tr.children[2].textContent, twin.children[2].getAttribute('data-label'), twin.children[2].textContent], ['Stat', statWant, 'Stat', statWant], id);
+        // Review round: and that text is the literal of its target (STAT_BY_TARGET above); in both tables the Stat cell is a plain text cell with no
+        // attribute besides its role and data-label, so no title or other attribute carries a reviewed label.
+        if (!WITHHELD24.includes(id)) assert.equal(statWant, STAT_BY_TARGET[comp ? comp.target : 'parry'], id);
+        assert.deepEqual([tr.children[2], twin.children[2]].map(td => [td.attributes, td.className, td.children.length]), [[{ role: 'cell', 'data-label': 'Stat' }, '', 0], [{ role: 'cell', 'data-label': 'Stat' }, '', 0]], id);
         if (/withheld/i.test(tr.children[2].textContent)) treeStat.push(id + ' ' + tr.children[2].textContent);
         assert.equal(badgeOf(tr.children[6]).textContent, want, id); assert.equal(badgeOf(twin.children[7]).textContent, want, id);
         // The Data grade cell is rendered the same way for every grade: U reads "Grade U: Unavailable" (naked60-186.json grades.U.label), A and B the stat file's legend.
@@ -1206,6 +1225,12 @@ check('.196 each tree table lists exactly that tree\'s stat components in talent
         uGrades += (want === 'U') + (badgeOf(twin.children[7]).textContent === 'U');
       }
     });
+    // Site fault g3, review round: the stat impact caption still counts withheld rows (the brief keeps these counts): the class's components in
+    // stat-effects186.json plus the parry grant, and their talents. Paladin: 19 components (12 withheld) in 18 talents.
+    const own = effects.components.filter(c => c.cls === cls.id), caption = t.impact.children[0].textContent;
+    const nComp = own.length + (cls.id === 'shaman' ? 1 : 0), nTal = new Set([...own.map(c => c.talentId), ...(cls.id === 'shaman' ? [SPIRIT_WEAPONS] : [])]).size;
+    assert.equal(caption.slice(caption.indexOf(': ') + 2), nComp + ' stat components in ' + nTal + ' talents, each at maximum rank and alone.', cls.id);
+    if (cls.id === 'paladin') assert.deepEqual([nComp, nTal], [19, 18]);
   }
   // CL2-087 (our b4065db): 136 components (five left with their talents) plus the Spirit Weapons parry grant. Owner's answer 3 (site fault g1): each row
   // shows its grade once in its tree table and once in the impact table: the 107 verified A and 5 verified B components (stat-effects186.json grades
