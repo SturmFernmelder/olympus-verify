@@ -39,6 +39,8 @@ import { queueReserved, releaseReserved, releaseReservedStatements } from "./sit
 import { guildSeats } from "./guild-seats";
 import { handleLaunchOperations229 } from './site-launch229';
 import { handleSiteRoleAudit283 } from './site-role-audit283';
+import { handleSiteRoleBaseline285 } from './role-baseline285';
+import { handleSiteLateProof285 } from './site-late-proof285';
 import { accountInfo, ownerOfCharacter } from "./lookup";
 import { communityEraseStatements, communityContext, fenceSql } from "./community-context";
 import { handleCommunityAdmin } from "./community-routes";
@@ -85,6 +87,8 @@ export async function handleAdmin(request: Request, env: Env, path: string, admi
   const actor = admin.discord_id;
 
   if (path === '/api/admin/role-audit') return handleSiteRoleAudit283(request,env,admin,body);
+  if (path === '/api/admin/role-baseline') return handleSiteRoleBaseline285(request,env,admin,body);
+  if (path === '/api/admin/late-proof') return handleSiteLateProof285(request,env,admin,body);
 
   if (parts[0] === 'ruleset-publication') return handleRulesetPublication(request,env,parts.slice(1),body);
   if (path === '/api/admin/treasury/ledger/note-redaction') return receiptNoteMaintenance280(request,env,actor,body);

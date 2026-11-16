@@ -79,6 +79,14 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".285", date: "2026-11-16", lines: [
+      "Verify 0.6.40 and Watcher 0.6.41 offer a fresh Check for verified Initiates. A current recommendation and separate in-game click are required to promote to Member; old attempts stay recorded.",
+      "Private role checks start with current guild links and explain holds. Staff can record a separate starting point for an uncertain old request; fresh grants and manual removals remain separate.",
+      "Staff can review late signed whispers against their original request and a fresh roster. Old uploads stay untouched. Stored mail remains held when its character identity cannot be proven.",
+      "Newly recorded delayed whispers can verify through their original signed request and fresh current roster. Rejected and uncertain old uploads are not automatically resent.",
+    ],
+  },
+  {
     build: ".283", date: "2026-11-15", lines: [
       "Verify 0.6.39 and Watcher 0.6.40 identify the Steward rank table. Promotion buttons still need the separately reviewed policy activation and fresh evidence; old attempts stay preserved.",
       "Admins can compare live Discord roles and preview the inactive Steward mapping. Activation needs reviewed effects; corrections keep holds on manual roles and unknown outcomes.",

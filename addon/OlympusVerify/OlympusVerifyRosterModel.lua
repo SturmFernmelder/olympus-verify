@@ -58,6 +58,7 @@ local heldLabels = {
   ["pending-verification"] = "The source recorded verification as pending; no promotion was recommended.",
   ["verification-unknown"] = "The source recorded verification as unknown; no promotion was recommended.",
   ["discord-entitlement-unknown"] = "The source could not establish the Discord entitlement; no promotion was recommended.",
+  ["directive-rank-policy-held"] = "The discovery rank policy is held. A separate selected check may qualify only the serving policy's supported Initiate-to-Member step; other promotions remain held.",
 }
 -- Held-row reason text is not validated by Current. Count only fixed codes and
 -- use fixed display text; never copy an arbitrary source reason into the UI.
@@ -76,18 +77,27 @@ local function sourceRows(rows, maximum, byGuid, counts, risk)
   return count
 end
 
--- A different completed selected read may supersede discovery without holding
--- an unrelated GUID's deliberate read. This never supplies action authority.
-local function UnrelatedReadContext(current)
-  local selection=current and current.selection
+-- A stopped discovery projection is history, not an unresolved native action.
+-- This permits only a fresh deliberate READ after qualifying the full current
+-- table. AttemptHeld is still checked first per GUID; no candidate is granted.
+local READ_REFRESH_STOPS={['operator-stopped']=true,['scan-expired']=true,['superseded']=true,
+  ['rate-limited']=true,['rate-limit-retries-exhausted']=true,['rate-limit-exceeds-scan']=true,
+  ['discovery-budget-exhausted']=true,['refresh-budget-exhausted']=true}
+local function FreshReadContext(current)
   local source=OlympusLaunchQueue
-  if not current or not current.actionHeld or type(selection)~="table" or selection.completed~=true
-    or type(selection.covered)~="table" or type(current.loadedScan)~="table" or current.loadedScan.code~="superseded"
-    or type(source)~="table" or getmetatable(source)~=nil or rawget(source,"pages")~=current.pages
-    or rawget(source,"stoppedReason")~=nil then return false end -- Raw source only adds denial.
+  local policyRead=current and current.rankHeld and current.rankHeldReason=="directive-rank-policy-held"
+  if not current or not policyRead and (not current.actionHeld or type(current.loadedScan)~="table"
+    or not READ_REFRESH_STOPS[current.loadedScan.code])
+    or type(source)~="table" or getmetatable(source)~=nil or rawget(source,"pages")~=current.pages then return false end
+  local stopped=rawget(source,"stoppedReason")
+  if stopped~=nil and not READ_REFRESH_STOPS[stopped] then return false end -- Unknown/raw source only adds denial.
   local native=OlympusVerifyNativeRanks
   if type(native)~="table" or type(native.Observe)~="function" or type(native.Qualified)~="function" then return false end
-  local ok,qualified=pcall(function()return native.Qualified(native.Observe())end)
+  local ok,qualified=pcall(function()
+    local observed=native.Observe()
+    local scheme=type(native.Scheme)=="function" and native.Scheme(observed)
+    return native.Qualified(observed) and (not policyRead or scheme and scheme.profile=="olympus-steward-ten-20261115-v1")
+  end)
   return ok and qualified==true
 end
 
@@ -200,7 +210,7 @@ function M.Promotions(list, launchAPI, now)
   diagnostics.loadedScan=current and current.loadedScan or nil
   diagnostics.selection=current and current.selection or nil
 
-  local unrelatedRead=UnrelatedReadContext(current) -- One complete native rank-table observation per model paint.
+  local freshRead=FreshReadContext(current) -- One complete native rank-table observation per model paint.
   local displayRanks=pageRanks(current and current.selection and current.selection.completed and current.selection.page)
     or pageRanks(current and current.pages and current.pages[1])
   for index = 1, size do
@@ -220,12 +230,19 @@ function M.Promotions(list, launchAPI, now)
     elseif not current then info = detail("unavailable", "Promotion source unavailable", unavailable)
     elseif attemptStatus=="blocked" then info=detail("held","Client promotion action blocked","The client reported a blocked promotion API. Original attempt history is retained; this view cannot clear the block or send a fallback.")
     elseif launchAPI.pending[id] ~= nil or attemptStatus=="pending"
-      or not attemptStatus and type(launchAPI.AttemptHeld)=="function" and launchAPI.AttemptHeld(id,current,row.rankIndex) then info = detail("pending", "Prior attempt pending", "An original promotion attempt is pending or unconfirmed. It is not retried by this view.")
+      or not attemptStatus and type(launchAPI.AttemptHeld)=="function" and launchAPI.AttemptHeld(id,current,row.rankIndex) then info = detail("pending", "Prior attempt pending", "An original promotion attempt is pending or unconfirmed. This view will not repeat it. Check the member's current rank in the game's guild window; if a promotion is still due after staff review, perform it there by hand. The old attempt history stays unchanged.")
     elseif attemptStatus=="recheck" then info=detail("recheck","Check next original step","The last owned step was confirmed. Check this GUID against a fresh complete roster before a separate next promotion click; the original intent and expiry stay fixed.")
-    elseif unrelatedRead and initiate(row) and verified(row) and current.selection.covered[id]~=true
-      and sourceHeld[id]==nil and riskReview[id]==nil
+    elseif current.selection and current.selection.covered[id] and not current.selection.completed then
+      local selected=current.selection
+      if selected.state=="pending" then info=detail("checking","Check pending",selected.reason)
+      elseif selected.refreshable==true and initiate(row) and verified(row) then info=detail("check","Check again",selected.reason)
+      else info=detail("held",selected.code=="directive-rank-policy-held" and "Promotion policy held"
+        or selected.code=="native-rank-scheme-unconfirmed" and "Native rank table held" or "Selected read held",selected.reason) end
+    elseif freshRead and initiate(row) and verified(row)
+      and (sourceHeld[id]==nil or current.rankHeldReason=="directive-rank-policy-held" and sourceHeld[id]=="directive-rank-policy-held") and riskReview[id]==nil
+      and (not current.selection or current.selection.covered[id]~=true)
       and (current.freshness[id]==nil or type(current.freshness[id])=="table" and current.freshness[id].kind=="discovery") then
-      info=detail("check","Check eligibility","A different completed selected read superseded discovery. This GUID has no loaded action authority. A deliberate Check requests a separate current read; original dates and other characters' attempt history stay unchanged.")
+      info=detail("check","Check eligibility","The stopped or superseded discovery remains historical. A deliberate Check requests a separate current read for this GUID; it never resumes the old scan, changes its dates or clears promotion history.")
     elseif current.actionHeld and not (current.freshness[id] and current.freshness[id].kind=="selected" and current.freshness[id].actionHeld==false) then info = detail("held", diagnostics.loadedScan and diagnostics.loadedScan.label or "Projection stopped or held",
       diagnostics.loadedScan and (diagnostics.loadedScan.summary.." Next step: "..diagnostics.loadedScan.nextStep)
         or "The loaded projection is stopped or superseded. No promotion is ready; review its original control state.")

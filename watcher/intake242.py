@@ -285,6 +285,51 @@ def _ordinary_no_effect_matches(original, receipt):
             and receipt.get("guid") == body.get("guid", ""))
 
 
+
+def _capacity_no_effect_matches285(original, receipt):
+    """Only an exact source-issued no-dispatch receipt for this original body."""
+    if local_privacy280.local_only(original):
+        return False
+    body = original.get("body")
+    canonical = _canonical_body(body)
+    return (type(receipt) is dict and set(receipt) == {"id", "character", "guid", "bodySHA256", "outcome", "originalNoEffect"}
+            and receipt.get("originalNoEffect") is True and receipt.get("outcome") == "intake_capacity_pending285"
+            and canonical is not None and canonical[1] == original.get("sha256")
+            and type(body) is dict and body.get("type") in ("verify", "role", "guild", "donation")
+            and receipt.get("id") == body.get("id") and receipt.get("character") == body.get("character")
+            and receipt.get("guid") == body.get("guid", "") and type(receipt.get("bodySHA256")) is str
+            and re.fullmatch(r"[0-9a-f]{64}", receipt["bodySHA256"]) is not None
+            and receipt["bodySHA256"] == canonical[1])
+
+
+def _capacity_original_current285(watcher, original, binding):
+    body = original.get("body")
+    ledger = watcher.state.d.get("intake242")
+    return (type(body) is dict and type(ledger) is dict and ledger.get(body.get("id")) is original
+            and original.get("state") == "pending" and original.get("attempted") is True
+            and not original.get("sourceConflict") and not original.get("policyHold") and not original.get("custodyHold280")
+            and binding == watcher._delivery_binding())
+
+
+def _schedule_capacity_retry285(watcher, original, receipt, at, binding):
+    # This separate closed branch may defer donations; membership receipts cannot.
+    # The row, body and destination must still be the ones selected before POST.
+    if (not _capacity_no_effect_matches285(original, receipt)
+            or not _capacity_original_current285(watcher, original, binding)):
+        return
+
+    # Capacity alone means this row never entered a dispatcher. Let the existing
+    # poll revisit it promptly; membership/collector deferrals keep their 60-second delay.
+    metadata = {"spent": False, "nextAt": at + 5, "receipt": dict(receipt)}
+    original["retrySchedule280"] = metadata
+    known = getattr(watcher, "_intake_no_effect280", None)
+    if known is None:
+        known = watcher._intake_no_effect280 = {}
+    known[id(original)] = {"original": original, "binding": binding,
+                           "bodySHA256": original["sha256"],
+                           "metadata": {**metadata, "receipt": dict(receipt)}}
+
+
 def _ordinary_retry_witness(watcher, original):
     if local_privacy280.local_only(original):
         return None
@@ -296,7 +341,9 @@ def _ordinary_retry_witness(watcher, original):
             or canonical[1] != original.get("sha256")
             or witness.get("binding") != watcher._delivery_binding() or type(metadata) is not dict
             or metadata != witness.get("metadata") or metadata.get("spent") is not False
-            or not _ordinary_no_effect_matches(original, metadata.get("receipt"))):
+            or not (_ordinary_no_effect_matches(original, metadata.get("receipt"))
+                    or _capacity_no_effect_matches285(original, metadata.get("receipt"))
+                    and _capacity_original_current285(watcher, original, witness.get("binding")))):
         return None
     return witness
 
@@ -365,6 +412,8 @@ def drain(watcher, collect_inputs=True):
         if original["body"].get("type") == "donation" and original["attempted"] is True:
             witness = _financial_retry_witness(watcher, original)
             if witness is None:
+                witness = _ordinary_retry_witness(watcher, original)
+            if witness is None:
                 original["state"] = "outcome_unknown"
                 changed = True
                 continue
@@ -402,6 +451,7 @@ def drain(watcher, collect_inputs=True):
     selected = {r["body"]["id"]: r for r in batch}
     # Transport receives a copy; it cannot mutate the frozen custody original.
     payload = json.loads(json.dumps({"entries": [r["body"] for r in batch]}, allow_nan=False))
+    delivery_binding285 = watcher._delivery_binding()
     okay, response = watcher.worker.call("POST", PATH, payload, retries=1)
     if not okay or not isinstance(response, dict) or response.get("version") != 242:
         return
@@ -426,6 +476,10 @@ def drain(watcher, collect_inputs=True):
             original = selected.get(receipt.get("id"))
             if original is not None and not _privacy_row_denied280(watcher, original, source_privacy):
                 _schedule_ordinary_retry(watcher, original, receipt, at)
+        if receipt.get("outcome") == "intake_capacity_pending285":
+            original = selected.get(receipt["id"])
+            if original is not None and not _privacy_row_denied280(watcher, original, source_privacy):
+                _schedule_capacity_retry285(watcher, original, receipt, at, delivery_binding285)
     receipts = response.get("acknowledgements")
     if not isinstance(receipts, list):
         _save_state(watcher)

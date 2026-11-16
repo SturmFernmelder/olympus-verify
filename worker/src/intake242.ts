@@ -12,6 +12,7 @@ import {errorRef} from './log';
 import {captureLaunchVerification,captureNativeMembershipProof,verifyNativeMembershipProof} from './launch-verification227';
 import {nativeMembershipSourceMatches,nativeMembershipSourceSql} from './native-rank-schemes';
 import {recordTitheReceipt280,ordinaryIntakeShape280,TitheReceiptPolicyHeld280,TitheCollectorPending280,TITHE_SOURCE280,storedTitheShape280} from './tithe-receipt280';
+import {originalWatcherIntake285,canonicalIntakeBodySHA285,type OriginalWatcherIntake285} from './watcher-late-origin285';
 const ACTION='treasury.receipt242',ID=/^[A-Za-z0-9:._-]{1,128}$/;
 const createdRoleRequestResponses280=new WeakMap<Response,boolean>();
 /** Source-owned creation receipt only; copied/client JSON cannot request a wake. */
@@ -56,10 +57,41 @@ async function nativeDiscord242(env:Env,e:Record<string,unknown>,subject:string,
  await audit(env,'watcher','guild.discord_observation242',subject,{guid,character:name,observedAt:p.observedAt,source:'native-discord-event242'});
  return launch.current();
 }
-export async function postIntake242(env:Env,body:{entries?:unknown}):Promise<Response>{
+export async function postIntake242(env:Env,body:{entries?:unknown},origin?:OriginalWatcherIntake285):Promise<Response>{
  const rows=Array.isArray(body.entries)?body.entries:body.entries&&typeof body.entries==='object'?Object.values(body.entries):null;
  if(!rows||rows.length>25)return json({error:'entries_limit_25'},400);
  const acknowledgements:Record<string,unknown>[]=[],deferred:Record<string,unknown>[]=[],policyHolds:Record<string,unknown>[]=[];let createdAny=false;
+ if(origin){
+  const original=originalWatcherIntake285(origin);original.check();
+  if(original.env!==env||rows!==original.entries)throw Error('original_intake_body_changed');
+  const {processNewLateWhisperIntake285,lateWhisperIntakeOutcome285}=await import('./site-late-proof285');
+  const result=await processNewLateWhisperIntake285(origin),outcome=lateWhisperIntakeOutcome285(result);original.check();
+  if(!outcome)throw Error('original_intake_outcome_missing');
+  if(outcome.kind!=='not_applicable'){
+   // One original request group per invocation. Every other row is explicitly
+   // untouched; the Watcher may retry only its exact body/binding receipt.
+   const selected=new Set(outcome.selectedIds),unprocessed=new Set(outcome.unprocessedIds);
+   const retryable=new Set(['native_guid_not_current','late_intake_read_unconfirmed','late_intake_admission_changed','late_intake_unavailable','configuration_changed','configuration_held','approved_branch_authority_pending']);
+   for(const value of rows){
+    if(!value||typeof value!=='object'||Array.isArray(value))continue;
+    const entry=value as Record<string,unknown>,id=typeof entry.id==='string'?entry.id:'';
+    if(!ID.test(id))continue;
+    const character=typeof entry.character==='string'?entry.character:typeof entry.name==='string'?entry.name:'',guid=typeof entry.guid==='string'?entry.guid:'',base={id,character,guid};
+    if(unprocessed.has(id))deferred.push({...base,bodySHA256:await canonicalIntakeBodySHA285(entry),outcome:'intake_capacity_pending285',originalNoEffect:true});
+    else if(selected.has(id)){
+     if(outcome.kind==='linked')acknowledgements.push({...base,status:'done',outcome:'member'});
+     else if(outcome.kind==='known_no_effect'){
+      if(outcome.reason&&retryable.has(outcome.reason))deferred.push({...base,outcome:'membership_source_pending',originalNoEffect:true});
+      else acknowledgements.push({...base,status:'rejected',outcome:outcome.reason??'late_intake_held'});
+     }
+     // An uncertain selected write has no ACK and no no-effect receipt.
+    }
+   }
+   original.check();
+   const response=json({version:242,acknowledgements,deferred,policyHolds});
+   createdRoleRequestResponses280.set(response,outcome.roleRequestCreated===true);return response;
+  }
+ }
  // Bounded retention of this evidence family only; no unrelated audit history touched.
  // Unreadable historical deadlines stay hidden; arrival+30 days remains their deletion-only fallback bound.
  await purgeReceipt242(env);

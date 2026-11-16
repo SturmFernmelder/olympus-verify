@@ -101,7 +101,7 @@ do
   f = fixture(true); f.e.NOW = f.e.NOW + 600; ready, d = f.read()
   check("original scan expiry is separately explained", d.byGuid[f.rows[1].guid].label == "Original scan expired" and d.ready == 0)
   f = fixture(); f.e.OlympusLaunchQueue.stoppedReason = "operator-stopped"; ready, d = f.read()
-  check("stopped projection keeps potential and recommendation counts without enabling a button", d.knownVerifiedInitiates == 2 and d.recommendations == 1 and d.ready == 0 and d.state == "held" and d.byGuid[f.rows[1].guid].state == "held")
+  check("stopped projection keeps counts and permits only a separate read, never promotion", d.knownVerifiedInitiates == 2 and d.recommendations == 1 and d.ready == 0 and next(ready)==nil and d.state == "held" and d.byGuid[f.rows[1].guid].state == "check" and f.effects==0)
   f = fixture(true); f.e.OlympusLaunchQueue.scanComplete = false; ready, d = f.read()
   check("partial discovery is disclosed without discarding a fresh individually validated page", d.partial and d.ready == 1 and ready[f.rows[1].guid] and d.reason:find("Discovery is partial", 1, true))
 end

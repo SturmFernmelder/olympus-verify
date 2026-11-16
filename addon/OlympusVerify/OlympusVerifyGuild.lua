@@ -407,6 +407,7 @@ local function PromotionControl(input,result,ready,detail,bound,current)
   if not bound then return "Unavailable",false,nil end
   if detail and detail.state=="recheck" and type(launch.Select)=="function" then return "Check next",true,"check" end
   if detail and detail.label=="Target rank observed (history retained)" then return "Observed",false,nil end
+  if detail and detail.state=="checking" then return "Checking",false,nil end
   if detail and (detail.state=="pending" or detail.state=="held")
     or input.guid and not CheckCustodyClear(launch,input.guid,current,input.rankIndex) then return "Held",false,nil end
   if result.status=="verified" and not result.historicalLinked and input.rankIndex==9
@@ -428,7 +429,8 @@ local function PromotionTooltip(button)
     GameTooltip:AddLine("One click requests one native rank step. Another step needs a new click and observed native confirmation; unknown attempts stay held.",0.8,0.8,0.7,true)
   else
     GameTooltip:AddLine(button:GetText()=="Member" and "The current native rank is Member. This rank observation does not confirm an earlier attempt. Any history or source issue above remains recorded; no repeat is enabled."
-      or button:GetText()=="Held" and "An unresolved attempt or source hold prevents promotion. This view cannot clear it or retry it. Ask staff to review the existing native history."
+      or button:GetText()=="Checking" and "The selected read is pending. Wait for the Watcher, then Sync and reload to load its dated result. This view cannot see the Watcher process or read changed files live."
+      or button:GetText()=="Held" and "The reason above identifies the held source or original attempt. Existing attempts cannot be cleared or retried here; a source/policy hold needs its stated review."
       or "No promotion is enabled. Complete normal verification first, or inspect the current native rank and source reason.",0.8,0.8,0.7,true)
   end
   GameTooltip:Show()

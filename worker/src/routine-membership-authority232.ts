@@ -20,7 +20,7 @@ export type RoutineMembership232Facts=Readonly<{subject:string;subjectGeneration
  rankQualified:boolean;rankProfile:string|null;canonicalRankProfile:string|null;
  cause:'eligible'|'departure'|'ban'|'rename_hold'|'blocking_role'}>;
 type Scalar=string|number|null;
-type Record232={facts:RoutineMembership232Facts;db:D1Database;sourceDB:D1Database;check:()=>void;close:()=>void;effectCheck:(env:Env)=>void;values:readonly Scalar[];effectEnv:Env;sourceIntegrity:(effect:Env)=>void;siteRoleAction:SiteRoleActionAuthority283|null};
+type Record232={facts:RoutineMembership232Facts;db:D1Database;sourceDB:D1Database;check:()=>void;close:()=>void;effectCheck:(env:Env)=>void;values:readonly Scalar[];effectEnv:Env;sourceIntegrity:(effect:Env)=>void;siteRoleAction:SiteRoleActionAuthority283|null;baselineMayExist285:boolean};
 const originals=new WeakMap<RoutineMembership232,Record232>();
 const ID=/^[1-9][0-9]{16,19}$/,HEX32=/^[0-9a-f]{32}$/,GUID=/^Player-[0-9]{1,6}-[0-9A-Fa-f]{4,16}$/;
 const CONFIG=Object.freeze(['CANONICAL_ENTITLEMENTS233','CANONICAL_RANKS233','NATIVE_RANK_SYNC232','GUILD_ID','ROLE_GUILD_MEMBER','VERIFY_MEMBERSHIP_ONLY','VERIFY_NATIVE_SCOPE',
@@ -70,7 +70,9 @@ const GUID_CONFLICTS=`SELECT own.guid FROM characters own JOIN characters other 
  WHERE own.discord_id=?1 AND own.status='member' GROUP BY own.guid HAVING COUNT(*)<>1`;
 const READ=`SELECT CAST(strftime('%s','now') AS INTEGER) AS at,p.generation,p.state,s.id,s.exported_at,s.source,s.member_count,s.complete,s.trusted,
  COALESCE((SELECT member_count FROM roster_snapshots old WHERE old.id<s.id AND old.complete=1 AND old.trusted=1 AND old.source=s.source ORDER BY old.id DESC LIMIT 1),s.member_count) AS previous_count,
- ${ROWS} AS rows_json,${LINKS} AS links_json,${STANDING} AS standing_json,NOT EXISTS(${GUID_CONFLICTS}) AS guid_unique
+ ${ROWS} AS rows_json,${LINKS} AS links_json,${STANDING} AS standing_json,NOT EXISTS(${GUID_CONFLICTS}) AS guid_unique,
+ EXISTS(SELECT 1 FROM json_each(?5) baseline_actor285 JOIN audit baseline285
+ ON baseline285.actor=baseline_actor285.value AND baseline285.action='role.baseline285_adopted' AND baseline285.subject=?1) AS baseline_may_exist285
  FROM roster_snapshots s LEFT JOIN privacy_subjects p ON p.subject_id=?1 WHERE s.id=(SELECT MAX(id) FROM roster_snapshots)`;
 /** Closed canonical-only exclusion, repeated against the original pinned source.
  * No excluded link supplies an anchor, eligible character or departure cause. */
@@ -79,7 +81,7 @@ const INERT_LEGACY=(canonical:string,cutoff:string)=>`(((json_extract(${canonica
  AND ((typeof(c.verified_at)='integer' AND c.verified_at>=c.bound_at AND c.verified_at<${cutoff})
  AND (c.source IN('whisper','mail') AND json_extract(j.value,'$[6]') IS NULL AND a.id IS NULL))
  AND NOT EXISTS(SELECT 1 FROM roster_members legacy WHERE legacy.snapshot_id=s.id AND (legacy.name_key=c.name_key OR legacy.guid=c.guid)))`;
-type SourceRow={at:number;generation:string|null;state:string|null;id:number;exported_at:number;source:string;member_count:number;complete:number;trusted:number;previous_count:number;rows_json:string;links_json:string;standing_json:string;guid_unique:number};
+type SourceRow={at:number;generation:string|null;state:string|null;id:number;exported_at:number;source:string;member_count:number;complete:number;trusted:number;previous_count:number;rows_json:string;links_json:string;standing_json:string;guid_unique:number;baseline_may_exist285:number};
 
 /** Dated read-only planning data. Its guards protect this captured read, never
  * grant current writer authority; callers still revalidate their whole page. */
@@ -92,35 +94,56 @@ export type QualifiedMembershipPlanningObservation283=Readonly<{
 export function captureRoutineMembership232(env:Env,subject:string):Promise<RoutineMembership232|null>{
  return captureValidatedMembership232(env,subject,'writer');
 }
+/** Staff diagnostics share the issuer's original read. A reason never creates,
+ * substitutes for, or relaxes a RoutineMembership authority. In particular an
+ * unavailable/private source is not a distinguishable account classification. */
+export type RoutineMembershipHoldReason285='unavailable'|'configuration_held'|'source_missing'|'source_invalid'|'source_stale'|'source_incomplete'|'source_scope_mismatch'|'source_size_held'|'no_link_record'|'unfinished_verification'|'link_history_limit'|'link_data_invalid'|'guid_conflict'|'native_rank_unmapped'|'identity_proof_missing'|'native_name_mismatch'|'membership_not_confirmed'|'departure_not_confirmed'|'native_identity_incomplete'|'no_qualified_link';
+type MembershipDiagnostic285={reason:RoutineMembershipHoldReason285};
+export async function captureRoutineMembershipAudit285(env:Env,subject:string):Promise<Readonly<{cap:RoutineMembership232|null;holdReason:RoutineMembershipHoldReason285|null}>>{
+ const diagnostic:MembershipDiagnostic285={reason:'unavailable'};
+ const cap=await captureValidatedMembership232(env,subject,'writer',diagnostic);
+ return Object.freeze({cap,holdReason:cap?null:diagnostic.reason});
+}
 export function observeQualifiedMembershipPlanning283(env:Env,subject:string):Promise<QualifiedMembershipPlanningObservation283|null>{
  return captureValidatedMembership232(env,subject,'planning');
 }
-function captureValidatedMembership232(env:Env,subject:string,mode:'writer'):Promise<RoutineMembership232|null>;
+function captureValidatedMembership232(env:Env,subject:string,mode:'writer',diagnostic?:MembershipDiagnostic285):Promise<RoutineMembership232|null>;
 function captureValidatedMembership232(env:Env,subject:string,mode:'planning'):Promise<QualifiedMembershipPlanningObservation283|null>;
-async function captureValidatedMembership232(env:Env,subject:string,mode:'writer'|'planning'):Promise<RoutineMembership232|QualifiedMembershipPlanningObservation283|null>{
+async function captureValidatedMembership232(env:Env,subject:string,mode:'writer'|'planning',diagnostic?:MembershipDiagnostic285):Promise<RoutineMembership232|QualifiedMembershipPlanningObservation283|null>{
+ const reject=(reason:RoutineMembershipHoldReason285):null=>{if(diagnostic)diagnostic.reason=reason;return null;};
  try{
-  if(!ID.test(subject)||/[^0-9]/.test(subject))return null;const originalSelection=captureNativeRankConfig232(env),launch=captureLaunchVerification(env),canonical=captureCanonicalRankConfig233(env);
-  if(canonical.present&&(canonical.mode!=='enabled'||!canonical.current()))return null;
+  if(!ID.test(subject)||/[^0-9]/.test(subject))return reject('unavailable');const originalSelection=captureNativeRankConfig232(env),launch=captureLaunchVerification(env),canonical=captureCanonicalRankConfig233(env);
+  if(canonical.present&&(canonical.mode!=='enabled'||!canonical.current()))return reject('configuration_held');
   const historical=canonical.mode==='enabled'?historicalNativeRankPolicy232():null,selection=historical?{mode:'enabled' as const,policy:historical,raw:JSON.stringify(historical),current:originalSelection.current}:originalSelection;
-  if(selection.mode!=='enabled'||!selection.policy||!selection.raw||!selection.current())return null;
+  if(selection.mode!=='enabled'||!selection.policy||!selection.raw||!selection.current())return reject('configuration_held');
   const scope='addon-native-v1:'+JSON.stringify({version:1,...NATIVE_SCOPE232});
-  if(launch.mode!=='members-only'||launch.scope?.provenance!==scope||!launch.current())return null;
+  if(launch.mode!=='members-only'||launch.scope?.provenance!==scope||!launch.current())return reject('configuration_held');
   const configCheck=slots(env,[...CONFIG,'DB']),sourceIntegrityConfig=slots(env,[...ORIGINAL_SOURCE_CONFIG232,'DB']),sourceDB=Object.getOwnPropertyDescriptor(env,'DB')?.value;
-  if(!sourceDB||env.GUILD_ID!==NATIVE_GUILD232||env.ROLE_GUILD_MEMBER!==SHARED_MEMBER232||env.VERIFY_MEMBERSHIP_ONLY!=='true'||env.SHARED_MEMBERSHIP230_MODE!=='enabled')return null;
+  if(!sourceDB||env.GUILD_ID!==NATIVE_GUILD232||env.ROLE_GUILD_MEMBER!==SHARED_MEMBER232||env.VERIFY_MEMBERSHIP_ONLY!=='true'||env.SHARED_MEMBERSHIP230_MODE!=='enabled')return reject('configuration_held');
   let active=true;
   const siteRoleAction=captureSiteRoleActionAuthority283(env);
-  if(siteRoleAction&&(!siteRoleAction.selection||siteRoleAction.selection.subject!==subject))return null;
+  if(siteRoleAction&&(!siteRoleAction.selection||siteRoleAction.selection.subject!==subject))return reject('unavailable');
   const db=privacyProviderCustodyDatabase(env),check=()=>{configCheck();siteRoleAction?.current();if(!active||!selection.current()||!canonical.current()||!launch.current()||Object.getOwnPropertyDescriptor(env,'DB')?.value!==sourceDB)return held();};check();
   const cutoff=linksNotBefore(env);
-  const results=await db.batch([db.prepare(READ+(siteRoleAction?' AND '+siteRoleAction.sql:'')).bind(subject,selection.raw,canonical.mode==='enabled'?canonical.raw:'null',cutoff)]);const resultCheck=graph(results);check();
-  if(results.length!==1||results[0]?.success!==true||results[0].results.length!==1)return null;
+  const baselineActors285=JSON.stringify((env.SITE_ADMINS??'').split(',').map(value=>value.trim()).filter(value=>ID.test(value)));
+  const results=await db.batch([db.prepare(READ+(siteRoleAction?' AND '+siteRoleAction.sql:'')).bind(subject,selection.raw,canonical.mode==='enabled'?canonical.raw:'null',cutoff,baselineActors285)]);const resultCheck=graph(results);check();
+  if(results.length!==1||results[0]?.success!==true)return reject('unavailable');
+  if(results[0].results.length!==1)return reject(results[0].results.length===0?'source_missing':'unavailable');
   const row=results[0].results[0] as SourceRow;const at=row.at,floor=intVar(env.ROSTER_MIN_MEMBERS,0),shrink=intVar(env.ROSTER_MAX_SHRINK_PCT,10);
-  if(!Number.isSafeInteger(at)||at<1||!Number.isSafeInteger(row.id)||row.id<1||!Number.isSafeInteger(row.exported_at)||row.exported_at>at||row.exported_at<=at-600||row.exported_at<cutoff||!nativeMembershipSourceMatches(row.source,NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)||row.complete!==1||row.trusted!==1||row.guid_unique!==1||row.state!==null&&row.state!=='active'||row.generation!==null&&(row.generation.length!==32||!HEX32.test(row.generation)))return null;
+  if(row.state!==null&&row.state!=='active'||row.generation!==null&&(row.generation.length!==32||!HEX32.test(row.generation)))return reject('unavailable');
+  if(!Number.isSafeInteger(at)||at<1||!Number.isSafeInteger(row.id)||row.id<1||!Number.isSafeInteger(row.exported_at)||row.exported_at>at)return reject('source_invalid');
+  if(row.exported_at<=at-600||row.exported_at<cutoff)return reject('source_stale');
+  if(!nativeMembershipSourceMatches(row.source,NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm))return reject('source_scope_mismatch');
+  if(row.complete!==1||row.trusted!==1)return reject('source_incomplete');
+  if(row.guid_unique!==1)return reject('guid_conflict');
   const rows=JSON.parse(row.rows_json) as unknown[][],links=JSON.parse(row.links_json) as unknown[][],standing=JSON.parse(row.standing_json) as number[];
-  if(!Array.isArray(rows)||rows.length!==row.member_count||rows.length<floor||rows.length>1000||!Number.isSafeInteger(row.previous_count)||(row.previous_count-rows.length)*100>shrink*row.previous_count||!Array.isArray(links)||!links.length||links.length>100||standing.length!==3||standing.some(v=>v!==0&&v!==1))return null;
+  if(!Array.isArray(rows)||rows.length!==row.member_count||!Number.isSafeInteger(row.previous_count)||!Array.isArray(links)||!Array.isArray(standing)||standing.length!==3||standing.some(v=>v!==0&&v!==1))return reject('source_invalid');
+  if(rows.length<floor||rows.length>1000||(row.previous_count-rows.length)*100>shrink*row.previous_count)return reject('source_size_held');
+  if(!links.length)return reject('no_link_record');
+  if(links.length>100)return reject('link_history_limit');
   const scheme=nativeRankSchemeFromSource(row.source);
   const rankQualified=!!scheme&&rows.every(r=>Array.isArray(r)&&r.length===4&&typeof r[3]==='number'&&Number.isInteger(r[3])&&r[3]>=0&&r[3]<10&&r[2]===scheme.names[r[3]]);
-  if(mode==='planning'&&!rankQualified)return null; // No observational profile or row fallback.
+  if(mode==='planning'&&!rankQualified)return reject('native_rank_unmapped'); // No observational profile or row fallback.
    const canonicalSource=canonical.mode==='enabled'?canonicalRankSource280(canonical.policy,row.source,NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm):null;
   // V1 keeps its original name-qualified eligibility, including Steward/Alt
   // unknown-link holds, even when ingress now stamps that reviewed observation.
@@ -129,8 +152,8 @@ async function captureValidatedMembership232(env:Env,subject:string,mode:'writer
    const canonicalNames=canonicalSource==='directive-native-v2'?scheme?.names:canonicalSource==='original-native-v2'?originalObservedCanonicalTable280(row.source,NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)?.names:null;
    const canonicalRankProfile=canonicalSource&&(canonicalSource==='original-native-v1'||!!canonicalNames&&rows.every(r=>Array.isArray(r)&&r.length===4&&typeof r[3]==='number'&&Number.isInteger(r[3])&&r[3]>=0&&r[3]<10&&r[2]===canonicalNames[r[3]]))?canonical.policy!.profile:null;
   const byGuid=new Map<string,Readonly<{guid:string;nameKey:string;rank:string;index:number}>>(),names=new Set<string>(),unknownGuidKeys=new Set<string>(),seenNativeGuids=new Set<string>(),unknownRankKeys=new Set<string>(),unknownRankGuids=new Set<string>(),activeUnknownRankKeys=new Set<string>(),activeUnknownRankGuids=new Set<string>();
-  for(const r of rows){if(!Array.isArray(r)||r.length!==4)return null;const [key,guid,rank,index]=r;
-   if(typeof key!=='string'||!key||names.has(key))return null;
+  for(const r of rows){if(!Array.isArray(r)||r.length!==4)return reject('source_invalid');const [key,guid,rank,index]=r;
+   if(typeof key!=='string'||!key||names.has(key))return reject('source_invalid');
    names.add(key);
    // .237: unknown ranks prove no rank or departure. Keep every identity in
    // the global fences, while holding only accounts linked to those rows.
@@ -142,7 +165,7 @@ async function captureValidatedMembership232(env:Env,subject:string,mode:'writer
    // not block a different fully proved character's rank. Target names whose
    // identity is unknown remain held, including an apparent old departure.
    if(guid===null||guid===''){unknownGuidKeys.add(key);continue;}
-   if(typeof guid!=='string'||guid!==guid.trim()||!GUID.test(guid)||seenNativeGuids.has(guid))return null;
+   if(typeof guid!=='string'||guid!==guid.trim()||!GUID.test(guid)||seenNativeGuids.has(guid))return reject('source_invalid');
    seenNativeGuids.add(guid);
    if(mode==='planning'&&!activeRankKnown)activeUnknownRankGuids.add(guid);
    if(!rankKnown){unknownRankGuids.add(guid);continue;}
@@ -151,16 +174,16 @@ async function captureValidatedMembership232(env:Env,subject:string,mode:'writer
   const eligible:Readonly<{guid:string;nameKey:string;rank:string;index:number}>[]=[],seenLinks=new Set<string>();let qualifiedLinks=0,activeRankHeld=false;
    // READ and every later SQL admission require a qualified neutral anchor
    // for any other original source; the raw label alone proves nothing.
-  for(const l of links){if(!Array.isArray(l)||l.length!==7)return null;const [key,guid,status,bound,verified,source,anchor]=l;
+  for(const l of links){if(!Array.isArray(l)||l.length!==7)return reject('link_data_invalid');const [key,guid,status,bound,verified,source,anchor]=l;
    // An unfinished alt is not a verified native identity. Freeze its state for
    // this operation, but it neither outranks nor blocks an already verified main.
    if(status==='verified'||status==='queued')continue;
-   if(typeof key!=='string'||!key||typeof guid!=='string'||guid!==guid.trim()||!GUID.test(guid)||seenLinks.has(guid)||typeof bound!=='number'||!Number.isSafeInteger(bound)||bound<1||bound>at||typeof verified!=='number'||!Number.isSafeInteger(verified)||verified<bound||verified>at||source!==null&&typeof source!=='string'||!['member','left_pending','left'].includes(String(status)))return null;
+   if(typeof key!=='string'||!key||typeof guid!=='string'||guid!==guid.trim()||!GUID.test(guid)||seenLinks.has(guid)||typeof bound!=='number'||!Number.isSafeInteger(bound)||bound<1||bound>at||typeof verified!=='number'||!Number.isSafeInteger(verified)||verified<bound||verified>at||source!==null&&typeof source!=='string'||!['member','left_pending','left'].includes(String(status)))return reject('link_data_invalid');
    seenLinks.add(guid);
    if(mode==='planning'&&(activeUnknownRankKeys.has(key)||activeUnknownRankGuids.has(guid)))activeRankHeld=true;
    // Match either identity direction before legacy exclusion or left handling;
    // an uncertain higher alt must not disappear and lower another alt's rank.
-   if(unknownRankKeys.has(key)||unknownRankGuids.has(guid))return null;
+   if(unknownRankKeys.has(key)||unknownRankGuids.has(guid))return reject('native_rank_unmapped');
    const native=byGuid.get(guid);
    // .234: an absent prelaunch link is inert, not departure/identity/ownership.
    // Keep its exact row in the captured graph; it may not jam an independently
@@ -169,13 +192,14 @@ async function captureValidatedMembership232(env:Env,subject:string,mode:'writer
    // Reverification deliberately preserves a character's original link clocks.
    // Admission is established by the source-owned anchor's post-cutoff birth,
    // required in READ and at every later admission, not by rewriting those clocks.
-   if(verified<Math.max(1,canonical.mode==='enabled'?bound:cutoff,bound)||typeof anchor!=='string'||anchor.length!==32||!HEX32.test(anchor))return null;
-   qualifiedLinks++;if(native){if(native.nameKey!==key||status!=='member')return null;eligible.push(native);}
+   if(verified<Math.max(1,canonical.mode==='enabled'?bound:cutoff,bound)||typeof anchor!=='string'||anchor.length!==32||!HEX32.test(anchor))return reject('identity_proof_missing');
+   qualifiedLinks++;if(native){if(native.nameKey!==key)return reject('native_name_mismatch');if(status!=='member')return reject('membership_not_confirmed');eligible.push(native);}
    // left_pending is the first missing export, not the existing lifecycle's
    // confirmed departure. It cannot strip access or lower another alt's rank.
-   else if(status!=='left'||unknownGuidKeys.has(key))return null;
+   else if(unknownGuidKeys.has(key))return reject('native_identity_incomplete');
+   else if(status!=='left')return reject('departure_not_confirmed');
   }
-  if(!qualifiedLinks)return null; // Unfinished/inert legacy links prove neither identity nor departure.
+  if(!qualifiedLinks)return reject(links.every(l=>l[2]==='verified'||l[2]==='queued')?'unfinished_verification':'no_qualified_link'); // Unfinished/inert legacy links prove neither identity nor departure.
   // Native slots are an observed guild ladder, not canonical role precedence.
   // The reviewed Steward table places Alt(7) before Member(8), while canonical
   // Member access outranks Alt only under its active matching new policy. The
@@ -212,8 +236,13 @@ async function captureValidatedMembership232(env:Env,subject:string,mode:'writer
    for(const key of ORIGINAL_SOURCE_CONFIG232){const a=Object.getOwnPropertyDescriptor(env,key),b=Object.getOwnPropertyDescriptor(effect,key);
     if(a===undefined?!!b||key in effect:!b||!Object.hasOwn(b,'value')||!Object.is(a.value,b.value))return held();}
   };
-  originals.set(cap,{facts,db,sourceDB,check:()=>{check();resultCheck();},close:()=>{active=false;},effectCheck,values,effectEnv,sourceIntegrity,siteRoleAction});return cap;
+  originals.set(cap,{facts,db,sourceDB,check:()=>{check();resultCheck();},close:()=>{active=false;},effectCheck,values,effectEnv,sourceIntegrity,siteRoleAction,baselineMayExist285:row.baseline_may_exist285===1});return cap;
  }catch{return null;}
+}
+/** A same-read optimization only. A true value issues no exception or role
+ * authority; the separate signed finding must still qualify from storage. */
+export function routineMembership232MayHaveRoleBaseline285(cap:RoutineMembership232):boolean{
+ const original=originals.get(cap);if(!original)return held();original.check();return original.baselineMayExist285;
 }
 export function assertRoutineMembership232(env:Env,cap:RoutineMembership232):void{const r=originals.get(cap);if(!r)return held();r.check();r.effectCheck(env);if(Math.floor(Date.now()/1000)>=r.facts.deadline)return held();}
 /** Factless original-source integrity check for an existing active branded cap.

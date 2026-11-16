@@ -673,7 +673,12 @@ class SelectedRead:
         page, covered = reply['page'], reply['coveredGuids']
         if isinstance(page, dict) and validate_page(page, int(self.clock())) and page['status'] == 'held' and covered == []:
             reasons = set(page['heldReasons'])
-            return self.hold('selected-target-unavailable' if 'selected-target-unavailable' in reasons else 'source-held')
+            # Preserve only closed, validated source causes. These are diagnostics,
+            # never a retry, policy activation, or promotion-authority signal.
+            for reason in ('selected-target-unavailable', 'directive-rank-policy-held', 'native-rank-scheme-unconfirmed'):
+                if reason in reasons:
+                    return self.hold(reason)
+            return self.hold('source-held')
         observation = {**r, 'protocol': reply['protocol']}
         if (not _selected_page(page, observation, covered, int(self.clock())) or not set(covered) <= self.native_guids
                 or r['page'] is not None and page['scan']['id'] != r['page']['scan']['id']):

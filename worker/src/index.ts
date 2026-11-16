@@ -673,6 +673,18 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
   if (path.startsWith("/ingest/") || path.startsWith("/queue")) {
     if (!(await watcherAuthorized(env, request))) return new Response("unauthorized", { status: 401 });
     if (!schemaReady) return json({ error: "database schema not ready; retry shortly" }, 503);
+    // The original versioned intake request is read by its native origin
+    // issuer. A caller-supplied parsed body cannot mint future-proof authority.
+    if(request.method==='POST'&&path==='/ingest/intake242'&&query.size===1&&query.get('keyVersion')==='launch-membership-v1'){
+      const launch=captureLaunchVerification(env);
+      if(launch.mode==='members-only'&&launch.scope&&launch.current()){
+        const native=launchVerificationEnv(env,launch),originModule=await import('./watcher-late-origin285');
+        const origin=await originModule.captureOriginalWatcherIntake285(request,native);
+        if(!origin)return json({error:'intake_original_request_held'},400);
+        const facts=originModule.originalWatcherIntake285(origin);facts.check();
+        return postIntake242(native,{entries:facts.entries},origin);
+      }
+    }
     // Older sources reject every keyVersion before queue/ingest effects. The exact
     // .227 query marker gives the strict host that same fail-closed rollback fence.
     // It is not a secret/key rotation or permission for other versioned routes.
@@ -797,7 +809,7 @@ async function freshRegistrationRefused(env: Env, trigger: string): Promise<void
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-11-15.283 Exact native ranks and private role comparison";
+const BUILD = "2026-11-16.285 Guarded verification recovery and promotion checks";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a

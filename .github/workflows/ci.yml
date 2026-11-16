@@ -123,6 +123,34 @@ jobs:
         run: python3 -m pip install --user --require-hashes --no-deps -r addon/tests/requirements-lupa.txt
       - name: Every offline Lua suite, including the 1000-member performance benchmark
         run: python3 addon/tests/run_lua_suites.py --all-offline
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - run: npm ci
+        working-directory: worker
+      # Keep the four required job names and the existing worker deadline. The
+      # recovery path gets genuine runtime checks in this job's spare capacity.
+      - name: Verification recovery, new grant-only decisions and original PUT refusals
+        working-directory: worker
+        run: |
+          node tests/role_baseline285_workerd_test.cjs
+          node tests/role_put_refusal285_workerd_test.cjs --out "$RUNNER_TEMP/put-refusal285"
+          node tests/role_delete_refusal280_workerd_test.cjs --only transition-put-refusal403,transition-put-refusal404,transition-put-refusal429,transition-put-unknown500 --out "$RUNNER_TEMP/put-writer285"
+          node tests/linked_proof_refresh285_workerd_test.cjs --out "$RUNNER_TEMP/fresh-proof285"
+          node tests/late_proof285_workerd_test.cjs --out "$RUNNER_TEMP/late-proof285"
+          node tests/watcher_late_origin285_workerd_test.cjs
+          node tests/site_role_audit285_ui_test.cjs
+          node tests/late_proof285_ui_test.cjs
+          node tests/directive_rank280_workerd_test.cjs --steward --v1 --selection --out "$RUNNER_TEMP/selected-member285"
+      - name: Actual selected Worker result passes through Watcher and Guild readiness
+        env:
+          OLYMPUS_REQUIRE_LUA: '1'
+        run: |
+          cases=("$RUNNER_TEMP/selected-member285"/after-*/new9.json)
+          test "${#cases[@]}" -eq 1
+          python3 addon/tests/check_v1_selected_pipeline285.py --case "${cases[0]}" --out "$RUNNER_TEMP/selected-member285-pipeline"
 
   backup:
     name: backup
@@ -136,6 +164,8 @@ jobs:
       # checked by this same tool immediately before each authorized deployment.
       - name: SQLite backup checker regression cases
         run: python3 -m unittest discover -s scripts/tests -p test_check_d1_backup.py
+      - name: Private verification inventory preserves opposing senders and original records
+        run: python3 -m unittest discover -s scripts/tests -p test_prepare_late_verification285.py
       - name: Restore current schema SQL and verify SQLite integrity
         run: python3 scripts/check-d1-backup.py worker/schema.sql --format sql
       - name: Required CI result gate failure cases

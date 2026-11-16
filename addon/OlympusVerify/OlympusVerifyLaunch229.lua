@@ -304,17 +304,28 @@ local SELECT_HOLDS={
   ["source-unknown"]="The selected response was unknown. Keep this request stopped and inspect Watcher/status before any new explicit read.",
   ["source-refused"]="The selected source was refused. Ask staff to review the current source and access; no promotion is ready.",
   ["source-held"]="The selected source held eligibility. Review the current target with staff; display verification cannot clear that hold.",
+  ["directive-rank-policy-held"]="The server promotion policy does not support this selected plan. Staff must review the active rank policy; verification and reloading cannot activate it.",
+  ["native-rank-scheme-unconfirmed"]="The server could not qualify the complete native rank table. Refresh the native roster and ask staff to review its exact profile; no promotion is ready.",
   ["scan-expired"]="The original selected-read context expired. Make a new explicit selected read; its old dates remain unchanged.",
   ["operator-stopped"]="The selected read was explicitly stopped. It cannot resume automatically; a later read is a separate explicit request.",
   ["superseded"]="A newer control superseded this selected read. Load the matching current result; no old action authority is restored.",
   ["rate-limited-wait"]="The last loaded selected read reports a known rate-limit wait. Keep its original request and load its later result; this view cannot observe the Watcher process.",
 }
+-- These stopped READS may be replaced only by a new deliberate control. This
+-- never resumes discovery, clears an attempt, or changes the old result/dates.
+local SELECT_REFRESH={['native-roster-receipt-required']=true,['native-roster-changed-or-expired']=true,
+  ['selection-admission-expired']=true,['scan-expired']=true,['operator-stopped']=true,['superseded']=true,
+  ['rate-limit-retries-exhausted']=true,['rate-limit-exceeds-scan']=true,['selected-target-unavailable']=true}
 local function SelectedCurrent(identity, now, control)
   local data=OlympusLaunchSelected
   local targets,batch,encoded=ValidSelect(control,identity,now)
   if not targets then return nil end
   local requested={};for _,id in ipairs(targets) do requested[id]=true end
-  local held={targetGuid=targets[1],targetGuids=batch and targets or nil,covered=requested,state="pending",reason="The selected read is awaiting a matching result; its historical recommendation is held."}
+  local held={targetGuid=targets[1],targetGuids=batch and targets or nil,covered=requested,state="pending",code="awaiting-result",reason="The selected read is awaiting a matching result. Wait for the Watcher, then Sync and reload to load it; do not submit Check again while it is pending."}
+  if now>=control.observedAt+60 then
+    held.state,held.code,held.refreshable="held","selection-admission-expired",true
+    held.reason=SELECT_HOLDS[held.code]
+  end
   if not ExactKeys(data,BATCH_KEYS) or data.version~=2 or data.protocol~="promotion-selection-directive-v1" or data.confirmations~=control.confirmations
     or data.controlId~=control.id or data.actorGuid~=identity.guid or not batch and data.targetGuid~=control.targetGuid
     or data.scopeHash~=identity.scopeHash or data.observedAt~=control.observedAt or data.startedAt~=data.observedAt
@@ -326,6 +337,8 @@ local function SelectedCurrent(identity, now, control)
       or data.targetsDigest~=H.sha256hex(encoded) then return held end
   end
   held.state=data.running and "pending" or "held"
+  held.code=data.stoppedReason or (data.running and "pending" or "incomplete")
+  held.refreshable=held.state=="held" and SELECT_REFRESH[held.code]==true
   held.reason=SELECT_HOLDS[data.stoppedReason] or (data.running
     and "The last loaded selected read is pending. Load its later dated result; this view cannot observe the Watcher process."
     or "The selected read is held or incomplete. Review the current source with staff; its historical recommendation remains advisory.")
