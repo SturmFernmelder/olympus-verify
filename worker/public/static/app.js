@@ -4282,7 +4282,7 @@
       const directory = roleDirectory203(), order = directory ? councilFamilyOrder228(directory) : null;
       const seats = offices199().filter((row) => row.tier === "high_council" && !row.aliasOf && row.label === row.councilSeat);
       if (order) seats.sort((a, b) => (order.get(directory.keyToFamily[a.key]) ?? order.size) - (order.get(directory.keyToFamily[b.key]) ?? order.size));
-      return seats.length ? frame("High Council portfolios", null, h("dl", { class: "kv" }, seats.map((row) => {
+      return seats.length ? frame("High Council portfolios", null, h("dl", { class: "kv council-holders" }, seats.map((row) => {
         const who = appointedTo(row.key);
         // The Roles catalogue's guard (officeAssignmentPanel): a malformed or ID-like old value is never shown.
         const shown = typeof who === "string" && who.length <= 40 && !/[\u0000-\u001f\u007f<>]/.test(who) && !/^[0-9]{17,20}$/.test(who.trim()) ? who : "Name withheld";
