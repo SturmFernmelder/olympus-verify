@@ -1,6 +1,6 @@
 import argparse,json,sqlite3,hashlib,re
 from pathlib import Path
-ap=argparse.ArgumentParser();ap.add_argument('--receipt',action='append',required=True);ap.add_argument('--out',required=True);a=ap.parse_args();report={'scope':'Offline SQLite EXPLAIN only of original actual Native statements/schema, not Native acceptance; no SQL text rewrite or business execution. Limits above100 only measure a diagnostic minimum, never a shipping limit increase. The original statements/allMeasuredAtLeastTwoMargin cover only claims, final guards and NoEffect CAS; allSettlementStatements separately reports every actual role_settlements reference in the supplied captured paths.','sqlite':sqlite3.sqlite_version,'inputs':[],'statements':[],'allSettlementStatements':[]};seen={}
+ap=argparse.ArgumentParser();ap.add_argument('--receipt',action='append',required=True);ap.add_argument('--out',required=True);a=ap.parse_args();report={'scope':'Offline SQLite EXPLAIN only of original actual Native statements/schema, not Native acceptance; no SQL text rewrite or business execution. Limits above100 only measure a diagnostic minimum, never a shipping limit increase. The original statements/allMeasuredAtLeastTwoMargin cover claims, final guards, NoEffect CAS, actual migration PUT/DELETE ACKs and reservation release; allSettlementStatements separately reports every actual role_settlements reference in the supplied captured paths.','sqlite':sqlite3.sqlite_version,'inputs':[],'statements':[],'allSettlementStatements':[]};seen={}
 def outer(sql):
  depth=0;quote=None;i=0
  while i<len(sql):
@@ -41,6 +41,19 @@ def statement_name(op,body,params):
   if isinstance(candidate,str) and re.fullmatch(r'(?:launch230|native232|canonical233|canonical239|ban_rank1112)_[a-z0-9_]+',candidate):value=candidate
  return str(op).lower()+'-role_settlements'+(':'+value if value else '')
 
+def migration_completion_kind(op,body):
+ # Classify the actual outer UPDATE SET reason, never a retained receipt reason
+ # inside a CTE/WHERE proof. These literal assignments are source-owned sites.
+ if op!='UPDATE':return None
+ assignments=re.match(r'UPDATE\s+role_settlements\s+SET\b(.*?)\bWHERE\b',body,re.I|re.S)
+ if not assignments:return None
+ reason=re.search(r"\breason\s*=\s*'([a-z0-9_]+)'",assignments.group(1),re.I)
+ return {
+  'canonical233_migration_put_acknowledged_and_confirmed':'migration-put-ack',
+  'canonical233_migration_delete_acknowledged_and_confirmed':'migration-delete-ack',
+  'canonical239_reservation_released':'migration-reservation-release',
+ }.get(reason.group(1)) if reason else None
+
 for source in a.receipt:
  path=Path(source);receipt=json.loads(path.read_text(encoding='utf8'));seedpath=path.parent/'seed.json';seed=json.loads(seedpath.read_text(encoding='utf8'));db=sqlite3.connect(':memory:',cached_statements=0)
  for kind in ['table','index','trigger']:
@@ -59,6 +72,7 @@ for source in a.receipt:
     elif op=='UPDATE' and "reason='native232_dispatching'" in body:kind='routine-first-claim'
     elif op=='UPDATE' and "reason='canonical233_migration_dispatching'" in body:kind='migration-first-claim'
     elif op=='UPDATE' and "UPDATE role_settlements SET state='held',reason=?" in body and 'original_refusal_source280' in sql:kind='NoEffect-primary-CAS'
+    elif migration_completion_kind(op,body) is not None:kind=migration_completion_kind(op,body)
     elif op=='SELECT' and 'SELECT 1 AS admitted FROM role_settlements WHERE' in body:kind='consumed-final-guard'
     elif op=='SELECT' and body.startswith('SELECT 1 FROM role_settlements WHERE'):
      if "purpose='canonical_migration" in body or 'c239_migration_effect_tuple280' in sql:kind='migration-final-guard'
@@ -87,5 +101,8 @@ for source in a.receipt:
  db.close()
 report['allMeasuredAtLeastTwoMargin']=bool(report['statements']) and all(s['minimum'] is not None and s['minimum']<=98 for s in report['statements'])
 report['allSettlementStatementsCompileAt100']=bool(report['allSettlementStatements']) and all(s['at100']['ok'] for s in report['allSettlementStatements'])
+report['allSettlementStatementsWithinSqlBounds']=bool(report['allSettlementStatements']) and all(s['bytes']<=100000 and s['binds']<=100 for s in report['allSettlementStatements'])
+report['maxSettlementSQLBytes']=max((s['bytes'] for s in report['allSettlementStatements']),default=0)
+report['maxSettlementBindings']=max((s['binds'] for s in report['allSettlementStatements']),default=0)
 report['zeroMargin']=[s for s in report['allSettlementStatements'] if s['minimum']==100]
-Path(a.out).write_text(json.dumps(report,indent=2)+'\n',encoding='utf8');print(json.dumps({'statements':len(report['statements']),'allMargin2':report['allMeasuredAtLeastTwoMargin'],'ranges':[(s['kind'],s['minimum'],s['bytes'],s['binds'])for s in report['statements']],'allSettlementStatements':len(report['allSettlementStatements']),'allSettlementStatementsCompileAt100':report['allSettlementStatementsCompileAt100'],'zeroMargin':[(s['kind'],s['sha256'],s['minimum'])for s in report['zeroMargin']]}))
+Path(a.out).write_text(json.dumps(report,indent=2)+'\n',encoding='utf8');print(json.dumps({'statements':len(report['statements']),'allMargin2':report['allMeasuredAtLeastTwoMargin'],'ranges':[(s['kind'],s['minimum'],s['bytes'],s['binds'])for s in report['statements']],'allSettlementStatements':len(report['allSettlementStatements']),'allSettlementStatementsCompileAt100':report['allSettlementStatementsCompileAt100'],'allSettlementStatementsWithinSqlBounds':report['allSettlementStatementsWithinSqlBounds'],'maxSettlementSQLBytes':report['maxSettlementSQLBytes'],'maxSettlementBindings':report['maxSettlementBindings'],'zeroMargin':[(s['kind'],s['sha256'],s['minimum'])for s in report['zeroMargin']]}))
