@@ -36,7 +36,7 @@
       "url": "https://www.curseforge.com/wow/addons/leatrix-plus",
       "sourceKind": "Author project page",
       "limitations": [
-        "Acts for you: only the options you turn on act, and the author says every option starts switched off. They can pick up and hand in quests, accept summons and resurrections, release your spirit in PvP, sell junk and repair at vendors, accept party invites from friends and invite players who whisper you a keyword.",
+        "Acts for you: only the options you turn on act, and the author says every option starts switched off. Between them they can accept and turn in quests, accept a summons or a resurrection, release your spirit in PvP, repair and sell junk at vendors, accept friends' party invites and invite anyone who whispers you a chosen word.",
         "Choose the Forever file; some options differ between game versions.",
         "Enable only the modules you want; features can overlap other addons."
       ]
@@ -258,7 +258,7 @@
       "url": "https://www.curseforge.com/wow/addons/restedxp-guide",
       "sourceKind": "Author project page",
       "limitations": [
-        "Acts for you: the author lists automatic quest accept and turn-in and other automation options; the page does not say which are on by default.",
+        "Acts for you: the author lists accepting and turning in quests automatically, among other automation options; the page does not say which are on by default.",
         "The addon is free; expanded guide packages are paid.",
         "The publisher reported levels 1–35 complete on October 9, before launch. The routes the addon page says come with it are for MoP (1–25), Vanilla (1–20) and Retail (1–10); it names no Forever route.",
         "Check the publisher's current package contents and price; full 1–60 coverage is not assured."
@@ -385,7 +385,7 @@
       "url": "https://www.curseforge.com/wow/addons/foreverforge",
       "sourceKind": "Author project page",
       "limitations": [
-        "Acts for you: its Auto Quest accepts and turns in quests at quest givers and can pick a quest reward for you; the author says it is off until you turn it on. Its other automations loot at once, skip gossip, and sell grey items, repair and restock supplies at vendors; the page does not say which of these are on by default. It can also post a chat line when a guild or group member has a newer version, if you choose.",
+        "Acts for you: its Auto Quest accepts and turns in quests at quest givers and can pick a quest reward for you; the author says it stays off until you enable it. Its other automations loot at once, skip gossip, and sell grey items, repair and restock supplies at vendors; the page does not say which of these are on by default. It can also post a chat line when a guild or group member has a newer version, if you choose.",
         "Modules overlap bag, auction, quest and interface addons; select features deliberately."
       ]
     },
@@ -577,7 +577,7 @@
       "url": "https://www.curseforge.com/wow/addons/scrap",
       "sourceKind": "Author project page",
       "limitations": [
-        "Acts for you: when you visit a merchant it sells your junk by itself, and it can also repair your equipment automatically; the page does not say whether repair is on by default.",
+        "Acts for you: at a merchant it sells your junk by itself, and it can repair your gear on its own too; the page does not say whether repair is on by default.",
         "A community compatibility list notes that Forever merchants already have a button to sell grey items and repair."
       ]
     },
@@ -626,7 +626,7 @@
       "url": "https://www.curseforge.com/wow/addons/layer",
       "sourceKind": "Author project page",
       "limitations": [
-        "Acts for you: hosting is on at every login. It then invites players who ask through the addon, whisper you or ask in your guild, at most six invites in ten minutes, and sets that group's loot to Free for All. A swap request of your own turns hosting on for that request and for four minutes after a successful swap, then restores an earlier off setting. Your request goes out of sight to players on your zone map, and after a swap it leaves the host's group a few seconds later (Auto leave can be turned off), or by itself when the move failed.",
+        "Acts for you: hosting is on at every login. It then invites players who request it through the addon, by whisper or from your guild, up to six in any ten minutes, and sets that group's loot to Free for All. When you ask for a swap yourself, hosting switches on for that request and stays on four minutes past a swap that succeeds, then goes back off if it was off. Your request is sent unseen to the players your zone map shows, and after a swap it leaves the host's group a few seconds later (Auto leave can be turned off), or on its own if the move did not work.",
         "It writes nothing in guild chat by itself; Ask your guild sends only on your click.",
         "It reads your layer from nearby creatures, so it must see an NPC first, and a host must be in your zone to move you."
       ]
@@ -643,7 +643,7 @@
       "url": "https://www.curseforge.com/wow/addons/nova-instance-tracker",
       "sourceKind": "Author project page",
       "limitations": [
-        "Acts for you: it tells your group when you reset an instance and can post your dungeon statistics to group chat when you leave; the page says that statistics message can be turned on or off, not whether it is on by default.",
+        "Acts for you: it announces to your group that you have reset an instance and can post your dungeon statistics to group chat when you leave; the page says that statistics message can be turned on or off, not whether it is on by default.",
         "Its hourly and daily lockout counts and its re-entry detection, which needs mobs nearby, are described without mention of Forever."
       ]
     },
@@ -934,7 +934,7 @@
       "id": "tellmewhen",
       "name": "TellMeWhen",
       "category": "Cooldowns",
-      "rationale": "Shows icons, sounds and text for cooldowns, buffs, debuffs and other combat states you set up.",
+      "rationale": "Tracks the cooldowns, buffs, debuffs and other combat states you set up and signals them with icons, sounds or text.",
       "status": "Author lists Forever file",
       "version": "12.1.5",
       "releasedAt": "2026-10-12",
@@ -973,7 +973,7 @@
       "url": "https://www.curseforge.com/wow/addons/heal-bot-continued",
       "sourceKind": "Author project page",
       "limitations": [
-        "The page names Classic and Retail and says nothing specific to Forever; the author advises setting up spells, debuffs and buffs first.",
+        "The page names Classic and Retail and says nothing specific to Forever; the author advises configuring your spells, buffs and debuffs before anything else.",
         "Overlaps other group-frame addons; choose one main raid-frame setup."
       ]
     },
@@ -1069,7 +1069,7 @@
       "sourceKind": "Author project page",
       "limitations": [
         "Acts for you: with rules you set, it sends looted items to chosen players, rolls need, greed or pass for you, and invites and sorts raid members from a signup; it can also announce trades. The page does not say that any of this is on by default.",
-        "The author says that for most features only the loot master needs it.",
+        "The author says most features need only the loot master to install it.",
         "The author's notes for this Forever release say several fixes are untested because master loot of poor and common items is bugged in Forever."
       ]
     },
@@ -1086,9 +1086,9 @@
       "sourceKind": "Author project page",
       "limitations": [
         "Acts for you: if you choose, it applies a planned build or places your talent points for you as you level; the page does not say whether that is on by default, and the author says every feature has an off switch.",
-        "Popular builds refresh from the author's site every day.",
-        "The author says it was built with AI assistance by one person, with talent data from the game files checked in game.",
-        "Release 0.38.25 removed a Game talents button that could make action bars vanish in combat; /reload restores a missing bar."
+        "Its list of popular builds is updated daily from the author's site.",
+        "The author says one person built it with AI assistance; the talent data is read from the game files and was verified in game.",
+        "Release 0.38.25 removed a Game talents button that could make action bars vanish in combat; /reload brings back a bar that has disappeared."
       ]
     },
     {
@@ -1118,7 +1118,7 @@
       "url": "https://www.curseforge.com/wow/addons/dominos",
       "sourceKind": "Author project page",
       "limitations": [
-        "The page states no limits and nothing specific to Forever; the author says addons that work on the game's own action buttons should also work with it.",
+        "The page states no limits and nothing specific to Forever; the author expects addons made for the game's own action buttons to work with it too.",
         "An alternative to Bartender4; choose one action-bar addon."
       ]
     },
@@ -1134,7 +1134,7 @@
       "url": "https://www.curseforge.com/wow/addons/ellesmereui",
       "sourceKind": "Author project page",
       "limitations": [
-        "Several listed modules belong to Retail, such as the Mythic+ timer and Skyriding HUD; the page does not say which modules work on Forever.",
+        "Several listed modules belong to Retail, such as the Mythic+ timer and Skyriding HUD; the page does not say which of the modules run on Forever.",
         "It overlaps many listed addons; enable only the modules you want."
       ]
     },
@@ -1151,7 +1151,7 @@
       "sourceKind": "Author project page",
       "limitations": [
         "The author lists Forever issues with the loot-type plugin and with gamepads.",
-        "Since 9.3.0 the author asks you not to drag plugins, as they may disappear on reload."
+        "Since 9.3.0 the author asks you not to drag plugins, because a reload can make them vanish."
       ]
     },
     {
