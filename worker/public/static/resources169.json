@@ -323,7 +323,7 @@
       "url": "https://www.curseforge.com/wow/addons/foreverchanges",
       "sourceKind": "Author project page",
       "limitations": [
-        "Baseline comparisons can be corrected as game data changes.",
+        "Baseline comparisons can be corrected as beta data changes.",
         "Avoid enabling overlapping quest tint effects unintentionally."
       ]
     },
