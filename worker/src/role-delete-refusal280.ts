@@ -100,6 +100,11 @@ function manualRankRefusalStatusSql280(a:string):string{return `(CASE WHEN json_
 export function manualRankRefusalSql280(name:string):string{
  const a=alias(name);return all([any([canonicalDeleteRefusalSql280(a),banDeleteRefusalSql280(a)]),manualRankRefusalStatusSql280(a)]);
 }
+/** A source-owned caller that already fixes the canonical routine purpose keeps
+ * its full closed refusal proof and manual-status filter without the ban branch. */
+export function canonicalManualRankRefusalSql280(name:string):string{
+ const a=alias(name);return all([canonicalDeleteRefusalSql280(a),manualRankRefusalStatusSql280(a)]);
+}
 export function managedRankTargetAllowedSql280(subject:string,guild:string,role:string,binding:Readonly<{kind:'routine';generation:string;parent:string}|{kind:'ban';generation:string;mandate:string}>):string{
  const routine=binding.kind==='routine',original=routine?binding.parent:binding.mandate;
  for(const v of [subject,guild,role,binding.generation,original])if(!/^\?[1-9]\d*$/.test(v))throw Error('role_refusal_parameter_held');

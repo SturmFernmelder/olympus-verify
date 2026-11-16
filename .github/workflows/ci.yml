@@ -76,6 +76,7 @@ jobs:
           node tests/role_delete_refusal280_workerd_test.cjs --only transition-refusal404,transition-banrefusal404,transition-refusal429,transition-banrefusal429 --out "$RUNNER_TEMP/fixed-status-refusals"
           node tests/manual_refusal_ui280_workerd_test.cjs --out "$RUNNER_TEMP/generic-manual-refusal-ui"
           node tests/canonical_never_sent284_test.cjs
+          node tests/native_base_cleanup284_workerd_test.cjs --out "$RUNNER_TEMP/native-base-cleanup"
           node tests/site_role_audit283_workerd_test.cjs
           node tests/site_role_audit283_ui_test.cjs
           node tests/directive_promotion_intent_test.cjs

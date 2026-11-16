@@ -1,13 +1,15 @@
-/* Source-owned no-send observations: real schema + actual generated SQLite.
- * This test never calls a provider and never manufactures a writer capability. */
+/* Product audit facts: Node SQLite data matrix, then Python depth-100 prepare.
+ * Neither check is Native writer acceptance; no provider or writer capability. */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const cp = require('node:child_process');
+const crypto = require('node:crypto');
 const { DatabaseSync } = require('node:sqlite');
 const { buildSync } = require('esbuild');
 const worker = path.resolve(__dirname, '..');
 const entry = [
-  "export {canonicalNeverSentDeleteSql284,canonicalNeverSentDeleteAuditFacts284} from './src/role-settlements.ts';",
+  "export {canonicalNeverSentDeleteAuditFacts284} from './src/role-settlements.ts';",
   "export {CANONICAL_GUILD233,CANONICAL_PROFILE233,CANONICAL_RANKS233,NATIVE_CANONICAL_INDEX233} from './src/canonical-ranks233.ts';",
   "export {NATIVE_RANK_PROFILE232,NATIVE_RANK_NAMES232} from './src/native-rank-reconciliation232.ts';",
   "export {NATIVE_RANK_SCHEMES} from './src/native-rank-constants.ts';",
@@ -17,7 +19,8 @@ const output = buildSync({ stdin: { contents: entry, resolveDir: worker, loader:
 const module284 = { exports: {} };
 new Function('module', 'exports', 'require', output.outputFiles[0].text)(module284, module284.exports, require);
 const m = module284.exports, db = new DatabaseSync(':memory:');
-db.exec(fs.readFileSync(path.join(worker, 'schema.sql'), 'utf8'));
+const schemaSQL = fs.readFileSync(path.join(worker, 'schema.sql'), 'utf8');
+db.exec(schemaSQL);
 const clock = Number(db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS n").get().n);
 const subject = '300000000000000021', generation = 'f'.repeat(32), parentId = 'a'.repeat(32), childId = 'b'.repeat(32), guid = 'Player-4613-0ABCDEF1';
 const role = m.CANONICAL_RANKS233[m.NATIVE_CANONICAL_INDEX233[3]].roleId;
@@ -26,9 +29,8 @@ const insert = db.prepare(`INSERT INTO role_settlements(${columns.join(',')}) VA
 const put = row => insert.run(...columns.map(k => row[k]));
 const parent = () => ({ id: parentId, subject, purpose: 'canonical_routine233', proof_id: null, guild_id: m.CANONICAL_GUILD233, role_id: role, desired: 1, state: 'settled', reason: 'canonical233_put_acknowledged_and_confirmed', claim_nonce: 'c'.repeat(32), subject_generation: generation, request_digest: 'd'.repeat(64), roster_id: 1, native_guid: guid, native_profile: m.CANONICAL_PROFILE233, native_rank: 3, native_rank_name: m.NATIVE_RANK_NAMES232[3], attempts: 1, created_at: clock - 240, expires_at: clock + 60, checked_at: clock - 239 });
 const child = () => ({ id: childId, subject, purpose: 'canonical_routine233', proof_id: null, guild_id: m.CANONICAL_GUILD233, role_id: role, desired: 0, state: 'held', reason: 'canonical233_never_dispatched', claim_nonce: 'e'.repeat(32), subject_generation: generation, request_digest: parentId, roster_id: 2, native_guid: guid, native_profile: m.CANONICAL_PROFILE233, native_rank: 2, native_rank_name: m.NATIVE_RANK_NAMES232[2], attempts: 1, created_at: clock - 150, expires_at: clock + 150, checked_at: clock - 29 });
-const predicate = m.canonicalNeverSentDeleteSql284('original_r');
-const observe = db.prepare(`SELECT CASE WHEN (${predicate}) THEN 1 ELSE 0 END AS no_effect FROM role_settlements original_r WHERE original_r.id=?`);
-const observeFactored = db.prepare(`WITH ${m.canonicalNeverSentDeleteAuditFacts284()} SELECT CASE WHEN EXISTS(SELECT 1 FROM audit_no_effect284 n WHERE n.receipt_row=original_r.rowid) THEN 1 ELSE 0 END AS no_effect FROM role_settlements original_r WHERE original_r.id=?4`);
+const auditQuery = `WITH ${m.canonicalNeverSentDeleteAuditFacts284()} SELECT CASE WHEN EXISTS(SELECT 1 FROM audit_no_effect284 n WHERE n.receipt_row=original_r.rowid) THEN 1 ELSE 0 END AS no_effect FROM role_settlements original_r WHERE original_r.id=?4`;
+const observeAudit = db.prepare(auditQuery);
 let passed = 0;
 function check(name, expected, change = () => {}) {
   db.exec('BEGIN');
@@ -38,8 +40,7 @@ function check(name, expected, change = () => {}) {
     db.prepare('INSERT INTO characters(name_key,name,discord_id,status,bound_at,guid) VALUES(?,?,?,?,?,?)').run('fixture', 'Fixture', subject, 'member', clock - 1000, guid);
     put(p); put(c);
     const before = JSON.stringify(db.prepare('SELECT * FROM role_settlements ORDER BY id').all());
-    assert.equal(observe.get(c.id).no_effect, expected ? 1 : 0, name);
-    assert.equal(observeFactored.get(JSON.stringify([c.subject]), c.guild_id, JSON.stringify([c.role_id]), c.id).no_effect, expected ? 1 : 0, name + ': fixed read-only audit facts');
+    assert.equal(observeAudit.get(JSON.stringify([c.subject]), c.guild_id, JSON.stringify([c.role_id]), c.id).no_effect, expected ? 1 : 0, name + ': product read-only audit facts');
     assert.equal(JSON.stringify(db.prepare('SELECT * FROM role_settlements ORDER BY id').all()), before, name + ': original receipts changed');
     passed++;
   } finally { db.exec('ROLLBACK'); }
@@ -79,6 +80,41 @@ const parentNegatives = {
 for (const [name, edits] of Object.entries(parentNegatives)) check(name, false, p => Object.assign(p, edits));
 check('null generation agrees only with null parent', true, (p, c) => { p.subject_generation = c.subject_generation = null; });
 check('copied current generation does not match historical null parent', false, p => { p.subject_generation = null; });
-for (const alias of ['r.x', 'r;SELECT 1', 'R', '', 'r r', 'r\0']) { assert.throws(() => m.canonicalNeverSentDeleteSql284(alias), /canonical_never_sent_alias_held/); passed++; }
-console.log(JSON.stringify({ result: 'PASS', assertions: passed, providerCalls: 0, sourcePredicateBytes: Buffer.byteLength(predicate), interpreter: process.version }));
+assert.equal(passed, 67, 'all original audit data cases remain covered');
 db.close();
+
+// Compile the exact same query against the actual schema at D1's depth limit.
+// EXPLAIN emits bytecode only: no receipt, claim or other business SQL is stepped.
+const python = [
+  'import hashlib, json, sqlite3, sys',
+  'payload = json.load(sys.stdin)',
+  'db = sqlite3.connect(":memory:", cached_statements=0)',
+  'try:',
+  '    db.executescript(payload["schemaSQL"])',
+  '    db.setlimit(sqlite3.SQLITE_LIMIT_EXPR_DEPTH, 100)',
+  '    assert db.getlimit(sqlite3.SQLITE_LIMIT_EXPR_DEPTH) == 100',
+  '    program = db.execute("EXPLAIN " + payload["sql"], payload["params"]).fetchall()',
+  '    assert len(program) > 0',
+  '    print(json.dumps({"check": "product-audit-explain-only", "expressionDepth": 100, "cachedStatements": 0, "queryExecuted": False, "sqlSHA256": hashlib.sha256(payload["sql"].encode("utf-8")).hexdigest(), "sqlBytes": len(payload["sql"].encode("utf-8")), "parameters": len(payload["params"])}))',
+  'finally:',
+  '    db.close()',
+].join('\n');
+const prepareInput = JSON.stringify({ schemaSQL, sql: auditQuery, params: [JSON.stringify([subject]), m.CANONICAL_GUILD233, JSON.stringify([role]), childId] });
+let prepared, interpreter;
+for (const executable of ['python', 'python3']) {
+  const run = cp.spawnSync(executable, ['-c', python], { input: prepareInput, encoding: 'utf8', windowsHide: true, timeout: 30000, maxBuffer: 2e6 });
+  if (run.error?.code === 'ENOENT') continue;
+  assert.ifError(run.error);
+  assert.equal(run.signal, null, 'Python EXPLAIN-only prepare was interrupted');
+  assert.equal(run.status, 0, 'Python depth-100 EXPLAIN-only prepare failed: ' + run.stderr);
+  prepared = JSON.parse(run.stdout); interpreter = executable; break;
+}
+assert(prepared, 'an existing Python interpreter with SQLite setlimit is required');
+assert.equal(prepared.check, 'product-audit-explain-only');
+assert.equal(prepared.expressionDepth, 100);
+assert.equal(prepared.cachedStatements, 0);
+assert.equal(prepared.queryExecuted, false);
+assert.equal(prepared.sqlSHA256, crypto.createHash('sha256').update(auditQuery).digest('hex'));
+assert.equal(prepared.sqlBytes, Buffer.byteLength(auditQuery));
+assert.equal(prepared.parameters, 4);
+console.log(JSON.stringify({ result: 'PASS', nodeSqliteDataMatrixCases: passed, pythonDepth100Prepare: { ...prepared, interpreter }, providerCalls: 0, writerNativeAcceptance: false, nodeInterpreter: process.version }));

@@ -1,0 +1,62 @@
+'use strict';
+// Current legacy base cleanup, using the original real-source seed and fixture.
+// The legacy rank writer stays retired. Only the owned shared-base DELETE runs.
+const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),cp=require('node:child_process'),crypto=require('node:crypto'),assert=require('node:assert/strict');
+const root=path.join(__dirname,'..'),args=process.argv.slice(2);
+assert(args.length===0||args.length===2&&args[0]==='--out','usage: node native_base_cleanup284_workerd_test.cjs [--out <new-absolute-directory>]');
+const out=args.length?args[1]:fs.mkdtempSync(path.join(os.tmpdir(),'olv-native-base284-'));
+if(args.length){assert(path.isAbsolute(out)&&!fs.existsSync(out),'fresh_absolute_output_required');fs.mkdirSync(out,{recursive:true});}
+const H=b=>crypto.createHash('sha256').update(b).digest('hex'),seedPath=path.join(out,'seed.json');
+const seedRun=cp.spawnSync(process.execPath,[path.join(__dirname,'launch_membership231_seed.cjs'),seedPath],{cwd:root,encoding:'utf8',windowsHide:true,timeout:60000,maxBuffer:4e6});
+fs.writeFileSync(path.join(out,'seed.stdout.log'),seedRun.stdout||'');fs.writeFileSync(path.join(out,'seed.stderr.log'),seedRun.stderr||'');assert.equal(seedRun.status,0,'actual_source_seed');
+const seed=JSON.parse(fs.readFileSync(seedPath));assert(!Object.hasOwn(seed.config,'CANONICAL_RANKS233'),'original_seed_has_no_canonical_policy');
+const {buildSync}=require('esbuild'),entry='import {fixture232} from '+JSON.stringify(path.join(__dirname,'native_rank232_workerd_fixture.mjs'))+';import seed from '+JSON.stringify(seedPath)+';export default fixture232(seed);';
+const built=buildSync({stdin:{contents:entry,resolveDir:root,sourcefile:'native-base284-entry.mjs'},absWorkingDir:root,bundle:true,write:false,format:'esm',platform:'browser',target:'es2022',external:['node:async_hooks'],tsconfig:path.join(root,'tsconfig.json'),metafile:true,logLevel:'silent'});
+const source=Buffer.from(built.outputFiles[0].contents),pins=Object.keys(built.metafile.inputs).filter(p=>p!=='native-base284-entry.mjs').map(p=>({path:path.resolve(root,p),sha256:H(fs.readFileSync(path.resolve(root,p)))}));
+fs.writeFileSync(path.join(out,'fixture.mjs'),source);fs.writeFileSync(path.join(out,'source-pins.json'),JSON.stringify(pins,null,2));
+const kinds=['base-delete-unknown','base-confirmation-unknown'],G=seed.config.GUILD_ID,R=seed.config.ROLE_GUILD_MEMBER,BOT=seed.config.DISCORD_APP_ID,BOTROLE='888888888888888888',HIGH='777777777777777777',BLOCK='666666666666666666',subject=seed.tables.find(t=>t.name==='pending').rows[0].discord_id;
+const stewartSource=[...fs.readFileSync(path.join(root,'src/native-rank-reconciliation232.ts'),'utf8').matchAll(/export const NATIVE_STEWART_ROLE232='([1-9][0-9]{16,19})';/g)];assert.equal(stewartSource.length,1,'fixed_source_stewart');
+const ranks=['1561095726115725373',stewartSource[0][1],'1561095748039221339','1561095893007073371','1561096070040125460','1561096328409251880','1561096452057596005','1561096598296076460','1561096679778947113','1561097105974628372'],staff=['1554261979684933742','1554262223038324840','1554262510650007602'];
+const present=new Map(kinds.map(k=>[k,[HIGH]])),targetReads=new Map(kinds.map(k=>[k,0])),baseDeleted=new Set(),http=[],checks=[],costs={};
+const {Miniflare,Log,LogLevel,convertV4MiniflareOptions}=require('miniflare');let mf,complete=false;
+const check=(name,value)=>{assert.equal(value,true,name);checks.push(name);console.log('PASS '+name);};
+const packets=s=>{const v=JSON.parse(s);return Array.isArray(v)?v:[v];};
+const rowsOf=p=>Array.isArray(p.results)?p.results:p.results&&Array.isArray(p.results.columns)&&Array.isArray(p.results.rows)?p.results.rows.map(v=>Object.fromEntries(p.results.columns.map((k,i)=>[k,v[i]]))):[];
+const tupleFields=['id','subject','purpose','proof_id','guild_id','role_id','desired','state','attempts','claim_nonce','subject_generation','created_at','expires_at','request_digest','roster_id','native_guid','native_profile','native_rank','native_rank_name','reason','checked_at'];
+const tuple=r=>Object.fromEntries(tupleFields.map(k=>[k,r[k]])),hasTuple=r=>tupleFields.every(k=>Object.hasOwn(r,k));
+(async()=>{try{
+ mf=new Miniflare(convertV4MiniflareOptions({rootPath:out,script:source.toString(),modules:true,name:'native-base284',compatibilityDate:'2026-09-01',compatibilityFlags:['nodejs_compat'],host:'127.0.0.1',port:0,cf:false,log:new Log(LogLevel.NONE),logRequests:false,telemetry:{enabled:false},unsafeRegisterWorker:false,unsafeLocalExplorer:false,unsafeObservability:false,resourceTmpPath:path.join(out,'tmp'),resourcePersistencePath:path.join(out,'persist'),isolatedResourcePersistencePath:path.join(out,'isolated'),d1Databases:Object.fromEntries(kinds.map(k=>['DB_'+k.replaceAll('-','_'),'native-base284-'+k])),outboundService:async req=>{
+  const k=kinds.find(k=>req.headers.get('authorization')==='Bot '+seed.config.DISCORD_BOT_TOKEN+'-'+k),u=new URL(req.url),p=u.pathname.replace(/^\/api\/v10/,'');assert(k&&u.origin==='https://discord.com','only_fixed_mock_discord');
+  const event={kind:k,method:req.method,path:p,status:null};http.push(event);
+  const json=v=>{event.status=200;return Response.json(v);};
+  if(req.method==='GET'&&p==='/users/@me')return json({id:BOT,bot:true});
+  if(req.method==='GET'&&p==='/guilds/'+G+'/roles')return json([{id:G,position:0,permissions:'0',managed:false},{id:R,position:1,permissions:'0',managed:false},{id:BOTROLE,position:20,permissions:'268435456',managed:false},{id:HIGH,position:30,permissions:'0',managed:false},{id:BLOCK,position:1,permissions:'0',managed:false},...ranks.map((id,i)=>({id,name:i===1?'Olympus Live: Stewart':'Olympus Live: Fixture',position:2,permissions:'0',managed:false})),...staff.map(id=>({id,position:3,permissions:'0',managed:false}))]);
+  if(req.method==='GET'&&p==='/guilds/'+G+'/members/'+BOT)return json({user:{id:BOT},roles:[BOTROLE]});
+  if(req.method==='GET'&&p==='/guilds/'+G+'/members/'+subject){const seen=targetReads.get(k)+1;targetReads.set(k,seen);if(seen>=3)present.set(k,[...new Set([...present.get(k),BLOCK])]);if(k==='base-confirmation-unknown'&&baseDeleted.has(k)){event.error='synthetic_base_confirmation_lost';throw Error(event.error);}return json({user:{id:subject},roles:present.get(k)});}
+  const prefix='/guilds/'+G+'/members/'+subject+'/roles/';
+  if((req.method==='PUT'||req.method==='DELETE')&&p.startsWith(prefix)){const role=p.slice(prefix.length);assert([R,...ranks,...staff].includes(role),'only_original_managed_role');if(k==='base-delete-unknown'&&req.method==='DELETE'&&role===R){event.error='synthetic_base_delete_reply_lost';throw Error(event.error);}present.set(k,req.method==='PUT'?[...new Set([...present.get(k),role])]:present.get(k).filter(id=>id!==role));if(k==='base-confirmation-unknown'&&req.method==='DELETE'&&role===R)baseDeleted.add(k);event.status=204;return new Response(null,{status:204});}
+  throw Error('unplanned_mock_request');
+ }}));await mf.ready;
+ for(const k of kinds){
+  const response=await mf.dispatchFetch('http://fixture.invalid/'+k,{method:'POST'}),text=await response.text();fs.writeFileSync(path.join(out,k+'.json'),text);assert.equal(response.status,200,k);const r=JSON.parse(text),calls=http.filter(x=>x.kind===k);
+  check(k+' uses original real-clock issuer and unchanged source/schema on907 native rows',r.actualLocalWorkerdD1===true&&r.clockOverride===false&&r.sourceCallbackOverride===false&&r.providerCalls===0&&r.error===null&&r.rosterRows===907&&r.schemaUnchanged===true&&r.historicalClosureUnchanged===true);
+  const replies=r.wires.flatMap(w=>packets(w.responseBody)),wireRows=replies.flatMap(rowsOf),failed=replies.filter(p=>p.success!==true);
+  check(k+' all actual admitted D1 statements execute without SQL failure',failed.length===0&&r.wires.every(w=>w.status===200)&&!r.wires.some(w=>/Expression tree is too large|physical_sql_limit/.test(w.responseBody)));
+  check(k+' grants only shared base while legacy rank conversion stays retired',r.result.status===200&&r.result.body.roleGranted===true&&r.result.body.roleOutcome==='granted'&&r.result.body.rankOutcome==='held'&&r.result.body.rankReason==='directive280_legacy_native_rank_writer_retired'&&calls.filter(x=>x.method==='PUT').length===1&&calls.filter(x=>x.method==='PUT').every(x=>x.path.endsWith('/'+R)));
+  const db=await mf.getD1Database('DB_'+k.replaceAll('-','_')),final=(await db.prepare('SELECT * FROM role_settlements ORDER BY id').all()).results;fs.writeFileSync(path.join(out,k+'-final-receipts.json'),JSON.stringify(final,null,2));
+  const parent=final.find(x=>x.role_id===R&&x.purpose==='launch_membership230'&&x.desired===1&&x.attempts===1&&x.state==='settled'&&x.reason==='launch230_put_acknowledged_and_confirmed'),originalParent=wireRows.find(x=>hasTuple(x)&&x.id===parent?.id&&x.state==='settled'&&x.reason==='launch230_put_acknowledged_and_confirmed');
+  check(k+' retains exact original base ACK nonce clocks and full receipt tuple',!!parent&&!!originalParent&&/^[0-9a-f]{32}$/.test(parent.claim_nonce)&&JSON.stringify(tuple(parent))===JSON.stringify(tuple(originalParent))&&wireRows.filter(x=>hasTuple(x)&&x.id===parent.id&&x.state==='settled').every(x=>JSON.stringify(tuple(x))===JSON.stringify(tuple(originalParent))));
+  const children=final.filter(x=>x.purpose==='launch_routine_membership232'&&x.role_id===R&&x.desired===0),child=children[0],claim=wireRows.find(x=>hasTuple(x)&&x.id===child?.id&&x.state==='dispatching'&&x.attempts===1);
+  const immutable=tupleFields.filter(x=>!['state','reason','checked_at'].includes(x)),sameClaim=!!claim&&immutable.every(f=>child[f]===claim[f]);
+  const unknownReason=k==='base-delete-unknown'?'native232_provider_outcome_unknown':'native232_confirmation_unknown';
+  check(k+' runs genuine noncanonical owned-base DELETE and preserves spent unknown claim',children.length===1&&r.repeat.state==='unknown'&&r.repeat.base?.state==='unknown'&&r.repeat.base.reason===unknownReason&&r.repeat.base.operationId===child.id&&child.state==='unknown'&&child.reason===unknownReason&&child.attempts===1&&child.request_digest===parent.id&&child.subject===parent.subject&&child.subject_generation===parent.subject_generation&&child.guild_id===parent.guild_id&&child.native_profile==='olympus-prime-live-20261105-v1'&&/^[0-9a-f]{32}$/.test(child.claim_nonce)&&sameClaim&&child.checked_at>=claim.checked_at&&child.checked_at>=child.created_at&&child.expires_at===claim.expires_at);
+  const deletes=calls.filter(x=>x.method==='DELETE');
+  check(k+' sends one original cleanup DELETE with no automatic retry or replacement PUT',deletes.length===1&&deletes[0].path.endsWith('/'+R)&&calls.filter(x=>x.method==='PUT').length===1&&!final.some(x=>x.purpose==='fresh_roster_rank'&&x.attempts===1));
+  check(k+' distinguishes missing DELETE reply from missing confirmation',k==='base-delete-unknown'?deletes[0].status===null&&deletes[0].error==='synthetic_base_delete_reply_lost'&&present.get(k).includes(R):deletes[0].status===204&&calls.some(x=>x.error==='synthetic_base_confirmation_lost')&&!present.get(k).includes(R));
+  check(k+' keeps neutral serving control and original HTTP allowance',r.control.epoch===seed.config.PRIVACY_WRITE_ADMISSION_EPOCH&&r.control.mode==='serving'&&r.control.active===0&&r.control.nonce===''&&r.control.purpose===''&&calls.length<=50);
+  costs[k]={trips:r.wires.length,physicalSQL:r.wires.flatMap(w=>packets(w.requestBody)).length,http:calls.length,put:calls.filter(x=>x.method==='PUT').length,delete:deletes.length,maxPhysicalSQLBytes:Math.max(...r.wires.flatMap(w=>packets(w.requestBody)).map(p=>Buffer.byteLength(p.sql,'utf8')))};
+ }
+ for(const p of pins)assert.equal(H(fs.readFileSync(p.path)),p.sha256,'compiled_source_custody');check('all compiled original source inputs stay unchanged',true);complete=true;
+ }finally{if(mf)await mf.dispose();fs.writeFileSync(path.join(out,'http.json'),JSON.stringify(http,null,2));fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({schema:'native-base-cleanup284-workerd-v1',complete,checks:checks.length,names:checks,costs,out,providerCalls:0,clockOverride:false,sourceCallbackOverride:false,bundleSHA256:H(source)},null,2));}
+ console.log(checks.length+'/'+checks.length+' current native base cleanup checks; '+out);
+})().catch(e=>{console.error(e);process.exitCode=1;});
