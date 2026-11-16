@@ -48,13 +48,19 @@ uses direct links and requires no new credential.
 The rule, in plain words:
 
 - **Listed:** the author's own page offers a full release (not an alpha or beta) for Forever, dated within 60 days
-  before the review. An entry stays listed until its newest Forever release is more than 90 days old.
+  before the review. An entry stays listed until its newest Forever release is more than 90 days old. One entry is
+  listed without a reviewed file: Olympus Guild, the guild's own addon, carries no version and no date.
 - **Watched, with the reason:** no Forever release, only alpha or beta files, a release too old for the rule, or an
-  abandoned project. A watch row links the project page and says why; it makes no compatibility claim.
+  abandoned project. Two rows are watched although a release meets the dates, each for the reason its row gives:
+  ForeverAutoQuest (its only file is from before the launch, without an update since, and a listed addon does the
+  same) and Spy (the original has no Forever release; its Forever port has one, and whether an enemy-detection addon
+  belongs in the list is not decided). A watch row links the project page and says why; it makes no compatibility
+  claim.
 - **Addons that act for the player** (they perform a game action without a click for that action, such as handing out
   or rolling on loot, inviting, leaving or rearranging a group, changing the loot setting, placing talent points,
   accepting or turning in quests, selling, repairing, setting raid marks or sending messages to other players) are
-  listed when they meet the rule. Their first limitation begins "Acts for you: " and says what they do by themselves
+  listed when they meet the rule; ForeverAutoQuest, which turns in quests by itself, is the one exception and is
+  named above. Their first limitation begins "Acts for you: " and says what they do by themselves
   and, as far as the page says, whether that is on by default. The directory describes addons; it sets no guild rule.
 
 How it was read. A survey on 15 November 2026 read every current and candidate entry on its CurseForge Files tab,
