@@ -14,7 +14,9 @@ class Node{
  click(){return this.fire('click');}
 }
 const document={createElement:tag=>new Node(tag),createDocumentFragment:()=>new Node('fragment')};
-let downloaded;const context={window:{},document,Date,Blob,URL:{createObjectURL(blob){downloaded=blob;return 'blob:synthetic';},revokeObjectURL(){}},setTimeout(fn){fn();}};
+let downloaded,pacingNow=0,timerId=0;const timers=new Map();
+const tick=milliseconds=>{pacingNow+=milliseconds;for(const [id,fn]of [...timers]){timers.delete(id);fn();}};
+const context={window:{},document,Date,Blob,performance:{now:()=>pacingNow},URL:{createObjectURL(blob){downloaded=blob;return 'blob:synthetic';},revokeObjectURL(){}},setTimeout(fn,delay){if(!delay){fn();return 0;}const id=++timerId;timers.set(id,fn);return id;},clearTimeout(id){timers.delete(id);}};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../public/static/role-audit283.js'),'utf8'),context);
 const find=(node,test)=>test(node)?node:node.children.map(c=>find(c,test)).find(Boolean);
 const button=(root,text)=>find(root,n=>n.tag==='button'&&n.textContent===text);
@@ -87,6 +89,51 @@ const freshPage=(changes={})=>({...page,rows:[{...row,previewToken:'fresh-per-ro
  const pending=button(pauseRoot,'Compare current roster').click();await Promise.resolve();await button(pauseRoot,'Pause').click();resolve({...page,nextCursor:'opaque-cursor',coverage:{...page.coverage,complete:false}});await pending;
  check('pause ends after the current read-only page',counter===1&&pauseRoot.textContent.includes('Paused.'));
  await button(pauseRoot,'Resume scan').click();check('resume continues the same explicit traversal',counter===2&&pauseRoot.textContent.includes('Discord traversal finished'));
+ const pacingData=(seconds=2,resumeAvailable=true)=>{const serverNow=Math.floor(Date.now()/1000);return {error:'role_audit_unavailable',coverage:{complete:false,gap:'discord_rate_limited'},automaticRetry:false,resumeCursor:resumeAvailable?'signed-pause-original-page':null,readPacing:{version:1,kind:'original-discord-get429',serverNow,notBefore:serverNow+seconds,retryAfterSeconds:seconds,resumeAvailable,traversalExpiresAt:serverNow+900,observations:[]}};};
+ const pacingRoot=new Node('main'),pacingCalls=[];let firstPacingPage,scanReads=0,pacingPosts=0;
+ const pacingView=context.window.mountRoleAudit283(pacingRoot,{api:async(method,url,body)=>{
+  pacingCalls.push({method,url,body});
+  if(method==='POST'){pacingPosts++;return {result:{requests:1,results:[{subject:id,state:'unknown',reason:'original-delivery-unknown'}]}};}
+  if(url.includes('?subject='))return freshPage();
+  scanReads++;
+  if(scanReads===1)return new Promise(resolve=>firstPacingPage=resolve);
+  if(scanReads<=3)throw {status:429,retryAfterSeconds:60,data:pacingData()};
+  return {...page,rows:[{...row,id:'900000000000000004',username:'later',displayName:'Later',repairable:false}],nextCursor:null,coverage:{...page.coverage,providerRowsProcessed:1}};
+ }});
+ const initialPacingRead=button(pacingRoot,'Compare current roster').click();await Promise.resolve();await button(pacingRoot,'Pause').click();firstPacingPage({...page,rows:[row],nextCursor:'original-next-page',coverage:{...page.coverage,providerRowsProcessed:1,complete:false}});await initialPacingRead;
+ await button(pacingRoot,'Review reconciliation to Olympus Member').click();await button(pacingRoot,'Confirm Olympus Member reconciliation (up to 2 planned changes)').click();
+ await button(pacingRoot,'Resume scan').click();
+ check('known original429 preserves completed pages and old uncertain outcome without renewing a spent confirmation',scanReads===2&&pacingPosts===1&&pacingRoot.textContent.includes('1 pages')&&pacingRoot.textContent.includes('original-delivery-unknown')&&pacingRoot.textContent.includes(row.displayName)&&button(pacingRoot,'Resume scan').disabled&&button(pacingRoot,'Start fresh').disabled&&!button(pacingRoot,'Export observed rows').disabled);
+ check('read counter explicitly excludes incomplete pages instead of claiming zero total provider requests',pacingRoot.textContent.includes('Discord read requests from completed pages (incomplete-page requests are not included)'));
+ await button(pacingRoot,'Resume scan').click();await button(pacingRoot,'Start fresh').click();
+ check('read waiting cannot be bypassed by Resume or Start fresh and triggers no hidden provider retry',scanReads===2&&pacingPosts===1);
+ tick(1000);check('relative observed wait remains locked until its full deadline',scanReads===2&&button(pacingRoot,'Resume scan').disabled);
+ tick(1000);check('timer only enables deliberate Resume and does not perform a request',scanReads===2&&!button(pacingRoot,'Resume scan').disabled&&pacingRoot.textContent.includes('no automatic retry occurred'));
+ await button(pacingRoot,'Resume scan').click();
+ check('a second429 on resumed original page keeps progress again instead of restarting or replaying a write',scanReads===3&&pacingPosts===1&&pacingRoot.textContent.includes('1 pages')&&pacingRoot.textContent.includes('original-delivery-unknown')&&pacingCalls.filter(c=>c.method==='GET'&&!c.url.includes('?subject=')).at(-1).url.includes('cursor=signed-pause-original-page'));
+ tick(2000);await button(pacingRoot,'Resume scan').click();
+ check('explicit post-wait resume completes the remaining page while preserving prior observations and uncertain receipt wording',scanReads===4&&pacingPosts===1&&pacingRoot.textContent.includes('2 pages')&&pacingRoot.textContent.includes('2 unique visible candidates')&&pacingRoot.textContent.includes('original-delivery-unknown')&&pacingRoot.textContent.includes('Discord traversal finished'));
+ pacingView.destroy();
+ const unknownWaitRoot=new Node('main');let unknownWaitReads=0;
+ context.window.mountRoleAudit283(unknownWaitRoot,{api:async()=>{unknownWaitReads++;throw {status:429,retryAfterSeconds:60,data:{coverage:{gap:'discord_rate_limited'}}};}});
+ await button(unknownWaitRoot,'Compare current roster').click();tick(61000);
+ check('generic api60second fallback cannot manufacture confirmed pacing or a resume cursor',unknownWaitReads===1&&button(unknownWaitRoot,'Compare current roster').disabled&&!button(unknownWaitRoot,'Resume scan'));
+ const longWaitRoot=new Node('main');let longReads=0;
+ const longView=context.window.mountRoleAudit283(longWaitRoot,{api:async()=>{longReads++;throw {status:429,retryAfterSeconds:900,data:pacingData(1200,false)};}});
+ await button(longWaitRoot,'Compare current roster').click();tick(901000);
+ check('long original provider wait is not shortened to api900second clamp or used to renew traversal',longReads===1&&button(longWaitRoot,'Start fresh').disabled&&button(longWaitRoot,'Resume scan').disabled);
+ tick(299000);check('wait outlasting original traversal requires a new explicit read after full observed wait',longReads===1&&!button(longWaitRoot,'Start fresh').disabled&&button(longWaitRoot,'Resume scan').disabled&&longWaitRoot.textContent.includes('old source and cursor were not renewed'));longView.destroy();
+ for(const status of [429,503]){
+  const floorRoot=new Node('main');let floorReads=0;const data=pacingData();data.resumeCursor=null;data.readPacing.kind='original-discord-get429-floor';data.readPacing.resumeAvailable=false;if(status===503)data.coverage.gap='provider_or_admission_unavailable';
+  const floorView=context.window.mountRoleAudit283(floorRoot,{api:async()=>{floorReads++;throw {status,data};}});
+  await button(floorRoot,'Compare current roster').click();await button(floorRoot,'Start fresh').click();
+  check('mixed'+status+' failure retains known minimum wait while leaving all other results unconfirmed',floorReads===1&&button(floorRoot,'Start fresh').disabled&&button(floorRoot,'Resume scan').disabled&&floorRoot.textContent.includes('at least')&&floorRoot.textContent.includes('Other read results remain unconfirmed'));
+  tick(2000);check('mixed'+status+' floor expiry permits only a new explicit read and never resumes uncertain page',floorReads===1&&!button(floorRoot,'Start fresh').disabled&&button(floorRoot,'Resume scan').disabled&&floorRoot.textContent.includes('known minimum wait has ended')&&floorRoot.textContent.includes('other read results remain unconfirmed'));floorView.destroy();
+ }
+ const disposedRoot=new Node('main');let disposedReads=0;
+ const disposed=context.window.mountRoleAudit283(disposedRoot,{api:async()=>{disposedReads++;throw {status:429,data:pacingData()};}});
+ await button(disposedRoot,'Compare current roster').click();disposed.destroy();tick(3000);
+ check('destroy cancels wait display without late UI repopulation or a new request',disposedReads===1&&disposedRoot.children.length===0&&timers.size===0);
  let finish;const deadRoot=new Node('main'),instance=context.window.mountRoleAudit283(deadRoot,{api:async()=>new Promise(done=>finish=done)}),deadRequest=button(deadRoot,'Compare current roster').click();await Promise.resolve();instance.destroy();finish(page);await deadRequest;
  check('destroy discards a late private page instead of repopulating a departed view',deadRoot.children.length===0);
  assert.ok(cases.every(c=>c.pass),JSON.stringify(cases));console.log(JSON.stringify({ok:true,checks:cases.length,scope:'DOM module behavior; no browser or mobile acceptance'}));

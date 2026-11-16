@@ -9,9 +9,13 @@ for(let i=0;i<args.length;i+=2){
 const build=options['--build'],commit=options['--commit'],output=options['--output'],root=path.resolve(__dirname,'..');
 if(!/^\d{4}-\d{2}-\d{2}\.\d+ .+$/.test(build??'')||!/^[a-f0-9]{40}$/.test(commit??'')||!output||!path.isAbsolute(output)||fs.existsSync(output))throw Error('Exact current build/commit and new absolute output file required');
 const cases=JSON.parse(fs.readFileSync(path.join(__dirname,'public-route-cases.json'),'utf8')).cases;
-// Preserve all 92 existing cases; also observe anonymous refusal at all three recovery routes.
-const EXPECTED_CASES=95;
-if(cases.length!==EXPECTED_CASES)throw Error('Expected all 95 recorded public behaviors');
+// Preserve the95 existing cases. The only permitted POSTs are empty, credential-free
+// sign-in refusals at these four already-shipped administrator endpoints.
+const ADMIN_REFUSAL_PATHS=new Set(['/api/admin/role-audit','/api/admin/role-baseline','/api/admin/role-put-refusal-retry','/api/admin/late-proof']);
+const EXPECTED_CASES=99;
+if(cases.length!==EXPECTED_CASES)throw Error('Expected all99 recorded public behaviors');
+const postCases=cases.filter(c=>c.method==='POST');
+if(postCases.length!==4||new Set(postCases.map(c=>c.url)).size!==4)throw Error('Exactly four distinct anonymous administrator POST refusals required');
 const hosts=new Set(['olympus.roachcouncil.com','olympus-verify.roach-council.workers.dev','guild.roachcouncil.com']);
 const hash=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 function source(relative){
@@ -30,6 +34,7 @@ function check(c,response,body,url){
   if(c.method==='HEAD'&&body.length)failures.push('HEAD-body');
   if(c.bodySHA256&&hash(body)!==c.bodySHA256)failures.push('response-content');
   if(c.form&&!/<form\b/i.test(body.toString()))failures.push('account-form');
+  if(c.anonymousAdminRefusal){let value;try{value=JSON.parse(body);}catch{}if(value?.error!=='signed_out')failures.push('application-sign-in-refusal');}
   if(url.pathname==='/health'){
     let value={};try{value=JSON.parse(body);}catch{}
     if(value.ok!==true||value.d1!=='ok'||value.build!==build)failures.push('actual-build-or-d1');
@@ -40,7 +45,8 @@ function check(c,response,body,url){
   const startedAt=new Date().toISOString(),rows=[];
   for(const original of cases){
     const c=structuredClone(original),url=new URL(c.url);
-    if(url.protocol!=='https:'||!hosts.has(url.hostname)||url.username||url.password||url.port||url.hash||!['GET','HEAD','OPTIONS'].includes(c.method))throw Error('Anonymous fixed-host scope refused');
+    const adminRefusal=c.method==='POST'&&c.anonymousAdminRefusal===true&&url.hostname==='olympus.roachcouncil.com'&&ADMIN_REFUSAL_PATHS.has(url.pathname)&&!url.search&&c.status===401;
+    if(url.protocol!=='https:'||!hosts.has(url.hostname)||url.username||url.password||url.port||url.hash||!['GET','HEAD','OPTIONS'].includes(c.method)&&!adminRefusal||c.anonymousAdminRefusal===true&&!adminRefusal)throw Error('Anonymous fixed-host scope refused');
     if(c.status===200&&c.method==='GET'&&url.pathname.startsWith('/static/')){
       if(url.pathname.includes('..')||url.pathname.includes('%'))throw Error('Noncanonical artifact refused');
       c.bodySHA256=hash(source('worker/public'+url.pathname));
@@ -53,10 +59,10 @@ function check(c,response,body,url){
       const failures=check(effective,response,body,url);
       if(robots&&((c.method==='GET'&&(!body.length||!body.toString().split(/\r?\n/).every(line=>/^\s*(?:#.*)?$/.test(line))))||response.headers.has('location')||!/text\/plain/i.test(response.headers.get('content-type')??'')))failures.push('robots-comment-exception');
       const headers=Object.fromEntries(response.headers);if(headers['set-cookie'])headers['set-cookie']='<present; value redacted>';
-      rows.push({ordinal:rows.length+1,method:c.method,url:c.url,status:response.status,bytes:body.length,sha256:hash(body),headers,strictFailures,failures,passed:failures.length===0,ownerAllowance:robots?'approved comment-only robots200':null});
+      rows.push({ordinal:rows.length+1,method:c.method,url:c.url,status:response.status,bytes:body.length,sha256:hash(body),headers,strictFailures,failures,passed:failures.length===0,anonymousAdminRefusal:adminRefusal,ownerAllowance:robots?'approved comment-only robots200':null});
     }catch(error){rows.push({ordinal:rows.length+1,method:c.method,url:c.url,passed:false,strictFailures:['transport'],failures:['transport:'+error.name]});}
   }
-  const result={startedAt,at:new Date().toISOString(),build,sourceCommit:commit,cases:rows.length,passed:rows.filter(r=>r.passed).length,strictPassed:rows.filter(r=>r.strictFailures.length===0).length,anonymousOnly:true,credentialsSent:false,mutatingRequests:0,retries:0,rows};
+  const result={startedAt,at:new Date().toISOString(),build,sourceCommit:commit,cases:rows.length,passed:rows.filter(r=>r.passed).length,strictPassed:rows.filter(r=>r.strictFailures.length===0).length,anonymousOnly:true,credentialsSent:false,writeMethodRequests:postCases.length,anonymousAdminRefusalPOSTs:postCases.length,requestBodiesSent:false,retries:0,rows};
   fs.writeFileSync(output,JSON.stringify(result,null,2)+'\n',{flag:'wx'});
   console.log(JSON.stringify({cases:result.cases,passed:result.passed,strictPassed:result.strictPassed,failures:rows.filter(r=>!r.passed).map(r=>({ordinal:r.ordinal,failures:r.failures}))}));
   if(result.passed!==EXPECTED_CASES)process.exitCode=1;

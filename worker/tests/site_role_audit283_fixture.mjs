@@ -6,7 +6,7 @@ import {currentUser,originalUserSession,b64u} from '../src/site-core.ts';
 import {privacyBoundSiteEnv,privacyBoundSiteRoleActionEnv,privacyProviderCustodyDatabase,PRIVACY_YEAR} from '../src/privacy-serving-authority.ts';
 import {accountAuditAttributionSql280} from '../src/tithe-erased-replay280.ts';
 import {captureRoutineMembership232,closeRoutineMembership232,routineMembership232Facts,routineMembership232Predicate,routineMembership232AttendedRoleMatches} from '../src/routine-membership-authority232.ts';
-import {rest} from '../src/discord.ts';
+import {rest,DiscordError,originalDiscordGetPacing} from '../src/discord.ts';
 import worker from '../src/index.ts';
 import {ADMISSION_EXPECTED_JSON,ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON,ADMISSION_PROTOCOL} from '../src/privacy-write-admission-catalogue.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
@@ -490,6 +490,23 @@ export default {async fetch(request,bindings){
    return Response.json({captured:true,matches,prior,after,receipt,statements:physical-before,actualLocalWorkerdD1:true});
   }finally{closeRoutineMembership232(cap);}
  }
+ if(path==='/read-pacing-state')return Response.json({receipts:(await rawDB.prepare('SELECT * FROM role_settlements ORDER BY id').all()).results,audit:(await rawDB.prepare('SELECT * FROM audit ORDER BY id').all()).results});
+ if(path==='/get-pacing-unit'){
+  const spec=await request.json(),env={...config,DISCORD_BOT_TOKEN:'role-audit-'+spec.mode},p=`/guilds/${NATIVE_GUILD232}/members/${BASE}`;
+  try{await rest(env,'GET',p,undefined,1);return Response.json({error:'expected_original429'},{status:409});}
+  catch(error){const facts=originalDiscordGetPacing(error,env,p),copy=error instanceof DiscordError?new DiscordError(error.status,error.body):{};
+   const copied=originalDiscordGetPacing(copy,env,p),wrongEnv=originalDiscordGetPacing(error,{...env},p),wrongPath=originalDiscordGetPacing(error,env,p+'1');
+   if(error instanceof DiscordError)error.body+=' changed';
+   return Response.json({facts,copied,wrongEnv,wrongPath,changed:originalDiscordGetPacing(error,env,p)});
+  }
+ }
+ if(path==='/inspect-audit-cursor'){
+  const spec=await request.json(),req=new Request('https://guild.example/api/admin/role-audit',{headers:{Cookie:spec.cookie}}),user=await currentUser(config,req),s=originalUserSession(user);
+  const binding=JSON.stringify(['private-role-audit283-v1',config.GUILD_ID,s.u,s.v,s.e,s.g,s.n,config.CANONICAL_RANKS233,null])+'|cursor|active|'+(spec.scope||'native');
+  const key=await crypto.subtle.importKey('raw',await crypto.subtle.digest('SHA-256',new TextEncoder().encode('private-role-audit283-v1\0'+SECRET)),{name:'AES-GCM'},false,['decrypt']);
+  const bytes=value=>Uint8Array.from(atob(value.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-value.length%4)%4)),c=>c.charCodeAt(0)),parts=spec.token.split('.');
+  return Response.json(JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:bytes(parts[1]),additionalData:new TextEncoder().encode(binding)},key,bytes(parts[2])))));
+ }
  if(path==='/rewrite-preview'){
   const spec=await request.json(),req=new Request('https://guild.example/api/admin/role-audit',{headers:{Cookie:spec.cookie}}),user=await currentUser(config,req),s=originalUserSession(user);
   const binding=JSON.stringify(['private-role-audit283-v1',config.GUILD_ID,s.u,s.v,s.e,s.g,s.n,config.CANONICAL_RANKS233,null])+'|preview';
@@ -516,7 +533,7 @@ export default {async fetch(request,bindings){
   try{if(path==='/full-route')response=await worker.fetch(req,{...env,DB:rawDB},{waitUntil(){},passThroughOnException(){}});else{const user=await currentUser(env,req);if(!user)response=Response.json({error:'signed_out'},{status:401});else response=path==='/put285/direct-route'?await handleSitePutRefusalRetry285(req,privacyBoundSiteEnv(env,originalUserSession(user)),user,spec.body||{}):await handleSiteRoleAudit283(req,privacyBoundSiteEnv(env,originalUserSession(user)),user,spec.body||{});}}
   catch(e){error=String(e?.stack||e);response=Response.json({error:'fixture_failed'},{status:500});}
   const result=await response.json();
-  return Response.json({status:response.status,result,error,statements:physical-before,wires:wires.slice(start),actualLocalWorkerdD1:true});
+  return Response.json({status:response.status,result,error,retryAfter:response.headers.get('Retry-After'),statements:physical-before,wires:wires.slice(start),actualLocalWorkerdD1:true});
  }
  return new Response(null,{status:404});
 }};

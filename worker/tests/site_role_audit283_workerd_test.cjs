@@ -6,9 +6,9 @@ const root=path.join(__dirname,'..'),out=fs.mkdtempSync(path.join(os.tmpdir(),'o
 const driver={path:__filename,sha256Before:hash(fs.readFileSync(__filename))},compiledInputs=new Map();
 let source=null,inputs=[],compiledInputsComplete=false;
 const custody=()=>{const finalDriver={...driver,sha256After:hash(fs.readFileSync(driver.path))},finalInputs=(compiledInputsComplete?inputs:[...compiledInputs].map(([path,sha256])=>({path,sha256,sha256AfterBundle:null}))).map(p=>({...p,sha256After:hash(fs.readFileSync(p.path))}));finalDriver.stable=finalDriver.sha256Before===finalDriver.sha256After;for(const p of finalInputs)p.stable=p.sha256===p.sha256AfterBundle&&p.sha256===p.sha256After;return {driver:finalDriver,inputs:finalInputs,compiledInputsComplete,stable:compiledInputsComplete&&finalDriver.stable&&finalInputs.every(p=>p.stable)};};
-const argv=process.argv.slice(2),only=argv.length===2&&argv[0]==='--only'&&['final-d1-expired','final-d1-delete-expired'].includes(argv[1])?argv[1]:null;
-if(argv.length&&!only)throw Error('Supported isolated cases: --only final-d1-expired or --only final-d1-delete-expired');
-let mf,fixture,http=[],cases=[],setup;const BASE=800000000000001000n,effectKinds=only?[only]:['baseline','before-denied','after-denied','before-export','wrong-role','preview-expired','preview-control','preview-reserve','serving-v1'],effectRoles=new Map(),effectMutated=new Set(),effectWaits=new Map();
+const argv=process.argv.slice(2),only=argv.length===2&&argv[0]==='--only'&&['final-d1-expired','final-d1-delete-expired','read-pacing'].includes(argv[1])?argv[1]:null;
+if(argv.length&&!only)throw Error('Supported isolated cases: --only final-d1-expired, final-d1-delete-expired or read-pacing');
+let mf,fixture,http=[],cases=[],setup;const BASE=800000000000001000n,effectKinds=only?only==='read-pacing'?[]:[only]:['baseline','before-denied','after-denied','before-export','wrong-role','preview-expired','preview-control','preview-reserve','serving-v1'],effectRoles=new Map(),effectMutated=new Set(),effectWaits=new Map();
 const check=(name,pass,detail)=>{cases.push({name,pass:!!pass,detail});console.log((pass?'PASS ':'FAIL ')+name+(pass?'':' '+JSON.stringify(detail?.diagnostic??detail).slice(0,1800)));if(!pass)throw Error('First failing audit check: '+name);};
 const run=async spec=>{const r=await mf.dispatchFetch('http://fixture.invalid/run',{method:'POST',body:JSON.stringify({cookie:setup?.cookie,...spec})});assert.equal(r.status,200);return r.json();};
 const mutate=async kind=>{const r=await mf.dispatchFetch('http://fixture.invalid/mutate',{method:'POST',body:JSON.stringify({kind})});assert.equal(r.status,200,await r.text());};
@@ -45,6 +45,28 @@ const whole=setTimeout(()=>{console.error('role-audit283 whole-command deadline'
    throw Error('Unexpected synthetic writer provider request '+request.method+' '+p);
   }
   assert.equal(request.method,'GET','audit cannot directly mutate provider');assert.match(u.pathname,/\/guilds\/236932545793490944\/members(?:\/[0-9]+)?$/);
+  if(mode?.startsWith('pacing-')){
+   const suffix=mode.slice(7);
+   if(suffix==='pair'){
+    const second=BigInt(u.pathname.split('/').at(-1))%2n===1n;
+    if(second)await new Promise(resolve=>setTimeout(resolve,75));
+    return Response.json({message:'Limited',retry_after:second?2.25:1.1,global:second},{status:429,headers:{'Retry-After':second?'2.2':'1.05','X-RateLimit-Scope':second?'global':'shared'}});
+   }
+   if(suffix.startsWith('mixed-')){
+    const second=BigInt(u.pathname.split('/').at(-1))%2n===1n;
+    if(!second)return Response.json({message:'Limited',retry_after:2,global:false},{status:429});
+    if(suffix==='mixed-rejected')throw undefined;
+    return suffix==='mixed-unknown'?Response.json({message:'Limited',global:true},{status:429}):Response.json({message:'Unavailable'},{status:503});
+   }
+   if(suffix==='header')return new Response(null,{status:429,headers:{'Retry-After':'0.1'}});
+   if(suffix==='body')return Response.json({message:'Limited',retry_after:0.1,global:false},{status:429});
+   if(suffix==='neither')return Response.json({message:'Limited',global:true},{status:429});
+   if(suffix==='invalid')return Response.json({message:'Limited',retry_after:-1,global:false},{status:429,headers:{'Retry-After':'1'}});
+   if(suffix==='oversize')return Response.json({message:'x'.repeat(4097),retry_after:1,global:false},{status:429});
+   if(suffix==='truncated')return new Response(JSON.stringify({message:'Limited',retry_after:1,global:false}),{status:429,headers:{'Content-Type':'application/json','Content-Length':'999'}});
+   if(suffix==='long')return Response.json({message:'Limited',retry_after:0,global:false},{status:429,headers:{'Retry-After':'1200'}});
+   throw Error('Unexpected pacing mode');
+  }
   if(mode==='forbidden')return Response.json({message:'Forbidden'},{status:403});
   if(mode==='limited')return Response.json({message:'Limited',retry_after:0.01},{status:429});
   if(mode==='unavailable')return Response.json({message:'Unavailable'},{status:503});
@@ -66,6 +88,46 @@ const whole=setTimeout(()=>{console.error('role-audit283 whole-command deadline'
   while(pages.at(-1).result.nextCursor){assert.ok(pages.length<16,'Bounded fixture traversal cannot loop indefinitely');pages.push(await run({...spec,cursor:pages.at(-1).result.nextCursor}));}
   return {pages,rows:pages.flatMap(p=>p.result.rows||[])};
  };
+ if(!only||only==='read-pacing'){
+  const pacingStart=http.length;
+  const pacingRun=spec=>run({cookie:setup.secondCookie,...spec});
+  const state=async()=>{const r=await mf.dispatchFetch('http://fixture.invalid/read-pacing-state');assert.equal(r.status,200);return r.json();};
+  const beforeState=await state();
+  const inspect=async token=>{const r=await mf.dispatchFetch('http://fixture.invalid/inspect-audit-cursor',{method:'POST',body:JSON.stringify({cookie:setup.secondCookie,token})});assert.equal(r.status,200);return r.json();};
+  const first=await pacingRun({scopeQuery:'native'}),original=await inspect(first.result.nextCursor),beforePair=http.length;
+  const held=await pacingRun({scopeQuery:'native',cursor:first.result.nextCursor,mode:'pacing-pair'}),p=held.result.readPacing,heldCursor=await inspect(held.result.resumeCursor);
+  check('focused genuine429 settles both started reads and retains both original header/body/global/scope observations',held.status===429&&p?.observations?.length===2&&http.length-beforePair===2&&p.observations.some(o=>o.retryAfterHeaderSeconds===2.2&&o.retryAfterBodySeconds===2.25&&o.global===true&&o.rateScope==='global')&&p.observations.some(o=>o.retryAfterHeaderSeconds===1.05&&o.retryAfterBodySeconds===1.1&&o.global===false&&o.rateScope==='shared')&&p.notBefore===Math.max(...p.observations.map(o=>o.notBefore))&&Number(held.retryAfter)===p.retryAfterSeconds,{p,traffic:http.slice(beforePair)});
+  check('restriction-only cursor keeps exact original page boundary source birth and expiry',Object.entries(original).every(([k,v])=>heldCursor[k]===v)&&Object.keys(heldCursor).length===Object.keys(original).length+1&&heldCursor.readNotBefore===p.notBefore,{original,heldCursor});
+  const beforeEarly=http.length,early=await pacingRun({scopeQuery:'native',cursor:held.result.resumeCursor});
+  check('server refuses an early resume before any Discord I/O without extending the original wait',early.status===429&&early.result.readPacing?.kind==='retained-discord-get429'&&early.result.readPacing.notBefore===p.notBefore&&early.result.readPacing.observations.length===0&&http.length===beforeEarly,early.result);
+  const tampered=await pacingRun({scopeQuery:'native',cursor:held.result.resumeCursor+'x'});
+  check('a copied or tampered restriction token cannot bypass original cursor authentication',tampered.status===400&&tampered.result.error==='invalid_token'&&http.length===beforeEarly,tampered.result);
+  await new Promise(resolve=>setTimeout(resolve,Math.max(0,p.notBefore*1000-Date.now())+25));
+  const secondBefore=http.length,second=await pacingRun({scopeQuery:'native',cursor:held.result.resumeCursor,mode:'pacing-body'}),secondCursor=await inspect(second.result.resumeCursor);
+  check('another original429 during explicit resume retains progress and original clocks again',second.status===429&&second.result.readPacing?.observations.every(o=>o.retryAfterHeaderSeconds===null&&o.retryAfterBodySeconds===0.1&&o.global===false)&&http.length-secondBefore===2&&Object.entries(original).every(([k,v])=>secondCursor[k]===v),second.result.readPacing);
+  await new Promise(resolve=>setTimeout(resolve,Math.max(0,second.result.readPacing.notBefore*1000-Date.now())+25));
+  const resumed=await pacingRun({scopeQuery:'native',cursor:second.result.resumeCursor});
+  check('resuming after the original wait reads the same next page without skipped or repeated completed accounts',resumed.status===200&&resumed.result.rows?.[0]?.id===String(BASE+BigInt(focusedPageLimit))&&new Set([...first.result.rows,...resumed.result.rows].map(r=>r.id)).size===focusedPageLimit*2&&resumed.result.rows.length===focusedPageLimit,resumed.result.coverage);
+  for(const mode of ['header','body']){
+   const r=await pacingRun({scopeQuery:'native',mode:'pacing-'+mode}),o=r.result.readPacing?.observations;
+   check('original '+mode+'-only GET429 pacing is retained without inventing missing global or timing fields',r.status===429&&o?.length===2&&o.every(v=>mode==='header'?v.retryAfterHeaderSeconds===0.1&&v.retryAfterBodySeconds===null&&v.global===null:v.retryAfterHeaderSeconds===null&&v.retryAfterBodySeconds===0.1&&v.global===false),r.result.readPacing);
+  }
+  for(const mode of ['mixed-unknown','mixed-unavailable','mixed-rejected']){
+   const before=http.length,r=await pacingRun({scopeQuery:'native',mode:'pacing-'+mode});
+   check('known minimum wait survives '+mode+' pair while unknown read remains held without resume authority',r.status===(mode==='mixed-unknown'?429:503)&&r.result.coverage.gap===(mode==='mixed-unknown'?'discord_rate_limited':'provider_or_admission_unavailable')&&r.result.readPacing?.kind==='original-discord-get429-floor'&&r.result.readPacing.observations.length===1&&r.result.readPacing.observations[0].retryAfterBodySeconds===2&&r.result.readPacing.resumeAvailable===false&&r.result.resumeCursor===null&&http.length-before===2,r.result);
+  }
+  for(const mode of ['neither','invalid','oversize','truncated']){
+   const before=http.length,r=await pacingRun({scopeQuery:'native',mode:'pacing-'+mode});
+   check('unknown '+mode+' original GET429 metadata stays held without a fabricated wait or resume cursor',(mode==='truncated'?r.status===503&&r.result.coverage.gap==='provider_or_admission_unavailable':r.status===429&&r.result.coverage.gap==='discord_rate_limited')&&!r.result.readPacing&&!r.result.resumeCursor&&r.retryAfter===null&&http.length-before===2,r.result);
+  }
+  const long=await pacingRun({scopeQuery:'native',mode:'pacing-long'});
+  check('provider wait longer than the original traversal is not clamped shorter or issued a renewed cursor',long.status===429&&long.result.readPacing?.retryAfterSeconds>=1200&&long.result.readPacing.resumeAvailable===false&&long.result.resumeCursor===null,long.result.readPacing);
+  const unit=await (await mf.dispatchFetch('http://fixture.invalid/get-pacing-unit',{method:'POST',body:JSON.stringify({mode:'pacing-body'})})).json();
+  check('original GET pacing cannot be forged from a copied error or moved to another environment/path or changed error',unit.facts?.retryAfterBodySeconds===0.1&&unit.copied===null&&unit.wrongEnv===null&&unit.wrongPath===null&&unit.changed===null,unit);
+  await mutate('source-change');const changedBefore=http.length,changed=await pacingRun({scopeQuery:'native',cursor:held.result.resumeCursor});
+  check('a paused traversal cannot reopen against a replacement native source',changed.status===409&&changed.result.error==='focused_source_changed'&&http.length===changedBefore,changed.result);await mutate('source-restore');
+  check('read pacing sends GETs only and leaves all original role receipts and audit records byte-identical',http.slice(pacingStart).every(r=>r.method==='GET')&&JSON.stringify(beforeState)===JSON.stringify(await state()),{requests:http.length-pacingStart});
+ }
  if(!only){
  const unit=await (await mf.dispatchFetch('http://fixture.invalid/unit')).json();
  check('unowned manual rank stays review-only and suppresses repair despite missing desired rank',unit.noReceipt.extraOwned.length===0&&unit.noReceipt.extraUnowned.length===1&&unit.noReceipt.missing.length===1&&unit.noReceipt.repairable===false,unit.noReceipt);

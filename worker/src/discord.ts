@@ -99,6 +99,45 @@ export class DiscordError extends Error {
   }
 }
 
+/** Read throttling only. These facts are not a role reply, ACK or effect permit. */
+export type OriginalDiscordGetPacing = Readonly<{observedAtMilliseconds:number;notBefore:number;retryAfterHeaderSeconds:number|null;retryAfterBodySeconds:number|null;global:boolean|null;rateScope:'user'|'global'|'shared'|null}>;
+const getPacingErrors=new WeakMap<object,{env:Env;path:string;facts:OriginalDiscordGetPacing;check:()=>void}>();
+function getPacingBody(text:string):{retryAfterBodySeconds:number|null;global:boolean|null}|null{
+ replyParser280();if(!replyText280(text))return null;
+ if(text==='')return {retryAfterBodySeconds:null,global:null};
+ if(!uniqueJsonKeys(text))return null;const v=Reflect.apply(replyJsonParse280,replyJson280,[text]) as unknown;
+ if(!v||typeof v!=='object'||Array.isArray(v))return null;const o=v as Record<string,unknown>;
+ if(Object.keys(o).some(k=>!['message','code','retry_after','global'].includes(k))||Object.hasOwn(o,'message')&&typeof o.message!=='string'||Object.hasOwn(o,'code')&&(!Number.isSafeInteger(o.code)||Number(o.code)<0)||Object.hasOwn(o,'retry_after')&&(typeof o.retry_after!=='number'||!Number.isFinite(o.retry_after)||o.retry_after<0||o.retry_after>86400)||Object.hasOwn(o,'global')&&typeof o.global!=='boolean')return null;
+ return {retryAfterBodySeconds:typeof o.retry_after==='number'?o.retry_after:null,global:typeof o.global==='boolean'?o.global:null};
+}
+function captureGetPacing(env:Env,method:string,path:string,res:Response){try{
+ if(method!=='GET'||!/^\/guilds\/[0-9]{17,20}\/members\/[0-9]{17,20}$/.test(path))return null;
+ const token=Object.getOwnPropertyDescriptor(env,'DISCORD_BOT_TOKEN'),guild=Object.getOwnPropertyDescriptor(env,'GUILD_ID'),prototype=Object.getPrototypeOf(env),provider=replyProvider280();
+ if(!token||!Object.hasOwn(token,'value')||typeof token.value!=='string'||!token.value.length)return null;
+ const check=()=>{provider();replyParser280();if(Object.getPrototypeOf(env)!==prototype||!replySame280(token,Object.getOwnPropertyDescriptor(env,'DISCORD_BOT_TOKEN'))||!replySame280(guild,Object.getOwnPropertyDescriptor(env,'GUILD_ID')))throw Error('original_get_pacing_held');};
+ check();checkOriginalNativeResponse(res);
+ if(Reflect.apply(ORIGINAL_RESPONSE_DESCRIPTORS.status!.get!,res,[])!==429)return null;
+ const headers=Reflect.apply(ORIGINAL_RESPONSE_DESCRIPTORS.headers!.get!,res,[]) as Headers;checkOriginalNativeHeaders(headers);
+ const get=(key:string)=>Reflect.apply(ORIGINAL_HEADER_DESCRIPTORS.get!.value,headers,[key]) as string|null;
+ const contentType=get('Content-Type'),retry=get('Retry-After'),scope=get('X-RateLimit-Scope'),length=get('Content-Length'),encoding=get('Content-Encoding');
+ const encoded=encoding!==null&&/^(?:gzip|br)$/i.test(encoding.trim());
+ if(encoding!==null&&!encoded&&encoding.trim().toLowerCase()!=='identity')return null;
+ const declared=length===null?null:/^(?:0|[1-9][0-9]*)$/.test(length)?Number(length):NaN;
+ const header=retry===null?null:retry.length<=32&&/^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/.test(retry)?Number(retry):NaN;
+ if(declared!==null&&(!Number.isSafeInteger(declared)||declared<0||!encoded&&declared>4096)||header!==null&&(!Number.isFinite(header)||header<0||header>86400)||scope!==null&&!['user','global','shared'].includes(scope))return null;
+ const started=originalRecoveryClockMilliseconds();
+ const responseCheck=()=>{check();checkOriginalNativeResponse(res);checkOriginalNativeHeaders(headers);if(Reflect.apply(ORIGINAL_RESPONSE_DESCRIPTORS.status!.get!,res,[])!==429||Reflect.apply(ORIGINAL_RESPONSE_DESCRIPTORS.headers!.get!,res,[])!==headers||get('Content-Type')!==contentType||get('Retry-After')!==retry||get('X-RateLimit-Scope')!==scope||get('Content-Length')!==length||get('Content-Encoding')!==encoding)throw Error('original_get_pacing_held');};
+ return (text:string,error:DiscordError)=>{try{
+  responseCheck();const observed=originalRecoveryClockMilliseconds(),body=getPacingBody(text);
+  const eof=Reflect.apply(ORIGINAL_RESPONSE_DESCRIPTORS.bodyUsed!.get!,res,[])===true||text===''&&Reflect.apply(ORIGINAL_RESPONSE_DESCRIPTORS.body!.get!,res,[])===null;
+  if(!body||text!==''&&!/^application\/json(?:\s*;|$)/i.test(contentType??'')||header===null&&body.retryAfterBodySeconds===null||observed<started||!Number.isSafeInteger(observed)||Object.getPrototypeOf(error)!==replyErrorPrototype280||error.status!==429||error.body!==text||!eof||!encoded&&declared!==null&&new replyEncoder280().encode(text).byteLength!==declared)return;
+  const errorCheck=replyGraph280(error),facts=Object.freeze({observedAtMilliseconds:observed,notBefore:Math.ceil(observed/1000+Math.max(header??0,body.retryAfterBodySeconds??0)),retryAfterHeaderSeconds:header,retryAfterBodySeconds:body.retryAfterBodySeconds,global:body.global,rateScope:scope as 'user'|'global'|'shared'|null});
+  const current=()=>{responseCheck();errorCheck();if(originalRecoveryClockMilliseconds()<observed)throw Error('original_get_pacing_held');};current();getPacingErrors.set(error,{env,path,facts,check:current});
+ }catch{/* Missing pacing facts never change the original read error. */}};
+}catch{return null;}}
+/** Only the original GET/error/environment/path can disclose observational pacing. */
+export function originalDiscordGetPacing(error:unknown,env:Env,path:string):OriginalDiscordGetPacing|null{try{if(!error||typeof error!=='object')return null;const r=getPacingErrors.get(error);if(!r||r.env!==env||r.path!==path)return null;r.check();return r.facts;}catch{return null;}}
+
 /** Witness only: these private facts neither classify an effect nor acknowledge Native persistence. */
 export type OriginalDiscordRoleReply280=Readonly<{kind:'source_original_discord_delete_reply280'}>;
 export type OriginalDiscordRoleReplyFacts280=Readonly<{method:'DELETE';path:string;status:403|404|429;code:number|null;eofSeconds:number;retryAfterHeaderSeconds:number|null;retryAfterBodySeconds:number|null;global:boolean|null;rateScope:'user'|'global'|'shared'|null}>;
@@ -261,8 +300,10 @@ export async function rest<T = unknown>(env: Env, method: string, path: string, 
   }
   if (!res.ok) {
     const observeReply280=originalReplyObserver285?.response(res)??null;
+    const observeGetPacing=captureGetPacing(env,method,path,res);
     const text=await res.text(),error=new DiscordError(res.status,text);
     observeReply280?.(text,error);
+    observeGetPacing?.(text,error);
     throw error;
   }
   if (res.status === 204) return undefined as T;
