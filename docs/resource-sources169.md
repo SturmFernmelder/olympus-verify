@@ -1,8 +1,10 @@
 # Resource sources (.169, owner items3/4/11)
 
 The catalog is a curated source snapshot, not an exhaustive inventory, a guild addon requirement, independent
-in-game qualification or a claim of a final beta meta. Its `checkedAt` records the actual source check; a file's
-`releasedAt`, guide scope and advertised client are separate facts. No addons, paid guides, article bodies,
+in-game qualification or a claim of a final beta meta. Its `checkedAt` (19 October 2026) records the source check of the
+catalogue and is the date the guides view shows; `addonsCheckedAt` (15 November 2026) records the later review of the
+addon list and watchlist and is the date the addon view shows. A file's `releasedAt`, guide scope and advertised client
+are separate facts. No addons, paid guides, article bodies,
 pictures or publisher branding are mirrored. The directory adds original summaries of the owner's supplied
 recommendations and qualifications. Authors retain their licenses and attribution.
 
@@ -57,10 +59,13 @@ The rule, in plain words:
 
 How it was read. A survey on 15 November 2026 read every current and candidate entry on its CurseForge Files tab,
 filtered to Forever, in a real browser, twice: a first reader, then a checker who re-read each Files tab between
-20:04 and 20:17 UTC. The version and date of each entry are the checker's values. Wago, WoWInterface, GitHub and two
-community lists were also looked at. Between 23:38 and 23:42 UTC the project description of 22 addons and the newest
+20:04 and 20:17 UTC. The version and date of each entry are the checker's values, except Scrap: its project page,
+read at 23:39 UTC, already showed a newer Forever release, 12.1.10 of 15 November 2026, and the entry gives that
+release. Wago, WoWInterface, GitHub and two community lists were also looked at. Between 23:38 and 23:42 UTC the project description of 22 addons and the newest
 Forever file page of Gargul, Layer-Swap and Talents Forever were read again, where the survey had not read them or a
-claim was in doubt; `checkedAt` is the time of the last of those reads. Not checked: nothing was installed or run in
+claim was in doubt; `addonsCheckedAt` (2026-11-15T23:42:22Z) is the time of the last of those reads. The catalogue's
+`checkedAt` keeps its earlier value, 2026-10-19T00:26:49Z: the guide cards, the news sources and the owner directory
+were not reviewed on 15 November. Not checked: nothing was installed or run in
 the game, so no entry is an in-game compatibility test; of the CurseForge Forever listing (50 per page), only pages 1
 to 4 sorted by popularity and pages 1 to 2 sorted by total downloads were read; version strings change within hours on some projects, so the date is the more useful field.
 
