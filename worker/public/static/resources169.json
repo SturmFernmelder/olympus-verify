@@ -35,7 +35,7 @@
       "url": "https://www.curseforge.com/wow/addons/leatrix-plus",
       "sourceKind": "Author project page",
       "limitations": [
-        "Acts for you: only the options you turn on act, and the author says nothing is on until you choose it. They can pick up and hand in quests, accept summons and resurrections, release your spirit in PvP, sell junk and repair at vendors, accept party invites from friends and invite players who whisper you a keyword.",
+        "Acts for you: only the options you turn on act, and the author says every option starts switched off. They can pick up and hand in quests, accept summons and resurrections, release your spirit in PvP, sell junk and repair at vendors, accept party invites from friends and invite players who whisper you a keyword.",
         "Choose the Forever file; some options differ between game versions.",
         "Enable only the modules you want; features can overlap other addons."
       ]
@@ -625,9 +625,9 @@
       "url": "https://www.curseforge.com/wow/addons/layer",
       "sourceKind": "Author project page",
       "limitations": [
-        "Acts for you: hosting is on at every login. It then invites players who ask through the addon, whisper you or ask in your guild, at most six invites in ten minutes, and sets that group's loot to Free for All. A swap request of your own turns hosting on for that request and for four minutes after a swap that worked, then restores an earlier off setting. Your request goes out of sight to players on your zone map, and after a swap it leaves the host's group a few seconds later (Auto leave can be turned off), or by itself when the move failed.",
+        "Acts for you: hosting is on at every login. It then invites players who ask through the addon, whisper you or ask in your guild, at most six invites in ten minutes, and sets that group's loot to Free for All. A swap request of your own turns hosting on for that request and for four minutes after a successful swap, then restores an earlier off setting. Your request goes out of sight to players on your zone map, and after a swap it leaves the host's group a few seconds later (Auto leave can be turned off), or by itself when the move failed.",
         "It writes nothing in guild chat by itself; Ask your guild sends only on your click.",
-        "It reads your layer from nearby creatures, so it must see an NPC first, and only a host in your own zone can move you."
+        "It reads your layer from nearby creatures, so it must see an NPC first, and a host must be in your zone to move you."
       ]
     },
     {
