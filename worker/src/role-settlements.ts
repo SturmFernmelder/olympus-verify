@@ -1,4 +1,4 @@
-import {attendedPutRefusalRetry285,reserveAttendedPutRefusalRetryIntent285,attendedPutRefusalRetryMode285,attendedPutRefusalRetryPredicate285,noteAttendedPutRefusalRetryDispatch285} from './site-role-put-refusal-retry285';
+import {attendedPutRefusalRetry285,reserveAttendedPutRefusalRetryIntent285,attendedPutRefusalRetryMode285,attendedPutRefusalRetryPredicate285,noteAttendedPutRefusalRetryDispatch285,takeAttendedPutCompensation286,type OriginalAttendedPutCompensation286} from './site-role-put-refusal-retry285';
 import {takeOriginalDiscordRoleReply280,originalDiscordRoleReplyFacts280,type OriginalDiscordRoleReply280,type OriginalDiscordRoleReplyFacts280} from './discord';
 import {takeOriginalDiscordPutReply285,originalDiscordPutReplyFacts285,type OriginalDiscordPutReply285} from './discord';
 import {captureCanonicalPutRefusal285,canonicalPutRefusalFacts285,canonicalPutRefusalSourceStart285,planCanonicalPutRefusal285,canonicalPutRefusalSql285,type OriginalCanonicalPutRefusal285,type CanonicalPutRefusalSource285} from './role-put-refusal285';
@@ -2188,7 +2188,7 @@ export function roleObservationSql280(a:string):string{
  ].join(' OR ');
  return canonical239And([clock,`((${ack}) OR (${a}.attempts=0 AND ${a}.claim_nonce IS NULL AND (${observed})))`]);
 }
-type Native232Parent=Readonly<{canonical?:boolean;profile?:string;id:string;nonce:string;subject:string;generation:string|null;guild:string;role:string;purpose:string;createdAt:number;expiresAt:number;digest:string;check:()=>void}>;
+type Native232Parent=Readonly<{canonical?:boolean;profile?:string;id:string;nonce:string;subject:string;generation:string|null;guild:string;role:string;purpose:string;createdAt:number;expiresAt:number;digest:string;compensation286?:()=>OriginalAttendedPutCompensation286|null;check:()=>void}>;
 export type NativeRankSettlement232=Readonly<{state:Settlement['state'];reason:string;outcomes:readonly Settlement[]}>;
 /** Same central request/CAS/Native result custody as the existing lane. A JSON
  * plan, old queued row, member status or a GET result cannot mint this mandate. */
@@ -2332,11 +2332,12 @@ async function settleRoutineTarget232(env:Env,cap:RoutineMembership232,venue:Run
   const c=await launch230NativeIntent(env,env.DB.prepare(`${claimAdmission280.facts}UPDATE role_settlements SET state='dispatching',attempts=1,claim_nonce=?${nonceAt},reason='native232_dispatching' WHERE ${claimAdmission280.where} RETURNING *,NULL AS beta_window_id`).bind(...ownedValues),allCheck);claimCheck=c.check;allCheck();
   if(!c.intent||c.intent.id!==id||c.intent.claim_nonce!==nonce)return result('held','native232_claim_held',id);
   const owned=`${row} AND attempts=1 AND claim_nonce=?${nonceAt}`,ownedClauses=[...rowClauses,'attempts=1',`claim_nonce=?${nonceAt}`];
-  parent=Object.freeze({id,nonce,subject:f.subject,generation:f.subjectGeneration,guild:v.guildId,role,purpose,canonical:canonical233,profile,createdAt:c.intent.created_at,expiresAt:f.deadline,digest,check:()=>{provider();queueCheck();claimCheck();}});
+  let compensation286:OriginalAttendedPutCompensation286|null=null;
+  parent=Object.freeze({id,nonce,subject:f.subject,generation:f.subjectGeneration,guild:v.guildId,role,purpose,canonical:canonical233,profile,createdAt:c.intent.created_at,expiresAt:f.deadline,digest,compensation286:()=>compensation286,check:()=>{provider();queueCheck();claimCheck();}});
   const finalAdmission280=effectTuple280([...ownedClauses,"state='dispatching'",`expires_at>${DB_NOW}`]);
   const final=async()=>{allCheck();restrictionCheck();const r=await env.DB.prepare(`${finalAdmission280.facts}SELECT 1 FROM role_settlements WHERE ${finalAdmission280.where}`).bind(...ownedValues).first();allCheck();restrictionCheck();return !!r;};
   const path280=`/guilds/${v.guildId}/members/${f.subject}/roles/${role}`;
-  const beforeDispatch280=()=>{allCheck();restrictionCheck();if(now()>=I.routineMembership232EffectDeadline(env,cap))throw Error('native232_expired');if(retry285)noteAttendedPutRefusalRetryDispatch285(env,retry285,id!);started=true;};
+  const beforeDispatch280=()=>{allCheck();restrictionCheck();if(now()>=I.routineMembership232EffectDeadline(env,cap))throw Error('native232_expired');if(retry285)compensation286=noteAttendedPutRefusalRetryDispatch285(env,retry285,id!,nonce);started=true;};
   try{await request(env,b,desired===1?'PUT':'DELETE',path280,final,beforeDispatch280,admission);acknowledged=true;}
   catch(error){
    if(canonical233&&desired===1&&started&&putRefusalSource285){try{
@@ -2402,12 +2403,14 @@ async function compensateRoutine232(env:Env,p:Native232Parent,venue:RuntimeVenue
   id=randomGeneration();const nonce=randomGeneration(),v:(string|number|null)[]=[id,p.id,p.subject,p.guild,p.role,p.generation,p.nonce,nonce,p.createdAt,p.expiresAt,p.digest,p.purpose];
   const g=runtimeVenue230Predicate(env,venue,v.length+1);v.push(...g.values);
   const parent=`EXISTS(SELECT 1 FROM role_settlements own WHERE own.id=?2 AND own.subject=?3 AND own.guild_id=?4 AND own.role_id=?5 AND own.subject_generation IS ?6 AND own.claim_nonce=?7 AND own.created_at=?9 AND own.expires_at=?10 AND own.request_digest=?11 AND own.purpose=?12 AND own.desired=1 AND own.attempts=1 AND own.native_profile='${profile}' AND own.state IN('dispatching','unknown'))`;
-  const guard=`(${g.sql}) AND (${parent}) AND NOT EXISTS(SELECT 1 FROM role_settlements other WHERE other.subject=?3 AND other.guild_id=?4 AND other.role_id=?5 AND other.id NOT IN(?1,?2) AND (other.state IN('dispatching','unknown') OR other.attempts<>0 AND other.desired=1 AND other.created_at>=?9))`;
+  const retained=p.compensation286?.(),review=retained?takeAttendedPutCompensation286(env,retained,p,v.length+1):null,reviewValues=review?[...v,...review.values]:v,reviewFacts=review?'WITH '+review.facts+' ':'';
+  const guard=`(${g.sql}) AND (${parent}) ${review?'AND '+review.guard+' ':''}AND NOT EXISTS(SELECT 1 FROM role_settlements other WHERE other.subject=?3 AND other.guild_id=?4 AND other.role_id=?5 AND other.id NOT IN(?1,?2) AND (other.state IN('dispatching','unknown') OR other.attempts<>0 AND other.desired=1 AND other.created_at>=?9${review?' AND NOT('+review.excludedOther+')':''}))`;
   const check=()=>{p.check();assertRuntimeVenue230(env,venue);};
-  const q=await launch230NativeIntent(env,env.DB.prepare(`INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,subject_generation,request_digest,claim_nonce,attempts,created_at,expires_at,native_profile) SELECT ?1,?3,'${purpose}',?4,?5,0,'dispatching','native232_compensating',?6,?2,?8,1,${DB_NOW},${DB_NOW}+300,'${profile}' WHERE ${guard} AND NOT EXISTS(SELECT 1 FROM role_settlements WHERE purpose='${purpose}' AND request_digest=?2) RETURNING *,NULL AS beta_window_id`).bind(...v),check);check();q.check();if(!q.intent||q.intent.id!==id)return result('unknown','native232_compensation_claim_held',p.id);
+  const reviewCheck=()=>{check();review?.check();};
+  const q=await launch230NativeIntent(env,env.DB.prepare(`${reviewFacts}INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,subject_generation,request_digest,claim_nonce,attempts,created_at,expires_at,native_profile) SELECT ?1,?3,'${purpose}',?4,?5,0,'dispatching','native232_compensating',?6,?2,?8,1,${DB_NOW},${DB_NOW}+300,'${profile}' WHERE ${guard} AND NOT EXISTS(SELECT 1 FROM role_settlements WHERE purpose='${purpose}' AND request_digest=?2) RETURNING *,NULL AS beta_window_id`).bind(...reviewValues),reviewCheck);reviewCheck();q.check();if(!q.intent||q.intent.id!==id)return result('unknown','native232_compensation_claim_held',p.id);
   const owned=`id=?1 AND subject=?3 AND guild_id=?4 AND role_id=?5 AND subject_generation IS ?6 AND purpose='${purpose}' AND desired=0 AND attempts=1 AND claim_nonce=?8 AND request_digest=?2 AND native_profile='${profile}'`;
-  const final=async()=>{check();q.check();return !!await env.DB.prepare(`SELECT 1 FROM role_settlements WHERE ${owned} AND state='dispatching' AND expires_at>${DB_NOW} AND ${guard}`).bind(...v).first();};
-  await request(env,b,'DELETE',`/guilds/${p.guild}/members/${p.subject}/roles/${p.role}`,final,()=>{check();q.check();started=true;},p.canonical?canonical233RoleOnly:native232RoleOnly);
+  const final=async()=>{reviewCheck();q.check();const admitted=!!await env.DB.prepare(`${reviewFacts}SELECT 1 FROM role_settlements WHERE ${owned} AND state='dispatching' AND expires_at>${DB_NOW} AND ${guard}`).bind(...reviewValues).first();reviewCheck();q.check();return admitted;};
+  await request(env,b,'DELETE',`/guilds/${p.guild}/members/${p.subject}/roles/${p.role}`,final,()=>{reviewCheck();q.check();started=true;},p.canonical?canonical233RoleOnly:native232RoleOnly);
   const after=await member(env,b,p.subject);check();q.check();if(!launch230Member(after,p.subject)||after?.roles.includes(p.role))throw Error();
   const ack=await launch230NativeIntent(env,env.DB.prepare(`UPDATE role_settlements SET state='settled',reason='${deleted}',checked_at=${DB_NOW} WHERE ${owned} AND state='dispatching' AND (${g.sql}) RETURNING *,NULL AS beta_window_id`).bind(...v),()=>{check();q.check();});check();ack.check();if(!ack.intent)throw Error();
   const closed=await env.DB.prepare(`UPDATE role_settlements SET state='held',reason='${p.canonical?'canonical233_compensated':'native232_compensated'}',checked_at=${DB_NOW} WHERE id=?2 AND claim_nonce=?7 AND ${parent} AND (${g.sql}) AND EXISTS(SELECT 1 FROM role_settlements WHERE ${owned} AND state='settled' AND reason='${deleted}') RETURNING id`).bind(...v).first();check();ack.check();return closed?result('held','native232_compensated',p.id,now()):result('unknown','native232_compensation_parent_unknown',p.id);

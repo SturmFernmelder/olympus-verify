@@ -56,7 +56,27 @@ export function attendedPutRefusalRetry285(env:Env,scope:PutRefusalRetryScope285
 }
 export function reserveAttendedPutRefusalRetryIntent285(env:Env,cap:AttendedPutRefusalRetry285):string{const r=original(env,cap);if(r.reserved)return held();r.reserved=true;return r.intentId;}
 export function attendedPutRefusalRetryMode285(env:Env,cap:AttendedPutRefusalRetry285):Mode{return original(env,cap).mode;}
-export function noteAttendedPutRefusalRetryDispatch285(env:Env,cap:AttendedPutRefusalRetry285,intentId:string):void{const r=original(env,cap);if(!r.reserved||r.intentId!==intentId||r.mode!=='retry_grant_once'||r.putAttemptsStarted!==0)return held();r.putAttemptsStarted=1;}
+export type OriginalAttendedPutCompensation286=Readonly<{kind:'original_attended_put_compensation286'}>;
+type Compensation286={env:Env;issuer:AttendedPutRefusalRetry285;record:Permit;parentId:string;parentNonce:string;spent:boolean};
+const compensation286=new WeakMap<OriginalAttendedPutCompensation286,Compensation286>();
+/** Retain only the original dispatch's exact refusal/audit custody. Compensation
+ * intentionally survives later target standing or preview expiry; it creates
+ * no grant mandate and never classifies an unknown sibling as no effect. */
+export function noteAttendedPutRefusalRetryDispatch285(env:Env,cap:AttendedPutRefusalRetry285,intentId:string,claimNonce:string):OriginalAttendedPutCompensation286{
+ const r=original(env,cap);if(!r.reserved||r.intentId!==intentId||r.mode!=='retry_grant_once'||r.putAttemptsStarted!==0||!HEX.test(claimNonce))return held();r.putAttemptsStarted=1;
+ const token:OriginalAttendedPutCompensation286=Object.freeze({kind:'original_attended_put_compensation286'});compensation286.set(token,{env,issuer:cap,record:r,parentId:intentId,parentNonce:claimNonce,spent:false});return token;
+}
+/** One privately retained compensation, bound to the original newly sent parent.
+ * Fixed compensation bind positions differ from the grant predicate below. */
+export function takeAttendedPutCompensation286(env:Env,token:OriginalAttendedPutCompensation286,parent:Readonly<{id:string;nonce:string;subject:string;generation:string|null;guild:string;role:string}>,start:number):Readonly<{facts:string;guard:string;excludedOther:string;values:readonly Scalar[];check:()=>void}>{
+ const c=compensation286.get(token),r=c?.record;if(!c||!r||c.spent||c.env!==env||!integer(start)||start>90||parent.id!==c.parentId||parent.nonce!==c.parentNonce||parent.subject!==r.scope.subject||parent.generation!==r.scope.generation||parent.guild!==r.config.guild||parent.role!==r.scope.role)return held();
+ const check=()=>{if(compensation286.get(token)!==c||originals.get(c.issuer)!==r||byAction.get(r.authority)!==c.issuer||!activePermits.has(c.issuer)||!r.reserved||r.intentId!==c.parentId||r.mode!=='retry_grant_once'||r.putAttemptsStarted!==1)return held();};check();c.spent=true;
+ const q=(n:number)=>'?'+(start+n),values:readonly Scalar[]=Object.freeze([json(r.old.map(tuple)),r.audit.id,r.audit.details,r.audit.actor,c.parentId,c.parentNonce,r.audit.ts]);
+ const row='json_array('+FIELDS.map(k=>'r.'+k).join(',')+')';
+ const facts='c286_refusals AS MATERIALIZED(SELECT r.rowid AS r FROM role_settlements r JOIN json_each('+q(0)+') j ON '+row+'=j.value WHERE r.subject=?3 AND r.guild_id=?4 AND r.role_id=?5 AND r.subject_generation IS ?6)';
+ const guard='((SELECT COUNT(*) FROM c286_refusals)='+r.old.length+' AND ?2='+q(4)+' AND ?7='+q(5)+' AND EXISTS(SELECT 1 FROM audit a WHERE a.id='+q(1)+" AND a.action='"+ACTION+"' AND a.actor="+q(3)+' AND a.subject=?3 AND a.details='+q(2)+' AND a.ts='+q(6)+'))';
+ return Object.freeze({facts,guard,excludedOther:'EXISTS(SELECT 1 FROM c286_refusals f WHERE f.r=other.rowid)',values,check});
+}
 /** Fixed same-statement old-row/audit facts. They waive only the manual403/404
  * barrier for this exact NEW intent; they prove no ownership or unknown outcome. */
 export function attendedPutRefusalRetryPredicate285(env:Env,cap:AttendedPutRefusalRetry285,start:number):Readonly<{facts:string;guard:string;bypass:string;values:readonly Scalar[];check:()=>void}>{
