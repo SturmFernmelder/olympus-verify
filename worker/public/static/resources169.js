@@ -70,7 +70,7 @@
     }
     if (watchlist && watchlist.length) {
       const details = el("details", undefined, "resources169-provenance resources169-watchlist"); details.open = false;
-      details.append(el("summary", "Requested addons not listed for Forever"), el("p", "No qualifying Forever release was found for these requested addons. Each link opens the original project page; notes name alternatives where one exists.", "resources169-note"));
+      details.append(el("summary", "Addons not listed for Forever"), el("p", "These addons are watched, not listed; each note says why. Each link opens the original project page; notes name alternatives where one exists.", "resources169-note"));
       const list = el("ul", undefined, "resources169-limits");
       for (const item of watchlist) { const row = el("li"); row.append(link(item.name, item.url), el("p", item.note, "resources169-meta")); list.append(row); }
       details.append(list); box.append(details);
@@ -211,7 +211,8 @@
           wrap.replaceChildren(heading, ...(fullDirectory ? [ownerDirectory(fullDirectory)] : []), curated);
         }
         const provenance = el("details", undefined, "resources169-provenance");
-        provenance.append(el("summary", "About these sources"), el("p", `Last reviewed: ${plainDate(catalog.checkedAt)}. ${catalog.disclaimer}`, "resources169-note"));
+        const addonsAt = catalog.addonsCheckedAt, ownDate = view === "addons" && typeof addonsAt === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(addonsAt) && !Number.isNaN(Date.parse(addonsAt)) && new Date(Date.parse(addonsAt)).toISOString() === addonsAt.slice(0, 19) + ".000Z";
+        provenance.append(el("summary", "About these sources"), el("p", `Last reviewed: ${plainDate(ownDate ? addonsAt : catalog.checkedAt)}. ${catalog.disclaimer}`, "resources169-note"));
         if (catalog.viewNotes && typeof catalog.viewNotes[view] === "string") provenance.append(el("p", catalog.viewNotes[view], "resources169-note"));
         (curated || heading).append(provenance);
         const searchLabel = el("label", "Search sources "), search = el("input"); search.type = "search"; search.placeholder = "Name, purpose or limitation"; searchLabel.append(search);
