@@ -2212,10 +2212,19 @@ async function settleRoutineTarget232(env:Env,cap:RoutineMembership232,venue:Run
    old.state IN('dispatching','unknown') OR (CASE WHEN old.attempts=0 THEN 0 WHEN ${physicalKnown} THEN 0 ELSE 1 END=1)
    OR (old.attempts=0 AND old.state IN('pending','dispatching') AND old.expires_at>${DB_NOW})))`;
   const ownershipBaseFacts=canonical233?canonical239GroupedFacts('?2','?3','?5'):canonical239Facts('?2','?3','?5');
-  const ownershipFacts=ownershipBaseFacts.slice(0,-1)+',\n'+legacyPhysicalKnown.map(source=>`${source.name} AS MATERIALIZED(SELECT old.rowid AS c239_row FROM role_settlements old WHERE old.subject=?2 AND old.guild_id=?3 AND ${source.predicate})`).join(',\n')+' ';
+  const originalOwnershipFacts=ownershipBaseFacts.slice(0,-1)+',\n'+legacyPhysicalKnown.map(source=>`${source.name} AS MATERIALIZED(SELECT old.rowid AS c239_row FROM role_settlements old WHERE old.subject=?2 AND old.guild_id=?3 AND ${source.predicate})`).join(',\n')+' ';
   const ownProof=canonical233?`((${canonical233OwnedGrant('own')}) OR (${canonical233MigrationOwnedGrant('own')}) OR (own.purpose IN('${ROUTINE_MEMBERSHIP232_PURPOSE}','fresh_roster_rank','staff_roster_rank','launch_membership230') AND ${native232OwnedGrant('own',base)}))`:`(own.purpose=?11${base?" OR own.purpose='launch_membership230'":''}) AND ${native232OwnedGrant('own',base)}`;
-  const ownParent=desired===0?`EXISTS(SELECT 1 FROM role_settlements own WHERE own.id=?${familyAt+1} AND own.subject=?2 AND own.guild_id=?3 AND own.role_id=?4 AND own.subject_generation IS ?5 AND (${ownProof})
-   AND NOT EXISTS(SELECT 1 FROM role_settlements child WHERE child.id<>?1 AND child.request_digest=own.id AND child.desired=0 ${canonical233?`AND NOT(${canonical233AliasRemoval('child','own')})`:''} AND (child.state IN('dispatching','unknown','settled') OR child.attempts<>0 AND NOT(${native232NoSend('child')}))))`:'1=1';
+  const childClear=`NOT EXISTS(SELECT 1 FROM role_settlements child WHERE child.id<>?1 AND child.request_digest=own.id AND child.desired=0 ${canonical233?`AND NOT(${canonical233AliasRemoval('child','own')})`:''} AND (child.state IN('dispatching','unknown','settled') OR child.attempts<>0 AND NOT(${native232NoSend('child')})))`;
+  const originalOwnParent=desired===0?`EXISTS(SELECT 1 FROM role_settlements own WHERE own.id=?${familyAt+1} AND own.subject=?2 AND own.guild_id=?3 AND own.role_id=?4 AND own.subject_generation IS ?5 AND (${ownProof})
+   AND ${childClear})`:'1=1';
+  // Keep the exact owned tuple and incoming global references on the SAME row.
+  // These original-statement facts reduce nesting, not ownership requirements.
+  const parentFacts=canonical233&&desired===0?[
+   `c239_parent_tuple284 AS MATERIALIZED(SELECT own.rowid AS c239_parent_row284,own.* FROM role_settlements own WHERE ${canonical239And([`own.id=?${familyAt+1}`,'own.subject=?2','own.guild_id=?3','own.role_id=?4','own.subject_generation IS ?5',`(${ownProof})`])})`,
+   `c239_parent_clear284 AS MATERIALIZED(SELECT own.c239_parent_row284 FROM c239_parent_tuple284 own WHERE ${childClear})`,
+  ].join(',\n'):'';
+  const ownershipFacts=parentFacts?originalOwnershipFacts.slice(0,-1)+',\n'+parentFacts+' ':originalOwnershipFacts;
+  const ownParent=parentFacts?'EXISTS(SELECT 1 FROM c239_parent_clear284)':originalOwnParent;
   // A current Native mandate may remove only the bot's own acknowledged grant.
   // A role already present before our PUT remains unowned/manual.
   if(desired===0){const parentRow=await env.DB.prepare(`${canonical239Facts('?1','?2','?4')}SELECT id FROM role_settlements own WHERE own.subject=?1 AND own.guild_id=?2 AND own.role_id=?3 AND own.subject_generation IS ?4 AND (${canonical233?ownProof:ownProof.replace(/\?11\b/g,'?5')}) AND NOT EXISTS(SELECT 1 FROM role_settlements child WHERE child.request_digest=own.id AND child.desired=0 ${canonical233?`AND NOT(${canonical233AliasRemoval('child','own')})`:''} AND (child.state IN('dispatching','unknown','settled') OR child.attempts<>0 AND NOT(${native232NoSend('child')}))) ORDER BY own.created_at DESC,own.id DESC LIMIT 1`).bind(...[f.subject,v.guildId,role,f.subjectGeneration,...canonical233?[]:[purpose]]).first<{id:string}>();check();if(!parentRow)return result('held','native232_manual_or_unowned_role');values[5]=parentRow.id;values.push(parentRow.id);}
