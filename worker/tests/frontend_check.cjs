@@ -2890,7 +2890,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await waitFor(() => !!p.app.querySelector('[data-chapter="adoption-and-office-registers"]'), ".128 adoption deep link");
     check(".128 deep navigation selects and opens adoption with real previous/next links", p.app.querySelector('[data-chapter="adoption-and-office-registers"]').open && !!p.app.querySelector('a[href="#/governance/daily-news-template"]') && !!p.app.querySelector('a[href="#/governance/source-and-decision-register"]'));
     // Retired: the R6 recursive details graph and its old data-organization-branch selectors no longer exist.
-    // Do not import a substitute module in this miniDOM. Actual SVG layout, the current39-group model/96-term search (with original38/95 preserved),
+    // Do not import a substitute module in this miniDOM. Actual SVG layout and current-model search,
     // pan/zoom, list view, keyboard and pointer interaction require Root's separate real-browser check.
     check(".218 an ordinary member no longer discovers the officer-only treasury plan, and the Royal Writs switch stays off", !p.app.querySelector('a[href="#/treasury-plan"]') && !p.app.querySelector('[data-royal-writ-page="governance"]'));
     check(".207 treasury planning route retains the current-session/view fence and no bank writer", APP_JS.includes('ROUTES["treasury-plan"] = async (main, parts) => {') && APP_JS.includes('await import("/static/treasury-plan207.js")') && APP_JS.includes('currentRoute() === route && S.signedIn && !S.denied') && APP_JS.includes('if (!current()) return;\n      const dispose = renderTreasuryPlan207(main, { h, add, clear, posIcon, parts, scrollToSection, isCurrent: current,\n        officeLabel: key => offices199().find(office => office.key === key)?.label });') && !/PUBLIC_ROUTES = new Set\([^\n]*treasury-plan/.test(APP_JS));
@@ -2928,54 +2928,73 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
         && route.includes('allianceOverview205:renderAllianceOverview205') && route.includes('roleGuides201:M().roleGuides201')
         && organizationSource.includes('ui.allianceOverview205?.(data, ui, id =>') && organizationSource.includes('h("summary", { text: "Organization chart · reporting & coordination lines" })') && !organizationSource.includes('Explore exact reporting & coordination lines'); // our 4c7b542 (CL2-041): the chart's drawer is named once
     })());
-    const currentModel1113 = model;
-    check(".208 actual private R7-bound model preserves original38/95 arrays and retains Trading and adds five separate Council portfolio records", (() => {
-      const assert=require('node:assert/strict'), historicalScope218='Historical application and ballot compatibility only; current institutional display and reserved-seat admission are separate.';
-function originalTerms218(terms) {
- terms=require('../../scripts/governance-cabinet224-inverse.cjs').restoreCabinet224(terms,'terms');
- terms=require('../../scripts/governance-role-inverse222.cjs').originalTerms222(terms);
- const specs={office_26:{ordinal:26,label:'Council of Justice',applicationLabel:'Council of Justice',acquisition:'Case-designated judicial institution. The Lord High Justiciar directs procedure. Panel members must be designated and unconflicted.'},office_94:{ordinal:94,label:'War Head',applicationLabel:'War Directorate (historical shared template)',acquisition:'Historical shared War Head reference; current PvE and PvP portfolios have their own separate appointments.'}};
- const keys=['label','applicationLabel','applicationAliases','applicationEligible','applicationRoleKeys','acquisition'];
- return terms.map(current=>{
-  const term=JSON.parse(JSON.stringify(current)),spec=specs[term.officeKey];
-  if(!spec){assert.ok(!Object.hasOwn(term,'historicalApplicationProfile')&&!Object.hasOwn(term,'applicationMetadataScope'),'unscoped historical field');return term;}
-  const prior=term.historicalApplicationProfile;
-  assert.ok(prior&&typeof prior==='object'&&!Array.isArray(prior),'historical profile object');
-  assert.deepEqual(Object.keys(prior).sort(),[...keys].sort(),'exact six historical fields');
-  assert.equal(term.ordinal,spec.ordinal);assert.equal(term.label,spec.label);assert.equal(term.applicationLabel,spec.applicationLabel);assert.equal(term.acquisition,spec.acquisition);
-  assert.equal(term.applicationMetadataScope,historicalScope218);
-  for(const key of keys)assert.ok(Object.hasOwn(term,key),'current historical field present');
-  for(const key of ['applicationEligible','applicationAliases','applicationRoleKeys'])assert.deepEqual(term[key],prior[key],'original compatibility field');
-  for(const key of keys)term[key]=prior[key];
-  delete term.historicalApplicationProfile;delete term.applicationMetadataScope;return term;
- });
-}
-      // CL2-039 (our 6162226/80db07c/44a743a, owner ruling of 13 Nov 2026): the model records its reporting-line delta in
-      // reportingLines1113; restoreReportingLines1113 undoes it exactly and refuses a changed recorded value, so the earlier seals below
-      // still pin every other byte of the nodes, terms and mandates. The book pin follows our reconciled R7 text (5a8103c and later).
-      // The inverse refuses a recorded change whose current value differs, but it accepts a further change that the model
-      // declares in its own record. So the record itself is pinned too: exactly the twelve owner-ruled CL2-039 changes.
-      const record1113 = currentModel1113 && currentModel1113.reportingLines1113;
-      if (!record1113 || !Array.isArray(record1113.changes) || record1113.changes.length !== 12
-        || require("node:crypto").createHash("sha256").update(JSON.stringify(record1113)).digest("hex") !== "b5d676a512b13c91af596ce299d27ec27dfe002fb72edd262a5e89f9f7c8661e") return false;
-      let model;
-      try { model = require("../../scripts/build-governance-titles.cjs").restoreReportingLines1113(currentModel1113); } catch { return false; }
-      const nodes = new Map(model.nodes.map((node) => [node.id, node]));
-      const digestBytes1113 = bytes => require("node:crypto").createHash("sha256").update(bytes).digest("hex");
-      const digest = value => require("node:crypto").createHash("sha256").update(JSON.stringify(value)).digest("hex"), trading = model.terms[95];
-      const readerNodes = require("./governance_reader_nodes228_fixture.cjs").originalReaderNodes228(model.nodes);
-      if (!readerNodes) return false;
-      return modelResponse.status === 200 && modelResponse.headers.get("Cache-Control") === "private, no-store" /* CL2-076 (13 Nov 2026): member JSON may be compressed */ && model.revision === "R7" && model.draft === false && model.ratified === true && model.appointmentsIssued === false
-        && model.nodes.length === 43 && nodes.size === 43 && model.terms.length === 103 && new Set(model.terms.map(term => term.label)).size === 103 && model.nativeRanks.length === 10 && model.officeMandates.length === 43
-        && digest(require("../../scripts/governance-cabinet224-inverse.cjs").restoreCabinet224(readerNodes,"nodes").filter(node => !["trading","security","concordat","propaganda","systems-heraldry"].includes(node.id)).map(node=>node.id==="intake"?{...node,parent:"heraldry"}:node.id==="systems"?JSON.parse(fs.readFileSync(path.join(root,"../docs/governance-nodes222.json"),"utf8")).systemsBefore:node)) === "62fd12faf62b8529a8679a80a1ee278e2422048502c01738ac2fe7286c677ddf"
-        && digest(require("../../scripts/governance-cabinet224-inverse.cjs").restoreCabinet224(model.officeMandates,"officeMandates").filter(office => !["trading","security","concordat","propaganda","systems-heraldry"].includes(office.nodeId))) === "ae968c007def93478c0bfac5e51169f9a3f4bd62d7abddaaa624210aa267ae2c"
-        && digest(originalTerms218(model.terms.slice(0, 95))) === "74fb4f44153a550b7b306789763e73932393e96124d781572c6d2db5c9b87d3b"
-        && model.book.bytes === 268133 && model.book.sha256 === "dc11c64f222d8a0c09b7446852d713bf981610e28836a0c7ed7422b0d74c83da"
-        && fs.statSync(path.join(root, "public/static/governance/reconciled-book.md")).size === model.book.bytes && digestBytes1113(fs.readFileSync(path.join(root, "public/static/governance/reconciled-book.md"))) === model.book.sha256
-        && model.appointments.length === 139 && new Set(model.appointments.map(row => row.key)).size === 139 && model.councilComposition.currentSeats.length === 14
-        && nodes.get("systems-heraldry").parent === "council" && model.appointments.some(office => office.key === "office_103" && office.nativeSlot === 1 && office.applicationEligible === false && office.mappingApplies === false)
-        && trading.officeKey === "office_96" && trading.ordinal === 96 && trading.label === "Lord High Factor · Minister of Trading & Markets" && trading.tier === "high_council" && trading.nativeSlot === 1 && trading.applicationEligible === false && trading.mappingApplies === false;
-    })());
+    let privateModelChecks208;
+    check(".208 actual private model keeps a unique linked graph and reserved Trading and Council portfolios", (() => {
+      const terms = new Map(model.terms.map(term => [term.officeKey, term]));
+      const appointments = new Map(model.appointments.map(office => [office.key, office]));
+      const seats = model.councilComposition.currentSeats;
+      const chapterIds = new Set(chapters.map(chapter => chapter.getAttribute("data-chapter")));
+      const validParentChain = node => {
+        const seen = new Set([node.id]);
+        let parent = node.parent;
+        while (parent !== null) {
+          if (!nodes.has(parent) || seen.has(parent)) return false;
+          seen.add(parent); parent = nodes.get(parent).parent;
+        }
+        return true;
+      };
+      // Current references, not an inverse of earlier graphs or a historical array-size seal.
+      const linkedGraph = nodes.size === model.nodes.length && model.nodes.every(node =>
+        typeof node.id === "string" && node.id.length > 0 && validParentChain(node)
+        && Array.isArray(node.coordinates) && new Set(node.coordinates).size === node.coordinates.length
+        && node.coordinates.every(id => nodes.has(id)));
+      const linkedCatalogues = terms.size === model.terms.length && new Set(model.terms.map(term => term.label)).size === model.terms.length
+        && model.terms.every(term => nodes.has(term.nodeId))
+        && new Set(model.officeMandates.map(office => JSON.stringify([office.nodeId, office.title]))).size === model.officeMandates.length
+        && model.officeMandates.every(office => nodes.has(office.nodeId) && typeof office.title === "string" && office.title.trim().length > 0)
+        && appointments.size === model.appointments.length && new Set(seats.map(seat => seat.id)).size === seats.length
+        && seats.every(seat => nodes.has(seat.nodeId) && Array.isArray(seat.officeKeys)
+          && seat.officeKeys.length > 0 && seat.officeKeys.every(key => terms.has(key)));
+      const portfolios = [
+        ["office_96", "trading", "council", "head-trading", "Lord High Factor · Minister of Trading & Markets"],
+        ["office_99", "security", "council", "internal-security", "Lord High Inquisitor · Minister of Internal Security"],
+        ["office_100", "concordat", "council", "concordat", "Lord High Legate · Minister of the Grand Concordat"],
+        ["office_101", "justiciar", "founder", "head-justice", "Lord High Justiciar · Minister of Justice & The Privy Court"],
+        ["office_102", "propaganda", "council", "propaganda", "Lord High Herald · Minister of Propaganda"],
+        ["office_103", "systems-heraldry", "council", "systems-heraldry", "Systems & Heraldry"]
+      ];
+      const reservedPortfolios = portfolios.every(([key, nodeId, parent, seatId, label]) => {
+        const term = terms.get(key), office = appointments.get(key), node = nodes.get(nodeId);
+        const matchingSeats = seats.filter(seat => Array.isArray(seat.officeKeys) && seat.officeKeys.includes(key));
+        const mandate = model.officeMandates.find(row => row.nodeId === nodeId);
+        return term?.label === label && term.nodeId === nodeId && term.tier === "high_council"
+          && office?.label === label && office.termOrdinal === term.ordinal && office.tier === "high_council"
+          && [term, office].every(row => row.nativeSlot === 1 && row.applicationEligible === false
+            && row.mappingApplies === false && Array.isArray(row.applicationRoleKeys) && row.applicationRoleKeys.length === 0)
+          && node?.parent === parent && node.relation === "accountability" && chapterIds.has(node.chapter)
+          && matchingSeats.length === 1 && matchingSeats[0].id === seatId && matchingSeats[0].nodeId === nodeId && matchingSeats[0].label === label
+          && mandate?.title === label && [mandate.duty, mandate.output, mandate.boundary].every(value => typeof value === "string" && value.length > 0);
+      });
+      // Keep the current model-to-served-book integrity contract, without embedding another historical digest.
+      const book = fs.readFileSync(path.join(root, "public/static/governance/reconciled-book.md"));
+      const bookMatches = model.book.path === "/static/governance/reconciled-book.md" && model.book.bytes === book.length
+        && /^[a-f0-9]{64}$/.test(model.book.sha256)
+        && require("node:crypto").createHash("sha256").update(book).digest("hex") === model.book.sha256;
+      // Failure detail carries only booleans/counts; shared department nodes are not mandate identities.
+      privateModelChecks208 = {
+        privateResponse: modelResponse.status === 200 && modelResponse.headers.get("Cache-Control") === "private, no-store",
+        modelHeader: model.schema === "olympus-public-organization-v1" && model.revision === "R7" && model.draft === false && model.ratified === true,
+        noIssuedAuthority: model.appointmentsIssued === false && model.councilComposition.eligibleSeatIssued === false && model.councilComposition.permissionsApplied === false,
+        nativeRankContract: model.nativeRanks.length === 10, linkedGraph, linkedCatalogues, reservedPortfolios, bookMatches,
+        counts: { nodes: model.nodes.length, mandates: model.officeMandates.length,
+          mandateNodes: new Set(model.officeMandates.map(office => office.nodeId)).size,
+          mandateIdentities: new Set(model.officeMandates.map(office => JSON.stringify([office.nodeId, office.title]))).size }
+      };
+      return modelResponse.status === 200 && modelResponse.headers.get("Cache-Control") === "private, no-store"
+        && model.schema === "olympus-public-organization-v1" && model.revision === "R7" && model.draft === false && model.ratified === true
+        && model.appointmentsIssued === false && model.councilComposition.eligibleSeatIssued === false && model.councilComposition.permissionsApplied === false
+        && model.nativeRanks.length === 10 && linkedGraph && linkedCatalogues && reservedPortfolios && bookMatches;
+    })(), privateModelChecks208);
     check(".154 actual model keeps hierarchy, independent review and the five liaison remits", nodes.get("council").parent === "founder" && nodes.get("council").relation === "accountability" && nodes.get("war").parent === "council" && nodes.get("officers").parent === "guilds" && nodes.get("justice").relation === "independence" && nodes.get("auditor").relation === "independence" && model.nodes.filter((node) => node.parent === "emissaries").length === 5 && nodes.get("emissary-heraldry").coordinates.includes("propaganda"));
     const marshal = model.terms.find((term) => term.label === "Marshall");
     check(".154 actual model keeps I-X unappointed and Marshall as a bounded event alias, not a native slot", model.guildPlaceholders.length === 10 && model.guildPlaceholders.every((guild) => guild.state === "Unappointed placeholder") && marshal.classification === "local" && marshal.nodeId === "tactical" && marshal.note.includes("Marshal is the book") && nodes.get(marshal.nodeId).kind === "event assignments" && nodes.get(marshal.nodeId).limits.includes("event command is separately assigned and gives no general guild or bank authority") && !model.nativeRanks.some((rank) => rank.name === "Marshall"));

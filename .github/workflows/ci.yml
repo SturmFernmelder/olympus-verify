@@ -66,6 +66,33 @@ jobs:
           node tests/community_census_route_test.cjs --focus=closed-logs
           node tests/resources_admission169_test.cjs --focus=closed-logs
         working-directory: worker
+      - name: Current native ranks and private attended role audit
+        timeout-minutes: 4
+        run: |
+          node tests/directive_rank280_workerd_test.cjs --steward --only new0,new1,new7,new8,new9,member-with-alt --out "$RUNNER_TEMP/steward-ranks"
+          node tests/directive_rank280_workerd_test.cjs --steward --v1 --out "$RUNNER_TEMP/serving-v1-real-steward"
+          node tests/directive_rank280_workerd_test.cjs --steward --only verify-member-with-alt --out "$RUNNER_TEMP/steward-linked-alt-ingress"
+          node tests/directive_rank280_workerd_test.cjs --steward --only entitlement-never-sent,entitlement-unknown-child,entitlement-blocker --out "$RUNNER_TEMP/entitlement-custody"
+          node tests/role_delete_refusal280_workerd_test.cjs --only transition-manual-cycle,transition-ban-manual-cycle --out "$RUNNER_TEMP/fixed-manual-refusals"
+          node tests/role_delete_refusal280_workerd_test.cjs --only transition-refusal404,transition-banrefusal404,transition-refusal429,transition-banrefusal429 --out "$RUNNER_TEMP/fixed-status-refusals"
+          node tests/role_delete_refusal280_workerd_test.cjs --only transition-migration-never-sent,transition-migration-unknown-child,transition-observation-not-absent --out "$RUNNER_TEMP/migration-custody"
+          node tests/manual_refusal_ui280_workerd_test.cjs --out "$RUNNER_TEMP/generic-manual-refusal-ui"
+          node tests/canonical_never_sent284_test.cjs
+          node tests/native_base_cleanup284_workerd_test.cjs --out "$RUNNER_TEMP/native-base-cleanup"
+          node tests/site_role_audit283_workerd_test.cjs
+          node tests/site_role_audit283_ui_test.cjs
+          node tests/directive_promotion_intent_test.cjs
+          node tests/stored_application_intent283_test.cjs
+          node ../scripts/tests/verify-addon-download.test.cjs
+        working-directory: worker
+      - name: Original preview expiry across the final D1 response
+        timeout-minutes: 3
+        working-directory: worker
+        run: node tests/site_role_audit283_workerd_test.cjs --only final-d1-expired
+      - name: Never-sent DELETE custody survives expiry and a later fresh pass
+        timeout-minutes: 3
+        working-directory: worker
+        run: node tests/site_role_audit283_workerd_test.cjs --only final-d1-delete-expired
       - name: Concurrent sweep progress and completed-erasure regression
         run: |
           node tests/lane_progress280_test.cjs --layout canonical --only ordinary-last,ban-last,erase-late,read-unknown --out "$RUNNER_TEMP/role-progress-canonical"

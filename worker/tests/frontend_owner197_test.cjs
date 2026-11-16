@@ -334,11 +334,13 @@ async function frontendOwner197() {
   const entries201=sourceGuides203(guided199),families203=familyCards203(guided199),model203=directoryModel203(guided199);
   check('.203 replaces the dropdowns and duplicate alias cards with exactly one disclosure per canonical family while retaining all139 plus three ordinary source keys',!guided199.app.querySelector('#application-track199')&&!guided199.app.querySelector('#application-office199')&&directoryComplete203(guided199)&&families203.every(row=>!!row.querySelector('summary')));
   check('.203 separates job families, optional activities, standing and institutions into descriptive collapsible groups plus the gated Patron reference',JSON.stringify(guided199.app.querySelectorAll('[data-role-section201]').map(row=>row.getAttribute('data-role-section201')))===JSON.stringify(['council','officers','raid','workshop','members','royal'])&&guided199.app.querySelector('[data-role-section201="members"]').hasAttribute('open')&&!guided199.app.querySelector('[data-role-section201="officers"]').hasAttribute('open')&&!guided199.app.querySelector('[data-role-section201="council"]').hasAttribute('open'));
+  // CL2-037 (our 4c7b542, 4b406f6): a purely regional family states the time guidance its NA and EU seats share once, in
+  // the primary's "Shared by every regional assignment" sheet, so its own guide omits the repeated facts.
   check('.203 each canonical family retains local art and substantial duties, expectations and time guidance',families203.every(row=>{
     const family=model203.families.find(item=>item.key===row.getAttribute('data-role-family203')),primary=row.querySelector('.role-primary203'),guide=primary?.querySelector('.role-info');
     return row.querySelector('summary img')?.getAttribute('src')?.startsWith('/static/wow/')&&fs.existsSync(path.join(root,'public',row.querySelector('summary img').getAttribute('src')))
       &&!!family&&!!primary&&(family.kind==='institution'?!primary.querySelector('.rank-office199'):(row.querySelector('summary .rank-office199')||['member','raider','pvp_team'].includes(family.primaryKey)))
-      &&guide?.textContent.includes('Responsibilities')&&guide.textContent.includes('Expectations')&&guide.textContent.includes('Time')&&guide.querySelectorAll('li').length>=4;
+      &&guide?.textContent.includes('Responsibilities')&&guide.textContent.includes('Expectations')&&(guide.textContent.includes('Time')||family.variants.some(variant=>variant.presentation==='region')&&!!primary.querySelector('[data-role-shared1112="region"]')?.textContent.includes('Time'))&&guide.querySelectorAll('li').length>=4;
   }));
   const institutionFamiliesP2 = ['court','high_council','justice','loot_council','privy_council','war_head'];
   check('.218 all six institutions keep their primary free of rank claims and attribute every retained rank badge to its own source',
@@ -356,22 +358,25 @@ async function frontendOwner197() {
   check('.203 exactly three ordinary job families offer applications while optional activities, standings and institutions do not become application tracks',JSON.stringify(guided199.app.querySelectorAll('[data-family-apply203]').map(button=>button.getAttribute('data-family-apply203')).sort())===JSON.stringify(['artisan','member','raider'])&&guided199.app.querySelectorAll('.role-variant203').length===model203.families.reduce((n,f)=>n+f.variants.filter(v=>['office','region','class'].includes(v.presentation)).length,0)&&new Set(families203.map(card=>card.querySelector('summary .role-entry-name201').textContent)).size===72);
   const reservedRows201=allRows201.filter(row=>row.reservedSeat201);
   const leadershipKeys203 = new Set(guided199.boot.meta.ballots.map(ballot => ballot.key));
+  // CL2-036 (our 4c7b542): one eligibility vocabulary (Reserved leadership seat, Appointed, Standing); CL2-035 (same commit):
+  // the ballot reference is the See-also strip's "Vote board" link.
   check('.203 every reserved source key retains its badge and offers only a reference to an existing ballot, where applicable', reservedRows201.length > 70 && reservedRows201.every(row => {
     const card = familyForKey203(guided199, row.key);
     const family = model203.families.find(item => item.key === model203.keyToFamily[row.key]);
-    const badge = family.kind === 'status' ? 'Standing or recognition — not an application'
-      : family.kind === 'institution' ? 'Governance body — not an application' : 'Reserved seat — no applications';
+    const badge = family.kind === 'status' ? 'Standing'
+      : family.kind === 'institution' ? 'Appointed' : 'Reserved leadership seat';
     if (card?.querySelector('summary .badge')?.textContent !== badge || family.application
       || card.querySelector('[data-apply-role201]') || card.querySelector('[data-family-apply203]')) return false;
     const ballotKey = family.sourceKeys.find(key => leadershipKeys203.has(key));
     const boardLinks = card.querySelectorAll('a').filter(link => link.getAttribute('href')?.startsWith('#/vote'));
     return ballotKey
-      ? boardLinks.length === 1 && boardLinks[0].textContent === 'Leadership board'
+      ? boardLinks.length === 1 && boardLinks[0].textContent === 'Vote board'
         && boardLinks[0].getAttribute('href') === '#/vote/' + encodeURIComponent(ballotKey)
       : boardLinks.length === 0;
   }));
   const tradingFamily208 = familyForKey203(guided199, 'office_96'), tradingGuide208 = guided199.boot.meta.roleGuides201.office_96;
-  check('.208 canonical directory gives Trading its own detailed reserved Council family without a purchase or application action', tradingFamily208?.getAttribute('data-role-family203') === 'head_trading' && tradingFamily208.querySelector('summary .role-entry-name201')?.textContent === 'Lord High Factor · Minister of Trading & Markets' && tradingFamily208.textContent.includes(tradingGuide208.definition) && tradingGuide208.responsibilities.every(text => tradingFamily208.textContent.includes(text)) && tradingFamily208.querySelector('summary .badge')?.textContent==='Reserved seat — no applications' && !tradingFamily208.querySelector('[data-apply-role201]') && !tradingFamily208.querySelector('[data-family-apply203]') && !tradingFamily208.querySelectorAll('a').some(link=>link.getAttribute('href')?.startsWith('#/vote/')));
+  // CL2-036 (our 4c7b542): a reserved seat's badge reads "Reserved leadership seat".
+  check('.208 canonical directory gives Trading its own detailed reserved Council family without a purchase or application action', tradingFamily208?.getAttribute('data-role-family203') === 'head_trading' && tradingFamily208.querySelector('summary .role-entry-name201')?.textContent === 'Lord High Factor · Minister of Trading & Markets' && tradingFamily208.textContent.includes(tradingGuide208.definition) && tradingGuide208.responsibilities.every(text => tradingFamily208.textContent.includes(text)) && tradingFamily208.querySelector('summary .badge')?.textContent==='Reserved leadership seat' && !tradingFamily208.querySelector('[data-apply-role201]') && !tradingFamily208.querySelector('[data-family-apply203]') && !tradingFamily208.querySelectorAll('a').some(link=>link.getAttribute('href')?.startsWith('#/vote/')));
   check('.208 Trading keeps its complete limits visible without absorbing the Treasurer, Artisanry or Auditor families', ['office_86', 'office_58', 'office_08'].every(key => familyForKey203(guided199, key) !== tradingFamily208) && tradingFamily208.textContent.includes('Treasurer retains financial custody') && tradingFamily208.textContent.includes('auditor remains independent') && !guided199.app.querySelector('form'));
   for(const [label,keys] of [['Officer',['office_62','officer','rank_officer']],['Raider',['office_75','raider','rank_raider']],['Treasurer',['office_86','treasurer','rank_treasurer']]]){
     const familyKeys=keys.map(key=>model203.keyToFamily[key]);
@@ -379,7 +384,10 @@ async function frontendOwner197() {
   }
   for(const [key,region,times] of [['raid_leader_na','North American','7 pm to midnight (4 to 9 pm Pacific)'],['raid_leader_eu','European','7 pm to midnight (6 to 11 pm UK)']]){
     const card=guided199.app.querySelector('[data-role-key201="'+key+'"]');
-    check('.203 '+key+' remains a nested regional guide with its full schedule, preparation, calls, loot and conduct mandate',card?.classList.contains('role-variant203')&&familyForKey203(guided199,key).contains(card)&&card.textContent.includes(region)&&card.textContent.includes(times)&&card.textContent.includes('2 to 3 hours of preparation')&&card.textContent.includes('strategy, positions, assignments')&&card.textContent.includes('pulls, wipes, pace and breaks')&&card.textContent.includes('Loot Council')&&card.textContent.includes('No flaming after a wipe')&&!card.querySelector('button'));
+    // CL2-037 (our 4c7b542, 4b406f6): the NA and EU drawers keep only their own region and times; the preparation, calls,
+    // loot and conduct mandate both share is stated once on the family, in "Shared by every regional assignment".
+    const sharedSheet1112=familyForKey203(guided199,key)?.querySelector('.role-primary203 [data-role-shared1112="region"]');
+    check('.203 '+key+' remains a nested regional guide with its full schedule, and its family states the shared preparation, calls, loot and conduct mandate',card?.classList.contains('role-variant203')&&familyForKey203(guided199,key).contains(card)&&card.textContent.includes(region)&&card.textContent.includes(times)&&!!sharedSheet1112?.textContent.includes('2 to 3 hours of preparation')&&sharedSheet1112.textContent.includes('strategy, positions, assignments')&&sharedSheet1112.textContent.includes('pulls, wipes, pace and breaks')&&sharedSheet1112.textContent.includes('Loot Council')&&sharedSheet1112.textContent.includes('No flaming after a wipe')&&!card.querySelector('button'));
   }
   const classKeys203=['warrior','paladin','hunter','rogue','priest','shaman','mage','warlock','druid'].map(key=>'class_lead:'+key);
   check('.203 all nine class leads retain distinct nested duties and expectations under one class leadership family',new Set(classKeys203.map(key=>model203.keyToFamily[key])).size===1&&classKeys203.every(key=>{const card=guided199.app.querySelector('[data-role-key201="'+key+'"]'),guide=guided199.boot.meta.roleGuides201[key];return card?.classList.contains('role-variant203')&&card.textContent.includes(guide.definition)&&guide.responsibilities.every(text=>card.textContent.includes(text))&&guide.expectations.every(text=>card.textContent.includes(text))&&!card.querySelector('[data-apply-role201]');}));
@@ -436,15 +444,28 @@ async function frontendOwner197() {
   const roles199=await openPage(APPLICANT199,{},writsOn200);await roles199.go('#/roles/rosetta-stone');
   const exactNames199=['Leader (Guild Master)','High Council','Officer','Officer Alt','Raid Leader','Veteran','Raider','Member','Alt','Initiate'];
   const nativeCards199=roles199.app.querySelectorAll('.role-ranks203 [data-native-slot]');
-  check('.203 role guide fronts exactly ten compact links with the rank display names and owner-confirmed slots',nativeCards199.length===10&&nativeCards199.every((card,index)=>card.tagName==='A'&&card.getAttribute('data-native-slot')===String(index)&&card.querySelector('.role-rank-number203').textContent===String(index+1)&&card.textContent.endsWith(exactNames199[index])&&card.getAttribute('data-rank-family203')===directoryModel203(roles199).ranks[index].familyKey&&card.getAttribute('href')==='#/roles/'+encodeURIComponent(directoryModel203(roles199).ranks[index].familyKey)&&!card.querySelector('.role-info')));
+  // CL2-197, CL2-310 (our 4c7b542): each link of the one ladder ends with its game slot, "Slot N", after the rank name.
+  check('.203 role guide fronts exactly ten compact links with the rank display names and owner-confirmed slots',nativeCards199.length===10&&nativeCards199.every((card,index)=>card.tagName==='A'&&card.getAttribute('data-native-slot')===String(index)&&card.querySelector('.role-rank-number203').textContent===String(index+1)&&card.textContent.endsWith(exactNames199[index]+'Slot '+index)&&card.getAttribute('data-rank-family203')===directoryModel203(roles199).ranks[index].familyKey&&card.getAttribute('href')==='#/roles/'+encodeURIComponent(directoryModel203(roles199).ranks[index].familyKey)&&!card.querySelector('.role-info')));
   const table199=roles199.app.querySelector('.rosetta-table199'),headings199=['In-Game Rank Number & Name','Tier & Statutory Codex Title','Organization Department & Branch Offices','Discord Role & Portal Access','How to Attain It'];
   const rows199=table199.querySelectorAll('[data-rank-crosswalk]');
   check('.199 Rosetta Stone has five named columns and ten complete individually labelled rank rows',JSON.stringify(table199.querySelectorAll('th').map(th=>th.textContent))===JSON.stringify(headings199)&&rows199.length===10&&rows199.every((row,index)=>row.getAttribute('data-rank-crosswalk')===String(index+1)&&row.querySelectorAll('td').length===5&&row.querySelectorAll('td').every((td,column)=>td.getAttribute('data-column')===headings199[column])));
+  // CL2-046 (our 4c7b542): ranks 6 to 10 state their own way in instead of one shared sentence; the apply links are the
+  // three choices of the owner ruling of 14 Nov 2026 (our 111867e), each in the row of its rank, in catalogue order.
   check('.218 all five leadership rank rows use reserved rather than royal appointment wording and offer no public application',
     rows199.slice(0,5).every(row=>{const cell=row.querySelectorAll('td')[4];return cell.querySelector('p')?.textContent==='Reserved appointment; no public application.'&&!cell.textContent.includes('Royal appointment')&&!cell.querySelector('a[href^="#/vote"]');})
-    &&rows199.slice(5).every(row=>row.querySelectorAll('td')[4].textContent.startsWith('Membership, raiding and artisan work use the role directory; other standing and titles require their own review. ')&&row.querySelectorAll('td')[4].querySelector('a[href="#/roles"]')?.textContent==='Explore the role directory'));
-  const bridgeKeys199=rows199.flatMap(row=>row.querySelectorAll('li a').map(link=>decodeURIComponent(link.getAttribute('href').slice('#/organization/'.length))));
-  check('.199 Rosetta Stone enumerates all139 assignable keys exactly once across their ten rank rows',bridgeKeys199.length===139&&new Set(bridgeKeys199).size===139&&JSON.stringify(bridgeKeys199.slice().sort())===JSON.stringify(keys201));
+    &&JSON.stringify(rows199.slice(5).map(row=>{const cell=row.querySelectorAll('td')[4];return [cell.textContent,cell.querySelectorAll('a').map(link=>[link.textContent,link.getAttribute('href')])];}))===JSON.stringify([
+      ['Through officer review; there is no application for this rank.',[]],['Apply: Raider',[['Raider','#/vote/raider/new']]],
+      ['Apply: Artisan · Guild Member',[['Artisan','#/vote/artisan/office_07'],['Guild Member','#/vote/member/new']]],
+      ['Through officer review; there is no application for this rank.',[]],['Through officer review; there is no application for this rank.',[]]]));
+  // CL2-035/CL2-046 (our 4c7b542): each rank row also links its role guide. The per-key organization links, the bridge,
+  // come from our 8f031a9 (RC-199): every stored key keeps its own register link under its family.
+  const bridgeLinks199=rows199.flatMap(row=>row.querySelectorAll('li a')),bridgeKeys199=bridgeLinks199.filter(link=>link.getAttribute('href').startsWith('#/organization/')).map(link=>decodeURIComponent(link.getAttribute('href').slice('#/organization/'.length)));
+  // app.js rosettaPanel199: one li[data-rosetta-family1112] per family in a rank row, with one #/roles/<family> link, and
+  // under it one #/organization/<key> link per stored key. The family link must name the family of those keys.
+  const rosettaFamilyLinks199=row=>row.querySelectorAll('li[data-rosetta-family1112]').map(item=>{const roleLinks=item.querySelectorAll('a').filter(link=>link.getAttribute('href').startsWith('#/roles/')),keys=item.querySelectorAll('li[data-rosetta-key1112] a').map(link=>decodeURIComponent(link.getAttribute('href').slice('#/organization/'.length)));
+    return {item,roleLinks,keys,target:roleLinks.length===1?decodeURIComponent(roleLinks[0].getAttribute('href').slice('#/roles/'.length)):null};});
+  check('.199 Rosetta Stone enumerates all139 assignable keys exactly once across their ten rank rows',bridgeLinks199.every(link=>/^#\/(?:organization|roles)\//.test(link.getAttribute('href')))&&bridgeKeys199.length===139&&new Set(bridgeKeys199).size===139&&JSON.stringify(bridgeKeys199.slice().sort())===JSON.stringify(keys201)
+    &&rows199.every(row=>{const items=rosettaFamilyLinks199(row);return items.length>0&&items.every(({item,roleLinks,keys,target})=>roleLinks.length===1&&keys.length>0&&target===item.getAttribute('data-rosetta-family1112')&&keys.every(key=>directoryModel203(roles199).keyToFamily[key]===target))&&new Set(items.map(entry=>entry.target)).size===items.length&&row.querySelectorAll('li a').filter(link=>link.getAttribute('href').startsWith('#/roles/')).length===items.length;}));
   const roleCards201=roles199.app.querySelectorAll('[data-role-key201]');
   check('.203 Roles keeps all103 stable office references and every original source key in canonical families, with no reserved application CTA',directoryComplete203(roles199)&&Object.keys(roles199.boot.meta.roleDirectory203.keyToFamily).filter(key=>/^office_[0-9]{2,3}$/.test(key)).length===103&&reservedRows201.every(row=>!familyForKey203(roles199,row.key).querySelector('[data-apply-role201]')));
   for(const appointedKey199 of ['member','office_07','office_27']){
@@ -538,8 +559,11 @@ async function frontendOwner197() {
   switchPage200.before((url, init) => { if (url === '/api/admin/settings' && init.method === 'PUT') switchSends200.push(JSON.parse(init.body)); return false; });
   await switchPage200.go('#/admin/settings'); await must(() => !!switchPage200.app.querySelector('#royal-writs-on'), '.200 original admin switch');
   const switchBox200 = switchPage200.app.querySelector('#royal-writs-on');
-  const appointmentFields203=switchPage200.app.querySelectorAll('[data-appointment-field203]'),expectedAppointmentKeys203=switchPage200.boot.meta.appointments.map(row=>row.key).sort();
-  check('.203 Admin family grouping retains all139 distinct original appointment fields and their populated exact-key values',appointmentFields203.length===139&&new Set(appointmentFields203.map(row=>row.getAttribute('data-appointment-field203'))).size===139&&JSON.stringify(appointmentFields203.map(row=>row.getAttribute('data-appointment-field203')).sort())===JSON.stringify(expectedAppointmentKeys203)&&Object.entries(populatedAppointed203).every(([key,value])=>switchPage200.app.querySelector('[data-appointment-field203="'+key+'"] input')?.value===value));
+  // CL2-014 (our a6f591d): appointed holders have their own page, #/admin/appointments; Settings keeps the leadership
+  // lists and links there, so the 139 fields are read on that page.
+  const appointmentsPage203=await openPage(STAFF);await appointmentsPage203.go('#/admin/appointments');await must(()=>appointmentsPage203.app.querySelectorAll('[data-appointment-field203]').length>0,'.203 Appointed roles page');
+  const appointmentFields203=appointmentsPage203.app.querySelectorAll('[data-appointment-field203]'),expectedAppointmentKeys203=appointmentsPage203.boot.meta.appointments.map(row=>row.key).sort();
+  check('.203 Admin family grouping retains all139 distinct original appointment fields and their populated exact-key values',!switchPage200.app.querySelector('[data-appointment-field203]')&&!!switchPage200.app.querySelector('a[href="#/admin/appointments"]')&&appointmentFields203.length===139&&new Set(appointmentFields203.map(row=>row.getAttribute('data-appointment-field203'))).size===139&&JSON.stringify(appointmentFields203.map(row=>row.getAttribute('data-appointment-field203')).sort())===JSON.stringify(expectedAppointmentKeys203)&&Object.entries(populatedAppointed203).every(([key,value])=>appointmentsPage203.app.querySelector('[data-appointment-field203="'+key+'"] input')?.value===value));
   check('.200 Admin renders an unchecked explicit switch with preservation and separate provider-OFF disclosure', switchBox200.getAttribute('type') === 'checkbox' && !switchBox200.checked && switchBox200.closest('label').textContent.includes('Existing applications, receipts and constitutional reference text are preserved') && switchBox200.closest('label').textContent.includes('does not enable payments, Discord role dispatch, Olympus Link'));
   switchBox200.checked = true; byText(switchPage200.app, 'button', 'Save settings').click();
   await must(() => switchSends200.length === 1 && one("SELECT value FROM site_settings WHERE key='royalWritsOn'")?.value === '1' && !byText(switchPage200.app, 'button', 'Save settings').disabled, '.200 original enabled-setting save');
@@ -597,12 +621,14 @@ async function frontendOwner197() {
     const productionGate200=sourcePart200('  const royalWritsVisible200 = ','  // Membership-form adapters');
     const productionWrits200=sourcePart200('  function goldBanner199() {','  function hierarchyPanel199() {');
     const productionRoleReferences228=sourcePart200('  const governanceTitleRoutes228 = ','  function rosettaPanel199(');
+    // Our 4c7b542 (CL2-034, CL2-036): the vote board reads the directory's six catalogue groups through catalogGroups1112.
+    const productionCatalogue1112=sourcePart200('  // Evergreen 12 Nov 2026 (CL2-034, CL2-036): the directory serves','  function applicationBadges199(intent) {');
     const productionPicker200=sourcePart200('  // Owner decision, 26 Oct 2026: browse the whole directory; leadership seats are reserved.','  // The boot carries the RESOLVED');
     const productionBoardPrefix200=sourcePart200('  const V = { role:','    // A prior role\'s response');
     const w=makeWindow('{}'),state={settings:{royalWritsOn:true,votingOpen:true,appointed:{},noVote:[]}},meta={...defaultBoot200.boot.meta};
     const deps={document:w.document,Node,Event,app:w.app,S:state,M:()=>meta,tracks199:()=>meta.applicationTracks,offices199:()=>meta.appointments,office199:key=>meta.appointments.find(row=>row.key===key),track199:id=>meta.applicationTracks.find(row=>row.id===id),displayHolder:()=>'',appointedTo:()=>'',communityReader:()=>false,positionOf:key=>meta.positions.find(row=>row.key===key),posIcon:()=>null,officeBadge199:()=>null,roleInfo:()=>null,appointmentLabelNode:()=>null,ROUTES:{},location:w.location,dec:value=>value,
       decisionActorRevision:0,currentRoute:()=>'/vote',nowMs:()=>0,byDisplayLabel:(a,b)=>a.label.localeCompare(b.label),votedKey:()=>true,noVoteFor:()=>false,roleAbout:()=>null,writeIns:()=>null};
-    const cache200=new Function(...Object.keys(deps),productionDom200+'\n'+originalLine200('  const art = ')+'\n'+originalLine200('  const icon = ')+'\n'+productionHeading200+'\n'+sourcePart200('  const frame = ','  const noticeBox = ')+'\n'+originalLine200('  const noticeBox = ')+'\n'+productionGate200+productionWrits200+productionRoleReferences228+productionPicker200+productionBoardPrefix200+'\n}; return {vote:main=>ROUTES.vote(main,[]),panel:writsPanel199};')(...Object.values(deps));
+    const cache200=new Function(...Object.keys(deps),productionDom200+'\n'+originalLine200('  const art = ')+'\n'+originalLine200('  const icon = ')+'\n'+productionHeading200+'\n'+sourcePart200('  const frame = ','  const noticeBox = ')+'\n'+originalLine200('  const noticeBox = ')+'\n'+productionGate200+productionWrits200+productionRoleReferences228+productionCatalogue1112+productionPicker200+productionBoardPrefix200+'\n}; return {vote:main=>ROUTES.vote(main,[]),panel:writsPanel199};')(...Object.values(deps));
     const sameMain200=w.app.appendChild(new Element('main')); await cache200.vote(sameMain200);
     const previousWrits200=sameMain200.querySelector('.royal-writs199');
     check('.200 original board render initially mounts the schedule and board without duplicating the directory', !!previousWrits200 && !!sameMain200.querySelector('.board-layout') && !sameMain200.querySelector('#application-directory201') && sameMain200.querySelectorAll('[data-writ-key]').length===27);
@@ -638,7 +664,23 @@ async function frontendOwner197() {
       const loader = instantiate199(actualStaticFetch, globalThis.crypto, TextDecoder, (object,key)=>Object.prototype.hasOwnProperty.call(object,key));
       return {read:()=>loader.governanceModel(),reads,override:bytes=>{bodyOverride=bytes;}};
     };
-    check('.199 regression uses the actual expanded Organization body above128KiB within its finite512KiB model cap',modelBytes199.length===454392&&modelBytes199.length>131072&&modelBytes199.length<=524288&&actualLoaderSource199.includes('publicGovernanceBytes(GOVERNANCE_MODEL, 524288)')&&actualLoaderSource199.includes('publicGovernanceBytes(GOVERNANCE_BOOK, 524288)'));
+    // CL2-039 (our 6162226, 80db07c, 44a743a; owner ruling of 13 Nov 2026) and the owner rulings of 14 Nov 2026 (our 111867e,
+    // 3c8abee) changed the model. Two finite inverses undo exactly those declared changes and refuse any other value of the
+    // fields they touch (the 14 Nov values as in evergreen1112_governance_test.cjs; reportingLines1113 through the generator's
+    // restoreReportingLines1113, its record pinned as in frontend_check.cjs). The model is the generator's exact
+    // JSON.stringify(model, null, 2) + "\n", so the restored model has the .199 body length again.
+    const OLD1114_199='Apply on /#/vote; acceptance, appointment and access require separate officer review.';
+    const RULING1114_199={office_25:{applicationEligible:[true,false],applicationRoleKeys:[['raider'],[]],acquisition:[OLD1114_199,'Granted by the raid leads. There is no separate application: apply as Raider.']},
+      office_27:{applicationEligible:[true,false],applicationRoleKeys:[['member'],[]],acquisition:[OLD1114_199,'There is no separate application: apply as Artisan.']}};
+    const undo1114_199=current=>{const out=structuredClone(current);
+      for(const [list,keyField] of [['terms','officeKey'],['appointments','key']])for(const [key,fields] of Object.entries(RULING1114_199)){const rows=(out[list]||[]).filter(row=>row[keyField]===key);if(rows.length!==1)throw Error('ruling1114_row '+list+' '+key);
+        for(const [field,[before,after]] of Object.entries(fields)){if(JSON.stringify(rows[0][field])!==JSON.stringify(after))throw Error('ruling1114_value '+list+' '+key+' '+field);rows[0][field]=structuredClone(before);}}
+      const tracks=(out.applicationTracks||[]).filter(row=>row.id==='raider');if(tracks.length!==1||tracks[0].label!=='Raider & PvE Progression Track')throw Error('label1114_value raider');tracks[0].label='Core Raider & PvE Progression Track';
+      return out;};
+    const earlierBytes199=(()=>{try{const current=JSON.parse(modelBytes199),record=current.reportingLines1113;
+      if(!record||!Array.isArray(record.changes)||record.changes.length!==12||require('node:crypto').createHash('sha256').update(JSON.stringify(record)).digest('hex')!=='b5d676a512b13c91af596ce299d27ec27dfe002fb72edd262a5e89f9f7c8661e')return -1;
+      return Buffer.byteLength(JSON.stringify(require(path.join(root,'../scripts/build-governance-titles.cjs')).restoreReportingLines1113(undo1114_199(current)),null,2)+'\n');}catch{return -1;}})();
+    check('.199 regression uses the actual expanded Organization body above128KiB within its finite512KiB model cap',earlierBytes199===454392&&modelBytes199.equals(Buffer.from(JSON.stringify(JSON.parse(modelBytes199),null,2)+'\n'))&&modelBytes199.length>131072&&modelBytes199.length<=524288&&actualLoaderSource199.includes('publicGovernanceBytes(GOVERNANCE_MODEL, 524288)')&&actualLoaderSource199.includes('publicGovernanceBytes(GOVERNANCE_BOOK, 524288)'));
     const currentClient199=loadClient199(),model199=await currentClient199.read();
     check('.199 actual authenticated Worker HTTP and current app loader accept every source byte with103 terms and exact book pins',currentClient199.reads.length===1&&currentClient199.reads[0].status===200&&currentClient199.reads[0].bytes===modelBytes199.length&&currentClient199.reads[0].credentials==='same-origin'&&currentClient199.reads[0].redirect==='error'&&JSON.stringify(model199)===JSON.stringify(JSON.parse(modelBytes199))&&model199.terms.length===103&&model199.appointments.length===139);
     // Reuse the existing Organization DOM fixture definitions, not its test body.
@@ -647,7 +689,11 @@ async function frontendOwner197() {
     // overview and its actual context module have their own qualified leaf.
     const rendererFixturePath199=path.join(root,'tests/organization_view_test.cjs'),rendererFixtureSource199=fs.readFileSync(rendererFixturePath199,'utf8'),rendererCut199=rendererFixtureSource199.indexOf('const p = open();');
     const rendererPrefix199=rendererFixtureSource199.slice(0,rendererCut199);
-    if(rendererCut199<0||require('node:crypto').createHash('sha256').update(rendererPrefix199).digest('hex')!=='70205036d65adec04f672827b994f3f648b65b2bbc829998831b17d8fdb155d7')throw Error('owner199_original_organization_fixture_prefix_drift');
+    // Our organization_view text-node repair gives that fixture's DOM stand-in text nodes (organization-view.js appends plain strings since our
+    // 4c7b542). The original prefix hash is checked after mapping exactly that reviewed edit back; any other drift is refused.
+    const textNode199={"current":"  // Our 4c7b542 (CL2-037/CL2-041) appends a plain string (\" — note\") beside a link, as ParentNode.append allows;\n  // the stand-in makes it a text node, as a browser does.\n  append(...nodes) { for (let n of nodes.flat(Infinity).filter(n => n != null)) { if (typeof n === \"string\") { const text = new Element(\"#text\", this.doc); text._text = n; n = text; } n.remove(); n.parentNode = this; this.children.push(n); } }\n","historical":"  append(...nodes) { for (const n of nodes.flat(Infinity).filter(n => n != null)) { n.remove(); n.parentNode = this; this.children.push(n); } }\n"};
+    if(rendererPrefix199.split(textNode199.current).length!==2)throw Error('owner199_organization_fixture_text_node_edit');
+    if(rendererCut199<0||require('node:crypto').createHash('sha256').update(rendererPrefix199.replace(textNode199.current,textNode199.historical)).digest('hex')!=='70205036d65adec04f672827b994f3f648b65b2bbc829998831b17d8fdb155d7')throw Error('owner199_original_organization_fixture_prefix_drift');
     const dataBinding199='const data = JSON.parse(fs.readFileSync(path.join(root, "public/static/governance/organization.json"), "utf8"));';
     if(rendererPrefix199.split(dataBinding199).length!==2)throw Error('owner199_original_organization_fixture_data_boundary');
     const FixtureModule199=require('node:module').Module,rendererExecution199=new FixtureModule199(rendererFixturePath199,module);rendererExecution199.filename=rendererFixturePath199;rendererExecution199.paths=FixtureModule199._nodeModulePaths(path.dirname(rendererFixturePath199));
@@ -655,11 +701,15 @@ async function frontendOwner197() {
     rendererExecution199._compile(rendererPrefix199.replace(dataBinding199,'const data = module.loadedModel199;')+'\nmodule.exports = open;',rendererFixturePath199);
     const rendered199=rendererExecution199.exports({overview205:false});
     check('.199 the actual focused Organization renderer paints the model returned by the real app HTTP loader',!rendered199.one('org-alliance')&&rendered199.one('org-relationship-map205').open&&rendered199.main.all(node=>node.classList.contains('organization-term')).length===103&&rendered199.main.all(node=>!!node.getAttribute('data-office-key')).length===103&&rendered199.main.all(node=>!!node.getAttribute('data-native-rank')).length===10&&rendered199.main.textContent.includes('Technical & Historical Profile Notes'));
-    // Follow the canonical Artisan link through the real app and Worker. The
-    // former Crafter/Core Raider URLs below remain explicit historical intent
-    // compatibility, not additional publicly offered jobs or canonical aliases.
+    // Follow the canonical Artisan link through the real app and Worker. Since the owner ruling of 14 Nov 2026 ("No, three
+    // choices only"; our 111867e) the former Crafter/Core Raider URLs below read "Application track unavailable"; they are
+    // not additional publicly offered jobs or canonical aliases.
     const publicChoices203=rendered199.main.all(node=>!!node.getAttribute('data-office-application'));
-    check('.203 Organization offers only the three canonical ordinary choices from its shared family contract',publicChoices203.length===3&&JSON.stringify(publicChoices203.map(node=>node.getAttribute('href')).sort())===JSON.stringify(['#/vote/artisan/office_07','#/vote/member/new','#/vote/raider/new']));
+    // CL2-036 (our 4c7b542): the register offers each accepted intent in its link row and on the card of each office whose
+    // family it belongs to (Artisan office_07, Raider office_75, Member office_55); the same three addresses on both surfaces.
+    const rowChoices203=publicChoices203.filter(node=>node.parentNode?.classList.contains('btn-row')),cardChoices203=publicChoices203.filter(node=>!!node.parentNode?.getAttribute('data-office-key'));
+    check('.203 Organization offers only the three canonical ordinary choices from its shared family contract',publicChoices203.length===6&&rowChoices203.length===3&&cardChoices203.length===3&&JSON.stringify(rowChoices203.map(node=>node.getAttribute('href')).sort())===JSON.stringify(['#/vote/artisan/office_07','#/vote/member/new','#/vote/raider/new'])
+      &&JSON.stringify(cardChoices203.map(node=>[node.parentNode.getAttribute('data-office-key'),node.getAttribute('href')]).sort())===JSON.stringify([['office_07','#/vote/artisan/office_07'],['office_55','#/vote/member/new'],['office_75','#/vote/raider/new']]));
     const nonleadLinks199 = [['office_07','artisan','member','730000000000001990','Artisan One'],['office_27','artisan','member','730000000000001991','Crafter One'],['office_25','raider','raider','730000000000001992','Raider One']];
     for (const [target,track,canonical,id,name] of nonleadLinks199) {
       const links=rendered199.main.all(node=>node.getAttribute('data-office-application')===target),legacyHref203='#/vote/'+track+'/'+target;
@@ -670,8 +720,13 @@ async function frontendOwner197() {
       const seeded=await request('PUT','/api/application',seed,id);if(seeded.response.status!==200)throw Error('nonleadership original form seed refused');
       const linked=await openPage(id),sent=[];linked.before((url,init)=>{if(url==='/api/application'&&init.method==='PUT')sent.push(JSON.parse(init.body));return false;});
       await linked.go(href);const form=linked.app.querySelector('form');
-      check((target==='office_07'?'.203 actual canonical Organization link':'.203 explicit historical '+target+' URL')+' opens its matching form and exact target badge',!!form&&!!linked.app.querySelector('#application-track-chooser228')&&!linked.app.querySelector('#application-directory201')&&!!linked.app.querySelector('[data-target-office="'+target+'"]')&&linked.app.querySelectorAll('input[name="position"]').find(input=>input.value===canonical)?.checked);
-      if(!form){await linked.go('#/');continue;}
+      // Owner ruling of 14 Nov 2026 (our 111867e): office_27 and office_25 are no longer application targets, so their typed
+      // addresses read "Application track unavailable" (app.js route check on applicationEligible) and open no form. Only the
+      // form-bound checks below are skipped for them; the exact link validation after them still runs for every target.
+      check(target==='office_07'?'.203 actual canonical Organization link opens its matching form and exact target badge':'.203 former '+target+' URL reads Application track unavailable and opens no form or target badge',target==='office_07'?!!form&&!!linked.app.querySelector('#application-track-chooser228')&&!linked.app.querySelector('#application-directory201')&&!!linked.app.querySelector('[data-target-office="'+target+'"]')&&linked.app.querySelectorAll('input[name="position"]').find(input=>input.value===canonical)?.checked
+        :!form&&!linked.app.querySelector('[data-target-office]')&&!linked.app.querySelector('button[type="submit"]')&&linked.app.textContent.includes('Application track unavailable'));
+      if(!form&&target==='office_07'){await linked.go('#/');continue;}
+      if(form){
       check('.199 '+target+' link grants no public-intent or portrait consent',!linked.app.querySelector('#board-application-intent199').checked&&!linked.app.querySelector('#board-portrait-opt-in').checked&&!linked.app.querySelector('#board-talent-builds-opt-in').checked);
       form.querySelector('[data-field="ack"] input').checked=true;fire(form,'submit');
       const saved=()=>{const row=one('SELECT answers FROM site_applications WHERE discord_id=?',id);return row&&JSON.parse(row.answers);};
@@ -687,6 +742,7 @@ async function frontendOwner197() {
         const artisanChoice203=linked.app.querySelector('[data-family-apply203="artisan"]');
         await linked.go(artisanChoice203.getAttribute('href'));await must(()=>!!linked.app.querySelector('form')&&!!linked.app.querySelector('[data-target-office="office_07"]'),'.203 explicit canonical Artisan local choice');
         check('.203 only an explicit new Artisan choice changes local intent while the stored Crafter record and consents stay untouched',linked.location.hash==='#/vote/artisan/office_07'&&saved().targetOffice==='office_27'&&sent.length===1&&JSON.stringify(one('SELECT * FROM site_applications WHERE discord_id=?',id))===priorCrafter203&&!linked.app.querySelector('#board-application-intent199').checked&&!linked.app.querySelector('#board-portrait-opt-in').checked&&!linked.app.querySelector('#board-talent-builds-opt-in').checked);
+      }
       }
       for(const route of ['#/vote/member/'+target,'#/vote/'+track+'/office_999','#/vote/'+track+'/office_43','#/vote/officer/new']) {
         await linked.go(route);check('.199 exact non-leadership link validation refuses '+route+' without a stale form',!linked.app.querySelector('form')&&!linked.app.querySelector('[data-target-office]')&&(linked.app.textContent.includes('Application track unavailable')||linked.app.textContent.includes('Reserved seat — no applications')));
@@ -732,6 +788,8 @@ async function frontendOwner197() {
     const parallelModules214='const [{ renderOrganization }, { renderAllianceOverview205 }] = await Promise.all([\n      '+moduleExpression199+',\n      '+overviewModuleExpression205+'\n    ]);';
     if(orgOriginal199.split(parallelModules214).length!==2||orgOriginal199.split(moduleExpression199).length!==2||orgOriginal199.split(overviewModuleExpression205).length!==2)throw Error('owner199_organization_module_boundary');
     const rolePolicySource199=['  const reservedNotice201 = ','  const standingIntro218 = '].map(prefix=>{const lines=APP_JS.split(/\r?\n/).filter(line=>line.startsWith(prefix));if(lines.length!==1)throw Error('owner199_actual_role_policy_boundary');return lines[0];}).join('\n');
+    // Our 4c7b542 (CL2-034, CL2-036): the Organization route reads each family's eligibility through familyEligibility1112.
+    const catalogueSource1112=cut199('  // Evergreen 12 Nov 2026 (CL2-034, CL2-036): the directory serves','  function applicationBadges199(intent) {')+cut199('  const governanceTitleRoutes228 = ','  function rosettaPanel199(');
     const orgSource199=orgOriginal199.replace(moduleExpression199,'loadOrganization199()').replace(overviewModuleExpression205,'loadAllianceOverview205()');
     const deferred199=()=>{let resolve;const promise=new Promise(done=>{resolve=done;});return{promise,resolve};};
     const realOverview199=await request('GET','/api/admin/overview',undefined,STAFF);
@@ -752,7 +810,7 @@ async function frontendOwner197() {
         governanceModel:()=>model.promise.then(()=>actualModel199),loadOrganization199:async()=>{seen.module++;return{renderOrganization:(main,data,ui)=>{seen.organization++;seen.overviewBinding=ui.allianceOverview205===renderAllianceOverview205;seen.guideBinding=ui.roleDirectory203===roleDirectory205&&ui.roleGuides201===roleGuides205;seen.policyBinding=ui.reservedNotice201==="Leader, High Council and Officer Corps seats are reserved appointments. You cannot apply for them, including when no holder is listed."&&ui.standingIntro218==="These labels record a member’s current guild standing; they are not open positions. Ask the responsible officer to review a change in status.";while(main.firstChild)main.removeChild(main.firstChild);const label=new Element('h1');label.textContent='Organization loaded '+data.terms.length+' offices';main.appendChild(label);return()=>{};}};},
         loadAllianceOverview205:async()=>{seen.overviewModule++;return{renderAllianceOverview205};},
         offices199:()=>[],office199:()=>null,reservedKey201:()=>false,guideBody201:()=>null,positionOf:()=>null,displayHolder:()=>'',writsPanel199:()=>null,officeAssignmentPanel:()=>null,scrollToSection:()=>{}};
-      const handlers=new Function(...Object.keys(deps),revisionSource199+domSource199+apiSource199+displaySortSource199+'\n'+professionGroupsSource199+overviewSource199+'\n'+rolePolicySource199+'\nlet disposeOrganization=null;\n'+orgSource199+'\nreturn {overview:adminOverview,organization:ROUTES.organization,revision199:()=>decisionActorRevision};')(...Object.values(deps));
+      const handlers=new Function(...Object.keys(deps),revisionSource199+domSource199+apiSource199+displaySortSource199+'\n'+professionGroupsSource199+overviewSource199+'\n'+rolePolicySource199+'\n'+catalogueSource1112+'\nlet disposeOrganization=null;\n'+orgSource199+'\nreturn {overview:adminOverview,organization:ROUTES.organization,revision199:()=>decisionActorRevision};')(...Object.values(deps));
       return{...w,state,initialSettings,oldMain,body,seen,response,model,handlers,dirty:deps.dirtyKeys,route:value=>{route=value;}};
     }
     const race199=lifecycle199(),oldRead199=race199.handlers.overview(race199.body);
@@ -893,4 +951,12 @@ const exposedPrefix201=rememberedPrefix201.replace(runLine201, 'vm.runInNewConte
 const holdSeam210='{ const ms2 = sandbox.__hold ? sandbox.__hold(pathname, init) : 0; if (ms2) await new Promise((res) => setTimeout(res, ms2)); }';
 if(exposedPrefix201.split(holdSeam210).length!==2)throw Error('privacy210_original_post_worker_hold_boundary');
 const deferredPrefix210=exposedPrefix201.replace(holdSeam210,'{ const hold210 = sandbox.__hold ? sandbox.__hold(pathname, init) : 0; if (hold210 && typeof hold210.then === "function") await hold210; else if (hold210) await new Promise(res => setTimeout(res, hold210)); }');
-execution197._compile(deferredPrefix210 + '\n(' + frontendOwner197.toString() + ')().catch(error => { console.error(error.stack); process.exit(1); });', __filename);
+// RC-272 (our 925a505, 12 Nov 2026): the Community section row schedules its sideways scroll with
+// requestAnimationFrame, which every browser has. The page window gets it as one later frame, the same two
+// lines frontend_check.cjs receives on the mig-a branch; once that copy carries them, they are taken from it.
+let framedPrefix197=deferredPrefix210;
+if(!framedPrefix197.includes('sandbox.requestAnimationFrame')){const window197='  sandbox.globalThis = sandbox; sandbox.self = sandbox;\n';if(framedPrefix197.split(window197).length!==2)throw Error('owner197_original_window_line');framedPrefix197=framedPrefix197.replace(window197,window197+'  sandbox.requestAnimationFrame = (callback) => setTimeout(() => callback(Date.now()), 0);\n  sandbox.cancelAnimationFrame = (handle) => clearTimeout(handle);\n');}
+// Our 4c7b542 (CL2-042/CL2-043): the Organization route appends its stylesheet with ParentNode.append; the fixture's
+// Node gets the same one line as frontend_check.cjs on the mig-a branch (strings become text nodes, as in a browser).
+if(!framedPrefix197.includes('ParentNode.append')){const node197='  appendChild(c) { if (c.parentNode) c.parentNode.removeChild(c); c.parentNode = this; this.childNodes.push(c); return c; }\n';if(framedPrefix197.split(node197).length!==2)throw Error('owner197_original_node_append_line');framedPrefix197=framedPrefix197.replace(node197,node197+'  append(...nodes) { for (const c of nodes) this.appendChild(typeof c === "string" ? new Text(c) : c); } // ParentNode.append, as a browser has it\n');}
+execution197._compile(framedPrefix197 + '\n(' + frontendOwner197.toString() + ')().catch(error => { console.error(error.stack); process.exit(1); });', __filename);

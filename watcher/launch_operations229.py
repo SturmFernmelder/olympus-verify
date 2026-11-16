@@ -9,7 +9,7 @@ import re
 import time
 import urllib.parse
 from typing import Any, Callable
-from native_rank_schemes import NATIVE_PROFILE, SCHEME_DIGEST as RANK_DIGEST, NAMES as RANK_NAMES
+from native_rank_schemes import NATIVE_PROFILE, SCHEME_DIGEST as RANK_DIGEST, NAMES as RANK_NAMES, rank_scheme
 
 PATH = "/queue/launch-operations?keyVersion=officer-operations-v234"
 PROTOCOL = "officer-operations-v234"
@@ -61,17 +61,18 @@ def _person(row: Any) -> bool:
 
 def _directive_intent(row: dict[str, Any], page: dict[str, Any], at: int, stale: bool = False) -> bool:
     p = row.get('intent')
+    scheme = rank_scheme(page.get('rankProfile'), page.get('rankSchemeDigest'))
     keys = {'version','id','actorGuid','targetGuid','name','subjectDigest','rankProfile','rankSchemeDigest','originSnapshotId','originSnapshotAt','originContext','startSlot','finalSlot','reason','issuedAt','expiresAt','acknowledgedSteps','lastSnapshotId','lastObservedAt'}
-    return (isinstance(p, dict) and set(p) == keys and type(p['version']) is int and p['version'] == 1
+    return (scheme is not None and isinstance(p, dict) and set(p) == keys and type(p['version']) is int and p['version'] == 1
             and _text(p['id'], 160) and 8 <= len(p['id']) <= 160
             and isinstance(p['actorGuid'], str) and _GUID.fullmatch(p['actorGuid']) is not None and p['actorGuid'] != row['guid']
             and p['targetGuid'] == row['guid'] and p['name'] == row['name']
             and isinstance(p['subjectDigest'], str) and re.fullmatch('[a-f0-9]{64}', p['subjectDigest']) is not None
-            and p['rankProfile'] == NATIVE_PROFILE and p['rankSchemeDigest'] == RANK_DIGEST
+            and p['rankProfile'] == scheme['profile'] and p['rankSchemeDigest'] == scheme['digest']
             and _integer(p['originSnapshotId'], 1) and _integer(p['originSnapshotAt'], 1, at+5)
             and isinstance(p['originContext'], str) and re.fullmatch('[a-f0-9]{32}', p['originContext']) is not None
-            and _integer(p['startSlot'], 6, 9) and p['finalSlot'] == row['targetSlot'] and p['reason'] == row['reason']
-            and (p['finalSlot'] == 5 and p['reason'] == 'knight-veteran' or p['finalSlot'] == 7 and p['startSlot'] == 9 and p['reason'] == 'verified-initiate')
+            and _integer(p['startSlot'], scheme['veteran']+1, scheme['initiate']) and p['finalSlot'] == row['targetSlot'] and p['reason'] == row['reason']
+            and (p['finalSlot'] == scheme['veteran'] and p['reason'] == 'knight-veteran' or p['finalSlot'] == scheme['member'] and p['startSlot'] == scheme['initiate'] and p['reason'] == 'verified-initiate')
             and _integer(p['acknowledgedSteps'], 0, p['startSlot']-p['finalSlot']-1)
             and row['currentSlot'] == p['startSlot']-p['acknowledgedSteps']
             and _integer(p['issuedAt'], p['originSnapshotAt'], at+5) and _integer(p['expiresAt'], p['issuedAt']+1, p['issuedAt']+600)
@@ -116,8 +117,9 @@ def _validate_page(report: Any, at: int, allow_stale: bool, report_ttl: int, dis
     if not isinstance(report, dict) or set(report) != _KEYS or report["protocol"] != expected or not isinstance(report["status"], str) or report["status"] not in {"ready", "partial", "held"}:
         return False
     rank_metadata=(report['rankProfile'],report['rankSchemeDigest'],report['rankNames'])
+    scheme = rank_scheme(report['rankProfile'], report['rankSchemeDigest'])
     rankless = rank_metadata == (None,None,None)
-    if rank_metadata != (NATIVE_PROFILE,RANK_DIGEST,list(RANK_NAMES)) and not (rankless and (report['status']=='held' or discovery235 and report['status']=='partial')):
+    if not (scheme and report['rankNames'] == list(scheme['names'])) and not (rankless and (report['status']=='held' or discovery235 and report['status']=='partial')):
         return False
     if rankless and report['status']=='partial' and (report['promotions'] != [] or report['riskBuffer'] != []
             or not isinstance(report['heldReasons'],list) or not any(reason in report['heldReasons'] for reason in ('directive-rank-policy-held','native-rank-scheme-unconfirmed'))):
@@ -179,10 +181,10 @@ def _validate_page(report: Any, at: int, allow_stale: bool, report_ttl: int, dis
         guids.add(row["guid"]); queue_ids.add(row["queueId"]); proof_ids.add(row["proofId"])
     for row in report["promotions"]:
         if (not _person(row) or set(row) not in ({"guid", "name", "currentSlot", "targetSlot", "targetName", "reason"}, {"guid", "name", "currentSlot", "targetSlot", "targetName", "reason", "intent", "intentToken"})
-                or not _integer(row["currentSlot"], 6, 9) or row["targetSlot"] not in (5, 7) or type(row["targetSlot"]) is not int
+                or not scheme or not _integer(row["currentSlot"], scheme['veteran']+1, scheme['initiate']) or row["targetSlot"] not in (scheme['veteran'], scheme['member']) or type(row["targetSlot"]) is not int
                 or row["targetSlot"] >= row["currentSlot"]
-                or (row["targetSlot"], row["targetName"], row["reason"]) not in ((5, "Veteran", "knight-veteran"), (7, "Member", "verified-initiate"))
-                or row["targetSlot"] == 7 and row["currentSlot"] != 9 and 'intent' not in row
+                or (row["targetSlot"], row["targetName"], row["reason"]) not in ((scheme['veteran'], "Veteran", "knight-veteran"), (scheme['member'], "Member", "verified-initiate"))
+                or row["targetSlot"] == scheme['member'] and row["currentSlot"] != scheme['initiate'] and 'intent' not in row
                 or 'intent' in row and not _directive_intent(row, report, at, allow_stale)
                 or row["guid"] in guids):
             return False

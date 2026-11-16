@@ -23,10 +23,11 @@ async function evergreen221(){
  const nativeRanks118=page.app.querySelectorAll('.role-ranks203 [data-native-slot]');
  const leader118=page.app.querySelector('[data-role-family203="leader"] summary .rank-office199');
  const rosettaLeader118=page.app.querySelector('[data-rank-crosswalk="1"] td a');
+ // CL2-197, CL2-310 (our 4c7b542): the ladder carries its slot, the badge reads "Rank 1 Leader (Guild Master) · Slot 0", one slot sentence.
  check('CC-118 Roles and Rosetta present Leader (Guild Master) while the canonical rank name and slot remain stable',
-  nativeRanks118.length===10&&nativeRanks118[0].textContent.endsWith('Leader (Guild Master)')
-  &&nativeRanks118[1].textContent.endsWith('High Council')&&leader118?.textContent.includes('Rank 1 Leader (Guild Master) (Slot 0)')
-  &&rosettaLeader118?.textContent==='Rank 1 Leader (Guild Master)'&&page.app.textContent.includes('The in-game name for slot 0 is Guild Master.')
+  nativeRanks118.length===10&&nativeRanks118[0].textContent.endsWith('Leader (Guild Master)Slot 0')
+  &&nativeRanks118[1].textContent.endsWith('High CouncilSlot 1')&&leader118?.textContent.includes('Rank 1 Leader (Guild Master) · Slot 0')
+  &&rosettaLeader118?.textContent==='Rank 1 Leader (Guild Master)'&&page.app.textContent.includes('Slots are the game\'s zero-based rank positions; the in-game name for slot 0 is Guild Master.')
   &&page.boot.meta.roleDirectory203.ranks[0].label==='Leader'&&page.boot.meta.roleDirectory203.ranks[0].nativeSlot===0);
  const council=page.app.querySelector('[data-rank-crosswalk="2"]');
  const cells=council.querySelectorAll('td');
@@ -41,14 +42,17 @@ async function evergreen221(){
   card.querySelectorAll('.role-primary203 .role-reference-links228 a').some(a=>a.getAttribute('href').startsWith('#/governance/title-'))));
  const councilCards=page.app.querySelector('[data-role-section201="council"]').querySelectorAll('[data-role-family203]');
  check('the chair and Co-Guild Master precede twelve canonically ordered portfolios',JSON.stringify(councilCards.slice(0,14).map(card=>card.getAttribute('data-role-family203')))===JSON.stringify(['leader',...page.boot.meta.roleDirectory203.councilOrder])&&councilCards[13].getAttribute('data-role-family203')==='systems_heraldry'&&!councilCards[13].querySelector('[data-family-apply203]'));
- check('ordinary readers see ten crosswalk role links without a staff planner link',page.app.querySelectorAll('[data-rank-crosswalk]').every(row=>row.querySelectorAll('a').some(a=>a.getAttribute('href').startsWith('#/roles/'))&&!row.querySelectorAll('a').some(a=>a.getAttribute('href').startsWith('/admin/ranks'))));
+ // CL2-196 (our 4c7b542): the staff planner link is now #/admin/ranks/<rank>; both address forms stay absent for readers.
+ check('ordinary readers see ten crosswalk role links without a staff planner link',page.app.querySelectorAll('[data-rank-crosswalk]').length===10&&page.app.querySelectorAll('[data-rank-crosswalk]').every(row=>row.querySelectorAll('a').some(a=>a.getAttribute('href').startsWith('#/roles/'))&&!row.querySelectorAll('a').some(a=>/^#?\/admin\/ranks/.test(a.getAttribute('href')))));
  await page.go('#/governance/title-v-the-guild-workshop-artisans-charter-and-the-heralds-accord/article-v-4');
  await waitFor(()=>!!page.app.querySelector('#governance-title-v-the-guild-workshop-artisans-charter-and-the-heralds-accord-article-v-4'),'Article V.4 deep link');
- check('all fifty statutory and Title articles have unique anchors and a deep link opens its chapter',page.app.querySelectorAll('h3[id]').filter(h=>h.getAttribute('id').startsWith('governance-')).length===50&&page.app.querySelector('[data-chapter="title-v-the-guild-workshop-artisans-charter-and-the-heralds-accord"]').open);
+ // CL2-063 (our 4c7b542): section headings now carry ids too, so only the chapter's article ids are counted.
+ check('all fifty statutory and Title articles have unique anchors and a deep link opens its chapter',(ids=>ids.length===50&&new Set(ids).size===50)(page.app.querySelectorAll('h3[id]').filter(h=>{const chapter=h.closest('[data-chapter]');return !!chapter&&h.getAttribute('id').startsWith('governance-'+chapter.getAttribute('data-chapter')+'-article-');}).map(h=>h.getAttribute('id')))&&page.app.querySelector('[data-chapter="title-v-the-guild-workshop-artisans-charter-and-the-heralds-accord"]').open);
  await siteUser(STAFF,{global_name:'Evergreen administrator'});
  const staff=await openPage(STAFF);
  await staff.go('#/roles/rosetta-stone');
- check('the staff crosswalk points directly to every matching native planner slot',staff.app.querySelectorAll('[data-rank-crosswalk]').every((row,index)=>row.querySelector('a[href="/admin/ranks#current-rank-'+(index+1)+'"]')));
+ // CL2-196 (our 4c7b542): planner links are #/admin/ranks/<rank>, which lands on that rank in the embedded planner.
+ check('the staff crosswalk points directly to every matching native planner slot',staff.app.querySelectorAll('[data-rank-crosswalk]').length===10&&staff.app.querySelectorAll('[data-rank-crosswalk]').every((row,index)=>row.querySelector('a[href="#/admin/ranks/'+(index+1)+'"]')));
  await staff.go('#/admin/settings');
  check('both admin layouts share the five section labels in order',JSON.stringify(staff.app.querySelectorAll('#admin-section-select optgroup').map(node=>node.getAttribute('label')))===JSON.stringify(['Applications & Roster','Governance, Ranks & Appointments','Imperial Treasury & Stockades','News, Calendar & Operations','System Settings & Compliance'])&&staff.app.querySelectorAll('.admin-section-group228').length===5);
  const before=await openPage(MEMBER,{}, {clockNow:Date.parse('2026-11-02T12:00:00Z')});await before.go('#/apply');

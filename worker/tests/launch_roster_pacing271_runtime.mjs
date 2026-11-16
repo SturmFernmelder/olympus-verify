@@ -102,7 +102,12 @@ async function reviewRecords275(action, input) {
   }
   if(action==='read'){
     env.DISCORD_BOT_TOKEN='synthetic-roster-pacing-'+(input.mode??'review-records');
-    const observe=async()=>JSON.stringify({proofs:(await db.prepare(proofSQL).all()).results,effects:await db.prepare(effectSQL).first(),settlements:(await db.prepare('SELECT * FROM role_settlements ORDER BY id').all()).results});
+    // Diagnostics are outside the reader under test. Keep all three original
+    // statements/results, in order, but observe them in one physical batch.
+    const observe=async()=>{
+      const snapshot=await db.batch([db.prepare(proofSQL),db.prepare(effectSQL),db.prepare('SELECT * FROM role_settlements ORDER BY id')]);
+      return JSON.stringify({proofs:snapshot[0].results,effects:snapshot[1].results[0]??null,settlements:snapshot[2].results});
+    };
     const original=await observe(),display=await strictRosterDisplay(env,captureLaunchVerification(env),'launch-roster-display-v2');
     const selection=input.selection?await readPromotionSelection273(env,input.selection,input.cursor??null):null;
     const page=selection?selection.page:await readLaunchOperations229(env,input.cursor??null);
@@ -171,7 +176,9 @@ async function seed(db, record = check) {
   const linked = await db.prepare('SELECT COUNT(*) n,COUNT(DISTINCT guid) guids FROM characters').first();
   record('genuine D1 holds exactly 1000 distinct native GUIDs and original fresh links',
     native.n === 1000 && native.guids === 1000 && linked.n === 1000 && linked.guids === 1000);
-  return {env, db, at, rows, originalProofs, originalEffects};
+  const nativeRestore=new Map((await db.prepare('SELECT name_key,name,guid,rank,rank_index,level,last_online FROM roster_members WHERE snapshot_id=1 ORDER BY name_key').all()).results.map(row=>[row.name_key,Object.freeze({...row})]));
+  const characterRestore=new Map(JSON.parse(originalProofs).map(row=>[row.name_key,Object.freeze({...row})]));
+  return {env, db, at, rows, originalProofs, originalEffects,nativeRestore,characterRestore};
 }
 
 // Evergreen 12 Nov 2026 (CL2-024): per-request physical D1 statement ceilings and query plans on a separate 1,000-member
@@ -442,18 +449,25 @@ export default {async fetch(request, bindings, ctx) {
       else if(kind==='rank-complete')await env.DB.prepare("UPDATE roster_members SET rank='Member',rank_index=7 WHERE snapshot_id=1 AND name_key=?1").bind(target.key).run();
       else if(kind==='mixed')await env.DB.prepare('DELETE FROM characters WHERE name_key=?1').bind(fixture.rows[381].key).run();
       else if(kind==='drift')await env.DB.prepare('UPDATE roster_members SET level=59 WHERE snapshot_id=1 AND name_key=?1').bind(fixture.rows[901].key).run();
-      else if(kind==='restore')await env.DB.batch([
+      else if(kind==='restore'){
+        const movedNative=fixture.nativeRestore.get(moved.key),movedCharacter=fixture.characterRestore.get(moved.key),restoredCharacter=fixture.characterRestore.get(fixture.rows[381].key),initial=fixture.nativeRestore.values().next().value;
+        if(!initial||[...fixture.nativeRestore.values()].some(row=>row.level!==initial.level||row.last_online!==initial.last_online))throw Error('selection restore requires its original uniform level/last-online fixture');
+        await env.DB.batch([
         ...Array.from({length:20},(_,index)=>{
-          const row=fixture.rows[index],guid='Player-6933-'+(index+1).toString(16).padStart(8,'0');row.guid=guid;
-          return [env.DB.prepare('UPDATE roster_members SET guid=?1 WHERE snapshot_id=1 AND name_key=?2').bind(guid,row.key),env.DB.prepare('UPDATE characters SET guid=?1 WHERE name_key=?2').bind(guid,row.key)];
+          const row=fixture.rows[index],native=fixture.nativeRestore.get(row.key),character=fixture.characterRestore.get(row.key);row.guid=native.guid;
+          return [env.DB.prepare('UPDATE roster_members SET guid=?1 WHERE snapshot_id=1 AND name_key=?2 AND guid IS NOT ?1').bind(native.guid,row.key),env.DB.prepare('UPDATE characters SET guid=?1 WHERE name_key=?2 AND guid IS NOT ?1').bind(character.guid,row.key)];
         }).flat(),
-        env.DB.prepare('UPDATE roster_members SET name_key=?1,name=?2 WHERE snapshot_id=1 AND guid=?3').bind(moved.key,moved.name,moved.guid),
-        env.DB.prepare("UPDATE characters SET name_key=?1,name=?2 WHERE name_key='aa reordered'").bind(moved.key,moved.name),
-        ...[398,399].map(index=>env.DB.prepare('UPDATE roster_members SET guid=?1,rank=\'Initiate\',rank_index=9 WHERE snapshot_id=1 AND name_key=?2').bind(fixture.rows[index].guid,fixture.rows[index].key)),
-        env.DB.prepare('UPDATE roster_members SET level=60,last_online=NULL WHERE snapshot_id=1'),
-        env.DB.prepare('UPDATE roster_snapshots SET exported_at=?1,trusted=1 WHERE id=1').bind(fixture.at-120),
-        env.DB.prepare("INSERT OR IGNORE INTO characters(name_key,name,discord_id,status,bound_at,verified_at,source,guid) VALUES(?1,?2,?3,'member',?4,?4,'whisper',?5)").bind(fixture.rows[381].key,fixture.rows[381].name,fixture.rows[381].subject,fixture.at-60,fixture.rows[381].guid),
-      ]);
+        env.DB.prepare('UPDATE roster_members SET name_key=?1,name=?2 WHERE snapshot_id=1 AND guid=?3 AND (name_key IS NOT ?1 OR name IS NOT ?2)').bind(movedNative.name_key,movedNative.name,movedNative.guid),
+        env.DB.prepare("UPDATE characters SET name_key=?1,name=?2 WHERE name_key='aa reordered' AND (name_key IS NOT ?1 OR name IS NOT ?2)").bind(movedCharacter.name_key,movedCharacter.name),
+        ...[398,399].map(index=>{
+          const row=fixture.nativeRestore.get(fixture.rows[index].key);
+          return env.DB.prepare('UPDATE roster_members SET guid=?1,rank=?3,rank_index=?4 WHERE snapshot_id=1 AND name_key=?2 AND (guid IS NOT ?1 OR rank IS NOT ?3 OR rank_index IS NOT ?4)').bind(row.guid,row.name_key,row.rank,row.rank_index);
+        }),
+        env.DB.prepare('UPDATE roster_members SET level=?1,last_online=?2 WHERE snapshot_id=1 AND (level IS NOT ?1 OR last_online IS NOT ?2)').bind(initial.level,initial.last_online),
+        env.DB.prepare('UPDATE roster_snapshots SET exported_at=?1,trusted=1 WHERE id=1 AND (exported_at IS NOT ?1 OR trusted IS NOT 1)').bind(fixture.at-120),
+        env.DB.prepare('INSERT OR IGNORE INTO characters(name_key,name,discord_id,status,bound_at,verified_at,source,guid) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)').bind(restoredCharacter.name_key,restoredCharacter.name,restoredCharacter.discord_id,restoredCharacter.status,restoredCharacter.bound_at,restoredCharacter.verified_at,restoredCharacter.source,restoredCharacter.guid),
+        ]);
+      }
       else return new Response(null,{status:400});
       return Response.json({complete:true});
     }

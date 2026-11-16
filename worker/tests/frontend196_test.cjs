@@ -36,7 +36,9 @@ const body196=String.raw`
   check('archive retains the later announced shutdown plan without claiming observed closure',!!archive && archive.textContent.includes('23 October 2026') && archive.textContent.includes('10:00 AM PDT (17:00 UTC)') && archive.textContent.includes("Blizzard's announced plan") && archive.textContent.includes('not a server closure observed') && archive.textContent.includes('no former-member roster') && !archive.textContent.includes('Mia One'));
   // Evergreen Stage 2 (4 Nov 2026): Blizzard's reservation closed on 3 November, so Home records it once in the past
   // tense; the guild form's own input limits are stated plainly beside the boxes, without the earlier hedge.
-  check('name reservation copy records the closed window once and states the local input limits plainly',member.app.textContent.includes("Blizzard's early name reservation ran from 27 October to 3 November 2026.") && member.app.textContent.includes('each a first and last name of 2–12 letters') && !member.app.textContent.includes('local limits are not a claim') && !member.app.textContent.includes('Skyborne Heroic Pack'));
+  // CL2-175 (our 5e05d58, owner ruling of 13 Nov 2026 "Close it"): name entry closed with the reservation, so the
+  // panel says so once and has no entry boxes (and so no input limits beside them).
+  check('name reservation copy records the closed window once and says entry closed, with no entry boxes',member.app.textContent.includes("Blizzard's early name reservation ran from 27 October to 3 November 2026. Name entry on this site closed when it ended.") && member.app.textContent.split("Blizzard's early name reservation ran").length===2 && !!member.app.querySelector('#names') && !member.app.querySelector('#names input') && !member.app.textContent.includes('each a first and last name of 2–12 letters') && !member.app.textContent.includes('local limits are not a claim') && !member.app.textContent.includes('Skyborne Heroic Pack'));
   check('unappointed member has no Stream Shield affordance',!member.app.querySelector(".stream-shield-toggle"));
   const shield=staff.app.querySelector(".stream-shield-toggle"), commands=[];
   staff.before((pathname,init)=>{if((init.method||'GET')!=='GET')commands.push(pathname);return false;});
@@ -80,17 +82,22 @@ const body196=String.raw`
   fire(workshop198.app.querySelector('form'),'submit');
   await waitFor(()=>workshop198.app.textContent.includes('No profession listing matches.'),'Workshop opt-out');
   check('.198 real profile opt-out removes both profession and recipe cards',!workshop198.app.querySelector('.craft')&&!workshop198.app.querySelector('.workshop-commission'));
-  await staff.go('#/admin/settings');
+  // CL2-014 (our a6f591d): appointed holders have their own page, #/admin/appointments; Settings keeps the
+  // leadership lists and links there. The pickers and their consent copy are read on that page.
+  await staff.go('#/admin/appointments');
   await waitFor(()=>!!staff.app.querySelector('[data-appointment-status="office_95"]'),'all offices rendered');
   check('all139 stable office and rank keys have a real Discord picker',staff.boot.meta.appointments.length===139 && staff.app.querySelectorAll('.appointed-row').length===139 && staff.app.querySelectorAll('.appointed-row [role="combobox"]').length===139);
   check('expanded picker consent does not confer native, bank or signer authority',staff.app.textContent.includes('do not change Discord roles, native ranks, bank access or signing authority'));
+  await staff.go('#/admin/settings');
+  await waitFor(()=>!!staff.app.querySelector('#public-ruleset'),'settings rendered');
   check('annual member intent renewal is visible with exact application and date',staff.app.textContent.includes('1550176895671341076') && staff.app.textContent.includes('2027-10-23'));
   check('dormant Battle.net collection exposes no future enable checkbox',!staff.app.querySelector('#bnet-switch'));
   await member.go('#/apply');
   check('application form offers a private bounded talent attachment',!!member.app.querySelector('[data-field="talentBuild"] input[maxlength="512"]'));
   const api196=load('./site-api'), talent196=JSON.parse(fs.readFileSync(path.join(root,'public/static/talents/data.json')));
   const warrior196=talent196.classes.find(c=>c.id==='warrior');
-  const code196='ot1.260cf99b52db.warrior.60.'+'0'.repeat(warrior196.trees.flatMap(t=>t.talents).length);
+  // CL2-087 (our 2848069): the calculator moved to the 10 November export; a new attachment is made on its revision.
+  const code196='ot1.'+talent196.revision+'.warrior.60.'+'0'.repeat(warrior196.trees.flatMap(t=>t.talents).length);
   const application196={position:'member',backups:[],class:'warrior',role:'dps',region:'eu',character:'',avail:'f'.repeat(42),availTz:'Europe/Stockholm',ack:true,board:false,answers:{experience:'A deliberately fictional application.',why:'Joining this fictional test guild.',voice:'listen',talentBuild:'https://guild.example/#/talents/warrior/'+code196}};
   const valid196=api196.validateApplication(application196,MEMBER,{},[],'guild.example');
   check('real application validator stores the code without the URL',!valid196.error && JSON.parse(valid196.answers).talentBuild===code196 && !valid196.answers.includes('https://'));
@@ -713,4 +720,14 @@ const body196=String.raw`
 })().catch(error=>{console.error(error);process.exit(1);});
 `;
 const execution196=new Module(__filename,module); execution196.filename=__filename; execution196.paths=Module._nodeModulePaths(__dirname);
-execution196._compile(fixture196.slice(0,starts196[0].index)+'\n'+body196,__filename);
+// RC-272 (our 925a505, 12 Nov 2026): the Community section row schedules its sideways scroll with
+// requestAnimationFrame, which every browser has. The shared fixture's minimal window gets it as one
+// later frame, the same two lines frontend_check.cjs receives on the mig-a branch; once that copy
+// carries them, they are taken from it unchanged.
+let prefix196=fixture196.slice(0,starts196[0].index);
+if(!prefix196.includes('sandbox.requestAnimationFrame')){
+  const window196='  sandbox.globalThis = sandbox; sandbox.self = sandbox;\n';
+  if(prefix196.split(window196).length!==2)throw Error('One actual frontend sandbox window line required');
+  prefix196=prefix196.replace(window196,window196+'  sandbox.requestAnimationFrame = (callback) => setTimeout(() => callback(Date.now()), 0);\n  sandbox.cancelAnimationFrame = (handle) => clearTimeout(handle);\n');
+}
+execution196._compile(prefix196+'\n'+body196,__filename);

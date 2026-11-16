@@ -606,8 +606,8 @@
     const meta = { className, classLabel: cls.name, race: raceId, raceLabel: model.naked.races[raceId].name, combo, toggles, specs, rows, sheets, ranks, emptyRanks };
     if (options.totalsOnly) return meta;
     const contributions = talents.items.map(item => {
-      const comp = item.comp, base = { id: comp.id, talentId: comp.talentId, name: comp.name, tree: item.entry.tree, rank: item.rank, maxRank: comp.maxRank, tier: comp.tier, grade: comp.grade, group: item.group };
-      if (item.group === "withheld") return { ...base, modifier: "Rank text changed since review; number withheld.", conditions: [], effects: [] };
+      const comp = item.comp, base = { id: comp.id, talentId: comp.talentId, name: comp.name, tree: item.entry.tree, rank: item.rank, maxRank: model.talents.get(comp.talentId).talent.maxRank, tier: comp.tier, grade: comp.grade, group: item.group };
+      if (item.group === "withheld") return { ...base, tier: null, grade: "U", modifier: "Rank text changed since review; number withheld.", conditions: [], effects: [] };
       const extra = { direction: comp.direction, statBasis: comp.statBasis, sourceStat: comp.sourceStat, procEffect: comp.procEffect };
       const effects = item.group === "applied" || item.group === "conditional" || (item.group === "gear" && item.verdict.toggleable) ? isolatedEffect(model, ctx, baseEffects, comp, item.effect, specs) : [];
       const notes = [comp.scopeAmbiguous ? "Scope unverified: Classic limited this effect; the Forever text does not." : null, item.verdict.note || null, comp.appliesNaked ? null : "Needs equipped gear; adds 0 when naked.",
@@ -763,9 +763,9 @@
     for (const entry of model.components) {
       const comp = entry.comp, at = model.talents.get(comp.talentId);
       if (comp.cls !== className || !at || at.cls !== className) continue;
-      const base = { id: comp.id, talentId: comp.talentId, name: comp.name, ...place(comp.talentId), maxRank: comp.maxRank, tier: comp.tier, grade: comp.grade, target: comp.target,
+      const base = { id: comp.id, talentId: comp.talentId, name: comp.name, ...place(comp.talentId), maxRank: at.talent.maxRank, tier: comp.tier, grade: comp.grade, target: comp.target,
         stat: capital(TARGET_LABEL[comp.target] || String(comp.target).replace(/[._]/g, " ")), perRank: rankSeries(comp), conditions: comp.conditions.map(conditionText) };
-      if (!entry.verified) { rows.push({ ...base, group: "withheld", kind: KIND_LABEL.withheld, atMax: "Rank text changed since review; number withheld.", maxValue: null, effects: [], sortValue: null }); continue; }
+      if (!entry.verified) { rows.push({ ...base, grade: "U", conditions: [], stat: "Withheld", group: "withheld", kind: KIND_LABEL.withheld, perRank: "Rank text changed since review; number withheld.", atMax: "Rank text changed since review; number withheld.", maxValue: null, effects: [], sortValue: null }); continue; }
       const verdict = classify(comp, meta.toggles), effect = effectOf(comp, comp.maxRank), extra = { direction: comp.direction, statBasis: comp.statBasis, sourceStat: comp.sourceStat, procEffect: comp.procEffect };
       const effects = verdict.group === "applied" || verdict.group === "conditional" || (verdict.group === "gear" && verdict.toggleable) ? isolatedEffect(model, ctx, baseEffects, comp, effect, meta.specs) : [];
       const own = effects.find(p => p.row === TARGET_ROW[comp.target] && num(p.value)) || effects.find(p => num(p.value));
@@ -795,7 +795,8 @@
         cells: Object.fromEntries(CLASS_COLUMNS.map(col => [col.id, specs.has(col.id) ? { cell: result.sheets.total[col.id], spec: specs.get(col.id) } : null])) };
     }) };
   }
-  // Sort keys. A disputed value sorts by its lowest candidate; Unavailable, n/a and "not available" have no key.
+  // Sort keys. A disputed value sorts by its lowest candidate; Unavailable, n/a and "not available" have no key, nor has a withheld
+  // row for Stat, Kind and Data grade, so it sorts last there in both directions.
   function classSortValue(row, key) {
     if (key === "class") return row.label;
     const entry = row.available ? row.cells[key] : null, cell = entry && entry.cell;
@@ -803,6 +804,7 @@
     return num(cell.value) ? cell.value : cell.cands ? Math.min(...cell.cands.map(c => c.value)) : null;
   }
   function impactSortValue(row, key) {
+    if ((key === "stat" || key === "kind" || key === "grade") && row.group === "withheld") return null;
     switch (key) {
       case "talent": return row.name;
       case "tree": return row.treeIndex * 1000 + row.index;
@@ -886,7 +888,8 @@
     const gradeLabel = grade => (model && model.naked.grades[grade] && (model.naked.grades[grade].label || model.naked.grades[grade].meaning)) || GRADE_FALLBACK[grade] || grade;
     const isReference = grade => grade === "E" || grade === "D";
     // A talent component's data grade is named by the stat file's own legend (A: a DB2 trait curve equals the rank text), not by the
-    // sheet legend, whose A also covers in-game measurements that have not been made.
+    // sheet legend, whose A also covers in-game measurements that have not been made. A withheld row's grade U is not in the stat
+    // file's legend, so it is named by the sheet legend.
     const componentLabel = grade => model && model.effects.grades && typeof model.effects.grades[grade] === "string" && model.effects.grades[grade] ? model.effects.grades[grade] : null;
     function badge(node, grade, legend) { node.textContent = grade; node.className = "s60-grade s60-grade-" + grade; node.setAttribute("title", "Grade " + grade + ": " + (legend || gradeLabel(grade))); node.hidden = false; }
     function valueCell(label, extra) {
@@ -1008,11 +1011,14 @@
       constructViews(refs, className, guides, specs);
       // (f) About these numbers: provenance and the measurement call to action, text only.
       const sources = model.naked.sources.filter(s => s.title).map(s => el("li", { text: s.title + (s.url ? " — " + s.url : "") + (s.grade ? " (grade " + s.grade + ")" : "") }));
+      const exact = model.components.filter(c => c.verified).map(c => c.comp);
+      // The stat file's own re-check record, when it names the talent snapshot this sheet runs on, says when the files were revised for it.
+      const recheck = model.effects.source.textRecheck, rechecked = !!recheck && recheck.talentRevision === model.data.revision && typeof recheck.checkedAt === "string" && !!recheck.checkedAt;
       root.appendChild(el("details", { class: "s60-about" }, el("summary", { text: "About these numbers" }),
-        el("p", { text: "Exact: the talent values. Each of the " + model.effects.components.length + " talent stat components equals its Talents Forever rank text for client " + (model.effects.source.clientBuildOfTexts || []).join(", ") + "; " + model.effects.counts.byGrade.A + " also equal the client's own talent curves (grade A, DB2 " + model.effects.source.db2Build + ", cross-checked in " + model.effects.source.db2CrossCheckBuild + ") and " + model.effects.counts.byGrade.B + " carry a semantic reading of client data (grade B: values read from spell effects, or an exact curve whose stat is read from its aura). Racial traits come from DB2 SpellEffect " + model.naked.build.client + " (grade B)." }),
+        el("p", { text: "Exact: the talent values. Of the " + model.effects.components.length + " talent stat components, " + exact.length + " equal their Talents Forever rank text for client " + ((model.data.source || {}).clientBuilds || []).join(", ") + " and " + (model.effects.components.length - exact.length) + " are withheld because their rank text changed since review; of the " + exact.length + ", " + exact.filter(c => c.grade === "A").length + " also equal the client's own talent curves (grade A, DB2 " + model.effects.source.db2Build + ", cross-checked in " + model.effects.source.db2CrossCheckBuild + ") and " + exact.filter(c => c.grade === "B").length + " carry a semantic reading of client data (grade B: values read from spell effects, or an exact curve whose stat is read from its aura). Racial traits come from DB2 SpellEffect " + model.naked.build.client + " (grade B)." }),
         el("p", { text: "Not exact: this dataset has no independently verified Forever level-60 base attributes, health or mana. It does not establish that no authoritative publication exists elsewhere. The base column uses CMaNGOS Classic values (grade E), estimates derived from them for six race and class pairs that Classic did not have (grade D), and nothing for Skyborne (Unavailable). Conversion rules come from the Warcraft Tavern WoW Forever stats guide where it states them (grade C), otherwise from Classic emulators (grade E)." }),
         el("p", { text: "Disputed, so both candidates are shown: the Druid melee attack power level term (each candidate with its own Predatory Strikes rule), ranged attack power per Agility for every class except Hunter, and spell crit per Intellect. Careful Aim's ranged attack power is a semantic reading of a second client effect (grade B). Spirit regeneration is a Classic formula and approximate. Stacking and rounding follow the Classic rules as an assumption (grade E when two or more effects combine). Gear is never included: Toughness and weapon or shield effects add 0 unless you switch on a hypothetical assumption." }),
-        el("p", { text: "Data files naked60-186.json and stat-effects186.json were generated " + model.naked.generatedAt + " for talent snapshot " + model.naked.build.talentRevision + "; every DB2 export they use is pinned by SHA-256 inside the files. Older HolyMinMax data from client 1.60.1.70009 is not used." }),
+        el("p", { text: "Data files naked60-186.json and stat-effects186.json were generated " + model.naked.generatedAt + (rechecked ? " and were revised and re-checked against talent snapshot " + recheck.talentRevision + " on " + recheck.checkedAt : " for talent snapshot " + model.naked.build.talentRevision) + "; every DB2 export they use is pinned by SHA-256 inside the files. Older HolyMinMax data from client 1.60.1.70009 is not used." }),
         el("ul", null, sources),
         el("p", { class: "s60-cta", text: "Help replace the Classic references: if you have a level-60 character, remove all gear including weapons, cancel every buff, leave all talent points unspent, stay in caster form and out of combat, then read the character panel. With your consent, share a screenshot cropped to the stat panel only — no character name, realm, guild or chat — with the guild owner. Numbers are entered by hand; nothing is uploaded automatically and no addon is involved." })));
       ui = refs;
@@ -1076,7 +1082,7 @@
         parts.push(el("section", { class: "s60-group s60-group-" + group }, el("h4", { text: title + " (" + items.length + ")" }), el("p", { class: "s60-small", text: hint }),
           el("ul", null, items.map(item => {
             const mark = el("abbr"); badge(mark, item.grade);
-            return el("li", null, el("strong", { text: item.name }), " " + item.rank + "/" + item.maxRank + " · " + item.tree + " · tier " + item.tier + " ", mark,
+            return el("li", null, el("strong", { text: item.name }), " " + item.rank + "/" + item.maxRank + " · " + item.tree + (item.tier ? " · tier " + item.tier : "") + " ", mark,
               el("span", { class: "s60-mod", text: item.modifier + (item.conditions.length ? " — applies only " + listWords(item.conditions, "and") : "") + (item.assumed ? " (included because of your assumption)" : "") }),
               item.effects.length ? el("span", { class: "s60-effects", text: (group === "applied" ? "On the sheet, alone: " : "Would add, alone: ") + item.effects.map(e => e.label + " " + e.text).join(" · ") }) : null,
               item.notes && item.notes.length ? el("span", { class: "s60-small", text: item.notes.join(" ") }) : null,

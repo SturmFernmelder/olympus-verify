@@ -450,7 +450,7 @@ Remove `LINK_ENABLED` or set it to `"false"`: the routes answer 404 again and `/
 player's own "Delete my link" is a 404 too. Remove them by hand in Discord if the rollback is meant to take them away.
 Never delete the `olympus-link` database or unbind `LINK_DB` while it holds rows: from Phase 1b on, erasure and the
 account copy depend on it. A manual forget for one account against `LINK_DB` is the SQL that Daniel's
-`python3 scripts/link-keys.py forget <id>` prints (the same statements as link-core's raw `forgetUser`); the owner runs
+`python3 tools/link-keys.py forget <id>` prints from the Olympus Network repository root (the same statements as link-core's raw `forgetUser`); the owner runs
 it only with Link OFF and requests drained. It bypasses player admission and must not run against fresh in-flight
 claims. That SQL does not release coordination guards. A held guard requires a separately qualified owner recovery
 procedure that proves old role and database work have ended; neither deleting it because it is old nor assuming a
@@ -535,6 +535,14 @@ besides this suite, run upstream's own `web/test` suite at the new commit (it ne
 Agents prepare the exact commands; the owner runs them (`CLAUDE.md`: owner gates and the never-run list). Use
 `npx wrangler` from `worker/`.
 
+Before these examples, inventory the actual provider databases/bindings, existing keys and public-key IDs, roles and
+OAuth redirect. An existing keeper deployment does not prove that the separate `LINK_DB` exists; a missing local
+binding does not prove that no remote Link database exists. The creation examples below are for a separately approved
+genuine first installation. For existing resources, preserve their data and keys and prepare only the reviewed
+additive change; do not recreate a database, reapply its initializer or rotate a key merely to follow this checklist.
+Public `/proof` URL and Discord client ID values may be shared for read-only integration review before activation.
+Sharing them does not configure/publish the page, register OAuth, approve resource changes or lift an activation hold.
+
 1. **Preconditions.** Phase 1b (erasure, account copy, role removal on a verification ban or a blocking role, prune) is
    shipped and release-qualified, and the privacy texts that describe Link data are approved and published. Phase 1b's
    erasure demote must not depend on `LINK_ENABLED`: `linkRole` refuses everything unless Link is on, so after a
@@ -547,7 +555,7 @@ Agents prepare the exact commands; the owner runs them (`CLAUDE.md`: owner gates
    (a reviewed protocol change or separately authorized staged smoke) and all L7 ownership tests before recovery.
    This document does not authorize any recovery, TTL/reclaim, staged provider action or activation.
 
-2. **Keys.** From a checkout of Daniel's repository, run `python3 scripts/link-keys.py backend`. It prints a seed and a
+2. **Keys (new installation or separately approved rotation).** From the Olympus Network repository root, run `python3 tools/link-keys.py backend`. It prints a seed and a
    public key once and writes nothing. Keep the seed in a password manager only; the public key (64 hex) is
    `LINK_BACKEND_PUBLIC`. Make the admin token, for example
    `python3 -c "import secrets; print(secrets.token_urlsafe(32))"` (43 characters).
@@ -557,7 +565,7 @@ Agents prepare the exact commands; the owner runs them (`CLAUDE.md`: owner gates
    Alternatively stage them with `npx wrangler versions secret put <NAME>`, which records the secret in a new version
    without deploying it; confirm that the project's wrangler (4.135.0 today) offers it with
    `npx wrangler versions secret put --help` before relying on it, and verify the staged version before it goes live.
-4. **Database.** `npx wrangler d1 create olympus-link --location <the keeper database's location>` (the same location
+4. **Database (new installation only, after the inventory above).** `npx wrangler d1 create olympus-link --location <the keeper database's location>` (the same location
    hint as `olympus-verify`, so the `/verify` reply's extra round trips stay short; record the printed id), then
    `npx wrangler d1 execute olympus-link --remote --file=vendor/olympus-link/schema.sql`. Record a backup policy for it;
    the existing backup steps cover only the keeper database. Before step 9, measure the `/verify` reply's p95 latency
@@ -603,7 +611,9 @@ Agents prepare the exact commands; the owner runs them (`CLAUDE.md`: owner gates
    `web/FERN.md`: `curl -i -X OPTIONS https://olympus-verify.roach-council.workers.dev/proof -H 'Origin:
    https://dnl-gentile.github.io' -H 'Access-Control-Request-Method: POST'` answers 204 with
    `Access-Control-Allow-Origin: https://dnl-gentile.github.io`; a fake proof answers `login` or `unknown-code`.
-10. **Send Daniel** (the owner sends it; agents never send messages): the backend public key (step 2), the `/proof`
+10. **Public integration values** (the owner sends them; agents never send messages). The `/proof` URL and client ID
+    can already be supplied for read-only review; this step order is not a requirement to activate first. After the
+    applicable inventory/review, supply the existing or separately approved backend public key (step 2), the `/proof`
     address `https://olympus-verify.roach-council.workers.dev/proof`, the client id `1550176895671341076`, the guild id
     (`GUILD_ID`, Asmongold's server `236932545793490944`) and the role id (step 5).
 11. **Councillor keys** once Daniel names the High Council's characters: `POST /api/link/keys` with the admin token

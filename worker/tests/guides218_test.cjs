@@ -60,6 +60,19 @@ async function mounted(options, data = DATA) {
 }
 const text = n => n.textContent.replace(/\s+/g, ' ');
 const links = n => n.tags('a').map(a => a.getAttribute('href'));
+// CL2-052, CL2-057 (our 58b96f8): #/guides is now the Olympus University hub of university/university.js, which reads only its own files.
+async function university(parts, options = {}) {
+  const doc = { createElement: tag => new El(doc, tag), createTextNode: text => new Text(doc, text) }, fetches = [], uni = path.join(stat, 'university');
+  const context = { document: doc, console, fetch: async (url, init) => { fetches.push([url, init]); const rel = url.replace(/^\/static\/university\//, '');
+    if (rel === url || rel.includes('..')) return { ok: false, status: 404, json: async () => ({}) };
+    return { ok: true, status: 200, json: async () => JSON.parse(fs.readFileSync(path.join(uni, rel), 'utf8')) }; } };
+  context.window = context;
+  for (const file of ['validate.js', 'university.js']) vm.runInNewContext(fs.readFileSync(path.join(uni, file), 'utf8'), context, { filename: file, timeout: 2000 });
+  const box = doc.createElement('main'), instance = context.OlympusUniversity.mount(box, { parts, talentRevision: talents.revision, ...options });
+  // Unit h1 guidesname (owner, 15 Nov 2026): the loading line is "Opening the guides…" again, as before 58b96f8.
+  for (let i = 0; i < 50 && text(box).includes('Opening the guides'); i++) await settle();
+  return { box, fetches, instance };
+}
 
 (async () => {
   // 1. Source policy.
@@ -125,47 +138,73 @@ const links = n => n.tags('a').map(a => a.getAttribute('href'));
 
   // 5. Hub.
   let m = await mounted({ view: 'hub', talentRevision: talents.revision });
-  const hubLinks = links(m.box);
+  // CL2-052, CL2-057 (our 58b96f8, ab493c0): the hub checks read the University hub, which replaced the guides218.js hub at #/guides.
+  const hub = await university([]);
+  const hubLinks = links(hub.box);
   check('the hub retains all existing class, spec, profession and tool links', DATA.classes.every(c => hubLinks.includes('#/guides/class/' + c.id) && c.specs.every(s => hubLinks.includes('#/guides/class/' + c.id + '/' + s.id)))
     && DATA.professions.every(p => hubLinks.includes('#/guides/profession/' + p.key)) && ['attunements', 'buffs', 'changes'].every(t => hubLinks.includes('#/guides/tools/' + t)));
-  check('the hub keeps the calculator, addons, publisher library, game updates and member guide one click away', ['#/talents', '#/addons', '#/guides', '#/updates', '#/guide/member'].every(h => hubLinks.includes(h)));
+  // CL2-205 (our 58b96f8): the publisher library moved from #/guides to #/guides/library.
+  check('the hub keeps the calculator, addons, publisher library, game updates and member guide one click away', ['#/talents', '#/addons', '#/guides/library', '#/updates', '#/guide/member'].every(h => hubLinks.includes(h)));
+  // CL2-052 (our 58b96f8): the hub has one H1, and its scope note comes from university/index.json. Unit h1 guidesname (owner,
+  // 15 Nov 2026): the H1 is "Class & profession guides" again, as before 58b96f8.
+  const hubIndex = JSON.parse(fs.readFileSync(path.join(stat, 'university/index.json'), 'utf8')), hubScopeNote = hubIndex.scopeNote;
   check('the hub has one Class & profession guides heading and states the scope note once',
-    m.box.tags('h1').map(text).join('|') === 'Class & profession guides' && text(m.box).split(DATA.scopeNote.slice(0, 60)).length === 2);
+    hub.box.tags('h1').map(text).join('|') === 'Class & profession guides' && text(hub.box).split(hubScopeNote.slice(0, 60)).length === 2);
   const classLandingLinks = hubLinks.filter(h => /^#\/guides\/class\/[a-z]+$/.test(h));
-  const professionHeadings = m.box.tags('h3').map(text).filter(t => ['Primary crafting', 'Gathering', 'Secondary'].includes(t));
+  const professionHeadings = hub.box.tags('h3').map(text).filter(t => ['Primary crafting', 'Gathering', 'Secondary'].includes(t));
   check('the hub alphabetizes classes and groups professions by the kind of training',
     classLandingLinks.join(',') === [...classLandingLinks].sort().join(',') && professionHeadings.join(',') === 'Primary crafting,Gathering,Secondary');
-  check('class and profession icons are local official art only', m.box.tags('img').every(i => /^\/static\/wow\/(class|prof|role)-[a-z_]+\.png$/.test(i.getAttribute('src'))));
-  check('exactly one same-origin catalogue fetch', m.fetches.length === 1 && m.fetches[0][0] === '/static/guides218.json' && m.fetches[0][1].redirect === 'error');
+  // Our 58b96f8: every class and profession card of the hub has one icon (university.js:221, :172); races have none. Each is a pinned official asset.
+  const hubIcons = hub.box.tags('img');
+  check('class and profession icons are local official art only', hubIcons.length === hubIndex.guides.filter(g => g.kind === 'class' || g.kind === 'profession').length
+    && hubIcons.every(i => /^\/static\/wow\/(class|prof|role)-[a-z_]+\.png$/.test(i.getAttribute('src')) && art222.has('worker/public' + i.getAttribute('src'))));
+  // CL2-052 (our 58b96f8): the University hub reads only its index, same-origin and refusing redirects (university.js:27-33, :506-508).
+  check('exactly one same-origin catalogue fetch', m.fetches.length === 1 && m.fetches[0][0] === '/static/guides218.json' && m.fetches[0][1].redirect === 'error'
+    && hub.fetches.length === 1 && hub.fetches[0][0] === '/static/university/index.json' && hub.fetches[0][1].redirect === 'error' && hub.fetches[0][1].credentials === 'same-origin');
 
   // 6. Class view, presets and attach.
   const attached = [];
   const cls = DATA.classes[0], spec = cls.specs[1];
-  m = await mounted({ view: 'class', classId: cls.id, specId: spec.id, talentRevision: talents.revision, canAttach: true, onAttach: p => attached.push(p) });
-  check('the class view names the class, marks the chosen spec and shows its sections', m.box.tags('h1').length === 1 && text(m.box.tags('h1')[0]) === cls.name + ' guide'
+  // CL2-052, CL2-059 (our 58b96f8): the class and spec guides are University courses; a spec address opens its 101 track, whose
+  // sections come from the chapters of courses/warrior.json (Fury 101: talents, rotation) under the titles of validate.js SECTIONS.
+  m = await university(['class', cls.id, spec.id], { canAttach: true, onAttach: p => attached.push(p) });
+  check('the class view names the class, marks the chosen spec and shows its sections', m.box.tags('h1').length === 1 && text(m.box.tags('h1')[0]) === spec.name + ' ' + cls.name
     && m.box.all(e => e.getAttribute('aria-current') === 'page' && e.getAttribute('href') === '#/guides/class/' + cls.id + '/' + spec.id).length === 1
-    && [spec.name + ': quick start', spec.name + ': advanced', spec.name + ': PvP', spec.name + ': talent starting points', spec.name + ': talent tree changes'].every(t => m.box.tags('h2').some(h => text(h) === t)));
+    && ['Overview', '101 Foundations', 'Talents', 'Rotation', 'Mastery exam'].every(t => m.box.tags('h2').some(h => text(h) === t)));
   const cards = m.box.all(e => e.getAttribute('data-preset'));
-  check('historical preset codes stay visible with an explicit beta snapshot label', cards.length > 0 && cards.every(card => text(card).includes('Beta snapshot build')));
+  // CL2-089, CL2-090 (our e0f7077) and our 58b96f8: every preset is a current 10 November build, and a course card says "Talent build" (university.js:298).
+  check('preset cards are labelled as talent builds, with no beta snapshot label', cards.length > 0 && cards.every(card => text(card).includes('Talent build · Level ') && !text(card).includes('Beta snapshot')));
+  // Our 58b96f8: the caution stands once above the builds of a talent chapter (university.js:379); this track has one such chapter.
   check('the saved builds carry one shared caution, with short card headings and no visible revision hash',
-    text(m.box).split('Compare these saved builds with Blizzard’s current talent notes').length === 2
-    && cards.every(card => !text(card).includes(DATA.talentRevision) && !text(card.tags('h3')[0]).startsWith('Olympus starting point'))
+    text(m.box).split('Check a build against your talents in game before you use it or attach it to an application.').length === 2
+    && cards.every(card => !text(card).includes(DATA.talentRevision) && !text(card.tags('h5')[0]).startsWith('Olympus starting point'))
     && !text(m.box).includes('Talent snapshot Talent snapshot'));
-  check('every preset of the spec renders once with its exact calculator link', cards.length === spec.presets.length && spec.presets.every(id => { const p = DATA.presets.find(x => x.id === id), card = cards.find(c => c.getAttribute('data-preset') === id);
-    return card && card.tags('a').some(a => a.getAttribute('href') === '#/talents/' + p.classId + '/' + encodeURIComponent(p.code) && text(a) === 'Load this build in the talent calculator'); }));
+  // Our 58b96f8: a spec's presets sit in the talent chapters of its tracks (courses/warrior.json: Fury 101 and 201), each linking the calculator (university.js:300).
+  const specCards = [...cards];
+  for (const tier of ['201', '301']) specCards.push(...(await university(['class', cls.id, spec.id, tier])).box.all(e => e.getAttribute('data-preset')));
+  check('every preset of the spec renders once with its exact calculator link', specCards.length === spec.presets.length && spec.presets.every(id => { const p = DATA.presets.find(x => x.id === id), card = specCards.find(c => c.getAttribute('data-preset') === id);
+    return card && card.tags('a').some(a => a.getAttribute('href') === '#/talents/' + p.classId + '/' + encodeURIComponent(p.code) && text(a) === 'Load in the talent calculator'); }));
   const attachButton = cards[0].tags('button').find(b => text(b) === 'Attach to my application');
   attachButton.fire('click');
-  const first = DATA.presets.find(x => x.id === spec.presets[0]);
+  // The first card of the 101 track is the first preset of its chapters in the course file.
+  const specCourse = JSON.parse(fs.readFileSync(path.join(stat, 'university/courses', cls.id + '.json'), 'utf8')).specs.find(s => s.id === spec.id);
+  const first = DATA.presets.find(x => x.id === specCourse.tracks['101'].chapters.flatMap(c => c.presets || [])[0]);
   check('Attach hands over exactly the preset identity and build, frozen, and says what happens next', attached.length === 1 && Object.isFrozen(attached[0]) && JSON.stringify(attached[0]) === JSON.stringify({ presetId: first.id, label: first.label, classId: first.classId, level: first.level, code: first.code })
     && text(cards[0]).includes('Opening your application with this build'));
-  const feralGuide = await mounted({ view: 'class', classId: 'druid', specId: 'feral-combat', talentRevision: talents.revision });
+  // Our 58b96f8: the Feral course's 201 track holds its talent chapter, raid build and the Berserk fact (facts/class-druid.json, presets/druid.json).
+  const feralGuide = await university(['class', 'druid', 'feral-combat', '201']);
   check('Feral instructions use the current first-party tuning while the build codes retain their snapshot',
     text(feralGuide.box).includes('Berserk was removed') && text(feralGuide.box).includes('115% threat bonus')
     && !text(feralGuide.box).includes('Berserk lasts 15 s')
     && links(feralGuide.box).includes('https://us.forums.blizzard.com/en/wow/t/2360696/9'));
   const arcaneSnapshot = DATA.presets.find(entry => entry.id === 'mage-arcane-raid-60');
-  check('the historical Arcane raid preset flags its points in the removed Arcane Focus talent',
-    arcaneSnapshot?.why.some(text => text.includes('still contains points in Arcane Focus') && text.includes('Blizzard removed that talent')));
+  // A preset's rank in a talent of its class, decoded from its code; null when the 10 November data has no such talent.
+  const presetRank = (preset, name) => { const flat = talents.classes.find(row => row.id === preset.classId).trees.flatMap(tree => tree.talents), index = flat.findIndex(row => row.name === name);
+    return index < 0 ? null : calculator.parseBuild(talents, preset.code).build.ranks[index]; };
+  // CL2-089, CL2-090 (our e0f7077, owner ruling of 12 Nov "Update data, rewrite presets"): the re-authored build holds no removed talent and says where its hit comes from.
+  check('the Arcane raid preset says Arcane Focus was removed and takes its spell hit from Precision',
+    !!arcaneSnapshot && presetRank(arcaneSnapshot, 'Arcane Focus') === null && presetRank(arcaneSnapshot, 'Precision') === 3
+    && arcaneSnapshot.why.some(line => line.includes('Arcane Focus was removed') && line.includes('Precision (3/3: 6% hit with all spells)')));
   const source9 = DATA.sources.findIndex(row => row.url === 'https://us.forums.blizzard.com/en/wow/t/2360696/9');
   const classFact = id => DATA.classes.find(row => row.id === id);
   const specFact = (id, spec) => classFact(id).specs.find(row => row.id === spec);
@@ -182,8 +221,9 @@ const links = n => n.tags('a').map(a => a.getAttribute('href'));
     official(specFact('warrior', 'arms').pro.priorities[5], ['15 seconds', '2.5 or 5 seconds'])
     && official(specFact('warrior', 'fury').pro.priorities[4], ['10%, 20% or 30%', 'no Death Wish prerequisite']));
   const furyLeveling = DATA.presets.find(entry => entry.id === 'warrior-fury-leveling-30');
-  check('the Fury leveling preset distinguishes its October allocation from the November Flurry rule',
-    furyLeveling?.why.some(line => line.includes('October build takes Death Wish') && line.includes('Flurry no longer depends on it')));
+  // CL2-089, CL2-090 (our e0f7077): the re-authored leveling build takes Death Wish at 30 and states that Flurry no longer needs it.
+  check('the Fury leveling preset takes Death Wish at level 30 and states the November Flurry rule',
+    !!furyLeveling && presetRank(furyLeveling, 'Death Wish') === 1 && furyLeveling.why.some(line => line.includes('Death Wish at level 30') && line.includes('Flurry no longer depends on it')));
   check('class overviews defer shared editorial scope to the current catalogue header',
     DATA.classes.every(entry => entry.overview.every(line => !line.startsWith('Besides the talent snapshot, this page uses Blizzard'))));
   check('Priest Holy Binding and Shadow Word: Death cite the official November update',
@@ -193,17 +233,27 @@ const links = n => n.tags('a').map(a => a.getAttribute('href'));
     official(classFact('rogue').changes[5], ['loses Murder', 'Shank'])
     && official(classFact('rogue').changes[7], ['Quietus', 'Cutthroat', 'Thousand Cuts', 'Death Mark'])
     && official(specFact('rogue', 'subtlety').pro.priorities[1], ['Rupture and Garrote', '15%']));
+  // CONTENT-01, CONTENT-09 (our 90a1a07): Blizzard's hotfix of 10 November 2026 set Stormstrike to 100% weapon damage on an 8-second
+  // cooldown; the row cites that dated hotfix source (receipt followup-uni/CONTENT-09.md).
+  const hotfix1110 = DATA.sources.findIndex(row => row.url === 'https://worldofwarcraft.blizzard.com/en-us/news/24315281/wow-forever-hotfixes-november-11-2026');
+  const hotfixed = (row, needles) => hotfix1110 >= 0 && row?.sources.includes(hotfix1110) && row.grade === 'B' && needles.every(needle => row.value.includes(needle));
   check('Shaman specs use Totemic Call, Call of Thunder, updated Stormstrike and Riptide',
     official(classFact('shaman').changes[2], ['Totemic Call', '30 seconds'])
     && official(specFact('shaman', 'elemental').pro.priorities[0], ['Replaces Lava Burst', '5% critical strike chance'])
-    && official(specFact('shaman', 'enhancement').pro.priorities[0], ['150% normalized weapon damage', 'six-second cooldown'])
+    && hotfixed(specFact('shaman', 'enhancement').pro.priorities[0], ['100% weapon damage', '8-second cooldown', 'hotfix of 10 November 2026'])
     && official(specFact('shaman', 'restoration').pro.priorities[0], ['no initial heal', '12 seconds']));
-  check('the Shaman and Priest snapshot notes distinguish historical entries from the November class changes',
-    classFact('shaman').changes.some(row => row.status === 'pinned-data' && row.text.includes('The October snapshot had no Call of Thunder in Elemental'))
+  // R4-7 (our 2fcd7c6): the lines citing source 15 report the 10 November talent data. The Shaman list is the Enhancement tree's
+  // removedClassic in talents/data.json; the Priest count is its talents whose classic status is "new".
+  const removedEnhancement = talents.classes.find(row => row.id === 'shaman').trees.find(tree => tree.id === 'enhancement').removedClassic.map(row => row.name || row);
+  const newPriestTalents = talents.classes.find(row => row.id === 'priest').trees.flatMap(tree => tree.talents).filter(row => row.classic && row.classic.status === 'new').length;
+  check('the Shaman and Priest snapshot notes report the 10 November talent data apart from the November class changes',
+    classFact('shaman').changes.some(row => row.status === 'pinned-data' && row.text.includes('the Enhancement tree in the 10 November talent data no longer has '
+      + removedEnhancement.slice(0, -1).join(', ') + ' or ' + removedEnhancement.at(-1)))
     && !classFact('shaman').changes.some(row => row.text.includes('removed: Call of Thunder'))
     && official(classFact('shaman').changes[4], ['Call of Thunder replaces Lava Burst'])
     && classFact('priest').changes[0].status === 'pinned-data' && classFact('priest').changes[0].sources.includes(source9)
-    && classFact('priest').changes[0].text.includes('Binding Heal (since replaced by Holy Binding)'));
+    && classFact('priest').changes[0].text.includes('The 10 November talent data has ' + newPriestTalents + ' Priest talents that Classic does not')
+    && classFact('priest').changes[0].text.includes('Holy Binding'));
   check('Paladin updates distinguish retired Holy and Protection talents from the new Retribution capstone',
     specFact('paladin', 'holy').beginner.leveling[0].includes('Voice of Truth was removed from the Holy tree')
     && specFact('paladin', 'protection').beginner.leveling[0].includes('Improved Seal of Fury is gone')
@@ -212,55 +262,125 @@ const links = n => n.tags('a').map(a => a.getAttribute('href'));
   check('Hunter notes retain trap and Sniper Shot mechanics alongside November tuning',
     official(classFact('hunter').changes[1], ['in combat', 'scale with Attack Power', '30-second cooldown'])
     && official(specFact('hunter', 'marksmanship').pro.priorities[2], ['4-second cast', '15-second cooldown', '45-yard range', 'three shots gain 10 yards', 'doubled']));
-  const originalPresetIdentities = DATA.presets.map(({ id, code, provenance }) => ({ id, code, provenance }));
-  check('the ordered 58 beta builds, codes and provenance are frozen across factual updates',
-    originalPresetIdentities.length === 58 && crypto.createHash('sha256').update(JSON.stringify(originalPresetIdentities)).digest('hex') === '1d1bf9833dde57644f6bf6ef93d0ff64d06c6d4987ab5ca158857a67e438c775');
-  const presetWarning = id => DATA.presets.find(row => row.id === id).why[2];
-  check('affected beta builds name their own removed, moved or re-ranked allocations',
-    presetWarning('druid-feral-combat-raid-60').includes('Berserk removed')
-    && presetWarning('paladin-protection-raid-60').includes('Improved Seal of Fury removed')
-    && presetWarning('rogue-subtlety-pvp-60').includes('Cutthroat removed')
-    && presetWarning('priest-holy-dungeon-30').includes('Binding Heal replaced by Holy Binding')
-    && presetWarning('shaman-elemental-leveling-30').includes('Lava Burst replaced by Call of Thunder')
-    && presetWarning('mage-fire-raid-60').includes('Critical Mass now caps at 3')
-    && presetWarning('warrior-fury-raid-60').includes('Flurry now caps at 3'));
+  // CL2-089, CL2-090 (our e0f7077, owner ruling of 12 Nov "Update data, rewrite presets"): every code moved from revision 260cf99b52db
+  // to 02e1e101d1a5, the 33 builds below were re-authored ([digits now, digits before], from guides218.json at e0f7077 and its parent)
+  // and every reviewedAt went from 2026-10-31 to 2026-11-12. undoE0f7077 undoes exactly that change and nothing else, so any other
+  // code, provenance or order still changes the digest pinned on .279.
+  const REAUTHORED_E0F7077 = {
+    'warrior-arms-raid-60': ['30323213032215201550500000120000000000000000000000000', '3030521303251520155050000000000000000000000000000000'],
+    'warrior-arms-pvp-60': ['05323013132015231050501000000000000005000000000000000', '0332501313201523105050100000000000005000000000000000'],
+    'warrior-arms-leveling-30': ['30323013032100000000000000000000000000000000000000000', '3032501303010000000000000000000000000000000000000000'],
+    'warrior-fury-raid-60': ['32023010000000000550530055122100231000000000000000000', '3200501000000000055053005152210501000000000000000000'],
+    'warrior-fury-leveling-30': ['00000000000000000050530205000100000000000000000000000', '0000000000000000005053025000010000000000000000000000'],
+    'warrior-protection-raid-60': ['05023010000000000000000000000000000250533120331021351', '0500501000000000000000000000000000250533120331021351'],
+    'warrior-protection-dungeon-30': ['00000000000000000000000000000000000250303020321000000', '0000000000000000000000000000000000250303020321000000'],
+    'paladin-holy-raid-60': ['503202150221012515012213000000000005000000000000000', '05320213225111051500230002000000005000000000000000'],
+    'paladin-holy-dungeon-30': ['503200150220010000000000000000000000000000000000000', '05320013122101000000000000000000000000000000000000'],
+    'paladin-protection-raid-60': ['000000000000000005530213251351153105000000000000000', '00000000000000000553051332133155105000000000000000'],
+    'paladin-protection-dungeon-30': ['000000000000000000530212201320000000000000000000000', '00000000000000000053021310131100000000000000000000'],
+    'paladin-retribution-raid-60': ['050050000000000005030000000000000005233301201301351', '50003000000000000503000000000000005225331101330321'],
+    'paladin-retribution-leveling-30': ['000000000000000000000000000000000005230301201300100', '00000000000000000000000000000000005215301201100000'],
+    'hunter-beast-mastery-leveling-30': ['15202205021100000000000000000000000000000000000000', '05202105041100000000000000000000000000000000000000'],
+    'rogue-assassination-raid-60': ['005323202515510313023030000000000000002000000000000000', '00502312551521051302303000000000000020000000000000000'],
+    'rogue-assassination-leveling-30': ['025300212005010000000000000000000000000000000000000000', '02512000500501000000000000000000000000000000000000000'],
+    'rogue-combat-raid-60': ['005303202010000003210330012012321551000000000000000000', '00532012500000000325023000015152310000000000000000000'],
+    'rogue-combat-leveling-30': ['000000000000000003200331210011301000000000000000000000', '00000000000000000320033211014100000000000000000000000'],
+    'rogue-subtlety-raid-60': ['005203011000000003200030000000000000105203031321021151', '00502300200000000302003000000000003020213310213211501'],
+    'rogue-subtlety-pvp-60': ['000000000000000000050332210211000000032233231321221100', '00000000000000000005033212211000000320223310213211050'],
+    'shaman-enhancement-raid-60': ['05320000000000000550303100512122510500000000000000', '05320000000000000550320310051122510500000000000000'],
+    'shaman-enhancement-leveling-30': ['00000000000000000530303100510000000000000000000000', '00000000000000000510320310051000000000000000000000'],
+    'mage-arcane-raid-60': ['05322522312231153150000000000000000003000000000000000', '0552225223121311531230000000000000000000000000000000000'],
+    'mage-arcane-leveling-30': ['03200520310131000000000000000000000000000000000000000', '0032005203101310000000000000000000000000000000000000000'],
+    'mage-fire-raid-60': ['00000000000000000055523331232133131203000000000000000', '0000000000000000000235523331321351310050000000000000000'],
+    'mage-fire-leveling-30': ['00000000000000000005303301200130000000000000000000000', '0000000000000000000205303301001300000000000000000000000'],
+    'mage-frost-raid-60': ['02321520000130000000000000000000000053500030121301251', '0302205003001300000000000000000000000555000331021301201'],
+    'mage-frost-pvp-60': ['00300000000000000000000000000000000253532333121331251', '0000000000000000000000000000000000002555323331121331251'],
+    'mage-frost-leveling-30': ['00000000000000000000000000000000000053032201101300000', '0000000000000000000000000000000000000500223301101300000'],
+    'druid-feral-combat-raid-60': ['0000000000000000552302321230101250010550300000000000', '0000000000000000552000321211322120510550300000000000'],
+    'druid-feral-combat-dungeon-60': ['0000000000000000552323321231021255100300000000000000', '0000000000000000552323321201320125510300000000000000'],
+    'druid-feral-combat-leveling-30': ['0000000000000000502003021230021000000000000000000000', '0000000000000000502003021200320100000000000000000000'],
+    'druid-restoration-dungeon-30': ['0000000000000000000000000000000000005053005100110000', '0000000000000000000000000000000000005050035100110000'],
+  };
+  const undoE0f7077 = ({ id, code, provenance }) => {
+    const [, revision, classId, level, digits] = /^ot1\.([a-f0-9]{12})\.([a-z]+)\.(30|60)\.([0-9]+)$/.exec(code) || [];
+    const pair = Object.hasOwn(REAUTHORED_E0F7077, id) ? REAUTHORED_E0F7077[id] : [digits, digits];
+    const oldCode = revision === '02e1e101d1a5' && pair[0] === digits ? ['ot1', '260cf99b52db', classId, level, pair[1]].join('.') : code;
+    const oldProvenance = JSON.stringify(provenance) === '{"kind":"olympus-editorial","reviewedAt":"2026-11-12"}' ? { kind: 'olympus-editorial', reviewedAt: '2026-10-31' } : provenance;
+    return { id, code: oldCode, provenance: oldProvenance };
+  };
+  const presetDigest = presets => crypto.createHash('sha256').update(JSON.stringify(presets.map(({ id, code, provenance }) => undoE0f7077({ id, code, provenance })))).digest('hex');
+  const pinnedPresetDigest = '1d1bf9833dde57644f6bf6ef93d0ff64d06c6d4987ab5ca158857a67e438c775';
+  // The inverse must refuse: another valid code in a re-authored slot, another reviewedAt, and two presets swapped.
+  const tamperedPresets = [clone(DATA.presets), clone(DATA.presets), clone(DATA.presets)];
+  tamperedPresets[0][0].code = DATA.presets[1].code;
+  tamperedPresets[1][57].provenance.reviewedAt = '2026-11-13';
+  [tamperedPresets[2][0], tamperedPresets[2][1]] = [tamperedPresets[2][1], tamperedPresets[2][0]];
+  check('the ordered 58 builds, codes and provenance are frozen across factual updates apart from the 10 November re-authoring',
+    DATA.presets.length === 58 && presetDigest(DATA.presets) === pinnedPresetDigest && tamperedPresets.every(presets => presetDigest(presets) !== pinnedPresetDigest));
+  // CL2-089, CL2-090 (our e0f7077): the re-authored builds no longer take a removed talent; their notes say what was removed or
+  // replaced (why[2]) or give the new cap they now take (why[0]).
+  const presetWarning = (id, index = 2) => DATA.presets.find(row => row.id === id).why[index];
+  check('re-authored builds name the talents that were removed or replaced and the caps they now take',
+    presetWarning('druid-feral-combat-raid-60').includes('Berserk and Improved Shifting Power were removed')
+    && presetWarning('paladin-protection-raid-60').includes('Improved Seal of Fury and One-Handed Weapon Specialization were removed')
+    && presetWarning('rogue-subtlety-pvp-60').includes('Cutthroat was removed')
+    && presetWarning('priest-holy-dungeon-30').includes('Holy Binding, which replaced Binding Heal')
+    && presetWarning('shaman-elemental-leveling-30').includes('Call of Thunder, which replaced Lava Burst')
+    && presetWarning('mage-fire-raid-60', 0).includes('Critical Mass (3/3)')
+    && presetWarning('warrior-fury-raid-60', 0).includes('Flurry (3/3'));
+  // CL2-089, CL2-090 (our e0f7077): each layout or rank note of a re-authored build, with the rank its code now holds.
   const furtherVerifiedWarnings = [
-    ['mage-arcane-leveling-30', 'Missile Barrage', 2, 'increased Arcane Resilience to three ranks'],
-    ['mage-fire-leveling-30', 'Improved Fire Blast', 2, 'moved Improved Fire Blast to row 3'],
-    ['hunter-beast-mastery-leveling-30', 'Pathfinding', 2, 'Pathfinding to row 3'],
-    ['shaman-enhancement-raid-60', 'Improved Ghost Wolf', 2, 'Improved Ghost Wolf to row 4'],
-    ['shaman-enhancement-leveling-30', 'Improved Ghost Wolf', 2, 'Improved Ghost Wolf to row 4'],
-    ['paladin-retribution-raid-60', 'Conviction', 5, 'Conviction now caps at 3'],
-    ['paladin-retribution-leveling-30', 'Conviction', 5, 'Conviction now caps at 3'],
+    ['mage-arcane-leveling-30', 'Missile Barrage', 2, 'Missile Barrage (row 2) and Arcane Resilience (row 1, now three ranks) take two points each'],
+    ['mage-fire-leveling-30', 'Improved Fire Blast', 2, 'Improved Fire Blast, now on row 3'],
+    ['hunter-beast-mastery-leveling-30', 'Pathfinding', 2, 'Pathfinding, now on row 3'],
+    ['shaman-enhancement-raid-60', 'Improved Ghost Wolf', 2, 'Improved Ghost Wolf is on row 4'],
+    ['shaman-enhancement-leveling-30', 'Improved Ghost Wolf', 0, 'Improved Ghost Wolf moved to row 4, so it waits until after level 30'],
+    ['paladin-retribution-raid-60', 'Conviction', 3, 'Conviction (3/3)'],
+    ['paladin-retribution-leveling-30', 'Conviction', 3, 'Conviction (3/3)'],
   ];
-  check('each additional November warning has a matching allocation in the unchanged build code',
+  check('each additional November layout or rank note has a matching allocation in its re-authored build code',
     furtherVerifiedWarnings.every(([id, talent, ranks, warning]) => {
       const preset = DATA.presets.find(row => row.id === id);
       const tree = talents.classes.find(row => row.id === preset.classId);
       const index = tree.trees.flatMap(spec => spec.talents).findIndex(row => row.name === talent);
       return calculator.parseBuild(talents, preset.code).build.ranks[index] === ranks && preset.why.some(line => line.includes(warning));
     }));
-  m = await mounted({ view: 'class', classId: cls.id, talentRevision: talents.revision, canAttach: false, attachReason: 'Applications are closed right now, so a build cannot be attached.', onAttach: () => attached.push('no') });
+  // CL2-202 (our 58b96f8): a class address opens the class course, which has no builds, so the attach checks read the first spec's
+  // 101 track; with applications closed it shows the reason above the builds and disables Attach (university.js:294, :380).
+  m = await university(['class', cls.id, cls.specs[0].id], { canAttach: false, attachReason: 'Applications are closed right now, so a build cannot be attached.', onAttach: () => attached.push('no') });
   const closedButtons = m.box.tags('button').filter(b => text(b) === 'Attach to my application');
   check('with applications closed every attach button is disabled and the reason is shown', closedButtons.length > 0 && closedButtons.every(b => b.disabled) && text(m.box).includes('Applications are closed right now'));
-  m = await mounted({ view: 'class', classId: cls.id, talentRevision: talents.revision });
-  check('without an attach handler there is no attach button; the class view defaults to the first spec', m.box.tags('button').every(b => text(b) !== 'Attach to my application') && m.box.tags('h2').some(h => text(h) === cls.specs[0].name + ': quick start'));
-  m = await mounted({ view: 'class', classId: cls.id, specId: 'nope', talentRevision: talents.revision });
-  check('an unknown spec says there is no such guide', text(m.box).includes('There is no such guide.'));
-  m = await mounted({ view: 'class', classId: 'nope', talentRevision: talents.revision });
-  check('an unknown class says there is no such guide', text(m.box).includes('There is no such guide.'));
+  // CL2-202 (our 58b96f8): #/guides/class/<class> shows the class course with "Class course" current, not the first spec (university.js:450).
+  m = await university(['class', cls.id]);
+  const noHandler = await university(['class', cls.id, cls.specs[0].id]);
+  check('without an attach handler there is no attach button; the class address opens the class course',
+    noHandler.box.all(e => e.getAttribute('data-preset')).length > 0 && noHandler.box.tags('button').every(b => text(b) !== 'Attach to my application')
+    && text(m.box.tags('h1')[0]) === cls.name && m.box.all(e => e.getAttribute('aria-current') === 'page' && e.getAttribute('href') === '#/guides/class/' + cls.id).map(text).join('|') === 'Class course');
+  // INT-UNI-1, CL2-105 (our 2188391): an unknown spec or class gets a "not found" page that says which part is missing (university.js:435, :490-499).
+  m = await university(['class', cls.id, 'nope']);
+  check('an unknown spec says the class has no spec by that name', text(m.box).includes(cls.name + ' has no spec by that name.'));
+  m = await university(['class', 'nope']);
+  // Unit h1 guidesname (owner, 15 Nov 2026; the lead's decision in its finishing round): the sentence does not name the
+  // section, as the guides pages before 58b96f8 did not ("There is no such guide.").
+  check('an unknown class says there is no such guide', text(m.box).includes('There is no such class guide.'));
 
   // 7. Grades: U renders "Unavailable", never a number.
-  // Replace (not add) a raid claim: the list is capped at six, and an over-long list is refused as a whole.
-  const withU = clone(DATA), raid = withU.classes[0].specs[0].pro.raid; raid.splice(0, raid.length ? 1 : 0, { label: 'Hit cap in Forever', value: null, grade: 'U', sources: [] });
-  m = await mounted({ view: 'class', classId: withU.classes[0].id, specId: withU.classes[0].specs[0].id, talentRevision: talents.revision }, withU);
-  const uClaim = m.box.all(e => e.getAttribute('data-grade') === 'U' && e.tagName === 'LI').find(li => text(li).includes('Hit cap in Forever'));
-  check('an unavailable value renders as "Unavailable" with its legend, never 0', !!uClaim && text(uClaim.tags('strong')[0]) === 'Hit cap in Forever' && text(uClaim.tags('span')[0]) === 'Unavailable' && m.box.tags('details').some(d => text(d).includes('How to read the grades')));
+  // Our 58b96f8, 1fe1725: a grade-U fact renders "Unavailable" in place of a value, with the grade legend (university.js:155, :161-165).
+  // The Arms 201 stat-caps chapter cites the grade-U fact class-warrior.hit-cap-at-level-60 (courses/warrior.json, facts/class-warrior.json).
+  const uFact = JSON.parse(fs.readFileSync(path.join(stat, 'university/facts/class-warrior.json'), 'utf8')).facts.find(f => f.id === 'class-warrior.hit-cap-at-level-60');
+  m = await university(['class', DATA.classes[0].id, DATA.classes[0].specs[0].id, '201']);
+  const uClaim = m.box.all(e => e.getAttribute('data-grade') === 'U' && e.tagName === 'LI').find(li => text(li).includes(uFact.label));
+  check('an unavailable value renders as "Unavailable" with its legend, never 0', uFact.grade === 'U' && uFact.value === null && !!uClaim && text(uClaim.tags('strong')[0]) === uFact.label && text(uClaim.tags('span')[0]) === 'Unavailable' && m.box.tags('details').some(d => text(d).includes('How to read the grades')));
 
   // 8. Profession and tools.
   const prof = DATA.professions[0];
-  m = await mounted({ view: 'profession', profession: prof.key, talentRevision: talents.revision });
-  check('a profession guide shows its sections and the policy-caveated gold note', text(m.box.tags('h1')[0]) === prof.name + ' guide' && ['What Forever changes', 'Leveling', 'Value for the raid', 'Gold'].every(t => m.box.tags('h2').some(h => text(h) === t)) && text(m.box).includes(prof.goldNote));
+  // CL2-059 (our 1fe1725, 58b96f8): a profession guide is a course; the .218 sections became chapters of its 101 and 201 tracks and
+  // the gold note is a 201 praxis step (university/professions/alchemy.json).
+  m = await university(['profession', prof.key]);
+  const prof201 = await university(['profession', prof.key, '201']);
+  check('a profession guide shows its sections and the policy-caveated gold note', text(m.box.tags('h1')[0]) === prof.name + ' guide'
+    && ['What Forever changes for ' + prof.name, 'Skill ranks, trainers and leveling', 'Raid consumables', 'Gold and the Auction House'].every(t => [...m.box.tags('h3'), ...prof201.box.tags('h3')].some(h => text(h) === t))
+    && text(prof201.box).includes(prof.goldNote));
   const attunements = { view: 'tool', tool: 'attunements', talentRevision: talents.revision };
   m = await mounted(attunements);
   const raidSections = DATA.tools.attunements.map(a => m.box.tags('section').find(s => text(s.tags('h2')[0]).startsWith(a.raid)));
@@ -463,9 +583,10 @@ const links = n => n.tags('a').map(a => a.getAttribute('href'));
     legacy?.status === 'announced' && legacy.text.includes('65 Legacy Challenges') && legacy.text.includes('16 points per character')
     && legacy.sources.some(index => DATA.sources[index].url === 'https://news.blizzard.com/en-us/article/24307383'));
   const structureUrl = '#/guides/tools/raid-structure';
-  const hubWithStructure = await mounted({ view: 'hub', talentRevision: talents.revision });
-  const raidTools = hubWithStructure.box.tags('section').find(s => text(s.tags('h2')[0]) === 'Raid preparation tools');
-  check('Raid preparation tools links to Fox’s guide', !!raidTools && links(raidTools).includes(structureUrl));
+  // CL2-057 (our 58b96f8, ab493c0): the University hub lists the four tools in its "Hub tools" section.
+  const hubWithStructure = await university([]);
+  const raidTools = hubWithStructure.box.tags('section').find(s => text(s.tags('h2')[0]) === 'Hub tools');
+  check('Hub tools links to Fox’s guide', !!raidTools && links(raidTools).includes(structureUrl));
   m = await mounted({ view: 'tool', tool: 'raid-structure', talentRevision: talents.revision });
   const assignments = m.box.tags('tbody')[0]?.tags('tr').map(row =>
     text(row.tags('td')[0]).match(/\d–\d/g)?.join(','));
@@ -482,9 +603,23 @@ const links = n => n.tags('a').map(a => a.getAttribute('href'));
     && text(m.box).includes('affected participants’ consent'));
   m = await mounted({ view: 'tool', tool: 'nope', talentRevision: talents.revision });
   check('an unknown tool says so', text(m.box).includes('There is no such tool.'));
+  // Unit h1 guidesname (owner, 15 Nov 2026: "Instead of university rename it back to its old name that it had for the guides."):
+  // the tool pages name the section as GUIDES_TITLE did before 58b96f8, "Class & profession guides": the breadcrumb root, the
+  // hub link of the Related list and the way back from an unknown tool.
+  const toolNames = [];
+  for (const tool of ['attunements', 'buffs', 'raid-structure', 'changes']) {
+    const t = await mounted({ view: 'tool', tool, talentRevision: talents.revision });
+    const root = t.box.all(e => e.getAttribute('aria-label') === 'Breadcrumb').map(n => n.tags('a')[0]);
+    const hubLinks = t.box.all(e => e.getAttribute('aria-label') === 'Related').flatMap(n => n.tags('a')).filter(a => a.getAttribute('href') === '#/guides');
+    toolNames.push([...root.map(a => [text(a), a.getAttribute('href')]), ...hubLinks.map(text)]);
+  }
+  const toolBack = m.box.tags('a').filter(a => a.getAttribute('href') === '#/guides').map(text);
+  check('the tool pages name the section Class & profession guides in the breadcrumb, the Related list and the way back',
+    JSON.stringify(toolNames) === JSON.stringify(Array(4).fill([['Class & profession guides', '#/guides'], 'Class & profession guides'])) && JSON.stringify(toolBack) === '["Back to Class & profession guides"]');
 
   // 9. External links, failure, revision mismatch and teardown.
-  m = await mounted({ view: 'class', classId: DATA.classes[2].id, talentRevision: talents.revision });
+  // Our 58b96f8: the class course renders its source links with external() (university.js:136), only for allow-listed https hosts.
+  m = await university(['class', DATA.classes[2].id]);
   const external = m.box.tags('a').filter(a => /^https:/.test(a.getAttribute('href') || ''));
   check('external source links open safely and only on listed hosts', external.length > 0 && external.every(a => a.getAttribute('target') === '_blank' && a.getAttribute('rel') === 'noopener noreferrer'));
   const sourceLines = box => box.all(node => node.className === 'guides218-sources');
@@ -494,28 +629,49 @@ const links = n => n.tags('a').map(a => a.getAttribute('href'));
     && [[47, 4], [48, 5], [49, 6], [50, 7], [150, 9]].every(([index, post]) => DATA.sources[index].url === topic + '/' + post));
   const citationFixture = clone(DATA);
   const publisherPrefixed = DATA.sources.findIndex(source => source.label.startsWith(source.publisher + ': '));
-  citationFixture.classes[0].changes[0].sources = [1, 1, 17, 118, 150, 86, publisherPrefixed];
-  const citation = await mounted({ view: 'class', classId: DATA.classes[0].id, talentRevision: talents.revision }, citationFixture);
+  // Class courses now use University; the supported tool still renders this same sourcesLine citation contract.
+  citationFixture.tools.attunements[0].requirement.sources = [1, 1, 17, 118, 150, 86, publisherPrefixed];
+  const citation = await mounted({ view: 'tool', tool: 'attunements', talentRevision: talents.revision }, citationFixture);
   const [baseTopicLink, datedPostLink, playerPostLink, prefixedTitleLink] = sourceLines(citation.box)[0].tags('a');
   check('a citation combines same-topic aliases and keeps every source title and the exact dated post',
     links(sourceLines(citation.box)[0]).join('|') === [topic, topic + '/9', DATA.sources[86].url, DATA.sources[publisherPrefixed].url].join('|')
     && text(baseTopicLink) === 'Blizzard Entertainment — ' + [1, 17, 118].map(index => DATA.sources[index].label).join(' / ')
     && text(datedPostLink) === 'Blizzard Entertainment — ' + DATA.sources[150].label);
+  // Our 1fe1725, 58b96f8: the courses cite these sources as g218-<n> (university/sources.json) through university.js sourcesLine
+  // (:145-151). The Druid class course cites the player report g218-86, the Paladin class course the publisher-prefixed g218-18.
+  const uniSourceLink = (box, url) => box.all(node => node.className === 'uni-sources').flatMap(line => line.tags('a')).find(a => a.getAttribute('href') === url);
+  const uniPlayerPost = uniSourceLink((await university(['class', 'druid'])).box, DATA.sources[86].url);
   check('Blizzard hosts player posts without getting publisher credit for their claims',
     [86, 120].every(index => DATA.sources[index].kind === 'community' && DATA.sources[index].publisher === 'Blizzard forums (player posts)')
-    && text(playerPostLink).startsWith('Blizzard forums (player posts) — Beta player report'));
+    && !!uniPlayerPost && text(uniPlayerPost).startsWith('Blizzard forums (player posts) — Beta player report'));
   const prefixed = DATA.sources[publisherPrefixed];
+  const uniPrefixed = uniSourceLink((await university(['class', 'paladin'])).box, prefixed.url);
   check('a source title starting with its publisher renders that publisher once and keeps its topic',
-    text(prefixedTitleLink) === prefixed.publisher + ' — ' + prefixed.label.slice(prefixed.publisher.length + 2));
+    !!uniPrefixed && text(uniPrefixed) === prefixed.publisher + ' — ' + prefixed.label.slice(prefixed.publisher.length + 2));
+  // CL2-052, CL2-057 (our 58b96f8): the class, spec and profession pages are University courses (university.js), and the
+  // course and tool breadcrumbs start at the hub ("Class & profession guides" again since unit h1 guidesname). Site fault f1 (15 Nov 2026): a course credits the Talents
+  // Forever data once exactly when it cites a Talents Forever source or shows a talent build; the changes tool keeps its credit.
+  // f1 review round: also when an overview point, praxis step or common mistake of the page (default track 101) rests on a fact
+  // citing a Talents Forever source; that text shows no citation, so it is read from the University data files.
+  const uniRead = rel => JSON.parse(fs.readFileSync(path.join(stat, 'university', rel), 'utf8'));
+  const tfIds = new Set(uniRead('sources.json').sources.filter(s => s.publisher === 'Talents Forever').map(s => s.id));
+  const uniFacts = new Map(fs.readdirSync(path.join(stat, 'university', 'facts')).filter(f => f.endsWith('.json')).flatMap(f => { const d = uniRead('facts/' + f); return d.facts.map(x => [x.id, { ...(d.defaults || {}), ...x }]); }));
+  const tfText = ([kind, id, spec]) => {
+    const g = uniRead(uniRead('index.json').guides.find(e => e.kind === kind && e.id === id).file), owner = spec ? g.specs.find(s => s.id === spec) : g;
+    return [...owner.overview.points.map(p => p.facts || []), ...owner.tracks['101'].chapters.filter(c => c.unavailable === undefined && c.praxis)
+      .flatMap(c => [...c.praxis.steps.map(s => s.facts || []), ...c.praxis.mistakes.map(m => m.facts)])].some(ids => ids.some(f => uniFacts.get(f).sources.some(s => tfIds.has(s))));
+  };
   const guideViews = [
-    ...DATA.classes.flatMap(c => [{ view: 'class', classId: c.id }, ...c.specs.map(s => ({ view: 'class', classId: c.id, specId: s.id }))]),
-    ...DATA.professions.map(p => ({ view: 'profession', profession: p.key })),
+    ...DATA.classes.flatMap(c => [['class', c.id], ...c.specs.map(s => ['class', c.id, s.id])]),
+    ...DATA.professions.map(p => ['profession', p.key]),
     ...['attunements', 'buffs', 'raid-structure', 'changes'].map(tool => ({ view: 'tool', tool }))
   ];
   for (const opts of guideViews) {
-    const { box } = await mounted({ ...opts, talentRevision: talents.revision });
+    const course = Array.isArray(opts);
+    const { box } = course ? await university(opts) : await mounted({ ...opts, talentRevision: talents.revision });
     const purposeByName = new Map();
-    for (const line of sourceLines(box)) {
+    const citationLines = course ? box.all(node => node.className === 'uni-sources') : sourceLines(box);
+    for (const line of citationLines) {
       const anchors = line.tags('a');
       assert.equal(new Set(links(line)).size, anchors.length, JSON.stringify(opts) + ': repeated destination in one citation');
       for (const a of anchors) {
@@ -527,8 +683,9 @@ const links = n => n.tags('a').map(a => a.getAttribute('href'));
         purposeByName.set(name, href);
       }
     }
-    const credit = box.all(e => e.className.includes('guides218-talent-credit'));
-    assert.equal(credit.length, opts.view === 'class' || opts.tool === 'changes' ? 1 : 0, JSON.stringify(opts));
+    const credit = box.all(e => e.className.includes(course ? 'uni-talent-credit' : 'guides218-talent-credit'));
+    const talentData = course && (citationLines.some(line => line.tags('a').some(a => text(a).startsWith('Talents Forever — '))) || box.all(e => e.getAttribute('data-preset') !== null).length > 0 || tfText(opts));
+    assert.equal(credit.length, talentData || opts.tool === 'changes' ? 1 : 0, JSON.stringify(opts));
     if (credit.length) {
       assert.deepEqual(links(credit[0]), ['https://talentsforever.com/', 'https://creativecommons.org/licenses/by/4.0/']);
       assert.equal(text(credit[0]).match(/CC BY 4\.0/g).length, 1);

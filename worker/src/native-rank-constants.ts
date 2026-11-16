@@ -5,3 +5,14 @@ export const DIRECTIVE_RANK_NAMES = Object.freeze(["Guild Master", "High Council
 export const DIRECTIVE_CANONICAL_INDEX = Object.freeze([0, 1, 2, 3, 4, 7, 8, 9, 10, 11] as const);
 export const DIRECTIVE_RANK_DIGEST = "84be4203598ba7bf6c506547c681ba6b7338414ae00add5d64055eeeea98bd29" as const;
 export const DIRECTIVE_TARGETS = Object.freeze({"veteran": 5, "member": 7, "alt": 8, "initiate": 9});
+export const STEWARD_NATIVE_PROFILE = "olympus-steward-ten-20261115-v1" as const;
+export const STEWARD_CANONICAL_PROFILE = "olympus-canonical-ranks-steward-20261115-v3" as const;
+export const STEWARD_RANK_NAMES = Object.freeze(["Guild Master", "Steward", "High Council", "Officer", "Officer Alt", "Raid Leader", "Veteran", "Alt", "Member", "Initiate"] as const);
+export const STEWARD_CANONICAL_INDEX = Object.freeze([0, 1, 1, 2, 3, 4, 7, 10, 9, 11] as const);
+export const STEWARD_RANK_DIGEST = "fd0c78668b594b8ee5a6da309d38811d838265d881b92f09bdcf5ad2ccc3c8b0" as const;
+export const STEWARD_TARGETS = Object.freeze({"veteran": 6, "member": 8, "alt": 7, "initiate": 9});
+export const NATIVE_RANK_SCHEMES = Object.freeze([
+ Object.freeze({profile:DIRECTIVE_NATIVE_PROFILE,canonicalProfile:DIRECTIVE_CANONICAL_PROFILE,names:DIRECTIVE_RANK_NAMES,canonicalIndexes:DIRECTIVE_CANONICAL_INDEX,digest:DIRECTIVE_RANK_DIGEST,...DIRECTIVE_TARGETS}),
+ Object.freeze({profile:STEWARD_NATIVE_PROFILE,canonicalProfile:STEWARD_CANONICAL_PROFILE,names:STEWARD_RANK_NAMES,canonicalIndexes:STEWARD_CANONICAL_INDEX,digest:STEWARD_RANK_DIGEST,...STEWARD_TARGETS}),
+] as const);
+export type NativeRankScheme = typeof NATIVE_RANK_SCHEMES[number];

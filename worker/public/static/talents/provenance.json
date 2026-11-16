@@ -36,7 +36,7 @@
   "siteCodeCopied": false,
   "upstreamSnapshotFilename": "talentsforever-source-02e1e101d1a5.json",
   "artProvenance": "/static/talents/art-provenance.json",
-  "artImportNote": "Build .170 separately imported redistributed Blizzard artwork. The 10 November mapping reuses those exact files where a talent keeps an icon that is already on file; talents whose icon is not on file are listed in art.json and show the calculator’s plain no-art tile. No new artwork was fetched.",
+  "artImportNote": "Build .170 separately imported redistributed Blizzard artwork. The 10 November mapping reuses those exact files where a talent keeps an icon that is already on file; no artwork was fetched. The 17 talents whose icon was not on file use 17 icons that Codex Root extracted from the game client 1.60.1.70938 on 15 November 2026 (art-provenance.json, clientExtractions); the export names each talent’s icon. art.json lists no talent without an icon.",
   "archive": [
     {
       "revision": "260cf99b52db",

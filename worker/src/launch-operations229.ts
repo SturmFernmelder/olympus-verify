@@ -1,7 +1,7 @@
 /** Current launch recommendations only. No D1/provider/native writes or role authority. */
 import { FLAGSHIP_GUILD_NAME, canonicalOlympusGuildName, isApprovedNativeGuildName } from './guild-affiliation229';
 import type { OfficerInvite233 } from './officer-invites233';
-import { DIRECTIVE_RANK_NAMES, DIRECTIVE_NATIVE_PROFILE, DIRECTIVE_RANK_DIGEST, directiveRankTable } from './native-rank-schemes';
+import { NATIVE_RANK_SCHEMES, nativeRankScheme } from './native-rank-schemes';
 import type { PromotionIntent } from './promotion-intent-directive';
 // The owner's .233 live ladder targets supersede the launch draft's historical slots.
 export const LAUNCH_OPERATIONS_PROTOCOL229 = 'officer-operations-v234' as const;
@@ -41,19 +41,19 @@ export function launchMotd229() {
     'OLYMPUS PRIME is the flagship; OLYMPUS and Olympus I are its aliases.',
     'Link Discord on olympus.roachcouncil.com or ask an Olympus officer. Current Knight-or-higher entitlement is checked from the exact Discord role ladder.',
     'A Knight invite requires a fresh native observation that the same whispering GUID is actually unguilded. Missing or ambiguous guild information is unknown and stays held.',
-    'Linked Knights below Veteran are recommended for Veteran. Other verified Initiates are recommended for Member through Alt. Each rank step needs a separate confirmed in-game button press. The full current guild rank list, character, guild, realm and your permission are checked again for each step.',
+    'Linked Knights below Veteran are recommended for Veteran. Other verified Initiates are recommended for Member using the current reviewed guild ladder. Each rank step needs a separate confirmed in-game button press. The full current guild rank list, character, guild, realm and your permission are checked again for each step.',
     'Unverified Initiates are shown separately for human space review, longest offline and then lowest level first. Pending and unknown verification stay held. No automatic purge, role grant or rank change is performed.',
   ].join('\n\n');
   return Object.freeze({short, bulletin, characters: short.length, bytes, maxBytes: 128 as const});
 }
-export interface LaunchPromotion229 { name: string; guid: string; currentSlot: number; targetSlot: 5 | 7; targetName: 'Veteran' | 'Member'; reason: 'knight-veteran' | 'verified-initiate'; intent?:PromotionIntent; intentToken?:string }
+export interface LaunchPromotion229 { name: string; guid: string; currentSlot: number; targetSlot: number; targetName: 'Veteran' | 'Member'; reason: 'knight-veteran' | 'verified-initiate'; intent?:PromotionIntent; intentToken?:string }
 export interface LaunchRisk229 { name: string; guid: string; currentSlot: 9; level: number | null; lastOnlineDays: number | null; reason: 'unverified-initiate'; reviewOnly: true }
 export interface LaunchHeld229 { name: string; guid: string; reason: string }
-const nativeLabels: readonly string[] = DIRECTIVE_RANK_NAMES;
 /** Already-at/above Veteran rows cannot produce a promotion; don't spend Discord reads on them. */
-export function needsLaunchRole229(row: LaunchRosterRow229): boolean {
+export function needsLaunchRole229(row: LaunchRosterRow229,table?:unknown): boolean {
+  const scheme=table===undefined?NATIVE_RANK_SCHEMES[0]:nativeRankScheme(table);
   return row.verification === 'verified' && Number.isInteger(row.currentSlot) && row.currentSlot !== null
-    && row.currentSlot > 5 && row.currentSlot <= 9 && nativeLabels[row.currentSlot] === row.rank;
+    && !!scheme && row.currentSlot > scheme.veteran && row.currentSlot <= scheme.initiate && scheme.names[row.currentSlot] === row.rank;
 }
 export function projectLaunchOperations229(source: LaunchRosterSource229 | null, rows: readonly LaunchRosterRow229[], knightByGuid: ReadonlyMap<string, KnightState229>, at: number, expiresAt: number) {
   return projectOperations229(source, rows, knightByGuid, at, expiresAt, false);
@@ -64,14 +64,14 @@ export function projectSelectedPromotions274(source: LaunchRosterSource229 | nul
 function projectOperations229(source: LaunchRosterSource229 | null, rows: readonly LaunchRosterRow229[], knightByGuid: ReadonlyMap<string, KnightState229>, at: number, expiresAt: number, selectedPromotion: boolean) {
   const heldReasons: string[] = ['native-unguilded-proof-required'];
   const promotions: LaunchPromotion229[] = [], riskBuffer: LaunchRisk229[] = [], held: LaunchHeld229[] = [];
-  const observed=directiveRankTable(source?.nativeRankTable);
+  const scheme=nativeRankScheme(source?.nativeRankTable),observed=scheme?{names:scheme.names}:null;
   const envelope = {
     protocol: LAUNCH_OPERATIONS_PROTOCOL229, fetchedAt: at, expiresAt,
     status: 'held' as 'held' | 'ready' | 'partial',
     snapshotId: source?.snapshotId ?? null, snapshotAt: source?.snapshotAt ?? null, memberCount: source?.memberCount ?? null,
     guild: source?.guild ?? null, canonicalGuild: source ? canonicalOlympusGuildName(source.guild) : null,
     realm: source?.realm ?? null, scopeHash: source?.scopeHash ?? null,
-    rankProfile: observed ? DIRECTIVE_NATIVE_PROFILE : null, rankSchemeDigest: observed ? DIRECTIVE_RANK_DIGEST : null, rankNames: observed?.names ?? null,
+    rankProfile: scheme?.profile ?? null, rankSchemeDigest: scheme?.digest ?? null, rankNames: observed?.names ?? null,
     entitlements: {offset: 0, pageSize: LAUNCH_ROLE_PAGE229, scanned: knightByGuid.size, total: rows.filter(r => r.verification === 'verified').length, unscanned: 0, retryAfterSeconds: null as number | null},
     scan: {id: null as string | null, startedAt: null as number | null, expiresAt: null as number | null},
     pageCursor: null as string | null, nextCursor: null as string | null, invites: [] as OfficerInvite233[], promotions, riskBuffer, held, heldReasons, motd: launchMotd229(),
@@ -88,20 +88,20 @@ function projectOperations229(source: LaunchRosterSource229 | null, rows: readon
     if (!name || row.name.length > 96 || /[\x00-\x1f\x7f]/.test(row.name) || !/^Player-\d{1,6}-[0-9A-Fa-f]{4,16}$/.test(row.guid) || names.has(name) || guids.has(row.guid)) heldReasons.push('native-identity-ambiguous');
     names.add(name); guids.add(row.guid);
   }
-  if (heldReasons.length > 1) return envelope;
+  if (heldReasons.length > 1 || !scheme) return envelope;
   for (const row of rows) {
     const slot = row.currentSlot, identity = {name: row.name, guid: row.guid};
-    if (!Number.isInteger(slot) || slot === null || slot < 0 || slot > 9 || nativeLabels[slot] !== row.rank) { held.push({...identity, reason: 'native-rank-unconfirmed'}); continue; }
+    if (!Number.isInteger(slot) || slot === null || slot < 0 || slot > 9 || scheme.names[slot] !== row.rank) { held.push({...identity, reason: 'native-rank-unconfirmed'}); continue; }
     if (row.verification === 'pending' || row.verification === 'unknown') { held.push({...identity, reason: row.verification === 'pending' ? 'pending-verification' : 'verification-unknown'}); continue; }
     if (row.verification === 'unverified') {
       if (!selectedPromotion && slot === 9 && row.rank === 'Initiate') riskBuffer.push({...identity, currentSlot: 9, level: Number.isInteger(row.level) && row.level! >= 1 && row.level! <= 255 ? row.level : null, lastOnlineDays: typeof row.lastOnlineSeconds === 'number' && Number.isFinite(row.lastOnlineSeconds) && row.lastOnlineSeconds > 0 && row.lastOnlineSeconds <= 10 * 366 * 86400 ? row.lastOnlineSeconds / 86400 : null, reason: 'unverified-initiate', reviewOnly: true});
       continue;
     }
-    if (slot <= 5) continue;
+    if (slot <= scheme.veteran) continue;
     const knight = knightByGuid.get(row.guid) ?? 'unknown';
     if (knight === 'unknown') { held.push({...identity, reason: 'discord-entitlement-unknown'}); continue; }
-    if (knight === 'knight' && slot > 5) promotions.push({...identity, currentSlot: slot, targetSlot: 5, targetName: 'Veteran', reason: 'knight-veteran'});
-    else if (knight === 'non-knight' && slot === 9 && row.rank === 'Initiate') promotions.push({...identity, currentSlot: slot, targetSlot: 7, targetName: 'Member', reason: 'verified-initiate'});
+    if (knight === 'knight' && slot > scheme.veteran) promotions.push({...identity, currentSlot: slot, targetSlot: scheme.veteran, targetName: 'Veteran', reason: 'knight-veteran'});
+    else if (knight === 'non-knight' && slot === scheme.initiate && row.rank === 'Initiate') promotions.push({...identity, currentSlot: slot, targetSlot: scheme.member, targetName: 'Member', reason: 'verified-initiate'});
   }
   promotions.sort((a, b) => a.targetSlot - b.targetSlot || a.name.localeCompare(b.name, 'en'));
   riskBuffer.sort((a, b) => (b.lastOnlineDays ?? -1) - (a.lastOnlineDays ?? -1) || (a.level ?? Infinity) - (b.level ?? Infinity) || a.name.localeCompare(b.name, 'en'));

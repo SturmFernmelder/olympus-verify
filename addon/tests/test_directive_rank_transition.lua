@@ -1,21 +1,21 @@
 -- Current modules, synthetic native APIs. No installed client or provider interaction.
-local function fixture(knight)
+local function fixture(knight,steward)
   local e=setmetatable({}, {__index=_G});e._G=e
   setfenv(assert(loadfile('wow_mock.lua')),e)()
   local f={e=e,clicks=0,direct=0,syncs=0}
   e.OlympusVerifyConfig={membershipOnly=true,secret='synthetic-only-directive-test-secret'}
-  e.GetGuildInfo=function() return 'OLYMPUS PRIME','High Council',1 end
+  e.GetGuildInfo=function() return 'OLYMPUS PRIME','High Council',steward and 2 or 1 end
   e.GetRealmName=function() return 'Native Realm' end
   e.UnitGUID=function() return 'Player-1-0000AAAA' end
   e.GetGuildRosterShowOffline=function() return true end
   e.InCombatLockdown=function() return false end
   e.CanGuildPromote=function() return true end
   e.issecretvalue=function() return false end
-  e.ROSTER={{name='Officer',rank='High Council',rankIndex=1,level=60,online=true,guid='Player-1-0000AAAA'},
+  e.ROSTER={{name='Officer',rank='High Council',rankIndex=steward and 2 or 1,level=60,online=true,guid='Player-1-0000AAAA'},
     {name='Candidate',rank='Initiate',rankIndex=9,level=60,online=false,guid='Player-1-0000BBBB'}}
   local function load(name) setfenv(assert(loadfile('../OlympusVerify/'..name)),e)('OlympusVerify') end
   load('Libs/OlympusHmac.lua');load('OlympusVerifyNativeRankConstants.lua')
-  local c=e.OlympusVerifyNativeRankConstants
+  local c=steward and e.OlympusVerifyNativeRankConstants.profiles[2] or e.OlympusVerifyNativeRankConstants
   f.names={};for i,v in ipairs(c.names) do f.names[i]=v end
   e.GuildControlGetNumRanks=function() return #f.names end
   e.GuildControlGetRankName=function(i) return f.names[i] end
@@ -39,7 +39,7 @@ local function fixture(knight)
     local o=f.origin;local now=e.NOW
     local p={version=1,id='synthetic-plan-1',actorGuid=e.ROSTER[1].guid,targetGuid=guid,name='Candidate',subjectDigest=string.rep('b',64),
       rankProfile=c.profile,rankSchemeDigest=c.digest,originSnapshotId=o.snapshotId,originSnapshotAt=o.snapshotAt,originContext=o.context,
-      startSlot=9,finalSlot=knight and 5 or 7,reason=knight and 'knight-veteran' or 'verified-initiate',issuedAt=o.issued,expiresAt=o.expires,
+      startSlot=9,finalSlot=knight and c.veteran or c.member,reason=knight and 'knight-veteran' or 'verified-initiate',issuedAt=o.issued,expiresAt=o.expires,
       acknowledgedSteps=ack,lastSnapshotId=12+ack,lastObservedAt=ack==0 and o.snapshotAt or now-1}
     local row={guid=guid,name='Candidate',currentSlot=9-ack,targetSlot=p.finalSlot,targetName=knight and 'Veteran' or 'Member',reason=p.reason,
       intent=p,intentToken='c3ludGhldGlj.'..string.rep(tostring(ack),64)}
@@ -167,3 +167,61 @@ do
   assert(first.nativeRankTable.names[8]=='Tampered empty rank','new export does not rewrite prior snapshot')
 end
 print('PASS Directive table, Initiate2click/reload, Knight4click/reload, ordinaryAlt and unknown controls')
+
+-- The independently reviewed Steward-ten table is a new profile, never a relabelled old receipt.
+local steward=fixture(false,true)
+local sid=steward.e.ROSTER[2].guid
+assert(steward.q.Current() and steward.q.Current().promotions[1].targetSlot==8,'Steward profile targets Member8')
+assert(steward.click() and steward.e.ROSTER[2].rankIndex==8,'one distinct hardware click reaches Member8')
+steward.e.NOW=steward.e.NOW+1;steward.emit('GUILD_ROSTER_UPDATE')
+local sr=steward.e.OlympusVerifyDB.launchPromotionAttempts[sid]
+assert(sr.state=='confirmed' and sr.completed and #sr.steps==1 and sr.rankProfile==steward.e.OlympusVerifyNativeRankConstants.profiles[2].profile,'new receipt retains new exact profile and one observed step')
+assert(not steward.click() and steward.clicks==1,'completed Member8 cannot receive another click')
+local sk=fixture(true,true)
+for step=1,3 do
+  assert(sk.click(),'Steward Knight step '..step)
+  sk.e.NOW=sk.e.NOW+1;sk.emit('GUILD_ROSTER_UPDATE')
+  if step<3 then sk.e.NOW=sk.e.NOW+1;assert(sk.q.Select(sk.e.ROSTER[2].guid));sk.publish(step);sk.reload() end
+end
+assert(sk.e.ROSTER[2].rankIndex==6 and sk.clicks==3 and sk.direct==0,'new Veteran6 uses exactly three hardware clicks')
+local held=fixture(false,true)
+held.e.OlympusVerifyDB.launchPromotionSaveHolds={[held.e.ROSTER[2].guid]={version=1,origin='operator-history-hold',reason='staff-review-missing-receipt'}}
+local originalHold=held.e.OlympusVerifyDB.launchPromotionSaveHolds[held.e.ROSTER[2].guid]
+assert(not held.click() and held.e.OlympusVerifyDB.launchPromotionSaveHolds[held.e.ROSTER[2].guid]==originalHold,'new ladder cannot clear a missing-receipt hold')
+local changed=fixture(false,true)
+for i,name in ipairs(changed.e.OlympusVerifyNativeRankConstants.names) do changed.names[i]=name end
+assert(not changed.click() and changed.clicks==0,'new selected plan cannot execute against another reviewed historical table')
+local unknownNew=fixture(false,true);unknownNew.unknown=true;assert(unknownNew.click());unknownNew.reload()
+local originalUnknown=unknownNew.e.OlympusVerifyDB.launchPromotionAttempts[unknownNew.e.ROSTER[2].guid]
+assert(not unknownNew.click() and originalUnknown.state=='unknown' and #originalUnknown.steps==1,'new profile unknown stays retained across reload')
+
+print('PASS Steward-ten exact table, Member8 one click, Veteran6 three clicks, cross-profile hold, retained review/unknown originals')
+local crossed=fixture(false);crossed.unknown=true;assert(crossed.click())
+local crossId=crossed.e.ROSTER[2].guid
+for i,name in ipairs(crossed.e.OlympusVerifyNativeRankConstants.profiles[2].names) do crossed.names[i]=name end
+crossed.e.GetGuildInfo=function() return 'OLYMPUS PRIME','Steward',1 end
+crossed.e.ROSTER[1].rank='Steward'
+crossed.e.ROSTER[2].rankIndex=8;crossed.e.ROSTER[2].rank='Member'
+crossed.e.NOW=crossed.e.NOW+1;crossed.emit('GUILD_ROSTER_UPDATE')
+assert(crossed.e.OlympusVerifyDB.launchPromotionAttempts[crossId].state=='unknown','another profile with the same ordinal cannot acknowledge an original attempt')
+for _,kind in ipairs({'missing-freshness','missing-page','discovery-only'}) do
+  local missing=fixture(false,true);local current=missing.q.Current();local id=missing.e.ROSTER[2].guid
+  if kind=='missing-freshness' then current.freshness[id]=nil
+  elseif kind=='missing-page' then current.freshness[id].page=nil
+  else current.freshness[id].kind='discovery' end
+  missing.q.Current=function()return current end
+  assert(not missing.click() and missing.clicks==0 and missing.direct==0,'a missing selected plan cannot arm hardware: '..kind)
+  local printed=table.concat(missing.e.PRINTS,'\n')
+  assert(printed:find('fresh Directive selected plan is required',1,true) and not printed:find('rank table differs',1,true),'a missing selected plan is explained without inventing a native table mismatch: '..kind)
+  assert(not next(missing.e.OlympusVerifyDB.launchPromotionAttempts or {}),'missing plan creates no attempt history: '..kind)
+end
+for _,isSteward in ipairs({false,true}) do
+  local mixed=fixture(false,isSteward)
+  local other=mixed.e.OlympusVerifyNativeRankConstants.profiles[isSteward and 1 or 2]
+  local names={};for i,name in ipairs(other.names) do names[i]=name end
+  mixed.e.OlympusLaunchSelected.page.rankNames=names
+  local current=mixed.q.Current()
+  assert(current==nil or current.actionHeld==true and #current.invites==0 and #current.promotions==0 and #current.riskBuffer==0 and #current.held==0,'mixed profile metadata leaves no invite, promotion, risk or held action rows; an advisory held context may remain')
+  assert(current==nil or current.selection and current.selection.reason:find('rank table',1,true),'mixed profile metadata preserves the rank-specific hold reason')
+  assert(not mixed.click() and mixed.clicks==0,'reviewed names cannot be mixed with another profile and digest for a native action')
+end

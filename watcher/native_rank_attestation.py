@@ -1,7 +1,7 @@
 """Rank observations are preserved in original roster custody, never inferred."""
 from __future__ import annotations
 from typing import Any
-from native_rank_schemes import NAMES
+from native_rank_schemes import PROFILES
 
 def observation(value: Any) -> dict[str, Any] | bool:
     try:
@@ -18,4 +18,4 @@ def observation(value: Any) -> dict[str, Any] | bool:
 
 def qualified(value: Any) -> bool:
     table = observation(value)
-    return bool(table and tuple(table['names']) == NAMES)
+    return bool(table and any(tuple(table['names']) == p['names'] for p in PROFILES))

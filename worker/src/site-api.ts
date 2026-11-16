@@ -34,6 +34,7 @@ import {
   currentPosition,
   HOUR_KEYS,
   isAppointed,
+  recordedAppointmentKey283,
   isLeadership,
   isNoVote,
   LIMITS,
@@ -73,7 +74,7 @@ import { handleTownCrierWebhook } from "./site-news-webhook";
 import { loadResourceUpdates, resourcePublicCache } from "./site-resources";
 import { appointedIdentitiesPage, appointmentAccountId, appointmentAccountStatuses, searchAppointmentMembers, canUseStreamShield, canEditTownCrier } from './site-appointed-identities';
 import { applicationTalentBuilds, sharedApplicationTalentBuilds, talentBuildAttachment, unchangedHistoricalTalentBuild } from './talent-build-attachment';
-import { validateApplicationIntent199, applicationIntentDto199, applicationRoleKeys199, reservedApplication201 } from './application-track199';
+import { validateApplicationIntent199, storedApplicationIntentDto199, applicationRoleKeys199, reservedApplication201 } from './application-track199';
 
 export const DENIED_TEXT =
   "Your registration with Olympus has been permanently denied. Joke and abusive applications are not reconsidered.";
@@ -457,8 +458,8 @@ export function validateApplication(body: Record<string, unknown>, selfId: strin
   const first = roleKeyOf(position, classLead);
   if (taken(first)) {
     return position === "class_lead"
-      ? fail("classLead", `${roleLabel(first)} has been appointed (${generalAppointmentLabel(appointed[first])}): choose another class.`)
-      : fail("position", `${roleLabel(first)} has been appointed (${generalAppointmentLabel(appointed[first])}): choose another first choice.`);
+      ? fail("classLead", `${roleLabel(first)} has been appointed (${generalAppointmentLabel(appointed[recordedAppointmentKey283({appointed},first)??first])}): choose another class.`)
+      : fail("position", `${roleLabel(first)} has been appointed (${generalAppointmentLabel(appointed[recordedAppointmentKey283({appointed},first)??first])}): choose another first choice.`);
   }
 
   // Up to two backups, in order: roles they would also take if the first choice goes to someone else.
@@ -470,7 +471,7 @@ export function validateApplication(body: Record<string, unknown>, selfId: strin
     if (!c) return fail("backups", "One of the backup choices does not exist.");
     if (key === first) return fail("backups", "A backup choice is the same as your first choice.");
     if (backups.includes(key)) return fail("backups", "The two backup choices are the same.");
-    if (taken(key)) return fail("backups", `${c.label} has been appointed (${generalAppointmentLabel(appointed[key])}): choose another backup, or none.`);
+    if (taken(key)) return fail("backups", `${c.label} has been appointed (${generalAppointmentLabel(appointed[recordedAppointmentKey283({appointed},key)??key])}): choose another backup, or none.`);
     backups.push(key);
   }
   // Any leadership choice brings the leadership questions; only one that is voted on brings the board (.45: a role
@@ -987,7 +988,7 @@ async function boardRole(env: Env, user: SiteUser, roleKey: string, q: URLSearch
         choice, // 1 = their first choice, 2 or 3 = a backup
         // Only the written answers the application form says are shown here; logs, references and notes stay private.
         answers: Object.fromEntries(BOARD_ANSWERS.filter((k) => typeof answers[k] === "string").map((k) => [k, answers[k]])),
-        applicationIntent: answers.boardApplicationIntentOptIn === true ? applicationIntentDto199(answers) : null,
+        applicationIntent: answers.boardApplicationIntentOptIn === true ? storedApplicationIntentDto199(answers) : null,
         talentBuilds: sharedApplicationTalentBuilds(answers.talentBuilds, answers.boardTalentBuildsOptIn, { character: typeof r.character === "string" ? r.character : null, className: typeof r.class === "string" ? r.class : "", siteHost: env.SITE_HOST }, parseCharacterName),
         myVote: Number(r.myVote ?? 0),
         self: id === me,
@@ -998,7 +999,8 @@ async function boardRole(env: Env, user: SiteUser, roleKey: string, q: URLSearch
 
 /** Keep the conflict and closed role public without disclosing a private account association. */
 const appointedRole = (key: string, s: SiteSettings) => {
-  const appointed = generalAppointmentLabel(s.appointed[key]);
+  const sourceKey = recordedAppointmentKey283(s,key);
+  const appointed = generalAppointmentLabel(sourceKey ? s.appointed[sourceKey] : undefined);
   return apiJson({ error: "appointed", appointed, message: `${roleLabel(key)} has been appointed (${appointed}): there is no vote for it.` }, 409);
 };
 /** The answer for a role chosen without a public vote: it takes applications, but there is no board to show or vote on. */

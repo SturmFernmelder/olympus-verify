@@ -60,7 +60,7 @@ const recordTool169 = (page, namespace, calls) => {
   }
   const avatarPage = await openPage(MEMBER);
   const promotion185 = avatarPage.app.querySelector('[data-addon-promotion="olympus-guild"]');
-  check(".210 signed-in Home names the published unified addon with separate website setup and verification", !!promotion185 && promotion185.textContent.includes("No desktop companion") && /* Evergreen 12 Nov 2026 (CL2-071): the 1.5.7 floor, not the old 1.3.3 file */ promotion185.textContent.includes("Olympus Guild (version 1.5.7 or later, from its CurseForge page) is the optional unified guild addon for census and Army reporting. Website snapshot reporting has separate setup and availability. Verification remains separate.") && !promotion185.textContent.includes("publisher adoption"));
+  check(".210 signed-in Home names the published unified addon with separate website setup and verification", !!promotion185 && promotion185.textContent.includes("No desktop companion") && /* CL2-071 (our 1d3d046): no unverified version is named; the sentence names the CurseForge project page */ promotion185.textContent.includes("Olympus Guild, from its CurseForge project page, is the optional unified guild addon for census and Army reporting. Website snapshot reporting has separate setup and availability. Verification remains separate.") && !promotion185.textContent.includes("publisher adoption"));
   const promotionLink185 = promotion185?.querySelector('a[href="https://www.curseforge.com/wow/addons/olympus-guild"]');
   check(".185 the prominent publisher link opens safely and the catalog stays available", !!promotionLink185 && promotionLink185.getAttribute("target") === "_blank" && promotionLink185.getAttribute("rel") === "noopener noreferrer" && !!promotion185.querySelector('a[href="#/addons"]'));
   const anonymousPromotion185 = await openPage(null);
@@ -82,7 +82,9 @@ const recordTool169 = (page, namespace, calls) => {
   check('.210 actual Rosetta emits all nine registered class-lead alias links', classAliases210.length === 9 && classAliases210.every(row => !!rosetta210.app.querySelector('a[href="#/organization/' + encodeURIComponent(row.key) + '"]')));
   const inspectOrganization210 = (parts, term) => {
     const view = organization210.open({overview205:true, parts});
-    const selected = !!term && view.node(term.nodeId)?.getAttribute('aria-pressed') === 'true' && view.detail.textContent.includes(term.label + ':') && view.one('org-relationship-map205').open && view.doc.activeElement === view.detail;
+    // CL2-041/CL2-220 (our 4c7b542): the panel's title line names the selected title, with its note only when fewer than three titles share that note.
+    const termLine = !!term && (term.note && organization210.data.terms.filter(other => other.note === term.note).length < 3 ? term.label + ': ' + term.note : term.label);
+    const selected = !!term && view.node(term.nodeId)?.getAttribute('aria-pressed') === 'true' && view.detail.children.some(child => child.tagName === 'P' && child.textContent === termLine) && view.one('org-relationship-map205').open && view.doc.activeElement === view.detail;
     const fallback = view.node('council').getAttribute('aria-pressed') === 'true' && view.one('org-relationship-map205').open && view.doc.activeElement !== view.detail;
     view.dispose(); return {selected, fallback};
   };
@@ -131,7 +133,8 @@ const recordTool169 = (page, namespace, calls) => {
 
   console.log("\n== .175: appointment association eligibility and current-profile lookup ==");
   const appointmentPage = await openPage(STAFF);
-  await appointmentPage.go("#/admin/settings");
+  // CL2-014 (our a6f591d): Appointed roles has its own page and its own Save, outside Settings.
+  await appointmentPage.go("#/admin/appointments");
   await waitFor(() => !!appointmentPage.app.querySelector('[data-appointment-status="co_gm"]'), "appointment settings");
   const coInput175 = appointmentPage.app.querySelector('[data-appointment-field203="co_gm"] input');
   const coRow175 = coInput175.closest(".appointed-row"), coPicker175 = coRow175.querySelector(".picker"), coSearch175 = coPicker175.querySelector('[role="combobox"]');
@@ -166,7 +169,7 @@ const recordTool169 = (page, namespace, calls) => {
   const appointedBefore175 = one("SELECT value FROM site_settings WHERE key='appointed'")?.value;
   await fixtureRun("UPDATE site_users SET denied=1 WHERE discord_id=?", OTHER);
   names175.checked = true; publication175.checked = true;
-  byText(appointmentPage.app, "button", "Save settings").click();
+  byText(appointmentPage.app, "button", "Save appointed roles").click(); // CL2-014 (our a6f591d): the page's own Save
   await waitFor(() => coRow175.querySelector('[data-appointment-status="co_gm"]').textContent.includes("Hand of the Sovereign · Co-Guild Master: The selected account is not currently eligible"), "role-specific real save refusal");
   check(".175 a changed selected account is named by office at its field and the real Worker refuses the whole save", one("SELECT value FROM site_settings WHERE key='appointed'")?.value === appointedBefore175 && !publication175.checked && coInput175.focusCalls === 1 && !coRow175.querySelector('[data-appointment-status="co_gm"]').textContent.includes(OTHER));
   await fixtureRun("UPDATE site_users SET denied=0 WHERE discord_id=?", OTHER);
@@ -188,7 +191,8 @@ const recordTool169 = (page, namespace, calls) => {
       return false;
     });
     await queuePage.go("#/admin/settings");
-    await waitFor(() => !!queuePage.app.querySelector('#appointed-characters-ok'), "unrelated queue settings");
+    // CL2-014 (our a6f591d): the appointment consent boxes left Settings; the queue box marks the loaded Settings page.
+    await waitFor(() => Array.from(queuePage.app.querySelectorAll('label')).some(label => label.textContent.includes('automatically queue approved reserved names')), "unrelated queue settings");
     await seedSetting("notice", {value:"Notice saved by another admin",updated_at:fixtureTime,updated_by:null});
     const queueLabel = Array.from(queuePage.app.querySelectorAll('label')).find(label => label.textContent.includes('automatically queue approved reserved names'));
     const queue = queueLabel.querySelector('input');
@@ -196,10 +200,11 @@ const recordTool169 = (page, namespace, calls) => {
     queue.checked = false;
     saveQueue.click();
     await waitFor(() => !saveQueue.disabled, "unrelated settings save completed");
+    // CL2-014 (our a6f591d): Settings carries no appointment publication consent box, so its save cannot request one.
     check("saving the queue setting preserves an existing account association without requesting publication consent",
       one("SELECT value FROM site_settings WHERE key='autoQueue'")?.value === '0'
       && one("SELECT value FROM site_settings WHERE key='appointed'")?.value === existingAppointment
-      && !queuePage.app.querySelector('#appointed-characters-ok').checked);
+      && !queuePage.app.querySelector('#appointed-characters-ok'));
     check("the queue edit sends only its changed field and preserves a notice saved after the page loaded",
       JSON.stringify(queueWrites) === JSON.stringify([{autoQueue:false}])
       && one("SELECT value FROM site_settings WHERE key='notice'")?.value === "Notice saved by another admin");
@@ -292,9 +297,11 @@ const recordTool169 = (page, namespace, calls) => {
   await member.go("#/guide/member");
   const navigationCSS = fs.readFileSync(path.join(root, "public/static/app.css"), "utf8");
   check(".170 navigation retains the same header/footer and popups stay outside header layout flow", member.app.querySelector("header") === navigationHeader && member.app.querySelector("footer") === navigationFooter && /\.nav-menu \{[^}]*position: absolute/.test(navigationCSS) && /\.nav-menu::before \{[^}]*height: 9px/.test(navigationCSS) && openMenus().length === 0);
-  check(".169 member guide is a five-step informational route with permission and source caveats", !!byText(member.app, "h1", "Member guide") && member.app.querySelectorAll(".guide-steps section").length === 5 && member.app.textContent.includes("permissions and current server decisions remain authoritative") && member.app.textContent.includes("do not bypass an appointment"));
+  // CL2-040 (our 7d62b9c): the Member guide is eight concrete steps merged with RC8; its caveats are worded without negations.
+  check(".169 member guide is an eight-step informational route with permission and source caveats", !!byText(member.app, "h1", "Member guide") && member.app.querySelectorAll(".guide-steps section").length === 8 && member.app.textContent.includes("These steps follow the current guild rules, including the Member Quick Guide in Royal Codex RC8. Current permissions and server decisions take precedence over this summary.") && member.app.textContent.includes("Your application, any board vote and the in-game invite are separate steps"));
   await member.go("#/guide/officer");
-  check(".169 officer process guide does not grant a non-staff account an Admin control", !!byText(member.app, "h1", "Officer Operational Guide") && member.app.querySelectorAll(".guide-steps section").length === 5 && !byText(member.app, "a", "Open Admin") && member.app.textContent.includes("Only controls your account is actually allowed to use"));
+  // CL2-040 (our 7d62b9c): the Officer guide's access step no longer opens with a negation.
+  check(".169 officer process guide does not grant a non-staff account an Admin control", !!byText(member.app, "h1", "Officer Operational Guide") && member.app.querySelectorAll(".guide-steps section").length === 5 && !byText(member.app, "a", "Open Admin") && member.app.textContent.includes("An action works only through controls your account is allowed to use"));
   await staff.go("#/guide/officer");
   check(".169 the officer guide links Admin only for the admitted staff fixture", !!byText(staff.app, "a", "Open Admin"));
   const denied = await openPage(DENIED);
@@ -363,10 +370,11 @@ const recordTool169 = (page, namespace, calls) => {
     check(".186 the calculator is told which optional module failed, so it can name the missing feature", JSON.stringify(options186.unavailable) === JSON.stringify([failed186 === "analysis" ? "analysis" : "guideBuilds"]));
     check(".186 the calculator still mounts when the optional " + failed186 + " module fails, with only the loaded " + kept186 + " module", partialCalls186.length === 1 && options186.className === "druid" && options186[failed186 === "analysis" ? "analysis" : "guideBuilds"] === undefined && options186[kept186 === "analysis" ? "analysis" : "guideBuilds"] === partial186.window[globals186[kept186]] && !partial186.app.textContent.includes("could not be loaded") && !partial186.app.textContent.includes("Opening tool…") && partial186.app.textContent.includes("OlympusTalents:druid"));
     await partial186.go("#/guide/member"); await partial186.go("#/talents/druid");
-    await waitFor(() => partialHead186.querySelectorAll("script").length === 3, "retry of the failed optional " + failed186 + " module");
-    check(".186 a later talent visit retries only the failed optional " + failed186 + " module", partialCalls186.length === 1 && partialCalls186[0].destroyed === 1 && partialHead186.querySelectorAll('script[src="' + files186[failed186] + '"]').length === 2 && partialHead186.querySelectorAll('script[src="' + files186[kept186] + '"]').length === 1);
+    // UX-LOAD-001 (our efcbc42): a failed optional script's element is removed and the retry asks for it at a fresh address (?retry=1).
+    await waitFor(() => partialHead186.querySelectorAll("script").length === 2, "retry of the failed optional " + failed186 + " module");
+    check(".186 a later talent visit retries only the failed optional " + failed186 + " module", partialCalls186.length === 1 && partialCalls186[0].destroyed === 1 && partialHead186.querySelectorAll('script[src="' + files186[failed186] + '"]').length === 0 && partialHead186.querySelectorAll('script[src="' + files186[failed186] + '?retry=1"]').length === 1 && partialHead186.querySelectorAll('script[src="' + files186[kept186] + '"]').length === 1);
     partial186.window[globals186[failed186]] = { synthetic: failed186 };
-    partialHead186.querySelectorAll('script[src="' + files186[failed186] + '"]')[1].dispatchEvent(new Event("load"));
+    partialHead186.querySelector('script[src="' + files186[failed186] + '?retry=1"]').dispatchEvent(new Event("load"));
     await waitFor(() => partialCalls186.length === 2, "calculator mount after the retried module loads");
     check(".186 after a successful retry the calculator receives both optional modules", partialCalls186.length === 2 && partialCalls186[1].options.analysis === partial186.window.OlympusTalentAnalysis && partialCalls186[1].options.guideBuilds === partial186.window.OlympusTalentGuides && JSON.stringify(partialCalls186[1].options.unavailable) === "[]");
   }
@@ -405,29 +413,32 @@ const recordTool169 = (page, namespace, calls) => {
     const settled189 = promise => Promise.race([promise.then(value => ({ value }), () => ({ rejected: true })), pause169(2000).then(() => ({ pending: true }))]);
     const lostPage = await openPage(MEMBER), lostHead = head169(lostPage), lostCalls = [];
     const sheetScripts189 = () => lostHead.querySelectorAll('script[src="/static/talents/stats60.js"]');
+    // UX-LOAD-001 (our efcbc42): a failed stats60.js element is removed and later openings ask at a fresh address (?retry=1).
+    const retriedSheets189 = () => lostHead.querySelectorAll('script[src="/static/talents/stats60.js?retry=1"]');
     lostPage.window.OlympusTalentAnalysis = {}; lostPage.window.OlympusTalentGuides = {}; recordTool169(lostPage, "OlympusTalents", lostCalls);
     await lostPage.go("#/talents/rogue"); await waitFor(() => lostCalls.length === 1, "talent mount for a failing sheet script");
     check(".189 the sheet is not part of the optional pair loaded on route entry", sheetScripts189().length === 0 && JSON.stringify(lostCalls[0].options.unavailable) === "[]");
     const failedLoad = settled189(lostCalls[0].options.loadStats60());
     sheetScripts189()[0]?.dispatchEvent(new Event("error"));
     const failed = await failedLoad;
-    check(".189 a stats60.js load error settles to no module instead of rejecting", sheetScripts189().length === 1 && "value" in failed && failed.value === undefined);
+    check(".189 a stats60.js load error settles to no module instead of rejecting", sheetScripts189().length === 0 && retriedSheets189().length === 0 && "value" in failed && failed.value === undefined);
     const silentLoad = settled189(lostCalls[0].options.loadStats60());
-    check(".189 the next opening after a load error requests stats60.js again", sheetScripts189().length === 2);
-    sheetScripts189()[1]?.dispatchEvent(new Event("load")); // absent only if the retry never happened, which the previous check reports
+    check(".189 the next opening after a load error requests stats60.js again", sheetScripts189().length === 0 && retriedSheets189().length === 1);
+    retriedSheets189()[0]?.dispatchEvent(new Event("load")); // absent only if the retry never happened, which the previous check reports
     const silent = await silentLoad;
     check(".189 a stats60.js that loads without defining its global also settles to no module", "value" in silent && silent.value === undefined);
     const retryLoad = settled189(lostCalls[0].options.loadStats60());
-    check(".189 the next opening requests that silent script again instead of reusing its settled cache entry", sheetScripts189().length === 3);
-    lostPage.window.OlympusTalentStats60 = { synthetic: "sheet" }; sheetScripts189()[2]?.dispatchEvent(new Event("load"));
+    check(".189 the next opening requests that silent script again instead of reusing its settled cache entry", sheetScripts189().length === 0 && retriedSheets189().length === 2);
+    lostPage.window.OlympusTalentStats60 = { synthetic: "sheet" }; retriedSheets189()[1]?.dispatchEvent(new Event("load"));
     const retried = await retryLoad;
     check(".189 once the retried stats60.js defines its global the loader resolves to it", "value" in retried && retried.value === lostPage.window.OlympusTalentStats60);
     const cached = await settled189(lostCalls[0].options.loadStats60());
-    check(".189 a loaded sheet module is reused without another request", "value" in cached && cached.value === lostPage.window.OlympusTalentStats60 && sheetScripts189().length === 3);
+    check(".189 a loaded sheet module is reused without another request", "value" in cached && cached.value === lostPage.window.OlympusTalentStats60 && sheetScripts189().length === 0 && retriedSheets189().length === 2);
   }
   const resourceCalls = []; recordTool169(tools, "OlympusResources", resourceCalls);
   await tools.go("#/addons"); await waitFor(() => resourceCalls.length === 1, "addon renderer");
-  await tools.go("#/guides"); await waitFor(() => resourceCalls.length === 2, "guide directory renderer");
+  // CL2-205 (our 58b96f8): #/guides is Olympus University; the publisher library's "guides" view moved to #/guides/library.
+  await tools.go("#/guides/library"); await waitFor(() => resourceCalls.length === 2, "guide directory renderer");
   check(".169 addon and class/profession directories pass distinct views and dispose the previous renderer", resourceCalls[0].options.view === "addons" && resourceCalls[1].options.view === "guides" && resourceCalls[0].destroyed === 1 && head.querySelectorAll('link[data-olympus-tool="OlympusResources"]').length === 1);
   await tools.go("#/updates");
   await waitFor(() => resourceCalls.length === 3, "public game updates with Guild news OFF");

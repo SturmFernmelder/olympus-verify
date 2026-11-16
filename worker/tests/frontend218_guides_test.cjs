@@ -40,8 +40,16 @@ const record218 = (page, namespace, calls) => {
     return { destroy: () => { call.destroyed++; } };
   } };
 };
+// CL2-205 (our 58b96f8): the University route appends its rules script (validate.js) and mounts after it loads; the fixture
+// fires that script's load event, as frontend_check.cjs does for other tool scripts. It defines nothing a check reads.
+const rules218 = async page => {
+  const rules = () => page.document.head.querySelector('script[src="/static/university/validate.js"]');
+  await waitFor(() => !!rules(), "university rules script"); rules()?.dispatchEvent(new Event("load"));
+};
 const group218 = (page, label) => page.app.querySelectorAll("details.nav-group").find(el => el.querySelector("summary").textContent === label);
-const WARRIOR60 = "ot1.260cf99b52db.warrior.60.0532521303051520105050030000000000000000000000000000";
+// CL2-087 (our 2848069, df7e646): the current talent revision is 02e1e101d1a5 and app.js attaches only a code of that revision;
+// this is the warrior-arms-raid-60 preset code of guides218.json and university/presets/warrior.json.
+const WARRIOR60 = "ot1.02e1e101d1a5.warrior.60.30323213032215201550500000120000000000000000000000000";
 
 
 let treasurySetup218 = null;
@@ -91,42 +99,78 @@ const visibility218=(p,hidden=false)=>{
   await siteUser(MEMBER, { global_name: "Mia" }); await character(MEMBER, "Mia One", "Player-1-0001");
 
   console.log("\n== .218: Olympus guides and tools ==");
-  const p = await openPage(MEMBER); const head = head218(p); const guides = [], library = [];
-  record218(p, "OlympusGuides", guides); record218(p, "OlympusResources", library);
+  // CL2-205 (our 58b96f8): #/guides and #/resources mount Olympus University (OlympusUniversity), the publisher library moved to
+  // #/guides/library, and only the tools keep guides218.js (OlympusGuides). The University waits for its rules script first.
+  const p = await openPage(MEMBER); const head = head218(p); const guides = [], library = [], university = [];
+  record218(p, "OlympusGuides", guides); record218(p, "OlympusResources", library); record218(p, "OlympusUniversity", university);
   const resources = group218(p, "Resources"), hrefs = resources ? resources.querySelectorAll("a").map(a => a.getAttribute("href")) : [];
-  check(".228 the Resources menu distinguishes Olympus guides from the publisher library and keeps every entry", hrefs[0] === "#/resources"
+  // CL2-205 (our 58b96f8): the first entry is the guides hub at #/guides; the publisher library is #/guides/library.
+  // Unit h1 guidesname (owner, 15 Nov 2026): the entry is named "Class & profession guides" again, as before 58b96f8.
+  check(".228 the Resources menu distinguishes Olympus guides from the publisher library and keeps every entry", hrefs[0] === "#/guides"
     && resources.querySelectorAll("a")[0].textContent === "Class & profession guides"
-    && resources.querySelector('a[href="#/guides"]').textContent === "Publisher library"
-    && ["#/guide/member", "#/guide/officer", "#/talents", "#/addons", "#/guides", "#/updates"].every(h => hrefs.filter(x => x === h).length === 1));
-  await p.go("#/resources"); await waitFor(() => guides.length === 1, "guides hub");
-  check(".218 #/resources mounts the Olympus guides hub with the pinned talent revision", guides[0].options.view === "hub" && guides[0].options.talentRevision === p.boot.meta.talentSnapshotRevision
-    && head.querySelectorAll('link[data-olympus-tool="OlympusGuides"]').length === 1 && p.document.title === "Class & profession guides — Olympus");
-  await p.go("#/guides"); await waitFor(() => library.length === 1, "publisher library");
-  check(".218 #/guides itself still mounts the reviewed publisher library, and the hub is disposed", library[0].options.view === "guides"
-    && guides[0].destroyed === 1 && guides.length === 1 && p.document.title === "Publisher library — Olympus");
-  await p.go("#/guides/class/warrior/arms"); await waitFor(() => guides.length === 2, "class guide");
-  check(".218 a class guide route passes the class, the spec and the attach handler", guides[1].options.view === "class" && guides[1].options.classId === "warrior" && guides[1].options.specId === "arms"
-    && typeof guides[1].options.onAttach === "function" && guides[1].options.canAttach === true && p.document.title === "Warrior guide · Guides — Olympus");
-  await p.go("#/guides/class/mage"); await waitFor(() => guides.length === 3, "class guide without spec");
-  check(".218 a class guide without a spec leaves the spec to the module", guides[2].options.classId === "mage" && guides[2].options.specId === undefined);
-  await p.go("#/guides/profession/first-aid"); await waitFor(() => guides.length === 4, "profession guide");
-  check(".218 a profession guide route passes the profession key", guides[3].options.view === "profession" && guides[3].options.profession === "first-aid");
-  await p.go("#/guides/tools/buffs"); await waitFor(() => guides.length === 5, "tool");
-  check(".218 a tool route passes the tool and titles the page", guides[4].options.view === "tool" && guides[4].options.tool === "buffs" && p.document.title === "World buffs & consumables · Guides — Olympus");
-  await p.go("#/guides/nothing/here/at/all");
-  check(".218 an unknown guide route says so without mounting anything", p.app.textContent.includes("There is no such guide.") && guides.length === 5);
+    && resources.querySelector('a[href="#/guides/library"]').textContent === "Publisher library"
+    && ["#/guide/member", "#/guide/officer", "#/talents", "#/addons", "#/guides/library", "#/updates"].every(h => hrefs.filter(x => x === h).length === 1));
+  await p.go("#/resources"); await rules218(p); await waitFor(() => university.length === 1, "guides hub");
+  // CL2-205 (our 58b96f8): #/resources stays an alias of the hub (OlympusUniversity) with no route parts.
+  // Unit h1 guidesname (owner, 15 Nov 2026): its page title is "Class & profession guides" again, as before 58b96f8.
+  check(".218 #/resources mounts the Olympus guides hub with the pinned talent revision", university.length === 1 && JSON.stringify(university[0].options.parts) === "[]" && university[0].options.talentRevision === p.boot.meta.talentSnapshotRevision
+    && head.querySelectorAll('link[data-olympus-tool="OlympusUniversity"]').length === 1 && guides.length === 0 && p.document.title === "Class & profession guides — Olympus");
+  await p.go("#/guides"); await waitFor(() => university.length === 2, "hub at #/guides");
+  await p.go("#/guides/library"); await waitFor(() => library.length === 1, "publisher library");
+  // CL2-205 (our 58b96f8): #/guides itself is the hub; the reviewed publisher library is #/guides/library.
+  check(".218 #/guides opens the hub, #/guides/library mounts the reviewed publisher library, and the hub is disposed", university.length === 2 && JSON.stringify(university[1].options.parts) === "[]"
+    && library.length === 1 && library[0].options.view === "guides" && university[0].destroyed === 1 && university[1].destroyed === 1 && guides.length === 0 && p.document.title === "Publisher library — Olympus");
+  await p.go("#/guides/class/warrior/arms"); await waitFor(() => university.length === 3, "class guide");
+  // CL2-205 (our 58b96f8): the .218 class and spec link opens the matching course; the University reads the class and spec from its parts.
+  // Unit h1 guidesname (owner, 15 Nov 2026): the page title ends in " · Guides" again, as before 58b96f8.
+  check(".218 a class guide route passes the class, the spec and the attach handler", university.length === 3 && JSON.stringify(university[2].options.parts) === '["class","warrior","arms"]'
+    && typeof university[2].options.onAttach === "function" && university[2].options.canAttach === true && p.document.title === "Warrior guide · Guides — Olympus");
+  await p.go("#/guides/class/mage"); await waitFor(() => university.length === 4, "class guide without spec");
+  // CL2-205/CL2-202 (our 58b96f8): a class address without a spec reaches the University with no spec part.
+  check(".218 a class guide without a spec leaves the spec to the module", university.length === 4 && JSON.stringify(university[3].options.parts) === '["class","mage"]');
+  await p.go("#/guides/profession/first-aid"); await waitFor(() => university.length === 5, "profession guide");
+  // CL2-205 (our 58b96f8): the .218 profession link opens the matching course with the profession key unchanged.
+  // Unit h1 guidesname (owner, 15 Nov 2026): the page title ends in " · Guides" again, as before 58b96f8.
+  check(".218 a profession guide route passes the profession key", university.length === 5 && JSON.stringify(university[4].options.parts) === '["profession","first-aid"]'
+    && p.document.title === "First Aid guide · Guides — Olympus");
+  await p.go("#/guides/tools/buffs"); await waitFor(() => guides.length === 1, "tool");
+  // CL2-205 (our 58b96f8): tools keep guides218.js. Unit h1 guidesname (owner, 15 Nov 2026): their page titles end in " · Guides" again, as before 58b96f8.
+  check(".218 a tool route passes the tool and titles the page", guides.length === 1 && guides[0].options.view === "tool" && guides[0].options.tool === "buffs" && p.document.title === "World buffs & consumables · Guides — Olympus");
+  await p.go("#/guides/nothing/here/at/all"); await waitFor(() => university.length === 6, "unknown guide route");
+  // CL2-205 (our 58b96f8): app.js hands every other #/guides address to the University; its "Guide not found" page for an
+  // address that names no class, race or profession (INT-UNI-1 / CL2-105) is asserted by evergreen1112_guides_test.cjs.
+  check(".218 an unknown guide route hands its exact address to Olympus University and mounts no tool", university.length === 6 && JSON.stringify(university[5].options.parts) === '["nothing","here","at","all"]' && guides.length === 1);
   await p.go("#/resources/extra");
-  check(".218 the hub has no sub-pages", p.app.textContent.includes("There is no such page.") && guides.length === 5);
-  await p.go("#/guides/tools/raid-structure"); await waitFor(() => guides.length === 6, "raid structure guide");
-  check("the raid structure guide opens through the normal member tool route with its page title", guides[5].options.view === "tool"
-    && guides[5].options.tool === "raid-structure" && p.document.title === "Raid team structure & leadership · Guides — Olympus");
+  // CL2-205 (our 58b96f8): the counts follow the moved hub; #/resources/extra still mounts nothing.
+  check(".218 the hub has no sub-pages", p.app.textContent.includes("There is no such page.") && guides.length === 1 && university.length === 6);
+  await p.go("#/guides/tools/raid-structure"); await waitFor(() => guides.length === 2, "raid structure guide");
+  // CL2-205 (our 58b96f8): the second tool mount. Unit h1 guidesname (owner, 15 Nov 2026): the title ends in " · Guides" again.
+  check("the raid structure guide opens through the normal member tool route with its page title", guides.length === 2 && guides[1].options.view === "tool"
+    && guides[1].options.tool === "raid-structure" && p.document.title === "Raid team structure & leadership · Guides — Olympus");
+  // Unit h1 guidesname (owner, 15 Nov 2026: "Instead of university rename it back to its old name that it had for the guides."): the hub's
+  // title is "Class & profession guides" and every other guides title ends in " · Guides", with the fallback "Guides", as before 58b96f8
+  // (race and exam titles use the same suffix; an unknown race or profession falls back to "Guides"); the frames of #/guides/tools (no tool
+  // named) and #/resources/<x> are titled as then and lead back with "Class & profession guides".
+  const titles218 = [];
+  for (const [hash, count] of [["#/guides", 7], ["#/guides/race/dwarf", 8], ["#/guides/exam/class-warrior/101", 9], ["#/guides/exams", 10], ["#/guides/class/no-such-class", 11], ["#/guides/nothing", 12],
+    ["#/guides/race/orc", 13], ["#/guides/profession/no-such-profession", 14]]) {
+    await p.go(hash); await waitFor(() => university.length === count, hash); titles218.push(p.document.title);
+  }
+  const frame218 = async hash => { await p.go(hash); await Promise.resolve(); const frames = p.app.querySelectorAll(".frame"), plaque = frames.length === 1 ? frames[0].querySelector(".plaque") : null;
+    return [frames.length, plaque ? plaque.textContent : null, p.document.title, ...(frames.length === 1 ? frames[0].querySelectorAll("a.btn") : []).map(a => [a.getAttribute("href"), a.textContent])]; };
+  const frames218 = [await frame218("#/guides/tools"), await frame218("#/resources/extra")];
+  check("h1: the guides hub, race, exam, fallback and not-found pages use the section's old names", JSON.stringify(titles218) === JSON.stringify(["Class & profession guides — Olympus", "Dwarf guide · Guides — Olympus",
+    "Mastery exam · Guides — Olympus", "Mastery exams · Guides — Olympus", "Guides — Olympus", "Guides — Olympus", "Guides — Olympus", "Guides — Olympus"])
+    && JSON.stringify(frames218) === JSON.stringify([[1, "Guides", "Guides — Olympus", ["#/guides", "Class & profession guides"]], [1, "Class & profession guides", "Class & profession guides — Olympus", ["#/guides", "Class & profession guides"]]])
+    && guides.length === 2 && university.length === 14);
 
   console.log("\n== .218: Attach to my application (prefill only) ==");
-  const a = await openPage(MEMBER); head218(a); const calls = []; record218(a, "OlympusGuides", calls); const writes = [];
+  // CL2-205 (our 58b96f8): the class guide that offers Attach is now an Olympus University course.
+  const a = await openPage(MEMBER); head218(a); const calls = []; record218(a, "OlympusUniversity", calls); const writes = [];
   a.before((pathname, init) => { if (pathname.startsWith("/api/application") && init && init.method && init.method !== "GET") writes.push(pathname); return false; });
   await a.go("#/apply");
   check(".218 an ordinary Apply visit shows no attach notice and leaves every build empty", !a.app.textContent.includes("Attached \"") && a.app.querySelectorAll(".talent-application-character textarea").every(t => !t.value));
-  await a.go("#/guides/class/warrior/arms"); await waitFor(() => calls.length === 1, "class guide for attach");
+  await a.go("#/guides/class/warrior/arms"); await rules218(a); await waitFor(() => calls.length === 1, "class guide for attach");
   calls[0].options.onAttach(Object.freeze({ presetId: "warrior-arms-raid-60", label: "Olympus starting point · raid", classId: "warrior", level: 60, code: WARRIOR60 }));
   await waitFor(() => a.location.hash === "#/apply" && a.app.textContent.includes("Attached \""), "attach handoff");
   const rows = a.app.querySelectorAll(".talent-application-character");
@@ -134,8 +178,11 @@ const visibility218=(p,hidden=false)=>{
   check(".218 Attach fills only the main character's level 60 build, sets the class and says nothing was sent", !!at60 && at60.value === WARRIOR60 && rows[0].querySelectorAll("textarea")[0].value === ""
     && a.app.textContent.includes("Your class is now Warrior.") && a.app.textContent.includes("Nothing has been sent yet.") && writes.length === 0);
   // Evergreen 12 Nov 2026 (CL2-173): the attach notice says "talent build", not "beta build".
+  // Site fault f4 (our 2848069, CL2-087, dropped the review sentence; no decision named it): the one visible notice is the .279 text.
+  const attachNotices = a.app.querySelectorAll("section[data-field=talentBuilds] p.notice[role=status]").filter(p => !p.hidden);
   check(".228 Attach identifies the talent build and asks the applicant to verify it in game", a.app.textContent.includes("level 60 talent build")
-    && a.app.textContent.includes("Review it against the current in-game talents."));
+    && a.app.textContent.includes("Review it against the current in-game talents.")
+    && attachNotices.length === 1 && attachNotices[0].textContent === "Attached \"Olympus starting point · raid\" as your level 60 talent build. Your class is now Warrior. Review it against the current in-game talents. Check the form, tick the confirmation and save when ready. Nothing has been sent yet.");
   const board = a.app.querySelector("#board-talent-builds-opt-in");
   check(".218 Attach never ticks board sharing", !!board && board.checked === false);
   const dirty = a.app.querySelectorAll("span.dirty").find(el => el.textContent === "Unsaved changes");
@@ -182,9 +229,13 @@ const visibility218=(p,hidden=false)=>{
     && pick041("Alchemy").getAttribute("aria-pressed") === "true" && prof041.querySelector("#prof-count").textContent === "2 of 2 chosen");
   await p.go("#/vote/officer");
   await waitFor(() => !!p.app.querySelector("select.role-pick"), ".228 Board role picker");
-  const boardClass041 = p.app.querySelector('select.role-pick optgroup[label="Class leads"]');
+  // CL2-034 (our 4c7b542), REV-GOV-5 (our 4ecca06): the board uses the six catalogue groups; the nine class leads stay alphabetical,
+  // together in "Raid, PvP & Class Leadership" right after the Class Head ballot (office_17), and appear nowhere else.
+  const boardClass041 = p.app.querySelectorAll("select.role-pick optgroup").find(group => group.getAttribute("label") === "Raid, PvP & Class Leadership");
+  const boardValues041 = boardClass041 ? boardClass041.querySelectorAll("option").map(o => o.value) : [], boardAt041 = boardValues041.indexOf("class_lead:druid");
   check(".228 the Board's class-lead choices use the same alphabetical display order",
-    !!boardClass041 && same041(boardClass041.querySelectorAll("option").map(o => o.value), classKeys041.map(key => "class_lead:" + key)));
+    !!boardClass041 && boardAt041 > 0 && boardValues041[boardAt041 - 1] === "office_17" && same041(boardValues041.slice(boardAt041, boardAt041 + 9), classKeys041.map(key => "class_lead:" + key))
+    && p.app.querySelectorAll("select.role-pick option").filter(o => o.value.startsWith("class_lead:")).length === 9);
 
   const workshop041 = await openPage(MEMBER), queries041 = [];
   workshop041.intercept((pathname) => {
@@ -246,6 +297,8 @@ const visibility218=(p,hidden=false)=>{
   check(".218 real organization model waits without a premature Treasury grant",renders218===0&&o218.app.textContent.includes("Opening the organization")&&!nav218(o218));
   tg218.resolve();await waitFor(()=>nav218(o218),"current Treasury grant");
   check(".218 Treasury navigation grant preserves the active reader user pointer",nav218(o218)&&o218.window.__treasuryClientFixture218.owner()===owner218&&owner218.canReadTreasuryPlan===true);
+  // CL2-042/CL2-043 (our 4c7b542): the route reads the model together with its stylesheet; the fixture fires the sheet's load.
+  o218.document.getElementById("organization-view-style")?.dispatchEvent(new Event("load"));
   mg218.resolve();const ready218=await waitFor(()=>renders218===1,"organization continuation after Treasury");
   check(".218 Treasury reply cannot strand the real organization model continuation",ready218&&models218===1&&renders218===1&&!!o218.app.querySelector('[data-treasury-organization-ready]')&&!o218.app.textContent.includes("Opening the organization"));
 
@@ -355,7 +408,8 @@ const visibility218=(p,hidden=false)=>{
 
 
   console.log("\n== CC160: mounted Treasury grants are dated ==");
-  const ttl160=15*60000;
+  // CL2-283 (our a6f591d): TREASURY_ACCESS_TTL218 is 60 s, not 15 minutes.
+  const ttl160=60*1000;
   const bounded160=await timedTreasury218(),allow160=deferred218(),deny160=deferred218();
   let read160=0;
   bounded160.page.intercept(async path=>{

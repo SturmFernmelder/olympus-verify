@@ -189,17 +189,18 @@ check('guides218.js no longer prints the beta snapshot wording and still accepts
   const g = json(stat, 'guides218.json'); ctx.OlympusGuides.validate(g, g.talentRevision);
   return !/Beta snapshot build|From the talent snapshot|Beta talent data|Beta talents compared/.test(src) && !/closed in the beta/.test(g.tools.preBis.note) || 'stale wording remains';
 });
+// Unit h1 guidesname (owner, 15 Nov 2026): the menu entry for #/guides is named "Class & profession guides" again, as before 58b96f8.
 check('app.js routes #/guides to the university, the library to #/guides/library, #/resources to the hub and tools to guides218.js', () => {
   const app = readText(stat, 'app.js');
   const route = /ROUTES\.guides = \(main, parts\) => parts\.length === 1 && parts\[0\] === "library" \? resourcesView\("guides"\)\(main\)\s*: parts\[0\] === "tools" \? guidesView218\(main, parts\) : universityView\(main, parts\);/.test(app);
   return route && /ROUTES\.resources = \(main, parts\) => parts\.length \? [^\n]*: universityView\(main, \[\]\);/.test(app)
-    && /\["#\/guides", "Olympus University"\]/.test(app) && /\["#\/guides\/library", "Publisher library"\]/.test(app)
+    && /\["#\/guides", "Class & profession guides"\]/.test(app) && /\["#\/guides\/library", "Publisher library"\]/.test(app)
     && /loadMemberScript\("OlympusUniversityRules", "\/static\/university\/validate\.js"\)/.test(app);
 });
 check('the privacy policy says quiz scores stay in the browser, and the generated policy module matches', () => {
   const html = readText(repo, 'policies/privacy.html'), mod = readText(worker, 'src/policy-content.ts');
   const r = cp.spawnSync(process.execPath, [path.join(worker, 'scripts/build-policy-content.mjs'), '--check'], { cwd: worker, encoding: 'utf8', timeout: 60000 });
-  return /Olympus University quiz scores\.<\/strong> Your answers and best scores[^<]*never sent to Olympus/.test(html) && /Olympus University quiz scores/.test(mod) && r.status === 0 || (r.stdout + r.stderr).slice(-300);
+  return /Guide quiz scores\.<\/strong> Your answers and best scores[^<]*never sent to Olympus/.test(html) && /Guide quiz scores/.test(mod) && r.status === 0 || (r.stdout + r.stderr).slice(-300);
 });
 
 // ---------- The real renderer in a small DOM shim ----------
@@ -260,7 +261,8 @@ async function open(parts, storage, prepare) {
   const p = page(storage);
   if (prepare) prepare(p);
   p.ctx.OlympusUniversity.mount(p.container, { parts, talentRevision: json(stat, 'guides218.json').talentRevision, canAttach: true, onAttach() {} });
-  await settle(p, x => !/Opening Olympus University/.test(x.container.textContent));
+  // Unit h1 guidesname (owner, 15 Nov 2026): the loading line is "Opening the guides…" again, as before 58b96f8.
+  await settle(p, x => !/Opening the guides/.test(x.container.textContent));
   return p;
 }
 const text = n => n ? n.textContent : '';
@@ -271,6 +273,7 @@ function answer(box, q, right) {
   box.querySelectorAll('input').find(i => i.id === label.getAttribute('for')).checked = true;
 }
 
+// Unit h1 guidesname (owner, 15 Nov 2026): the hub heading is "Class & profession guides" again, as before 58b96f8.
 check('renderer: the hub lists classes Druid to Warrior, races, professions by group, the hub tools, the exam index, scores and resources', async () => {
   const p = await open([]);
   const h2 = p.container.querySelectorAll('h2').map(text), classes = p.container.querySelectorAll('section')[0].querySelectorAll('h3').map(text).map(s => s.trim());
@@ -279,7 +282,7 @@ check('renderer: the hub lists classes Druid to Warrior, races, professions by g
   const jumps = p.container.querySelectorAll('button').filter(b => 'data-jump' in b.attrs).map(b => b.getAttribute('data-jump'));
   const want = ['Class guides', 'Race guides', 'Profession guides', 'Hub tools', 'Mastery exams', 'Your scores', 'More resources'];
   const ix = json(uni, 'index.json'), exams = ix.guides.reduce((n, g) => n + (g.exams || []).length, 0);
-  return text(p.container.querySelector('h1')) === 'Olympus University' && JSON.stringify(h2) === JSON.stringify(want)
+  return text(p.container.querySelector('h1')) === 'Class & profession guides' && JSON.stringify(h2) === JSON.stringify(want)
     && JSON.stringify(classes) === JSON.stringify([...classes].sort()) && classes[0] === 'Druid' && classes[8] === 'Warrior' && groups.join() === 'Primary crafting,Gathering,Secondary'
     && !/Not written yet\.|Full course with quizzes/.test(p.container.textContent) && new RegExp(exams + ' exams').test(p.container.textContent)
     && ['#/guides/exams', '#/guides/tools/attunements', '#/guides/tools/buffs', '#/guides/tools/raid-structure', '#/guides/tools/changes', '#/talents', '#/addons', '#/roles', '#/governance'].every(h => hrefs.includes(h))
@@ -421,6 +424,7 @@ check('renderer: an unwritten race says so, and an unknown guide or chapter is r
 });
 // INT-UNI-1 / CL2-105 (12 Nov 2026): every university address that names nothing renders one H1 ending in "not found",
 // one role="status" sentence and a link back to #/guides, and loads no course file it does not need.
+// Unit h1 guidesname (owner, 15 Nov 2026): the way back reads "Back to Class & profession guides" again, as before 58b96f8.
 check('INT-UNI-1: an unknown class, spec, profession, race, track, chapter, exam or page renders one "… not found" H1, a status sentence and a way back', async () => {
   const cases = [['class/no-such-class', 'Class guide not found'], ['class/warrior/nope', 'Spec not found'], ['profession/no-such-profession', 'Profession guide not found'],
     ['race/orc', 'Race guide not found'], ['class/warrior/401', 'Track not found'], ['class/warrior/arms/999', 'Track not found'], ['race/human/401', 'Track not found'],
@@ -429,10 +433,49 @@ check('INT-UNI-1: an unknown class, spec, profession, race, track, chapter, exam
   const bad = [];
   for (const [route, want] of cases) {
     const p = await open(route.split('/')), h1 = p.container.querySelectorAll('h1').map(text);
-    const status = p.container.querySelectorAll('[role="status"]').map(text).filter(Boolean), back = p.container.querySelectorAll('a').some(a => a.getAttribute('href') === '#/guides' && /Back to Olympus University/.test(text(a)));
+    const status = p.container.querySelectorAll('[role="status"]').map(text).filter(Boolean), back = p.container.querySelectorAll('a').some(a => a.getAttribute('href') === '#/guides' && /Back to Class & profession guides/.test(text(a)));
     if (JSON.stringify(h1) !== JSON.stringify([want]) || status.length !== 1 || !/\.$/.test(status[0]) || !back || p.container.querySelector('[role="alert"]')) bad.push(route + ' :: ' + JSON.stringify({ h1, status, back }));
   }
   return bad.length === 0 || bad.join(' | ');
+});
+// Unit h1 guidesname (owner, 15 Nov 2026: "Instead of university rename it back to its old name that it had for the guides."):
+// every place of university.js and index.json that names the section reads as before 58b96f8: "Class & profession guides" as
+// heading, breadcrumb root and way back; the loading and failure lines of guides218.js then ("Opening the guides…", "The guides
+// could not be loaded. Try again in a moment."). The five not-found sentences do not name the section, as the guides pages
+// before 58b96f8 did not ("There is no such guide."); the scope note begins "These guides cite" (both the lead's decision of
+// 15 Nov 2026, finishing round of unit h1). No string of the four site files says "Olympus University" any more (comments
+// and the module names OlympusUniversity are not shown to members).
+check('h1: every university page names the section "Class & profession guides", with the old loading and failure lines and no "Olympus University" left', async () => {
+  const NAME = 'Class & profession guides', bad = [], rev = json(stat, 'guides218.json').talentRevision;
+  const early = page(); early.ctx.OlympusUniversity.mount(early.container, { parts: [], talentRevision: rev, canAttach: true, onAttach() {} });
+  const loading = early.container.querySelectorAll('[role="status"]').map(text);
+  const failing = page(); failing.ctx.fetch = async () => ({ ok: false, status: 503, json: async () => ({}) });
+  failing.ctx.OlympusUniversity.mount(failing.container, { parts: [], talentRevision: rev, canAttach: true, onAttach() {} });
+  await settle(failing, x => !!x.container.querySelector('p[role="alert"]'));
+  const alerts = failing.container.querySelectorAll('p[role="alert"]').map(text);
+  const hub = await open([]), scope = hub.container.querySelectorAll('p').map(text).filter(t => /^These guides cite /.test(t));
+  const planned = x => { const ix = json(uni, 'index.json'), d = ix.guides.find(g => g.id === 'dwarf'); d.status = 'planned'; d.file = null; delete d.exams; delete d.chapters; x.files.set('index.json', ix); };
+  const crumbPages = [['exams'], ['class', 'warrior'], ['class', 'warrior', 'arms'], ['race', 'human'], ['profession', 'alchemy'], ['exam', 'class-warrior', '101'], ['class', 'no-such-class']];
+  for (const parts of crumbPages) {
+    const p = await open(parts), root = p.container.querySelectorAll('nav[aria-label="Breadcrumb"]').map(n => n.querySelectorAll('a')[0]);
+    if (root.length !== 1 || text(root[0]) !== NAME || root[0].getAttribute('href') !== '#/guides') bad.push(parts.join('/') + ' crumb ' + JSON.stringify(root.map(text)));
+  }
+  const missing = [[['nonsense'], 'There is no such guide.'], [['class', 'no-such-class'], 'There is no such class guide.'],
+    [['race', 'orc'], 'There is no such race guide.'], [['profession', 'no-such-profession'], 'There is no such profession guide.'],
+    [['class', 'warrior', 'arms', '101', 'x', 'y'], 'There is no such page.']];
+  for (const [parts, sentence] of missing) {
+    const p = await open(parts), status = p.container.querySelectorAll('[role="status"]').map(text), back = p.container.querySelectorAll('a').filter(a => a.getAttribute('href') === '#/guides').map(text);
+    if (JSON.stringify(status) !== JSON.stringify([sentence]) || JSON.stringify(back) !== JSON.stringify([NAME, 'Back to ' + NAME])) bad.push(parts.join('/') + ' ' + JSON.stringify({ status, back }));
+  }
+  const unwritten = await open(['race', 'dwarf'], undefined, planned), unwrittenLinks = unwritten.container.querySelectorAll('a').filter(a => a.getAttribute('href') === '#/guides').map(text);
+  if (JSON.stringify(unwrittenLinks) !== JSON.stringify([NAME, 'Back to ' + NAME])) bad.push('planned ' + JSON.stringify(unwrittenLinks));
+  const literal = /(["'`])[^"'`\n]*Olympus University[^"'`\n]*\1/;
+  const left = [['app.js'], ['guides218.js'], ['university', 'university.js']].filter(f => literal.test(strip(readText(stat, ...f)))).map(f => f.join('/'))
+    .concat(/Olympus University/.test(readText(uni, 'index.json')) ? ['university/index.json'] : []);
+  return JSON.stringify(loading) === '["Opening the guides…"]' && JSON.stringify(alerts) === '["The guides could not be loaded. Try again in a moment."]'
+    && text(hub.container.querySelector('h1')) === NAME
+    && JSON.stringify(scope) === JSON.stringify(['These guides cite Blizzard’s notes, the talent calculator’s 10 November data and published Forever guides. Every fact carries a grade and a source, Classic 1.12 numbers are labelled, and anything not known yet says so.'])
+    && bad.length === 0 && left.length === 0 || JSON.stringify({ loading, alerts, scope, bad, left });
 });
 check('renderer: the Related rail links the talent calculator, hub tools, the Class Lead office, the Workshop charter and the exam index (CL2-207)', async () => {
   const hrefs = async parts => (await open(parts)).container.querySelector('nav[aria-label="Related"]').querySelectorAll('a').map(a => a.getAttribute('href'));
@@ -733,6 +776,129 @@ check('REV-UNI-2: a mastery exam shows the "How to read the grades" legend with 
     if (!ids.length || !legend || text(legend.querySelector('summary')) !== 'How to read the grades' || JSON.stringify(shown) !== JSON.stringify(want)) bad.push(parts.join('/') + ' ' + JSON.stringify({ legend: !!legend, shown, want }));
   }
   return bad.length === 0 || bad.join(' | ');
+});
+// Site fault f1 (15 Nov 2026; owner: "Fix all seven"): Talents Forever data is CC BY 4.0, and every .279 class view credited it
+// (guides218.js talentCredit). A University page that shows a fact citing a source published by Talents Forever (on the page,
+// or in a chapter quiz's answer) or a talent build prints that credit once, in the same words and with the same two links;
+// a page without such data prints none. Expected values are derived here from the data files, not from the page.
+const TF_CREDIT = 'Talent data from Talents Forever by Chris Baldwin, summarized by Olympus under CC BY 4.0.';
+const TF_LINKS = JSON.stringify([['https://talentsforever.com/', 'Talents Forever', '_blank', 'noopener noreferrer'], ['https://creativecommons.org/licenses/by/4.0/', 'CC BY 4.0', '_blank', 'noopener noreferrer']]);
+const tfSources = () => new Set(json(uni, 'sources.json').sources.filter(s => s.publisher === 'Talents Forever').map(s => s.id));
+// 1 = exactly one credit with the exact words and links (and the author named nowhere else on the page), 0 = none, else a description.
+const creditState = p => {
+  const c = p.container.querySelectorAll('p.uni-talent-credit'), named = p.container.textContent.split('Chris Baldwin').length - 1;
+  if (c.length === 0 && named === 0) return 0;
+  const links = c.length === 1 ? JSON.stringify(c[0].querySelectorAll('a').map(a => [a.getAttribute('href'), text(a), a.getAttribute('target'), a.getAttribute('rel')])) : '';
+  return c.length === 1 && named === 1 && text(c[0]) === TF_CREDIT && links === TF_LINKS ? 1 : 'credits ' + c.length + ', author named ' + named + ': ' + c.map(text).join(' | ') + ' ' + links;
+};
+// The facts behind the plain-text overview points, praxis steps and common mistakes a page shows (f1 review round).
+const textFacts = (owner, tier) => [...owner.overview.points.flatMap(p => p.facts || []), ...owner.tracks[tier].chapters.filter(c => c.unavailable === undefined && c.praxis)
+  .flatMap(c => [...c.praxis.steps.flatMap(s => s.facts || []), ...c.praxis.mistakes.flatMap(m => m.facts)])];
+const showsTalentData = (owner, tier, F, TF, questions, presetIds, withText = true) => {
+  const chapters = owner.tracks[tier].chapters, open = chapters.filter(c => c.unavailable === undefined);
+  const ids = [...owner.overview.facts, ...chapters.flatMap(c => c.theory), ...questions.filter(q => open.some(c => c.id === q.chapter)).flatMap(q => q.facts), ...(withText ? textFacts(owner, tier) : [])];
+  return ids.some(id => F.get(id).sources.some(s => TF.has(s))) || open.some(c => (c.presets || []).some(id => presetIds.has(id)));
+};
+const coursePages = () => json(uni, 'index.json').guides.filter(g => g.file).flatMap(entry => {
+  const guide = json(uni, entry.file), questions = guide.quizFiles.flatMap(f => json(uni, 'quizzes', f + '.json').questions);
+  const presetIds = new Set(entry.kind === 'class' ? json(uni, 'presets', entry.id + '.json').presets.map(p => p.id) : []);
+  return [[null, guide], ...(guide.specs || []).map(s => [s.id, s])].flatMap(([spec, owner]) => ['101', '201', '301'].map(tier =>
+    ({ kind: entry.kind + (spec ? '-spec' : ''), parts: [entry.kind, entry.id, ...(spec ? [spec] : []), tier], owner, tier, questions, presetIds })));
+});
+check('f1: every class, spec, race and profession course page prints the Talents Forever CC BY 4.0 credit once exactly when it shows Talents Forever data or a talent build', async () => {
+  const F = allFacts(), TF = tfSources(), bad = [], withData = new Set(), without = new Set(), pages = coursePages();
+  for (const x of pages) {
+    const want = showsTalentData(x.owner, x.tier, F, TF, x.questions, x.presetIds) ? 1 : 0, p = await open(x.parts), got = creditState(p);
+    (want ? withData : without).add(x.kind);
+    if (got !== want || p.container.querySelector('p[role="alert"]')) bad.push(x.parts.join('/') + ' want ' + want + ' got ' + got);
+  }
+  // 159 pages: (9 classes with 3 specs each, so 36 courses, plus 5 races and 12 professions) times three tracks.
+  return bad.length === 0 && pages.length === 159 && JSON.stringify([...withData].sort()) === '["class","class-spec","race"]'
+    && JSON.stringify([...without].sort()) === '["class","profession","race"]' || JSON.stringify({ n: pages.length, bad: bad.slice(0, 6), nBad: bad.length, withData: [...withData], without: [...without] });
+});
+check('f1: every mastery exam prints the credit once exactly when one of its drawn questions cites a Talents Forever fact', async () => {
+  const F = allFacts(), TF = tfSources(), Q = quizzes(), exams = json(uni, 'index.json').guides.flatMap(g => g.exams || []), bad = [];
+  let credited = 0;
+  for (const x of exams) {
+    const p = await open(['exam', x.scope.replace(':', '-'), x.tier]), ids = p.container.querySelectorAll('fieldset').map(b => b.getAttribute('data-question'));
+    const want = ids.some(id => Q.get(id).facts.some(f => F.get(f).sources.some(s => TF.has(s)))) ? 1 : 0, got = creditState(p);
+    credited += want;
+    if (!ids.length || got !== want) bad.push(x.scope + ':' + x.tier + ' want ' + want + ' got ' + got);
+  }
+  return bad.length === 0 && exams.length === 115 && credited > 0 && credited < exams.length || JSON.stringify({ n: exams.length, credited, bad: bad.slice(0, 6), nBad: bad.length });
+});
+// Unit h1 guidesname (owner, 15 Nov 2026): the hub heading is "Class & profession guides" again, as before 58b96f8.
+check('f1: the hub, the exam index, a not-found page and an unwritten guide print no Talents Forever credit', async () => {
+  const planned = x => { const ix = json(uni, 'index.json'), d = ix.guides.find(g => g.id === 'dwarf'); d.status = 'planned'; d.file = null; delete d.exams; delete d.chapters; x.files.set('index.json', ix); };
+  const pages = [await open([]), await open(['exams']), await open(['class', 'no-such-class']), await open(['class', 'warrior', 'nope']), await open(['race', 'dwarf'], undefined, planned),
+    await open(['class', 'warrior', '101', 'no-such-chapter']), await open(['class', 'warrior', '401']), await open(['exam', 'class-nope', '101'])];
+  const h1 = pages.map(p => text(p.container.querySelector('h1')));
+  return JSON.stringify(h1) === '["Class & profession guides","Mastery exams","Class guide not found","Spec not found","Dwarf guide","Chapter not found","Track not found","Exam not found"]' && pages.every(p => creditState(p) === 0) || JSON.stringify({ h1, state: pages.map(creditState) });
+});
+// f1 review round (reviewer A): overview points, praxis steps and common mistakes are plain text, but each states the facts it
+// cites. On these seven pages that text is the only Talents Forever data (derived below from the data files).
+check('f1: a course whose only Talents Forever data is in its overview points, praxis steps or common mistakes prints the credit (Rogue 101 to 301, Druid 201 and 301, Mage 301, Warlock 301)', async () => {
+  const F = allFacts(), TF = tfSources(), cites = id => F.get(id).sources.some(s => TF.has(s)), bad = [];
+  const only = coursePages().filter(x => showsTalentData(x.owner, x.tier, F, TF, x.questions, x.presetIds) && !showsTalentData(x.owner, x.tier, F, TF, x.questions, x.presetIds, false));
+  for (const x of only) {
+    const p = await open(x.parts), shown = p.container.textContent, written = x.owner.tracks[x.tier].chapters.filter(c => c.unavailable === undefined && c.praxis);
+    const said = [...x.owner.overview.points.filter(t => (t.facts || []).some(cites)).map(t => t.text), ...written.flatMap(c => [...c.praxis.steps.filter(s => (s.facts || []).some(cites)).map(s => s.text),
+      ...c.praxis.mistakes.filter(m => m.facts.some(cites)).map(m => m.mistake)])];
+    if (creditState(p) !== 1 || !said.length || !said.every(t => shown.includes(t))) bad.push(x.parts.join('/') + ' ' + JSON.stringify({ credit: creditState(p), said: said.length, shown: said.filter(t => shown.includes(t)).length }));
+  }
+  const names = only.map(x => x.parts.join('/')).sort();
+  return bad.length === 0 && JSON.stringify(names) === '["class/druid/201","class/druid/301","class/mage/301","class/rogue/101","class/rogue/201","class/rogue/301","class/warlock/301"]' || JSON.stringify({ names, bad });
+});
+// f1 review round (reviewer B): app.js loads university.js once and mounts it again on every address, so the credit of one
+// page must not carry over to the next page mounted in the same page context.
+check('f1: a page without Talents Forever data mounted after one with it, in the same page context, prints no credit', async () => {
+  const F = allFacts(), TF = tfSources(), pages = coursePages(), by = parts => pages.find(x => x.parts.join('/') === parts.join('/'));
+  const want = parts => { const x = by(parts); return showsTalentData(x.owner, x.tier, F, TF, x.questions, x.presetIds) ? 1 : 0; };
+  const p = page(), mount = parts => p.ctx.OlympusUniversity.mount(p.container, { parts, talentRevision: json(stat, 'guides218.json').talentRevision, canAttach: true, onAttach() {} });
+  // Unit h1 guidesname (owner, 15 Nov 2026): the loading line is "Opening the guides…" again, as before 58b96f8.
+  const done = () => settle(p, x => x.container.textContent !== '' && !/Opening the guides/.test(x.container.textContent));
+  const first = mount(['class', 'warrior', 'arms', '101']); await done();
+  const a = creditState(p);
+  first.destroy();
+  mount(['profession', 'alchemy', '101']); await done();
+  const b = creditState(p), h1 = text(p.container.querySelector('h1'));
+  return want(['class', 'warrior', 'arms', '101']) === 1 && want(['profession', 'alchemy', '101']) === 0 && a === 1 && b === 0 && h1 === 'Alchemy guide' || JSON.stringify({ a, b, h1 });
+});
+check('f1: a talent build alone, or a Talents Forever fact that only a chapter quiz shows, still brings the credit', async () => {
+  // Fixture 1: no source is published by Talents Forever, so on the Warrior pages only the talent builds call for the credit.
+  const renamed = x => { const s = json(uni, 'sources.json'); for (const r of s.sources) if (r.publisher === 'Talents Forever') r.publisher = 'Talent data fixture'; x.files.set('sources.json', s); };
+  const F = allFacts(), none = new Set(), bad = [], states = new Set();
+  for (const x of coursePages().filter(x => x.parts[0] === 'class' && x.parts[1] === 'warrior')) {
+    const want = showsTalentData(x.owner, x.tier, F, none, x.questions, x.presetIds) ? 1 : 0, got = creditState(await open(x.parts, undefined, renamed));
+    states.add(want);
+    if (got !== want) bad.push(x.parts.join('/') + ' want ' + want + ' got ' + got);
+  }
+  // Fixture 2: the Lodestone fact, which Herbalism 101 shows only in a quiz answer, also cites Talents Forever source g218-3.
+  const herb = coursePages().find(x => x.parts.join('/') === 'profession/herbalism/101');
+  const quizOnly = herb.questions.some(q => herb.owner.tracks['101'].chapters.some(c => c.id === q.chapter) && q.facts.includes('profession-mining.lodestone'))
+    && ![...herb.owner.overview.facts, ...herb.owner.tracks['101'].chapters.flatMap(c => c.theory)].includes('profession-mining.lodestone');
+  const cite = x => { const d = json(uni, 'facts', 'profession-mining.json'); d.facts.find(f => f.id === 'profession-mining.lodestone').sources.push('g218-3'); x.files.set('facts/profession-mining.json', d); };
+  const plain = await open(herb.parts), cited = await open(herb.parts, undefined, cite);
+  return bad.length === 0 && states.size === 2 && quizOnly && creditState(plain) === 0 && creditState(cited) === 1 && !cited.container.querySelector('p[role="alert"]')
+    || JSON.stringify({ bad, states: [...states], quizOnly, plain: creditState(plain), cited: creditState(cited) });
+});
+// f1 review round: the praxis-step and common-mistake paths, each alone, on Herbalism 101 (no Talents Forever data). The
+// fixtures give one fact the Talents Forever source g218-3; they supply data, never the credit.
+check('f1: a Talents Forever fact that only a praxis step, or only a common mistake, cites still brings the credit', async () => {
+  const F = allFacts(), TF = tfSources(), herb = coursePages().find(x => x.parts.join('/') === 'profession/herbalism/101'), all = herb.owner.tracks['101'].chapters;
+  const written = all.filter(c => c.unavailable === undefined && c.praxis), steps = written.flatMap(c => c.praxis.steps.flatMap(s => s.facts || [])), mistakes = written.flatMap(c => c.praxis.mistakes.flatMap(m => m.facts));
+  const rest = [...herb.owner.overview.facts, ...herb.owner.overview.points.flatMap(p => p.facts || []), ...all.flatMap(c => c.theory), ...herb.questions.filter(q => all.some(c => c.id === q.chapter && c.unavailable === undefined)).flatMap(q => q.facts)];
+  const stepOnly = 'profession-cooking.bigger-camps', isStepOnly = steps.includes(stepOnly) && !mistakes.includes(stepOnly) && !rest.includes(stepOnly);
+  const files = json(uni, 'professions/herbalism.json').factFiles;
+  // A fact the page loads but does not show, which a common mistake may cite on its own (not unavailable, no re-check, not superseded).
+  const spare = files.flatMap(f => json(uni, 'facts', f + '.json').facts.map(x => x.id)).find(id => ![...steps, ...mistakes, ...rest].includes(id) && F.get(id).grade !== 'U' && !F.get(id).recheck && !F.get(id).supersededBy);
+  const cite = id => x => { const f = files.find(n => json(uni, 'facts', n + '.json').facts.some(y => y.id === id)), d = json(uni, 'facts', f + '.json'), fact = d.facts.find(y => y.id === id);
+    fact.sources = [...(fact.sources || d.defaults.sources), 'g218-3']; x.files.set('facts/' + f + '.json', d); };
+  const inMistake = x => { cite(spare)(x); const g = json(uni, 'professions/herbalism.json'); g.tracks['101'].chapters.find(c => c.id === written[0].id).praxis.mistakes[0].facts.push(spare); x.files.set('professions/herbalism.json', g); };
+  const plain = await open(herb.parts), step = await open(herb.parts, undefined, cite(stepOnly)), mistake = await open(herb.parts, undefined, inMistake);
+  const alerts = [step, mistake].filter(p => p.container.querySelector('p[role="alert"]')).length;
+  return TF.has('g218-3') && isStepOnly && !!spare && creditState(plain) === 0 && creditState(step) === 1 && creditState(mistake) === 1 && alerts === 0
+    || JSON.stringify({ g218_3: TF.has('g218-3'), isStepOnly, spare, plain: creditState(plain), step: creditState(step), mistake: creditState(mistake), alerts });
 });
 
 // Browser part (opt-in): node tests/evergreen1112_guides_test.cjs --base http://127.0.0.1:<harness> --cdp <port>

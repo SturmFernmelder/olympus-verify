@@ -45,9 +45,13 @@ local function verified(row)
   return row.status == "verified" and row.historicalLinked ~= true
     and (type(base) ~= "table" or base.status == "verified" and base.historicalLinked ~= true)
 end
-local function recommendation(row)
-  return type(row)=="table" and guid(row.guid) and ((row.reason=="verified-initiate" and (row.currentSlot==9 or row.currentSlot==8 and type(row.intent)=="table" and row.intent.startSlot==9 and row.intent.acknowledgedSteps==1) and row.targetSlot==7 and row.targetName=="Member")
-    or (row.reason=="knight-veteran" and whole(row.currentSlot,6,9) and row.targetSlot==5 and row.targetName=="Veteran"))
+local function pageRanks(page)
+  return type(page)=="table" and OlympusVerifyNativeRanks and OlympusVerifyNativeRanks.Profile(page.rankProfile,page.rankSchemeDigest)
+end
+local function recommendation(row,page)
+  local ranks=pageRanks(page) -- Missing page metadata is a hold, never a historical-profile default.
+  return ranks and type(row)=="table" and guid(row.guid) and whole(row.currentSlot,0,9) and ((row.reason=="verified-initiate" and (row.currentSlot==ranks.initiate or row.currentSlot>ranks.member and type(row.intent)=="table" and row.intent.startSlot==ranks.initiate and row.intent.acknowledgedSteps==ranks.initiate-row.currentSlot) and row.targetSlot==ranks.member and row.targetName=="Member")
+    or (row.reason=="knight-veteran" and whole(row.currentSlot,ranks.veteran+1,ranks.initiate) and row.targetSlot==ranks.veteran and row.targetName=="Veteran"))
 end
 local heldLabels = {
   ["native-rank-unconfirmed"] = "The source could not confirm the native rank; no promotion was recommended.",
@@ -159,7 +163,7 @@ function M.Promotions(list, launchAPI, now)
         end
         for index = 1, rows do
           local row = page.promotions[index]
-          if recommendation(row) then
+          if recommendation(row,page) then
             historicalPages[row.guid]=row
             if originalPages[row.guid] ~= nil then originalPages[row.guid] = false
             else originalPages[row.guid] = { row = row, page = page } end
@@ -170,7 +174,7 @@ function M.Promotions(list, launchAPI, now)
         local chosen=current.selection
         for id in pairs(chosen.covered) do originalPages[id]=nil end
         for _,row in ipairs(chosen.page.promotions) do
-          if recommendation(row) then originalPages[row.guid]={row=row,page=chosen.page} end
+          if recommendation(row,chosen.page) then originalPages[row.guid]={row=row,page=chosen.page} end
         end
       end
       if current then
@@ -185,7 +189,7 @@ function M.Promotions(list, launchAPI, now)
   local recommendations = {}
   if current then
     for _, row in ipairs(current.promotions) do
-      if recommendation(row) then
+      if recommendation(row,current.freshness and current.freshness[row.guid] and current.freshness[row.guid].page) then
         diagnostics.recommendations = diagnostics.recommendations + 1
         if recommendations[row.guid] ~= nil then recommendations[row.guid] = false else recommendations[row.guid] = row end
       end
@@ -197,9 +201,12 @@ function M.Promotions(list, launchAPI, now)
   diagnostics.selection=current and current.selection or nil
 
   local unrelatedRead=UnrelatedReadContext(current) -- One complete native rank-table observation per model paint.
+  local displayRanks=pageRanks(current and current.selection and current.selection.completed and current.selection.page)
+    or pageRanks(current and current.pages and current.pages[1])
   for index = 1, size do
     local row, info = list[index], nil
     local id = guid(row.guid) and row.guid or nil
+    local rankScheme=pageRanks(id and originalPages[id] and originalPages[id].page) or displayRanks
     local attemptStatus=id and type(launchAPI)=="table" and type(launchAPI.PromotionStatus)=="function"
       and launchAPI.PromotionStatus(id,current,row.rankIndex) or nil
     if initiate(row) and id and seen[id] == 1 and verified(row) then
@@ -209,7 +216,7 @@ function M.Promotions(list, launchAPI, now)
     elseif seen[id] ~= 1 then info = detail("duplicate_guid", "Duplicate native GUID", "This GUID occurs more than once in the native list; no promotion is ready.")
     elseif not whole(row.rankIndex, 0, 9) then info = detail("unavailable", "Native rank unavailable", "The current native rank slot is unreadable; promotion readiness is unknown.")
     elseif attemptStatus=="settled" or attemptStatus=="confirmed" then info=detail("wrong_rank","Target rank observed (history retained)","A complete native roster previously confirmed this original target. Its command history is retained; this historical fact never enables a repeat.")
-    elseif not whole(row.rankIndex,6,9) then info = detail("wrong_rank", "Native rank needs no supported promotion", "Only current native slots 6 through 9 can match a supported Member or Veteran recommendation.")
+    elseif rankScheme and not whole(row.rankIndex,rankScheme.veteran+1,rankScheme.initiate) then info = detail("wrong_rank", "Native rank needs no supported promotion", "This source profile only supports promotion from native slots below its Veteran target through Initiate; no supported target is above this current rank.")
     elseif not current then info = detail("unavailable", "Promotion source unavailable", unavailable)
     elseif attemptStatus=="blocked" then info=detail("held","Client promotion action blocked","The client reported a blocked promotion API. Original attempt history is retained; this view cannot clear the block or send a fallback.")
     elseif launchAPI.pending[id] ~= nil or attemptStatus=="pending"
@@ -244,6 +251,7 @@ function M.Promotions(list, launchAPI, now)
       elseif source.actionHeld then info=detail("held","Selected read held","The selected result is pending or held; no historical recommendation can supply its action authority.")
       elseif source.kind~="selected" or type(recommendations[id].intent)~="table" then info=detail("no_recommendation","Check selected GUID","Discovery is advisory. A fresh Directive selected plan is required before a promotion click.")
       elseif row.rankIndex~=recommendations[id].currentSlot and attemptStatus~="continue" then info=detail("wrong_rank","Native rank changed","The current native rank differs from this recommendation. Recheck the selected GUID; no action is ready.")
+      elseif not rankScheme or not readable(row.rank) or row.rank~=rankScheme.names[row.rankIndex+1] then info=detail("unavailable","Native rank label unconfirmed","The native rank label does not match this exact source profile and slot. Recheck the selected GUID; no action is ready.")
       elseif now >= source.scanExpiresAt then info = detail("expired", "Original scan expired", "The original scan has expired. Its recommendation is advisory until an explicit source recheck.")
       elseif now >= source.expiresAt then info = detail("expired", "Recommendation page expired", "The original recommendation page has expired. A verified display does not renew its action window.")
       else
@@ -255,6 +263,7 @@ function M.Promotions(list, launchAPI, now)
           info.reason=info.reason.." Original selected recommendation: "..tostring(math.max(0,math.min(source.expiresAt,source.scanExpiresAt)-now)).." seconds remaining. Reloading does not renew it."
         end
         info.targetName,info.targetSlot=recommendations[id].targetName,recommendations[id].targetSlot
+        info.rankProfile,info.rankSchemeDigest=rankScheme.profile,rankScheme.digest
       end
     end
     info.historical=historicalPages[id]~=nil

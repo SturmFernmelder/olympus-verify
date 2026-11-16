@@ -45,6 +45,45 @@ check('.210 one narrow-screen rule lets every button shrink and wrap its full la
   narrow.length === 1 && rules.get('max-width') === '100%' && rules.get('min-width') === '0' && rules.get('white-space') === 'normal' && rules.get('overflow-wrap') === 'anywhere');
 check('.210 the base button keeps its single-line layout above the narrow breakpoint', /\n\.btn \{[^}]*white-space: nowrap;/.test(css));
 
+// Site fault h2 (owner 15 Nov 2026, "Show more of the paper we hold (Recommended)"): the "What happens to them" block
+// (#names > .parchment) gets a thinner cream layer, a darker inner edge and wider margins above 480px; at 480px and
+// below it keeps the shared .parchment padding; it has a forced-colors rule; no other selector carries these rules.
+const cssRules = [], cssStack = [];
+let cssBuffer = '', cssBalanced = true;
+for (const ch of css.replace(/\/\*[\s\S]*?\*\//g, '')) {
+  if (ch === '{') { cssStack.push(cssBuffer.trim().replace(/\s+/g, ' ')); cssBuffer = ''; }
+  else if (ch === '}') {
+    if (!cssStack.length) { cssBalanced = false; break; }
+    const selector = cssStack.pop();
+    if (cssBuffer.trim()) cssRules.push({ media: cssStack.join(' '), selector, body: cssBuffer.trim().replace(/\s+/g, ' ') });
+    cssBuffer = '';
+  } else cssBuffer += ch;
+}
+cssBalanced = cssBalanced && cssStack.length === 0;
+const cssDeclarations = body => new Map(body.split(';').map(d => d.trim()).filter(Boolean).map(d => [d.slice(0, d.indexOf(':')).trim(), d.slice(d.indexOf(':') + 1).trim()]));
+const sameMap = (map, entries) => map.size === entries.length && entries.every(([key, value]) => map.get(key) === value);
+const letterIndex = cssRules.map((rule, index) => rule.selector.split(',').some(s => s.trim() === '#names > .parchment') ? index : -1).filter(index => index >= 0);
+const letterRules = letterIndex.map(index => cssRules[index]);
+const sharedPaper = cssRules.filter(rule => rule.media === '' && rule.selector === '.parchment');
+const sharedPadding = '16px 22px 16px 24px';
+const letterLook = [/rgba\(239, 223, 184, 0\.62\)/, /inset 0 0 28px rgba\(90, 58, 16, 0\.45\)/, /padding: 22px 28px/];
+check('h2 only the "What happens to them" block (#names > .parchment) shows more paper: layer 0.62, edge 28px at 0.45, padding 22px 28px; today\'s padding at 480px and below; a forced-colors rule; the shared .parchment rule unchanged at 0.74',
+  cssBalanced && letterRules.length === 3 && letterRules.every(rule => rule.selector === '#names > .parchment')
+  && letterRules[0].media === '' && sameMap(cssDeclarations(letterRules[0].body), [
+    ['background', 'linear-gradient(rgba(239, 223, 184, 0.62), rgba(239, 223, 184, 0.62)), #e3cc98 url("/static/wow/parchment.jpg") center / cover'],
+    ['box-shadow', 'inset 0 0 28px rgba(90, 58, 16, 0.45), 0 4px 16px rgba(0, 0, 0, 0.55)'],
+    ['padding', '22px 28px']])
+  && letterRules[1].media === '@media (max-width: 480px)' && sameMap(cssDeclarations(letterRules[1].body), [['padding', sharedPadding]])
+  && letterRules[2].media === '@media (forced-colors: active)' && sameMap(cssDeclarations(letterRules[2].body), [['background', 'Canvas'], ['color', 'CanvasText'], ['border-color', 'CanvasText']])
+  && sharedPaper.length === 1 && sameMap(cssDeclarations(sharedPaper[0].body), [
+    ['background', 'linear-gradient(rgba(239, 223, 184, 0.74), rgba(239, 223, 184, 0.74)), #e3cc98 url("/static/wow/parchment.jpg") center / cover'],
+    ['color', 'var(--ink)'], ['border', '1px solid #4a3718'],
+    ['box-shadow', 'inset 0 0 22px rgba(90, 58, 16, 0.12), 0 4px 16px rgba(0, 0, 0, 0.55)'],
+    ['padding', sharedPadding], ['text-shadow', 'none']])
+  && cssRules.indexOf(sharedPaper[0]) < letterIndex[0]
+  && cssRules.every((rule, index) => letterIndex.includes(index) || !letterLook.some(look => look.test(rule.body)))
+  && cssRules.every(rule => !/#names\b[^,]*parchment/.test(rule.selector) || rule.selector === '#names > .parchment'));
+
 // On a phone the wrapped top bar (140-228px) scrolls away; offsets below it count it only while it is pinned.
 const app = fs.readFileSync(path.resolve(__dirname, '../public/static/app.js'), 'utf8');
 const pinnedMeasure = /function pinnedBarHeight\(\) \{([\s\S]*?)\n  \}/.exec(app)?.[1] || '';
@@ -55,12 +94,15 @@ check('.210 the top bar is not pinned on narrow or short screens, and scroll off
   && /window\.scrollY - pinnedBarHeight\(\) - 12/.test(app) && /let y = pinnedBarHeight\(\) \+ 8;/.test(app));
 
 // Every admin tab has its own document title (Directory preferences read "Admin · Overview").
+// CL2-215 (our e1076a7): the groups live in adminGroups(); CL2-014 (our a6f591d): Appointed roles is a 19th grouped key.
+// Site fault f4 (owner 15 Nov 2026): the Appointed roles page carries its own tab label as title, and no other page does.
 const staffTitles = /const staff = \{([^}]*)\}/.exec(app)?.[1] || '';
-const groupedTabs = /function adminTabs\(sub\) \{\s*const groups = \[([\s\S]*?)\n    \];/.exec(app)?.[1] || '';
+const groupedTabs = /function adminGroups\(\) \{\s*return \[([\s\S]*?)\n    \];/.exec(app)?.[1] || '';
 const adminTabs = [...groupedTabs.matchAll(/\["([a-z-]*)", "[^"]+"\]/g)].map(m => m[1]);
-check('.210 every grouped admin tab key has a page title', adminTabs.length === 18 && new Set(adminTabs).size === 18 && adminTabs.includes("launch-operations") && adminTabs.includes("donation-ledger")
+check('.210 every grouped admin tab key has a page title', adminTabs.length === 20 && new Set(adminTabs).size === 20 && adminTabs.includes("launch-operations") && adminTabs.includes("donation-ledger")
   && adminTabs.every(key => new RegExp('(^|[ ,{])"?' + key + '"?:').test(staffTitles))
-  && /"directory-visibility": "Discord member list preferences"/.test(staffTitles));
+  && /"directory-visibility": "Discord member list preferences"/.test(staffTitles)
+  && /appointments: "Appointed roles"/.test(staffTitles) && staffTitles.split('"Appointed roles"').length === 2);
 
 // Date-only values (trial due dates, dues weeks, case review/expiry) are stored as 00:00 UTC and must print as that UTC day.
 const utcFormatters = /const fmtDayUtc = [^\n]*timeZone: "UTC"/.test(app) && /const fmtShortUtc = [^\n]*timeZone: "UTC"/.test(app);

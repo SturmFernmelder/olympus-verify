@@ -20,7 +20,9 @@ let passed = 0, failed = 0;
 function check(label, ok) { if (ok) { passed++; console.log("PASS " + label); } else { failed++; console.error("FAIL " + label); } }
 class Element {
   constructor(tag, doc) { this.tagName = tag.toUpperCase(); this.doc = doc; this.children = []; this.parentNode = null; this.attributes = {}; this.style = {}; this.listeners = {}; this.hidden = false; this.open = false; this.value = ""; this._text = ""; this.captures = new Set(); }
-  append(...nodes) { for (const n of nodes.flat(Infinity).filter(n => n != null)) { n.remove(); n.parentNode = this; this.children.push(n); } }
+  // Our 4c7b542 (CL2-037/CL2-041) appends a plain string (" — note") beside a link, as ParentNode.append allows;
+  // the stand-in makes it a text node, as a browser does.
+  append(...nodes) { for (let n of nodes.flat(Infinity).filter(n => n != null)) { if (typeof n === "string") { const text = new Element("#text", this.doc); text._text = n; n = text; } n.remove(); n.parentNode = this; this.children.push(n); } }
   remove() { if (this.parentNode) { this.parentNode.children = this.parentNode.children.filter(n => n !== this); this.parentNode = null; } }
   replaceChildren(...nodes) { for (const n of this.children) n.parentNode = null; this.children = []; this._text = ""; this.append(...nodes); }
   get textContent() { return this._text + this.children.map(n => n.textContent).join(""); }
@@ -94,15 +96,23 @@ check('.221 the chart controls precede the rank and Council reading sections',wi
 const deepOffice205=open({overview205:true,parts:['office_27']});
 check('.205 an existing office deep link reveals its complete mandate inside the outer map',deepOffice205.one('org-relationship-map205').open&&deepOffice205.doc.activeElement===deepOffice205.detail&&deepOffice205.detail.textContent.includes('Crafter'));
 const deepNode205=open({overview205:true,parts:['treasury']});
-check('.205 an existing department deep link reveals and focuses the requested mandate',deepNode205.one('org-relationship-map205').open&&deepNode205.doc.activeElement===deepNode205.detail&&deepNode205.detail.textContent.includes('Federal Treasury'));
+// CL2-047 (our 4c7b542): the treasury node holds the treasurer seat; the mandate's heading is that seat's Cabinet title, not
+// "Federal Treasury".
+check('.205 an existing department deep link reveals and focuses the requested mandate',deepNode205.one('org-relationship-map205').open&&deepNode205.doc.activeElement===deepNode205.detail&&deepNode205.detail.children.some(n=>n.tagName==='H2'&&n.textContent==='Lord High Treasurer · Minister of the Imperial Exchequer'));
 wide205.main.all(n=>n.getAttribute('data-office-key')==='office_08')[0].children[0].click(0);
 check('.205 historical catalogue selections reveal the outer map before focusing its reader',wide205.one('org-relationship-map205').open&&wide205.doc.activeElement===wide205.detail);
-check(".218 exact ten ranks and all103 current office records are visible", p.main.all(n=>!!n.getAttribute('data-native-rank')).map(n=>n.children[0].textContent).join('|') === 'Leader (Guild Master)|High Council|Officer|Officer Alt|Raid Leader|Veteran|Raider|Member|Alt|Initiate' && p.main.all(n=>!!n.getAttribute('data-office-key')).length === 103 && p.main.all(n=>n.getAttribute('data-tier-group')==='high_council').length===1 && p.main.all(n=>n.getAttribute('data-tier-group')==='officer_corps').length===1);
+// CL2-034 (our 4c7b542; directive line 45): the register uses the directory's six catalogue groups, each once and in order,
+// instead of the four tier groups.
+check(".218 exact ten ranks and all103 current office records are visible", p.main.all(n=>!!n.getAttribute('data-native-rank')).map(n=>n.children[0].textContent).join('|') === 'Leader (Guild Master)|High Council|Officer|Officer Alt|Raid Leader|Veteran|Raider|Member|Alt|Initiate' && p.main.all(n=>!!n.getAttribute('data-office-key')).length === 103 && p.main.all(n=>n.getAttribute('data-catalog-group')).map(n=>n.getAttribute('data-catalog-group')).join('|')==='council|officers|raid|workshop|members|royal');
 const leader118 = open({ parts: ['office_43'] });
-check('CC-118 the relationship map explains the exact in-game name and labels the rank-one mandate and badges without changing the data',
+// CL2-041, CL2-197, CL2-310 (our 4c7b542; directive line 52): the panel's placement sentence is gone; rank and slot are
+// stated once, in the badge, as "Rank 1 Leader (Guild Master) · Slot 0": one badge part names a rank, and the mandate
+// names the slot-0 display name once.
+check('CC-118 the relationship map explains the exact in-game name and labels the rank-one mandate once in its badge without changing the data',
   leader118.one('org-rank-guide').textContent.includes('The in-game name for slot 0 is Guild Master.')
-  && leader118.detail.all(node => node.getAttribute('data-native-placement') !== null).some(node => node.textContent.startsWith('Rank 1 Leader (Guild Master) · zero-based slot 0.'))
-  && leader118.detail.all(node => node.classList.contains('org-office-badges')).some(node => node.children.some(part => part.textContent === 'Rank 1 · Leader (Guild Master)'))
+  && leader118.detail.all(node => node.getAttribute('data-native-placement') !== null).length === 0
+  && leader118.detail.all(node => node.classList.contains('org-office-badges')).flatMap(node => node.children.map(part => part.textContent)).filter(text => text.startsWith('Rank ')).join('|') === 'Rank 1 Leader (Guild Master) · Slot 0'
+  && leader118.detail.textContent.split('Leader (Guild Master)').length === 2
   && data.nativeRanks[0].name === 'Leader' && data.nativeRanks[0].nativeSlot === 0);
 leader118.dispose();
 // Current labels describe these five standing records without rewriting the historical model.
@@ -118,8 +128,13 @@ check(".218 the five native-standing office cards use a rank-reference label whi
   && nativeDepartmentKeys218.every(key => { const card = rawOfficeCard218(key); return card && card.children.some(n => n.tagName === 'P' && n.textContent === 'In-game rank reference') && !card.children.some(n => n.tagName === 'P' && n.textContent === 'Ten native rank slots'); })
   && JSON.stringify(data) === originalDataCount208);
 function modelNativeDepartmentKeys218() { return data.terms.filter(term => term.department === 'Ten native rank slots').map(term => term.officeKey).sort().join('|'); }
-check(".218 all other office departments and every detailed source note remain visible without a broad relabel",
-  data.terms.every(term => { const card = rawOfficeCard218(term.officeKey); return card && card.children.some(n => n.tagName === 'P' && n.textContent === term.note)
+// CL2-041, CL2-220 (our 4c7b542) and owner directive line 51 (every role card deduplicated, zero repetition): a note shared
+// by several titles is boilerplate and leaves the cards; a note that belongs to one title alone is still shown on that
+// title's card. This rule (one title) is deliberately stricter than the product's (fewer than three); in organization.json
+// no note is used by exactly two titles, so both select the same notes.
+const noteUses218 = note => data.terms.filter(term => term.note === note).length;
+check(".218 all other office departments and every title-specific source note remain visible without a broad relabel",
+  data.terms.every(term => { const card = rawOfficeCard218(term.officeKey); return card && card.children.some(n => n.tagName === 'P' && n.textContent === term.note) === (noteUses218(term.note) === 1)
     && (nativeDepartmentKeys218.includes(term.officeKey) || card.children.some(n => n.tagName === 'P' && n.textContent === term.department)); }));
 const nativeDisplay218 = open({ mobile:true, parts:['native'] });
 const nativeDisplayRow218 = nativeDisplay218.one('org-list').children.find(row => row.children[0].all(n => n.tagName === 'STRONG' && n.textContent === 'In-game rank reference').length === 1);
@@ -137,11 +152,16 @@ check("Organization links to the canonical Roles directory and preserves the clo
   p.main.all(n=>n.getAttribute('data-shared-families203')==='true').length===0
   && p.main.all(n=>n.tagName==='A'&&n.getAttribute('href')==='#/roles'&&n.textContent==='Explore the role directory').length===1
   && p.main.all(n=>n.classList.contains('org-catalogue-history203')).some(n=>!n.open&&n.textContent.includes('original identifiers')&&n.all(card=>card.classList.contains('org-office-card')).length===data.terms.length));
-check("all reserved tiers have no application link even with the historical catalogue eligibility", !p.main.textContent.includes('Open seat') && data.terms.filter(t=>['leader','high_council','officer_corps'].includes(t.tier)).every(t=>!p.main.all(n=>n.getAttribute('data-office-application')===t.officeKey).length) && p.main.textContent.includes('Leader, High Council and Officer Corps seats are reserved appointments. You cannot apply for them, including when no holder is listed. Collective institutions and their case panels are not additional individual seats.'));
+// Our 4c7b542 (CL2-036): one eligibility vocabulary; the closing sentence now ends "not additional seats".
+check("all reserved tiers have no application link even with the historical catalogue eligibility", !p.main.textContent.includes('Open seat') && data.terms.filter(t=>['leader','high_council','officer_corps'].includes(t.tier)).every(t=>!p.main.all(n=>n.getAttribute('data-office-application')===t.officeKey).length) && p.main.textContent.includes('Leader, High Council and Officer Corps seats are reserved appointments. You cannot apply for them, including when no holder is listed. Collective institutions and their case panels are not additional seats.'));
 const occupied199=open({officeAvailability:{office_03:false,office_62:false,office_74:true,office_07:true,office_27:false},parts:['office_27']});
 check("old Crafter inspector links explicitly to the canonical Artisan choice without rewriting its old record",!occupied199.main.all(n=>['office_03','office_62','office_74','office_27'].includes(n.getAttribute('data-office-application'))).length&&occupied199.main.all(n=>n.getAttribute('data-office-application')==='office_07').some(n=>n.getAttribute('href')==='#/vote/artisan/office_07'));
 const reserved203=open({officeAvailability:{office_74:true},parts:['raid_leader_na']});
-check("historical regional leadership inspector remains reserved despite a stale open flag",reserved203.main.all(n=>n.getAttribute('data-office-application')).every(n=>['member','raider','office_07'].includes(n.getAttribute('data-office-application'))));
+// Our 4c7b542 (CL2-036): apply links appear exactly where the Worker accepts the intent (validateApplicationIntent199).
+// Owner rulings of 14 Nov 2026 (claude/entry-140 "No, three choices only", entry-143; our 111867e, aee8cfc):
+// those are Guild Member, Raider and Artisan (office_07) only; Core Raider (office_25) and Crafter (office_27) are not
+// offered. The reserved office_74 with its stale open flag still has no link, and no officer or High Council track is offered.
+check("historical regional leadership inspector remains reserved despite a stale open flag",[...new Set(reserved203.main.all(n=>n.getAttribute('data-office-application')).map(n=>n.getAttribute('data-office-application')))].sort().join('|')==='member|office_07|raider'&&reserved203.main.all(n=>n.getAttribute('data-office-application')).every(n=>!['officer','high_council'].includes(n.getAttribute('data-application-track')))&&!reserved203.main.all(n=>n.getAttribute('data-office-application')==='office_74').length);
 check("historical profiles are collapsed behind the named technical disclosure and the crosswalk is linked",p.main.all(n=>n.tagName==='DETAILS'&&n.classList.contains('org-profile-notes')).some(n=>!n.open&&n.children[0].textContent==='Technical & Historical Profile Notes')&&p.main.all(n=>n.tagName==='A').some(n=>n.getAttribute('href')==='#/roles/rosetta-stone'));
 check("all non-classification offices retain chart cards", p.main.all(n => !!n.getAttribute("data-organization-node")).length === data.nodes.filter(n => n.relation !== "classification").length);
 check("the Council remains initially selected", p.node("council").getAttribute("aria-pressed") === "true");
@@ -157,6 +177,81 @@ officeSearch.value = 'Lord High Chancellor'; officeSearch.dispatch('input');
 check("the former judicial label stays in the closed history drawer and out of current office search",
   previousJusticeLabel?.tagName === 'DETAILS' && !previousJusticeLabel.open && previousJusticeLabel.textContent.includes('formerly styled Lord High Chancellor')
   && rawOfficeCard218('office_101').hidden && !rawOfficeCard218('office_14').hidden);
+// Owner ruling of 15 Nov 2026 ("No, current titles only", claude/stage2/SITE-FAULTS-282.md question 2) with CL2-190 (our
+// 4c7b542: one index over titles, aliases and keys serves the chart and the register): the register, the list and the chart
+// match exactly the offices whose current terms or node text contain the query; a historical office label adds nothing.
+const orgStatus1115 = p.main.all(n => n.getAttribute('role') === 'status' && /^\d+ offices or groups match/.test(n.textContent))[0];
+const orgCards1115 = data.terms.map(t => [t, rawOfficeCard218(t.officeKey)]), orgRows1115 = p.main.all(n => n.classList.contains('org-list-row'));
+const orgButtons1115 = new Map(p.main.all(n => !!n.getAttribute('data-organization-node')).map(n => [n.getAttribute('data-organization-node'), n]));
+const orgLc1115 = s => String(s).toLowerCase();
+// Owner's answer of 15 Nov 2026 to question 4 ("Yes, stop matching", claude/stage2/SITE-FAULTS-282-FOLLOWUP.md): aliases the
+// register files under "Historical application & ballot labels" are not current terms; plain "Retained portfolio labels" are.
+// VG-2 (follow-up check of 15 Nov 2026): p is rendered once and no search renders a drawer again (a search sets hidden,
+// marks chart nodes and rewrites the status), so the cards that carry that drawer are read once from p, not on every query.
+const orgFiledKeys1115 = new Set(data.terms.filter(t => rawOfficeCard218(t.officeKey).all(n => n.getAttribute('data-historical-application-labels218') === t.officeKey).length === 1).map(t => t.officeKey));
+const orgFiledHistorical1115 = t => orgFiledKeys1115.has(t.officeKey);
+const orgCurrent1115 = t => orgLc1115([t.label, t.applicationLabel, ...(orgFiledHistorical1115(t) ? [] : t.applicationAliases || []), t.officeKey, t.department, t.tierLabel, directory203.families.find(row => row.key === directory203.keyToFamily[t.officeKey])?.label].filter(Boolean).join(' '));
+const orgNodeText1115 = data.nodes.map((n, i) => orgLc1115([orgRows1115[i]?.all(x => x.tagName === 'STRONG')[0]?.textContent, n.title, n.remit, n.limits, ...data.terms.filter(t => t.nodeId === n.id).map(orgCurrent1115)].join(' ')));
+const orgSearch1115 = q => {
+  officeSearch.value = q; officeSearch.dispatch('input'); const needle = orgLc1115(q.trim());
+  const nodes = data.nodes.filter((n, i) => orgNodeText1115[i].includes(needle)).map(n => n.id);
+  return { terms: data.terms.filter(t => orgCurrent1115(t).includes(needle)).map(t => t.officeKey), nodes, chartNodes: nodes.filter(id => orgButtons1115.has(id)),
+    cards: orgCards1115.filter(([, li]) => !li.hidden).map(([t]) => t.officeKey), rows: data.nodes.filter((n, i) => !orgRows1115[i].hidden).map(n => n.id),
+    chart: data.nodes.filter(n => orgButtons1115.get(n.id)?.classList.contains('org-node-match')).map(n => n.id), count: Number(/^(\d+) offices or groups match/.exec(orgStatus1115?.textContent)?.[1]) };
+};
+const orgExact1115 = r => JSON.stringify(r.cards) === JSON.stringify(r.terms) && JSON.stringify(r.rows) === JSON.stringify(r.nodes) && JSON.stringify(r.chart) === JSON.stringify(r.chartNodes) && r.count === r.nodes.length;
+const orgChancellor1115 = orgSearch1115('Lord High Chancellor');
+check("the Justiciar's former style 'Lord High Chancellor' shows only the current Lord High Chancellor in the register, the list and the chart",
+  orgRows1115.length === data.nodes.length && orgExact1115(orgChancellor1115) && JSON.stringify(orgChancellor1115.cards) === '["office_14"]'
+  && JSON.stringify(orgChancellor1115.rows) === '["intake"]' && JSON.stringify(orgChancellor1115.chart) === '["intake"]' && !orgButtons1115.get('justiciar').classList.contains('org-node-match'));
+const orgHistoryQueries1115 = [...new Set(data.terms.flatMap(t => t.historicalOfficeLabels || []).flatMap(label => { const parts = label.split(',').map(s => s.trim()).filter(Boolean); return [label, ...parts, ...parts.map(s => s.replace(/^formerly styled\s+/i, ''))]; }))];
+check("no historical office label or part of one finds an office through its history in the register, the list or the chart",
+  JSON.stringify(orgHistoryQueries1115) === JSON.stringify(['Head of Justice, formerly styled Lord High Chancellor', 'Head of Justice', 'formerly styled Lord High Chancellor', 'Lord High Chancellor'])
+  && orgHistoryQueries1115.every(q => orgExact1115(orgSearch1115(q))));
+const orgFinds1115 = pick => { const pairs = data.terms.flatMap(t => pick(t).filter(Boolean).map(q => [t, q])); return pairs.length > 0 && pairs.every(([t, q]) => { const r = orgSearch1115(q);
+  return r.cards.includes(t.officeKey) && r.rows.includes(t.nodeId) && (!orgButtons1115.has(t.nodeId) || r.chart.includes(t.nodeId)) && orgExact1115(r); }); };
+check("CL2-190 every current office label finds its own register card, list row and chart node, and only offices whose current terms carry it", orgFinds1115(t => [t.label]));
+check("CL2-190 every application label finds its own register card, list row and chart node, and only offices whose current terms carry it", orgFinds1115(t => [t.applicationLabel]));
+// Owner's answer 4 of 15 Nov 2026 (above): of the application aliases only the retained portfolio labels stay current terms.
+check("CL2-190 every retained portfolio label finds its own register card, list row and chart node, and only offices whose current terms carry it", orgFinds1115(t => orgFiledHistorical1115(t) ? [] : t.applicationAliases || []));
+const orgAliasTerms1115 = data.terms.filter(t => t.applicationAliases?.length);
+const orgFiledByData1115 = t => directory203.families.find(row => row.key === directory203.keyToFamily[t.officeKey])?.kind === 'institution' || !!t.applicationMetadataScope;
+check("exactly the four cards whose aliases the page files as historical keep them in a closed 'Historical application & ballot labels' drawer; every other alias stays a plain 'Retained portfolio labels' line",
+  JSON.stringify(orgAliasTerms1115.filter(orgFiledHistorical1115).map(t => t.officeKey)) === '["office_03","office_26","office_67","office_94"]'
+  && JSON.stringify(orgAliasTerms1115.filter(orgFiledByData1115).map(t => t.officeKey)) === '["office_03","office_26","office_67","office_94"]'
+  && p.main.all(n => !!n.getAttribute('data-historical-application-labels218')).length === 4
+  && orgAliasTerms1115.filter(t => !orgFiledHistorical1115(t)).flatMap(t => t.applicationAliases).length === 19
+  && orgAliasTerms1115.every(t => { const card = rawOfficeCard218(t.officeKey), line = 'Retained portfolio labels: ' + t.applicationAliases.join(' · ');
+    const d = card.all(n => n.getAttribute('data-historical-application-labels218') === t.officeKey);
+    if (!orgFiledByData1115(t)) return d.length === 0 && card.children.filter(n => n.tagName === 'P' && n.textContent === line).length === 1;
+    return d.length === 1 && d[0].tagName === 'DETAILS' && !d[0].open && d[0].getAttribute('open') === null && d[0].children.length === 3
+      && d[0].children[0].tagName === 'SUMMARY' && d[0].children[0].textContent === 'Historical application & ballot labels'
+      && d[0].children[1].textContent === (t.applicationMetadataScope || 'Earlier application vocabulary is retained for record compatibility; it does not open this institution to applications.')
+      && d[0].children[2].tagName === 'P' && d[0].children[2].textContent === line && !card.children.some(n => n.tagName === 'P' && n.textContent === line); }));
+const orgFiledQueries1115 = [...new Set(orgAliasTerms1115.filter(orgFiledHistorical1115).flatMap(t => t.applicationAliases))];
+const orgFiledResults1115 = orgFiledQueries1115.map(q => [q, orgSearch1115(q)]);
+check("a name the page files as a historical application label finds only the offices whose current terms carry the same words, in the register, the list and the chart",
+  JSON.stringify(orgFiledQueries1115) === JSON.stringify(['Systems Architect', 'Head of Justice', 'Privy Council / Judiciary', 'Judicial Portfolio', 'MAIN Raid & PvP Leads', 'PvE War Council Director'])
+  && orgFiledResults1115.every(([, r]) => orgExact1115(r))
+  && orgAliasTerms1115.filter(orgFiledHistorical1115).every(t => t.applicationAliases.every(q => { const r = orgFiledResults1115.find(([x]) => x === q)[1], own = orgCurrent1115(t).includes(orgLc1115(q));
+    return r.cards.includes(t.officeKey) === own && r.rows.includes(t.nodeId) === data.nodes.some((n, i) => n.id === t.nodeId && orgNodeText1115[i].includes(orgLc1115(q))); }))
+  && JSON.stringify(orgFiledResults1115.map(([q, r]) => [q, r.cards, r.chart, r.count])) === JSON.stringify([['Systems Architect', ['office_03'], ['systems'], 1], ['Head of Justice', [], [], 0],
+    ['Privy Council / Judiciary', ['office_67'], ['council'], 1], ['Judicial Portfolio', [], [], 0], ['MAIN Raid & PvP Leads', [], [], 0], ['PvE War Council Director', [], [], 0]]));
+// Owner's answer 4 (above): a filed name leaves the index even where its words repeat a current label of its card, so the term
+// just before a card's first filed alias, joined to that alias with a space as the index joins its terms, matches no office.
+const orgFiledSeams1115 = orgAliasTerms1115.filter(orgFiledHistorical1115).map(t => (t.applicationLabel || t.label) + ' ' + t.applicationAliases[0]);
+const orgSeamResults1115 = orgFiledSeams1115.map(q => orgSearch1115(q));
+check("a historical application label joined to the term before it in the search index finds no office in the register, the list or the chart",
+  JSON.stringify(orgFiledSeams1115) === JSON.stringify(['Addon / Discord Architect · Systems Architect Systems Architect', 'Council of Justice Head of Justice',
+    'Privy Council · Privy Council / Judiciary Privy Council / Judiciary', 'War Directorate (historical shared template) MAIN Raid & PvP Leads'])
+  && orgSeamResults1115.every(r => orgExact1115(r) && r.terms.length === 0 && r.cards.length === 0 && r.rows.length === 0 && r.chart.length === 0 && r.count === 0));
+check("CL2-190 every office key finds its own register card, list row and chart node, and only offices whose current terms carry it", orgFinds1115(t => [t.officeKey]));
+const orgHistoryDrawers1115 = p.main.all(n => !!n.getAttribute('data-historical-office-labels'));
+check("each historical office label drawer renders closed under its own summary with exactly that office's former labels",
+  orgHistoryDrawers1115.length === data.terms.filter(t => t.historicalOfficeLabels?.length).length && data.terms.filter(t => t.historicalOfficeLabels?.length).every(t => {
+    const d = rawOfficeCard218(t.officeKey).all(n => n.getAttribute('data-historical-office-labels') === t.officeKey);
+    return d.length === 1 && d[0].tagName === 'DETAILS' && !d[0].open && d[0].getAttribute('open') === null && d[0].children.length === 2 && d[0].children[0].tagName === 'SUMMARY'
+      && d[0].children[0].textContent === 'Historical office labels' && d[0].children[1].textContent === t.historicalOfficeLabels.join(' · '); }));
 officeSearch.value = ''; officeSearch.dispatch('input');
 check("support, advisers and the current composition do not issue votes or permission", council.textContent.includes("Systems & Heraldry sets stewardship and heraldic standards") && council.textContent.includes("not automatically voting councillors") && council.textContent.includes("does not itself issue an eligible vote, individual warrant, native rank or permission") && council.textContent.includes("One person still has one vote, subject to recusal"));
 check("current .222 Council reference and historical owner directions remain distinct", p.one("org-composition-status").textContent === data.councilComposition.formalStatus && data.councilComposition.recordedAt === '2026-11-04' && data.councilComposition.founderRatificationRecorded===false && data.councilComposition.eligibleSeatIssued===false && data.councilComposition.permissionsApplied===false && data.councilComposition.previousDirection.recordedAt==='2026-10-23' && data.councilComposition.historicalDirection.recordedAt==='2026-10-19');
@@ -170,7 +265,7 @@ check("the owner supersession is one exact prefix and removing it recovers only 
 check("the current website notice states exactzero-based slots and appointments without claiming actual game or signing-profile adoption", councilNotice199.toString().includes("current .199 website hierarchy") && councilNotice199.toString().includes("Leader: zero-based slot 0; High Council: zero-based slot 1; Officer: zero-based slot 2") && councilNotice199.toString().includes("Co-Guild Master and Treasurer are High Council appointments, **not additional native ranks**") && councilNotice199.toString().includes("(/#/roles/rosetta-stone)") && councilNotice199.toString().includes("Actual in-game configuration, signing profiles, accepted warrants, Council votes and bank permissions require their separate attended verification and records."));
 check("the clarification links the existing operational charter", council.all(n => n.tagName === "A").some(n => n.getAttribute("href") === "#/governance/operational-charter-the-work-of-olympus" && n.textContent.includes("O3")));
 const tradingDeep208 = open({ overview205: true, parts: ['office_96'] });
-check('.218 dedicated trading deep link keeps Council classification and the shared reserved-seat boundary', tradingDeep208.one('org-relationship-map205').open && tradingDeep208.doc.activeElement === tradingDeep208.detail && tradingDeep208.detail.textContent.includes('Lord High Factor') && tradingDeep208.detail.textContent.includes('Auction House') && tradingDeep208.detail.textContent.includes('Rank 2 High Council') && tradingDeep208.main.all(node => node.getAttribute('data-office-key') === 'office_96').some(node => node.textContent.includes('High Council')) && tradingDeep208.main.textContent.includes('Leader, High Council and Officer Corps seats are reserved appointments. You cannot apply for them, including when no holder is listed. Collective institutions and their case panels are not additional individual seats.') && !tradingDeep208.detail.all(node => node.getAttribute('data-office-application') === 'office_96').length);
+check('.218 dedicated trading deep link keeps Council classification and the shared reserved-seat boundary', tradingDeep208.one('org-relationship-map205').open && tradingDeep208.doc.activeElement === tradingDeep208.detail && tradingDeep208.detail.textContent.includes('Lord High Factor') && tradingDeep208.detail.textContent.includes('Auction House') && tradingDeep208.detail.textContent.includes('Rank 2 High Council') && tradingDeep208.main.all(node => node.getAttribute('data-office-key') === 'office_96').some(node => node.textContent.includes('High Council')) && tradingDeep208.main.textContent.includes('Leader, High Council and Officer Corps seats are reserved appointments. You cannot apply for them, including when no holder is listed. Collective institutions and their case panels are not additional seats.') && !tradingDeep208.detail.all(node => node.getAttribute('data-office-application') === 'office_96').length);
 check("the static model still issues no appointments", data.appointmentsIssued === false);
 const chartNodes = data.nodes.filter(n => n.relation !== "classification"), visibleIds = page => page.main.all(n => n.getAttribute("data-organization-node") && !n.hidden).map(n => n.getAttribute("data-organization-node"));
 const scaleOf = page => Number(/scale\(([^)]+)\)/.exec(page.stage.style.transform)?.[1]);
@@ -183,7 +278,11 @@ check("initial branch keeps the selected office, parent and its direct connectio
 check("branch fit keeps labels at a readable scale rather than shrinking the full map", scaleOf(p) >= .85 && p.button("Fit branch").getAttribute("aria-pressed") === "true" && p.one("org-chart-shell").textContent.includes("drag to see the rest"));
 check("the complete reading view retains every group and label", p.one("org-list").children.length === data.nodes.length && p.main.all(n => n.classList.contains("organization-term")).length === data.terms.length);
 check("the two composition sources have a separate wrapping link group", p.one("org-composition-links").children.length === 3 && css.includes(".org-composition-links{display:flex;flex-wrap:wrap;gap:"));
-const expectedEdges = chartNodes.flatMap(n => [n.parent ? `${n.title} → ${data.nodes.find(p => p.id === n.parent).title}: ${data.legend[n.relation]}` : null, ...n.coordinates.filter(peer => peer !== n.parent).map(peer => `${n.title} → ${data.nodes.find(p => p.id === peer).title}: liaison; no command authority`)]).filter(Boolean).sort();
+// CL2-047 (our 4c7b542): a node that holds a current Council seat is named by that seat's Cabinet title; the chair's node
+// keeps "Founder and Patron". CL2-039 (our 6162226, owner ruling of 13 Nov 2026): alsoReportsTo draws a second reporting
+// line of the node's own relation (the Lord High Justiciar to the Co-Guild Master as well as to the Guild Master).
+const seatTitle1113 = n => (n.id !== 'founder' && data.councilComposition.currentSeats.find(seat => seat.nodeId === n.id)?.label) || n.title;
+const expectedEdges = chartNodes.flatMap(n => [n.parent ? `${seatTitle1113(n)} → ${seatTitle1113(data.nodes.find(p => p.id === n.parent))}: ${data.legend[n.relation]}` : null, ...(n.alsoReportsTo || []).filter(other => other !== n.parent).map(other => `${seatTitle1113(n)} → ${seatTitle1113(data.nodes.find(p => p.id === other))}: ${data.legend[n.relation]}`), ...n.coordinates.filter(peer => peer !== n.parent).map(peer => `${seatTitle1113(n)} → ${seatTitle1113(data.nodes.find(p => p.id === peer))}: liaison; no command authority`)]).filter(Boolean).sort();
 const renderedEdges = p.main.all(n => n.tagName === "PATH" && n.classList.contains("org-edge"));
 check("every relationship identifies its real source and target card ports",renderedEdges.every(e=>e.getAttribute("data-from")&&e.getAttribute("data-to")&&e.getAttribute("data-start-port")==="card-border"&&e.getAttribute("data-end-port")==="card-border"));
 check("branch presentation preserves every original directed relationship and explanation", JSON.stringify(renderedEdges.map(n => n.textContent).sort()) === JSON.stringify(expectedEdges));
@@ -338,13 +437,23 @@ before = k.stage.style.transform;
 check("ordinary wheel scrolling is left to the page", !k.viewport.dispatch("wheel", { deltaY: -1 }).defaultPrevented && k.stage.style.transform === before);
 check("Ctrl-wheel still zooms within the chart", k.viewport.dispatch("wheel", { ctrlKey: true, deltaY: -1, clientX: 100, clientY: 100 }).defaultPrevented && k.stage.style.transform !== before);
 const mobile = open({ mobile: true, width: 315 });
-check("small screens open the full map", !mobile.viewport.hidden && mobile.one("org-list").hidden);
+// CL2-042 (our 4c7b542): a phone opens the chart (on the branch, see below), not the list; renamed, the map is no longer full.
+check("small screens open the chart rather than the list", !mobile.viewport.hidden && mobile.one("org-list").hidden);
 mobile.button("Chart").click();
-check("mobile Chart keeps the full map when selected", mobile.button("Full map").getAttribute("aria-pressed")==="true");
+// CL2-042 (our 4c7b542): the chart opens on the High Council branch at a readable scale, on phones too; Full map is one
+// click away.
+check("mobile Chart keeps the fitted branch when selected", mobile.button("Fit branch").getAttribute("aria-pressed")==="true" && mobile.button("Full map").getAttribute("aria-pressed")==="false");
 mobile.button("Full map").click();
 check("opening Chart on mobile starts with all offices in a fitted complete overview", visibleIds(mobile).length === chartNodes.length && mobile.button("Full map").getAttribute("aria-pressed") === "true" && wholeMapFits(mobile));
 mobile.button("Fit branch").click();
-check("a narrow chart keeps connected offices readable on its contained pannable canvas", parseFloat(mobile.stage.style.width) >= 680 && scaleOf(mobile) >= .85 && !mobile.viewport.hidden);
+// REV-GOV-6 (our 1b893d5): below 600 px the branch stacks in one column (parent, office, children) with every line on the
+// right, so the office and its first children share the first screen. As a property: more than one card shown, all on one
+// left edge, each 230 px card and each line inside the canvas, every line right of the column, the canvas within the phone.
+check("a narrow chart keeps connected offices readable on its contained pannable canvas", (() => {
+  const width = parseFloat(mobile.stage.style.width), cards = mobile.main.all(n => n.getAttribute("data-organization-node") && !n.hidden), left = parseFloat(cards[0]?.style.left);
+  const xs = mobile.main.all(n => n.classList.contains("org-edge") && n.style.display !== "none").flatMap(n => [...(n.getAttribute("d") || "").matchAll(/[ML] (-?[\d.]+) (-?[\d.]+)/g)].map(m => Number(m[1])));
+  return cards.length > 1 && cards.every(n => parseFloat(n.style.left) === left) && left >= 0 && left + 230 <= width && xs.length > 0 && xs.every(x => x >= left + 230 && x <= width) && width * scaleOf(mobile) <= mobile.viewport.clientWidth;
+})() && scaleOf(mobile) >= .85 && !mobile.viewport.hidden);
 mobile.button("Full map").click();
 check("the narrow full map contains every office within the pannable stage", visibleIds(mobile).length === chartNodes.length && parseFloat(mobile.stage.style.width) >= 680 && boxes(mobile).every(b => b.left >= 0 && b.left + 230 <= parseFloat(mobile.stage.style.width)));
 mobile.button("List").click();
@@ -356,7 +465,8 @@ const drawer = mobile.one("org-detail-drawer"), help = mobile.one("org-chart-hel
 check("narrow fullscreen starts with the optional mandate and chart guide collapsed", mobile.dialog.open && !drawer.open && !help.open && mobile.dialog.contains(mobile.detail));
 check("the collapsed mandate has a native keyboard disclosure naming the selected office", drawer.children[0].tagName === "SUMMARY" && drawer.children[0].textContent === "Office details · High Council");
 mobile.node("treasury").click(0); mobile.flush();
-check("selecting a fullscreen office opens and focuses its complete mandate", drawer.open && mobile.doc.activeElement === mobile.detail && mobile.detail.textContent.includes("Authority and boundaries") && mobile.detail.textContent.includes("Federal Treasury") && drawer.children[0].textContent.includes("Federal Treasury"));
+// CL2-047 (our 4c7b542): the treasury node shows its seat's Cabinet title, in the mandate and in the drawer summary.
+check("selecting a fullscreen office opens and focuses its complete mandate", drawer.open && mobile.doc.activeElement === mobile.detail && mobile.detail.textContent.includes("Authority and boundaries") && mobile.detail.textContent.includes("Lord High Treasurer · Minister of the Imperial Exchequer") && drawer.children[0].textContent.includes("Lord High Treasurer · Minister of the Imperial Exchequer"));
 drawer.open = false; drawer.dispatch("toggle"); mobile.flush();
 check("closing the optional mandate keeps the live chart and all reading groups", !drawer.open && !mobile.viewport.hidden && mobile.one("org-list").children.length === data.nodes.length && mobile.node("treasury").getAttribute("aria-pressed") === "true");
 const mobileSearch = mobile.doc.getElementById("organization-search"); mobileSearch.value = "Treasury"; mobileSearch.dispatch("input");

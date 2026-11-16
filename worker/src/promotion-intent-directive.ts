@@ -1,6 +1,6 @@
 /** A server seal identifies an attended plan, never a native-command acknowledgement. */
-import { DIRECTIVE_NATIVE_PROFILE, DIRECTIVE_RANK_DIGEST } from './native-rank-schemes';
-export type PromotionIntent = Readonly<{version:1;id:string;actorGuid:string;targetGuid:string;name:string;subjectDigest:string;rankProfile:typeof DIRECTIVE_NATIVE_PROFILE;rankSchemeDigest:typeof DIRECTIVE_RANK_DIGEST;originSnapshotId:number;originSnapshotAt:number;originContext:string;startSlot:number;finalSlot:5|7;reason:'knight-veteran'|'verified-initiate';issuedAt:number;expiresAt:number;acknowledgedSteps:number;lastSnapshotId:number;lastObservedAt:number}>;
+import { nativeRankSchemeByProfile, type NativeRankScheme } from './native-rank-schemes';
+export type PromotionIntent = Readonly<{version:1;id:string;actorGuid:string;targetGuid:string;name:string;subjectDigest:string;rankProfile:NativeRankScheme['profile'];rankSchemeDigest:NativeRankScheme['digest'];originSnapshotId:number;originSnapshotAt:number;originContext:string;startSlot:number;finalSlot:number;reason:'knight-veteran'|'verified-initiate';issuedAt:number;expiresAt:number;acknowledgedSteps:number;lastSnapshotId:number;lastObservedAt:number}>;
 const GUID=/^Player-\d{1,6}-[0-9A-Fa-f]{4,16}$/;
 const PURPOSE='olympus-directive-promotion-intent|1|';
 const keys='version,id,actorGuid,targetGuid,name,subjectDigest,rankProfile,rankSchemeDigest,originSnapshotId,originSnapshotAt,originContext,startSlot,finalSlot,reason,issuedAt,expiresAt,acknowledgedSteps,lastSnapshotId,lastObservedAt';
@@ -9,11 +9,12 @@ export function validPromotionIntent(v:unknown,at:number):v is PromotionIntent{
  if(!v||typeof v!=='object'||Array.isArray(v)||Object.getPrototypeOf(v)!==Object.prototype)return false;
  const d=Object.getOwnPropertyDescriptors(v);if(Object.keys(d).join(',')!==keys||Object.values(d).some(p=>!Object.hasOwn(p,'value')))return false;
  const p=v as PromotionIntent;
+ const scheme=nativeRankSchemeByProfile(p.rankProfile,p.rankSchemeDigest);
  return p.version===1&&typeof p.id==='string'&&p.id.length>=8&&p.id.length<=160&&!/[\x00-\x1f\x7f]/.test(p.id)&&typeof p.actorGuid==='string'&&typeof p.targetGuid==='string'&&GUID.test(p.actorGuid)&&GUID.test(p.targetGuid)&&p.actorGuid!==p.targetGuid
   &&typeof p.name==='string'&&p.name.length>0&&p.name.length<=100&&!/[\x00-\x1f\x7f]/.test(p.name)&&typeof p.subjectDigest==='string'&&/^[a-f0-9]{64}$/.test(p.subjectDigest)
-  &&p.rankProfile===DIRECTIVE_NATIVE_PROFILE&&p.rankSchemeDigest===DIRECTIVE_RANK_DIGEST
+  &&!!scheme&&p.rankSchemeDigest===scheme.digest
   &&whole(p.originSnapshotId,1,Number.MAX_SAFE_INTEGER)&&whole(p.originSnapshotAt,1,at)&&typeof p.originContext==='string'&&/^[a-f0-9]{32}$/.test(p.originContext)
-  &&whole(p.startSlot,6,9)&&((p.finalSlot===5&&p.reason==='knight-veteran')||(p.finalSlot===7&&p.startSlot===9&&p.reason==='verified-initiate'))
+  &&whole(p.startSlot,scheme.veteran+1,scheme.initiate)&&((p.finalSlot===scheme.veteran&&p.reason==='knight-veteran')||(p.finalSlot===scheme.member&&p.startSlot===scheme.initiate&&p.reason==='verified-initiate'))
   &&p.finalSlot<p.startSlot&&whole(p.issuedAt,p.originSnapshotAt,at)&&whole(p.expiresAt,p.issuedAt+1,p.issuedAt+600)&&at<p.expiresAt
   &&whole(p.acknowledgedSteps,0,p.startSlot-p.finalSlot-1)&&whole(p.lastSnapshotId,p.originSnapshotId,Number.MAX_SAFE_INTEGER)&&whole(p.lastObservedAt,p.originSnapshotAt,at)
   &&(p.acknowledgedSteps===0?p.lastSnapshotId===p.originSnapshotId:p.lastSnapshotId>p.originSnapshotId);
@@ -37,5 +38,5 @@ export function continuationAdmitted(intent:PromotionIntent,input:{actorGuid:str
   &&input.rankProfile===intent.rankProfile&&input.rankSchemeDigest===intent.rankSchemeDigest&&input.snapshotId>intent.lastSnapshotId&&input.snapshotAt>=intent.originSnapshotAt
   &&input.confirmedFrom===intent.startSlot-intent.acknowledgedSteps&&input.confirmedTo===input.confirmedFrom-1&&input.slot===input.confirmedTo&&input.slot>intent.finalSlot
   &&whole(input.confirmedAt,Math.max(intent.issuedAt,intent.lastObservedAt),at)&&input.snapshotAt>=input.confirmedAt
-  &&(intent.reason==='knight-veteran'?input.knight==='knight':input.knight==='non-knight'&&intent.startSlot===9&&input.confirmedFrom===9&&input.slot===8);
+  &&(intent.reason==='knight-veteran'?input.knight==='knight':input.knight==='non-knight'&&input.confirmedFrom===intent.startSlot&&input.slot===intent.startSlot-1);
 }

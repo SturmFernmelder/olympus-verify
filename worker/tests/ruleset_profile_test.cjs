@@ -87,7 +87,9 @@ function d1(db) {
   const cookie = issued.cookie, member = await pageBoot({}, { Cookie: cookie });
   check("actual signed-in Worker boot carries the exact shared identity and unavailable switch without arbitrary environment fields", member.status === 200 && member.boot.signedIn === true && member.boot.meta.ruleset.revision === current.revision && JSON.stringify(member.boot.meta.ruleset) === JSON.stringify(current) && member.boot.meta.rulesetSwitch.available === false && !member.html.includes("SYNTHETIC_PRIVATE_SENTINEL") && !member.html.includes("Synthetic Future Realm"));
   const api = await site.handleSite(new Request("https://guild.example/api/me", { headers: { Cookie: cookie } }), env, "/api/me", true, "synthetic-candidate", () => {}), apiData = await api.json();
-  check("actual authenticated /api/me identity agrees with boot and guide", api.status === 200 && JSON.stringify(apiData.meta.ruleset) === JSON.stringify(current) && reviewText.includes(profile.rulesetLabel(apiData.meta.ruleset)));
+  // CL2-072 (our 5d36707): /api/me no longer repeats the catalogue, so it carries no ruleset identity; the identity is the
+  // boot's alone (checked above with the signed-in boot) and the guide's (checked above with the review guide).
+  check("actual authenticated /api/me reply is 200, signed in, and carries no catalogue", api.status === 200 && apiData.signedIn === true && !("meta" in apiData));
   const broken = await pageBoot({ DB: { prepare() { throw new Error("synthetic DB outage"); } } }, { Cookie: cookie }, false);
   check("actual signed-cookie DB failure holds at the script-free sign-in gate without settings or eligibility promise", broken.status === 503 && broken.boot === null && broken.html.includes('href="/auth/login"') && broken.html.includes("updating") && !/<script\b|id="boot"|\/static\/app\.(?:js|css)/i.test(broken.html) && !broken.html.includes("SYNTHETIC_PRIVATE_SENTINEL") && !broken.html.includes("Synthetic Future Realm"));
   const settingsBefore = JSON.stringify(db.prepare("SELECT * FROM site_settings ORDER BY key").all());

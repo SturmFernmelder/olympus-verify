@@ -4,7 +4,7 @@
 import {uniqueJsonKeys} from './network-profile';
 import {DB_NOW} from './account-generation-contracts';
 import {CANONICAL_GUILD233,CANONICAL_PROFILE233,CANONICAL_MANAGED_ROLE_IDS233} from './canonical-ranks233';
-import {DIRECTIVE_CANONICAL_PROFILE,DIRECTIVE_RANK_NAMES} from './native-rank-constants';
+import {NATIVE_RANK_SCHEMES} from './native-rank-constants';
 import {NATIVE_RANK_NAMES232} from './native-rank-reconciliation232';
 
 export const MANAGED_RANK_COOLDOWN280='role.managed.cooldown280';
@@ -78,8 +78,8 @@ function common(a:string):readonly string[]{
 }
 export function canonicalDeleteRefusalSql280(name:string):string{
  const a=alias(name),native=(names:readonly string[])=>all([safeInt(a+'.roster_id'),`typeof(${a}.native_guid)='text'`,`length(CAST(${a}.native_guid AS BLOB)) BETWEEN 1 AND 64`,`instr(${a}.native_guid,char(0))=0`,`typeof(${a}.native_rank)='integer'`,`${a}.native_rank BETWEEN 0 AND 9`,`${a}.native_rank_name=(CASE ${a}.native_rank ${names.map((n,i)=>`WHEN ${i} THEN '${n}'`).join(' ')} END)`]);
- const source=any([all([`${a}.native_guid IS NULL`,`${a}.native_rank IS NULL`,`${a}.native_rank_name IS NULL`,safeInt(a+'.roster_id')]),all([`${a}.native_profile='${CANONICAL_PROFILE233}'`,native(NATIVE_RANK_NAMES232)]),all([`${a}.native_profile='${DIRECTIVE_CANONICAL_PROFILE}'`,native(DIRECTIVE_RANK_NAMES)])]);
- return all([...common(a),`${a}.purpose='canonical_routine233'`,`${a}.proof_id IS NULL`,hex(a+'.request_digest',32),`${a}.native_profile IN('${CANONICAL_PROFILE233}','${DIRECTIVE_CANONICAL_PROFILE}')`,source,reasonSql(a,CANONICAL_DELETE_REFUSAL280)]);
+ const source=any([all([`${a}.native_guid IS NULL`,`${a}.native_rank IS NULL`,`${a}.native_rank_name IS NULL`,safeInt(a+'.roster_id')]),all([`${a}.native_profile='${CANONICAL_PROFILE233}'`,native(NATIVE_RANK_NAMES232)]),...NATIVE_RANK_SCHEMES.map(s=>all([`${a}.native_profile='${s.canonicalProfile}'`,native(s.names)]))]);
+ return all([...common(a),`${a}.purpose='canonical_routine233'`,`${a}.proof_id IS NULL`,hex(a+'.request_digest',32),`${a}.native_profile IN('${CANONICAL_PROFILE233}',${NATIVE_RANK_SCHEMES.map(s=>"'"+s.canonicalProfile+"'").join(',')})`,source,reasonSql(a,CANONICAL_DELETE_REFUSAL280)]);
 }
 export function banDeleteRefusalSql280(name:string):string{
  const a=alias(name);return all([...common(a),`${a}.purpose='canonical_ban_remove_v1'`,`${a}.native_profile='${BAN_PROFILE}'`,hex(a+'.proof_id',32),hex(a+'.request_digest',64),
@@ -96,14 +96,23 @@ export function managedRankCooldownAllowedSql280():string{
 
 /** Known permission/missing-member/role refusals require attended resolution;
  * expiration of a dispatch claim alone cannot authorize another automatic DELETE. */
+function manualRankRefusalStatusSql280(a:string):string{return `(CASE WHEN json_valid(${a}.reason) THEN json_extract(${a}.reason,'$.status') ELSE NULL END) IN(403,404)`;}
 export function manualRankRefusalSql280(name:string):string{
- const a=alias(name);return all([any([canonicalDeleteRefusalSql280(a),banDeleteRefusalSql280(a)]),`(CASE WHEN json_valid(${a}.reason) THEN json_extract(${a}.reason,'$.status') ELSE NULL END) IN(403,404)`]);
+ const a=alias(name);return all([any([canonicalDeleteRefusalSql280(a),banDeleteRefusalSql280(a)]),manualRankRefusalStatusSql280(a)]);
+}
+/** A source-owned caller that already fixes the canonical routine purpose keeps
+ * its full closed refusal proof and manual-status filter without the ban branch. */
+export function canonicalManualRankRefusalSql280(name:string):string{
+ const a=alias(name);return all([canonicalDeleteRefusalSql280(a),manualRankRefusalStatusSql280(a)]);
 }
 export function managedRankTargetAllowedSql280(subject:string,guild:string,role:string,binding:Readonly<{kind:'routine';generation:string;parent:string}|{kind:'ban';generation:string;mandate:string}>):string{
- const original=binding.kind==='routine'?binding.parent:binding.mandate;
+ const routine=binding.kind==='routine',original=routine?binding.parent:binding.mandate;
  for(const v of [subject,guild,role,binding.generation,original])if(!/^\?[1-9]\d*$/.test(v))throw Error('role_refusal_parameter_held');
- const mandate=binding.kind==='routine'?all(["manual280.purpose='canonical_routine233'",`manual280.request_digest=${original}`]):all(["manual280.purpose='canonical_ban_remove_v1'",`(CASE WHEN json_valid(manual280.reason) THEN json_extract(manual280.reason,'$.mandate') ELSE NULL END)=${original}`]);
- return `NOT EXISTS(SELECT 1 FROM role_settlements manual280 WHERE ${all([`manual280.subject=${subject}`,`manual280.guild_id=${guild}`,`manual280.role_id=${role}`,`manual280.subject_generation IS ${binding.generation}`,mandate,manualRankRefusalSql280('manual280')])})`;
+ const a='m284',mandate=routine?all([`${a}.purpose='canonical_routine233'`,`${a}.request_digest=${original}`]):all([`${a}.purpose='canonical_ban_remove_v1'`,`(CASE WHEN json_valid(${a}.reason) THEN json_extract(${a}.reason,'$.mandate') ELSE NULL END)=${original}`]);
+ // The fixed mandate already excludes the other purpose. Keep its complete
+ // original proof and manual-status filter without the unreachable branch.
+ const refusal=all([routine?canonicalDeleteRefusalSql280(a):banDeleteRefusalSql280(a),manualRankRefusalStatusSql280(a)]);
+ return `NOT EXISTS(SELECT 1 FROM role_settlements ${a} WHERE ${all([`${a}.subject=${subject}`,`${a}.guild_id=${guild}`,`${a}.role_id=${role}`,`${a}.subject_generation IS ${binding.generation}`,mandate,refusal])})`;
 }
 /** Data-only Native status for an original pacing read; never effect authority. */
 export function managedRankCooldownStatusSql280():string{

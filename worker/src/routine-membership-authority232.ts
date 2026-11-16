@@ -5,12 +5,12 @@ import {NEUTRAL_IDENTITY_PURPOSE280} from './consumed-identity280';
 import type { Env } from './env';
 import { intVar } from './env';
 import { linksNotBefore } from './db';
-import { privacyProviderCustodyDatabase,privacyGenerationFenceSql } from './privacy-serving-authority';
+import { privacyProviderCustodyDatabase,privacyGenerationFenceSql,captureSiteRoleActionAuthority283,type SiteRoleActionAuthority283 } from './privacy-serving-authority';
 import { captureLaunchVerification } from './launch-verification227';
 import { captureNativeRankConfig232,historicalNativeRankPolicy232,NATIVE_RANK_NAMES232,NATIVE_SCOPE232,NATIVE_GUILD232,SHARED_MEMBER232 } from './native-rank-reconciliation232';
 import {captureCanonicalRankConfig233} from './canonical-ranks233';
 import {recognizedMembershipAnchor232 as ANCHOR} from './roster-verification275';
-import {DIRECTIVE_RANK_NAMES,DIRECTIVE_NATIVE_PROFILE,nativeMembershipSourceMatches,qualifiedNativeSnapshotSource} from './native-rank-schemes';
+import {nativeMembershipSourceMatches,nativeRankSchemeFromSource} from './native-rank-schemes';
 import {canonicalRankSource280,canonicalRankSnapshotSql280,canonicalRankWitnessMatches280,originalObservedCanonicalTable280} from './canonical-native-authority280';
 
 declare const routine232Brand:unique symbol;
@@ -20,7 +20,7 @@ export type RoutineMembership232Facts=Readonly<{subject:string;subjectGeneration
  rankQualified:boolean;rankProfile:string|null;canonicalRankProfile:string|null;
  cause:'eligible'|'departure'|'ban'|'rename_hold'|'blocking_role'}>;
 type Scalar=string|number|null;
-type Record232={facts:RoutineMembership232Facts;db:D1Database;sourceDB:D1Database;check:()=>void;close:()=>void;effectCheck:(env:Env)=>void;values:readonly Scalar[];effectEnv:Env;sourceIntegrity:(effect:Env)=>void};
+type Record232={facts:RoutineMembership232Facts;db:D1Database;sourceDB:D1Database;check:()=>void;close:()=>void;effectCheck:(env:Env)=>void;values:readonly Scalar[];effectEnv:Env;sourceIntegrity:(effect:Env)=>void;siteRoleAction:SiteRoleActionAuthority283|null};
 const originals=new WeakMap<RoutineMembership232,Record232>();
 const ID=/^[1-9][0-9]{16,19}$/,HEX32=/^[0-9a-f]{32}$/,GUID=/^Player-[0-9]{1,6}-[0-9A-Fa-f]{4,16}$/;
 const CONFIG=Object.freeze(['CANONICAL_ENTITLEMENTS233','CANONICAL_RANKS233','NATIVE_RANK_SYNC232','GUILD_ID','ROLE_GUILD_MEMBER','VERIFY_MEMBERSHIP_ONLY','VERIFY_NATIVE_SCOPE',
@@ -81,7 +81,23 @@ const INERT_LEGACY=(canonical:string,cutoff:string)=>`(((json_extract(${canonica
  AND NOT EXISTS(SELECT 1 FROM roster_members legacy WHERE legacy.snapshot_id=s.id AND (legacy.name_key=c.name_key OR legacy.guid=c.guid)))`;
 type SourceRow={at:number;generation:string|null;state:string|null;id:number;exported_at:number;source:string;member_count:number;complete:number;trusted:number;previous_count:number;rows_json:string;links_json:string;standing_json:string;guid_unique:number};
 
-export async function captureRoutineMembership232(env:Env,subject:string):Promise<RoutineMembership232|null>{
+/** Dated read-only planning data. Its guards protect this captured read, never
+ * grant current writer authority; callers still revalidate their whole page. */
+export type QualifiedMembershipPlanningObservation283=Readonly<{
+ subject:string;subjectGeneration:string|null;snapshotId:number;snapshotExportedAt:number;deadline:number;
+ cause:RoutineMembership232Facts['cause'];primary:RoutineMembership232Facts['primary'];rankQualified:true;rankProfile:string;rankSchemeDigest:string;
+ activeCause:RoutineMembership232Facts['cause']|'source_or_identity_held';activePrimary:RoutineMembership232Facts['primary'];activeSourceQualified:boolean;
+ current:()=>boolean;close:()=>void;
+}>;
+export function captureRoutineMembership232(env:Env,subject:string):Promise<RoutineMembership232|null>{
+ return captureValidatedMembership232(env,subject,'writer');
+}
+export function observeQualifiedMembershipPlanning283(env:Env,subject:string):Promise<QualifiedMembershipPlanningObservation283|null>{
+ return captureValidatedMembership232(env,subject,'planning');
+}
+function captureValidatedMembership232(env:Env,subject:string,mode:'writer'):Promise<RoutineMembership232|null>;
+function captureValidatedMembership232(env:Env,subject:string,mode:'planning'):Promise<QualifiedMembershipPlanningObservation283|null>;
+async function captureValidatedMembership232(env:Env,subject:string,mode:'writer'|'planning'):Promise<RoutineMembership232|QualifiedMembershipPlanningObservation283|null>{
  try{
   if(!ID.test(subject)||/[^0-9]/.test(subject))return null;const originalSelection=captureNativeRankConfig232(env),launch=captureLaunchVerification(env),canonical=captureCanonicalRankConfig233(env);
   if(canonical.present&&(canonical.mode!=='enabled'||!canonical.current()))return null;
@@ -92,37 +108,47 @@ export async function captureRoutineMembership232(env:Env,subject:string):Promis
   const configCheck=slots(env,[...CONFIG,'DB']),sourceIntegrityConfig=slots(env,[...ORIGINAL_SOURCE_CONFIG232,'DB']),sourceDB=Object.getOwnPropertyDescriptor(env,'DB')?.value;
   if(!sourceDB||env.GUILD_ID!==NATIVE_GUILD232||env.ROLE_GUILD_MEMBER!==SHARED_MEMBER232||env.VERIFY_MEMBERSHIP_ONLY!=='true'||env.SHARED_MEMBERSHIP230_MODE!=='enabled')return null;
   let active=true;
-  const db=privacyProviderCustodyDatabase(env),check=()=>{configCheck();if(!active||!selection.current()||!canonical.current()||!launch.current()||Object.getOwnPropertyDescriptor(env,'DB')?.value!==sourceDB)return held();};check();
+  const siteRoleAction=captureSiteRoleActionAuthority283(env);
+  if(siteRoleAction&&(!siteRoleAction.selection||siteRoleAction.selection.subject!==subject))return null;
+  const db=privacyProviderCustodyDatabase(env),check=()=>{configCheck();siteRoleAction?.current();if(!active||!selection.current()||!canonical.current()||!launch.current()||Object.getOwnPropertyDescriptor(env,'DB')?.value!==sourceDB)return held();};check();
   const cutoff=linksNotBefore(env);
-  const results=await db.batch([db.prepare(READ).bind(subject,selection.raw,canonical.mode==='enabled'?canonical.raw:'null',cutoff)]);const resultCheck=graph(results);check();
+  const results=await db.batch([db.prepare(READ+(siteRoleAction?' AND '+siteRoleAction.sql:'')).bind(subject,selection.raw,canonical.mode==='enabled'?canonical.raw:'null',cutoff)]);const resultCheck=graph(results);check();
   if(results.length!==1||results[0]?.success!==true||results[0].results.length!==1)return null;
   const row=results[0].results[0] as SourceRow;const at=row.at,floor=intVar(env.ROSTER_MIN_MEMBERS,0),shrink=intVar(env.ROSTER_MAX_SHRINK_PCT,10);
   if(!Number.isSafeInteger(at)||at<1||!Number.isSafeInteger(row.id)||row.id<1||!Number.isSafeInteger(row.exported_at)||row.exported_at>at||row.exported_at<=at-600||row.exported_at<cutoff||!nativeMembershipSourceMatches(row.source,NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)||row.complete!==1||row.trusted!==1||row.guid_unique!==1||row.state!==null&&row.state!=='active'||row.generation!==null&&(row.generation.length!==32||!HEX32.test(row.generation)))return null;
   const rows=JSON.parse(row.rows_json) as unknown[][],links=JSON.parse(row.links_json) as unknown[][],standing=JSON.parse(row.standing_json) as number[];
   if(!Array.isArray(rows)||rows.length!==row.member_count||rows.length<floor||rows.length>1000||!Number.isSafeInteger(row.previous_count)||(row.previous_count-rows.length)*100>shrink*row.previous_count||!Array.isArray(links)||!links.length||links.length>100||standing.length!==3||standing.some(v=>v!==0&&v!==1))return null;
-  const directiveSource=row.source===qualifiedNativeSnapshotSource(NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm),rankNames=directiveSource?DIRECTIVE_RANK_NAMES:NATIVE_RANK_NAMES232;
-  const rankQualified=directiveSource&&rows.every(r=>Array.isArray(r)&&r.length===4&&typeof r[3]==='number'&&Number.isInteger(r[3])&&r[3]>=0&&r[3]<10&&r[2]===DIRECTIVE_RANK_NAMES[r[3]]);
+  const scheme=nativeRankSchemeFromSource(row.source);
+  const rankQualified=!!scheme&&rows.every(r=>Array.isArray(r)&&r.length===4&&typeof r[3]==='number'&&Number.isInteger(r[3])&&r[3]>=0&&r[3]<10&&r[2]===scheme.names[r[3]]);
+  if(mode==='planning'&&!rankQualified)return null; // No observational profile or row fallback.
    const canonicalSource=canonical.mode==='enabled'?canonicalRankSource280(canonical.policy,row.source,NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm):null;
-   const canonicalNames=canonicalSource==='directive-native-v2'?DIRECTIVE_RANK_NAMES:canonicalSource==='original-native-v2'?originalObservedCanonicalTable280(row.source,NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)?.names:null;
+  // V1 keeps its original name-qualified eligibility, including Steward/Alt
+  // unknown-link holds, even when ingress now stamps that reviewed observation.
+  const writerRankNames=canonicalSource==='original-native-v1'||canonicalSource==='original-native-v2'?NATIVE_RANK_NAMES232:scheme?.names??NATIVE_RANK_NAMES232;
+  const rankNames=mode==='planning'?scheme!.names:writerRankNames;
+   const canonicalNames=canonicalSource==='directive-native-v2'?scheme?.names:canonicalSource==='original-native-v2'?originalObservedCanonicalTable280(row.source,NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)?.names:null;
    const canonicalRankProfile=canonicalSource&&(canonicalSource==='original-native-v1'||!!canonicalNames&&rows.every(r=>Array.isArray(r)&&r.length===4&&typeof r[3]==='number'&&Number.isInteger(r[3])&&r[3]>=0&&r[3]<10&&r[2]===canonicalNames[r[3]]))?canonical.policy!.profile:null;
-  const byGuid=new Map<string,Readonly<{guid:string;nameKey:string;rank:string;index:number}>>(),names=new Set<string>(),unknownGuidKeys=new Set<string>(),seenNativeGuids=new Set<string>(),unknownRankKeys=new Set<string>(),unknownRankGuids=new Set<string>();
+  const byGuid=new Map<string,Readonly<{guid:string;nameKey:string;rank:string;index:number}>>(),names=new Set<string>(),unknownGuidKeys=new Set<string>(),seenNativeGuids=new Set<string>(),unknownRankKeys=new Set<string>(),unknownRankGuids=new Set<string>(),activeUnknownRankKeys=new Set<string>(),activeUnknownRankGuids=new Set<string>();
   for(const r of rows){if(!Array.isArray(r)||r.length!==4)return null;const [key,guid,rank,index]=r;
    if(typeof key!=='string'||!key||names.has(key))return null;
    names.add(key);
    // .237: unknown ranks prove no rank or departure. Keep every identity in
    // the global fences, while holding only accounts linked to those rows.
    const rankKnown=typeof index==='number'&&Number.isInteger(index)&&index>=0&&index<=9&&rank===rankNames[index];
+   const activeRankKnown=typeof index==='number'&&Number.isInteger(index)&&index>=0&&index<=9&&rank===writerRankNames[index];
    if(!rankKnown)unknownRankKeys.add(key);
+   if(mode==='planning'&&!activeRankKnown)activeUnknownRankKeys.add(key);
    // Offline unrelated members can lack a GUID. They prove no identity and do
    // not block a different fully proved character's rank. Target names whose
    // identity is unknown remain held, including an apparent old departure.
    if(guid===null||guid===''){unknownGuidKeys.add(key);continue;}
    if(typeof guid!=='string'||guid!==guid.trim()||!GUID.test(guid)||seenNativeGuids.has(guid))return null;
    seenNativeGuids.add(guid);
+   if(mode==='planning'&&!activeRankKnown)activeUnknownRankGuids.add(guid);
    if(!rankKnown){unknownRankGuids.add(guid);continue;}
    byGuid.set(guid,Object.freeze({guid,nameKey:key,rank:rank as string,index}));
   }
-  const eligible:Readonly<{guid:string;nameKey:string;rank:string;index:number}>[]=[],seenLinks=new Set<string>();let qualifiedLinks=0;
+  const eligible:Readonly<{guid:string;nameKey:string;rank:string;index:number}>[]=[],seenLinks=new Set<string>();let qualifiedLinks=0,activeRankHeld=false;
    // READ and every later SQL admission require a qualified neutral anchor
    // for any other original source; the raw label alone proves nothing.
   for(const l of links){if(!Array.isArray(l)||l.length!==7)return null;const [key,guid,status,bound,verified,source,anchor]=l;
@@ -131,6 +157,7 @@ export async function captureRoutineMembership232(env:Env,subject:string):Promis
    if(status==='verified'||status==='queued')continue;
    if(typeof key!=='string'||!key||typeof guid!=='string'||guid!==guid.trim()||!GUID.test(guid)||seenLinks.has(guid)||typeof bound!=='number'||!Number.isSafeInteger(bound)||bound<1||bound>at||typeof verified!=='number'||!Number.isSafeInteger(verified)||verified<bound||verified>at||source!==null&&typeof source!=='string'||!['member','left_pending','left'].includes(String(status)))return null;
    seenLinks.add(guid);
+   if(mode==='planning'&&(activeUnknownRankKeys.has(key)||activeUnknownRankGuids.has(guid)))activeRankHeld=true;
    // Match either identity direction before legacy exclusion or left handling;
    // an uncertain higher alt must not disappear and lower another alt's rank.
    if(unknownRankKeys.has(key)||unknownRankGuids.has(guid))return null;
@@ -149,10 +176,31 @@ export async function captureRoutineMembership232(env:Env,subject:string):Promis
    else if(status!=='left'||unknownGuidKeys.has(key))return null;
   }
   if(!qualifiedLinks)return null; // Unfinished/inert legacy links prove neither identity nor departure.
-  eligible.sort((a,b)=>a.index-b.index||(a.guid<b.guid?-1:a.guid>b.guid?1:0));
+  // Native slots are an observed guild ladder, not canonical role precedence.
+  // The reviewed Steward table places Alt(7) before Member(8), while canonical
+  // Member access outranks Alt only under its active matching new policy. The
+  // original serving v1 policy retains its name checks and ordinal ordering.
+  const precedenceScheme=mode==='planning'||canonicalSource==='directive-native-v2'?scheme:null;
+  const precedence=(row:typeof eligible[number])=>precedenceScheme?.canonicalIndexes[row.index]??row.index;
+  eligible.sort((a,b)=>precedence(a)-precedence(b)||a.index-b.index||(a.guid<b.guid?-1:a.guid>b.guid?1:0));
   const cause:RoutineMembership232Facts['cause']=standing[0]===1||standing[1]===1?'ban':standing[2]===1?'rename_hold':eligible.length?'eligible':'departure';
   const primary=cause==='eligible'?eligible[0]!:null,deadline=Math.min(at+300,row.exported_at+600);
-  const facts=Object.freeze({subject,subjectGeneration:row.generation,snapshotId:row.id,snapshotExportedAt:row.exported_at,deadline,primary,policyRaw:selection.raw,cause,rankQualified,rankProfile:rankQualified?DIRECTIVE_NATIVE_PROFILE:null,canonicalRankProfile});
+  const facts=Object.freeze({subject,subjectGeneration:row.generation,snapshotId:row.id,snapshotExportedAt:row.exported_at,deadline,primary,policyRaw:selection.raw,cause,rankQualified,rankProfile:rankQualified?scheme!.profile:null,canonicalRankProfile});
+  if(mode==='planning'){
+   check();resultCheck();
+   const activeScheme=canonicalSource==='directive-native-v2'?scheme:null;
+   const activeOrder=(r:typeof eligible[number])=>activeScheme?.canonicalIndexes[r.index]??r.index;
+   const activeEligible=[...eligible].sort((a,b)=>activeOrder(a)-activeOrder(b)||a.index-b.index||(a.guid<b.guid?-1:a.guid>b.guid?1:0));
+   const activeCause:QualifiedMembershipPlanningObservation283['activeCause']=activeRankHeld?'source_or_identity_held':cause;
+   // Fixed read guards expose no DB, Env, SQL, effect callback or issuer cap.
+   // In particular this object never enters the writer's originals WeakMap.
+   const current=()=>{try{check();resultCheck();return Math.floor(Date.now()/1000)<deadline&&privacyProviderCustodyDatabase(env)===db;}catch{return false;}};
+   return Object.freeze({subject,subjectGeneration:row.generation,snapshotId:row.id,snapshotExportedAt:row.exported_at,deadline,cause,primary,
+    rankQualified:true as const,rankProfile:scheme!.profile,rankSchemeDigest:scheme!.digest,
+    activeCause,activePrimary:!activeRankHeld&&cause==='eligible'?activeEligible[0]??null:null,
+    activeSourceQualified:!activeRankHeld&&canonicalRankWitnessMatches280(canonical.policy,canonicalRankProfile,rankQualified),
+    current,close:()=>{active=false;}});
+  }
   const values=Object.freeze([subject,row.generation,row.id,row.exported_at,row.source,row.member_count,row.rows_json,row.links_json,row.standing_json,deadline,cutoff,row.previous_count,selection.raw,canonical.mode==='enabled'?canonical.raw:'null']);
   const effectCheck=(effect:Env)=>{check();const d=Object.getOwnPropertyDescriptor(effect,'DB');if(!d||!Object.hasOwn(d,'value')||d.value!==sourceDB&&d.value!==db)return held();
    for(const key of CONFIG){const a=Object.getOwnPropertyDescriptor(env,key),b=Object.getOwnPropertyDescriptor(effect,key);if(a===undefined?!!b||key in effect:!b||!Object.hasOwn(b,'value')||!Object.is(a.value,b.value))return held();}};
@@ -164,7 +212,7 @@ export async function captureRoutineMembership232(env:Env,subject:string):Promis
    for(const key of ORIGINAL_SOURCE_CONFIG232){const a=Object.getOwnPropertyDescriptor(env,key),b=Object.getOwnPropertyDescriptor(effect,key);
     if(a===undefined?!!b||key in effect:!b||!Object.hasOwn(b,'value')||!Object.is(a.value,b.value))return held();}
   };
-  originals.set(cap,{facts,db,sourceDB,check:()=>{check();resultCheck();},close:()=>{active=false;},effectCheck,values,effectEnv,sourceIntegrity});return cap;
+  originals.set(cap,{facts,db,sourceDB,check:()=>{check();resultCheck();},close:()=>{active=false;},effectCheck,values,effectEnv,sourceIntegrity,siteRoleAction});return cap;
  }catch{return null;}
 }
 export function assertRoutineMembership232(env:Env,cap:RoutineMembership232):void{const r=originals.get(cap);if(!r)return held();r.check();r.effectCheck(env);if(Math.floor(Date.now()/1000)>=r.facts.deadline)return held();}
@@ -176,8 +224,20 @@ export function assertOriginalRoutineSourceIntegrity280(env:Env,cap:RoutineMembe
  const r=originals.get(cap);if(!r)return held();r.sourceIntegrity(env);
 }
 export function routineMembership232Facts(cap:RoutineMembership232):RoutineMembership232Facts{const r=originals.get(cap);if(!r)return held();r.check();return r.facts;}
+/** Current new-effect time only. The attended preview cannot extend the Native
+ * capture; neither deadline changes original landed-effect receipt custody. */
+export function routineMembership232EffectDeadline(env:Env,cap:RoutineMembership232):number{
+ assertRoutineMembership232(env,cap);const r=originals.get(cap)!;
+ return Math.min(r.facts.deadline,r.siteRoleAction?.selection?.expiresAt??r.facts.deadline);
+}
 export function routineMembership232Environment(env:Env,cap:RoutineMembership232):Env{assertRoutineMembership232(env,cap);return originals.get(cap)!.effectEnv;}
 export function closeRoutineMembership232(cap:RoutineMembership232):void{originals.get(cap)?.close();}
+/** A private attended repair must retain the exact expected canonical role.
+ * This is an additional restriction on the current Native writer, not a grant. */
+export function routineMembership232AttendedRoleMatches(env:Env,cap:RoutineMembership232,expected:string|null):boolean{
+ assertRoutineMembership232(env,cap);const action=originals.get(cap)!.siteRoleAction;
+ return !action||action.selection?.expectedRole===expected;
+}
 /** Fixed authored JSON comparisons freeze every linked alt and the exact original
  * current Native profile. Deadline, standing and generation are checked in SQL
  * at every queue/claim/final admission, including across provider awaits. */
@@ -204,6 +264,6 @@ export function routineMembership232Predicate(env:Env,cap:RoutineMembership232,s
  // Both variants are captured while the full original cap is valid. The extra
  // frozen SQL preserves all DB source/link/rank/G/deadline clauses and omits
  // only standing equality; it is never queue/claim/future-effect authority.
- return Object.freeze({sql:originalSourcePredicate(true),receiptSourceIntegritySql:originalSourcePredicate(false),
+ return Object.freeze({sql:(r.siteRoleAction?'('+r.siteRoleAction.sql+') AND ':'')+originalSourcePredicate(true),receiptSourceIntegritySql:originalSourcePredicate(false),
  values:r.values,next:start+r.values.length});
 }

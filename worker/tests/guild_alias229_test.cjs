@@ -23,7 +23,12 @@ fixture('organization_view_test.cjs','const p = open();',`const p=open();check('
 fixture('organization_overview205_test.cjs','const originalModel =',`const p=open(),field=p.document.getElementById('org-alliance-guild205');check('actual overview picker displays Prime with stable Olympus I value',field.children.find(n=>n.value==='Olympus I')?.textContent==='OLYMPUS PRIME');p.input('org-alliance-guild205','Olympus I','change');check('stable first-branch selection opens canonical display context',p.section.textContent.includes('OLYMPUS PRIME · local guild context')&&model.guildPlaceholders[0].name==='Olympus I');`);
 const spaSource229=fs.readFileSync(path.join(__dirname,'frontend_check.cjs'),'utf8'),spaCut229=spaSource229.indexOf('(async () => {\n  await siteUser(MEMBER');assert.ok(spaCut229>0);
 const spa229=new Module(path.join(__dirname,'guild_alias229_spa_fixture.cjs'),module);spa229.filename=path.join(__dirname,'guild_alias229_spa_fixture.cjs');spa229.paths=module.paths;
-spa229._compile(spaSource229.slice(0,spaCut229)+String.raw`
+// RC-272 (our 925a505, 12 Nov 2026): the Community section row schedules its sideways scroll with
+// requestAnimationFrame, which every browser has. The page window gets it as one later frame, the same two
+// lines frontend_check.cjs receives on the mig-a branch; once that copy carries them, they are taken from it.
+let spaPrefix229=spaSource229.slice(0,spaCut229);
+if(!spaPrefix229.includes('sandbox.requestAnimationFrame')){const window229='  sandbox.globalThis = sandbox; sandbox.self = sandbox;\n';assert.ok(spaPrefix229.split(window229).length===2);spaPrefix229=spaPrefix229.replace(window229,window229+'  sandbox.requestAnimationFrame = (callback) => setTimeout(() => callback(Date.now()), 0);\n  sandbox.cancelAnimationFrame = (handle) => clearTimeout(handle);\n');}
+spa229._compile(spaPrefix229+String.raw`
 module.exports=(async()=>{
  await siteUser(STAFF,{global_name:'Synthetic alias administrator'});await siteUser(MEMBER,{global_name:'Synthetic alias reader'});await character(MEMBER,'Synthetic Alias Reader','Player-1-0229');
  const page=await openPage(STAFF);await page.go('#/admin/settings');await waitFor(()=>!!page.app.querySelector('#lead-gm-0'),'current leadership settings display');

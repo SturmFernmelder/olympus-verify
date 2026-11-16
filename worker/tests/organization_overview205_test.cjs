@@ -115,7 +115,10 @@ const originalModel = JSON.stringify(model), originalDirectory = JSON.stringify(
 const overview = page.buildAllianceOverview205(model, directory), groups = overview.groups, entries = groups.flatMap(group => group.families);
 const expectedKeys = sorted([...catalogue.map(row => row.key), 'member', 'raider', 'pvp_team']);
 check('real canonical fixture contains exactly72 role families and142 registered keys', directory.families.length === 72 && directory.sourceKeyCount === 142 && expectedKeys.length === 142);
-check('thirteen overview groups preserve seven portfolio lanes and distinguish institutions from individual offices', same(groups.map(group => group.key), ['leadership', 'council', 'independent', 'institutions', 'war', 'treasury', 'trading', 'artisanry', 'heraldry', 'propaganda', 'systems', 'officers', 'members']));
+// CL2-034 (our 4c7b542, 9f866bd; directive line 45): the family cards use the directory's six catalogue groups, in the
+// directive's order and with its names; RC-034 (our 4cd335b) keeps the seven portfolio lanes as context lists beside them.
+// Institution cards are told apart by ".218 institutions are not presented as additional individual Council appointments".
+check('six overview groups follow the directive catalogue order and names beside seven portfolio lane contexts', same(groups.map(group => group.key), ['council', 'officers', 'raid', 'workshop', 'members', 'royal']) && same(groups.map(group => group.title), ['Sovereign & High Council', 'Officer Corps & Branch Command', 'Raid, PvP & Class Leadership', 'Guild Workshop & Master Artisans', 'Sworn Members, Raiders, Veterans, Alts & Initiates', 'Royal Patrons & Ceremonial Writs']) && same(Object.keys(overview.contexts.lanes), ['war', 'treasury', 'trading', 'artisanry', 'heraldry', 'propaganda', 'systems']));
 check('all72 canonical families occur exactly once without a new presentation identity', entries.length === 72 && new Set(entries.map(row => row.family.key)).size === 72 && same(sorted(entries.map(row => row.family.key)), sorted(directory.families.map(row => row.key))));
 check('every family keeps its complete original primary, variants and source keys', entries.every(row => same(row.family, directory.families.find(family => family.key === row.family.key))) && same(sorted(entries.flatMap(row => row.family.sourceKeys)), expectedKeys) && overview.sourceKeyCount === 142);
 const expectedRelationships = model.nodes.filter(node => node.parent && node.relation !== 'classification').map(node => ({ from: node.id, to: node.parent, kind: node.relation }));
@@ -128,11 +131,14 @@ check('the Herald leads official communications and the Seneschal retains court 
   && communicationsLane.summary.includes('Official communications') && communicationsLane.duties.join(' ').includes('Heraldry Emissaries'));
 const rankNames = ['Leader', 'High Council', 'Officer', 'Officer Alt', 'Raid Leader', 'Veteran', 'Raider', 'Member', 'Alt', 'Initiate'];
 check('the overview preserves the exact ten native ranks and zero-based slots', overview.ranks.length === 10 && overview.ranks.every((rank, slot) => rank.nativeSlot === slot && rank.nativeRankOrdinal === slot + 1 && (rank.label || rank.name) === rankNames[slot]));
-check('rendered native strip has slots0–9 once and creates no eleventh native rank', same(page.section.all(node => node.getAttribute('data-alliance-rank') !== null).map(node => node.getAttribute('data-alliance-rank')), rankNames.map((_, slot) => String(slot))) && !page.section.all(node => node.getAttribute('data-native-rank') !== null).length);
-check('CC-118 the Alliance rank filter, ladder and rank-one role badge share the display name and retain their original slot',
+// CL2-197 (our 4c7b542): the overview's second ladder is gone; the page's one ladder keeps its ten rows (organization_view_test
+// ".218 exact ten ranks and all103 current office records are visible"). The overview's rank filter is its one rank list;
+// a list naming all ten ranks counts as a second ladder also without the old data-alliance-rank marker.
+check('rendered overview has no second rank ladder and its rank filter has slots0–9 once with no eleventh native rank', !page.section.all(node => node.getAttribute('data-alliance-rank') !== null).length && !page.section.all(list => ['OL', 'UL'].includes(list.tagName) && rankNames.every((name, slot) => list.children.some(item => item.textContent.includes(slot === 0 ? 'Leader (Guild Master)' : name)))).length &&same(page.document.getElementById('org-alliance-rank205').children.map(node => node.value), ['', ...rankNames.map((_, slot) => String(slot))]) && !page.section.all(node => node.getAttribute('data-native-rank') !== null).length);
+// CL2-197, CL2-310 (our 4c7b542; directive line 52): no ladder row any more; the badge reads "Rank 1 Leader (Guild Master) · Slot 0".
+check('CC-118 the Alliance rank filter and rank-one role badge share the display name and retain their original slot',
   page.document.getElementById('org-alliance-rank205').children[1].textContent === 'Rank 1 · Leader (Guild Master)'
-  && page.section.all(node => node.getAttribute('data-alliance-rank') === '0')[0].children[0].textContent === '1. Leader (Guild Master)'
-  && page.families().find(node => node.getAttribute('data-alliance-family') === 'leader').textContent.includes('Rank 1 Leader (Guild Master) (Slot 0)')
+  && page.families().find(node => node.getAttribute('data-alliance-family') === 'leader').textContent.includes('Rank 1 Leader (Guild Master) · Slot 0')
   && overview.ranks[0].label === 'Leader');
 check('rendered overview contains every canonical family once before filtering', page.families().length === 72 && page.visible().length === 72 && new Set(page.visible()).size === 72 && page.section.classList.contains('org-alliance'));
 
@@ -143,12 +149,19 @@ check('rank filters use only each family original recommended or native slots', 
   }).filter(Number.isInteger))].sort((a, b) => a - b);
   return same([...row.slots].sort((a, b) => a - b), expected);
 }));
-check('independent audit families stay outside Treasury delivery and bank custody', groups.find(group => group.key === 'independent').families.some(row => row.family.key === 'bank_auditor' && row.family.sourceKeys.includes('office_08')) && !groups.find(group => group.key === 'treasury').families.some(row => row.family.sourceKeys.includes('office_08')) && directory.keyToFamily.office_08 !== directory.keyToFamily.office_09 && directory.keyToFamily.office_08 !== directory.keyToFamily.office_86);
+// CL2-034 (our 4c7b542) and RC-034 (our 4cd335b): the independent-review and Treasury lane views are context lists beside
+// the six groups, not groups of their own.
+check('independent audit families stay outside Treasury delivery and bank custody', overview.contexts.independent.some(family => family.key === 'bank_auditor' && family.sourceKeys.includes('office_08')) && !overview.contexts.lanes.treasury.some(family => family.sourceKeys.includes('office_08')) && directory.keyToFamily.office_08 !== directory.keyToFamily.office_09 && directory.keyToFamily.office_08 !== directory.keyToFamily.office_86);
 
 const councilFamilies = groups.find(group => group.key === 'council').families;
-check('.218 thirteen current High Council role families stay together without counting collective bodies as seats', councilFamilies.length === 13 && councilFamilies.every(row=>row.family.kind==='role') && same(sorted(councilFamilies.map(row=>row.family.key)), sorted(directory.families.filter(f=>f.tier==='high_council'&&f.kind==='role').map(f=>f.key))) && groups.filter(g=>g.key!=='council').every(g=>g.families.every(row=>row.family.tier!=='high_council'||row.family.kind!=='role')));
-const institutionFamilies218=groups.find(group=>group.key==='institutions').families;
-check('.218 all six collective institutions remain fully represented once outside individual Council seats',institutionFamilies218.length===6&&same(sorted(institutionFamilies218.map(row=>row.family.key)),sorted(directory.families.filter(f=>f.kind==='institution').map(f=>f.key)))&&groups.filter(g=>g.key!=='institutions').every(g=>g.families.every(row=>row.family.kind!=='institution')));
+// CL2-034 (our 4c7b542; directive line 45): "Sovereign & High Council" holds the Leader, the thirteen High Council role
+// families and the Council's own institutions (the High Council-tier institutions); the institutions stay institutions.
+const councilRoles218 = councilFamilies.filter(row => row.family.kind === 'role' && row.family.tier === 'high_council');
+check('.218 thirteen current High Council role families stay together without counting collective bodies as seats', councilRoles218.length === 13 && same(sorted(councilRoles218.map(row=>row.family.key)), sorted(directory.families.filter(f=>f.tier==='high_council'&&f.kind==='role').map(f=>f.key))) && same(sorted(councilFamilies.filter(row => !councilRoles218.includes(row)).map(row => row.family.key + ':' + row.family.kind)), sorted(['leader:role', ...directory.families.filter(f => f.tier === 'high_council' && f.kind === 'institution').map(f => f.key + ':institution')])) && groups.filter(g=>g.key!=='council').every(g=>g.families.every(row=>row.family.tier!=='high_council'||row.family.kind!=='role')));
+// CL2-034 (our 4c7b542): the institutions sit in their directory groups (no separate institutions group); each appears once
+// and none is an individual Council seat.
+const institutionFamilies218=entries.filter(row=>row.family.kind==='institution');
+check('.218 all six collective institutions remain fully represented once outside individual Council seats',institutionFamilies218.length===6&&same(sorted(institutionFamilies218.map(row=>row.family.key)),sorted(directory.families.filter(f=>f.kind==='institution').map(f=>f.key)))&&overview.councilSeats.every(seat=>!institutionFamilies218.some(row=>row.family.key===seat.familyKey)));
 const seatIds206 = ["gm-chair", "co-gm", "treasurer", "head-justice", "main-raid-lead", "main-pvp-lead", "internal-security", "intake", "concordat", "artisanry", "propaganda", "heraldry", "head-trading", "systems-heraldry"];
 check('.218 all fourteen chair and portfolio references resolve to the declared current catalogue', same(overview.councilSeats.map(row=>row.id),seatIds206) && page.section.all(n=>n.getAttribute('data-council-seat206')!==null).length===14 && entries.length===72 && expectedKeys.length===142);
 const mainWar206=overview.councilSeats.filter(row=>['main_raid','main_pvp'].includes(row.familyKey));
@@ -162,10 +175,20 @@ check('the trading Council seat links one reserved office to its own market node
 check('market lane states sole trading and custody boundaries without absorbing a core historic ministry', page.context.ORGANIZATION_LANES205.find(row => row.key === 'trading').boundary.includes('This portfolio does trading only') && page.context.ORGANIZATION_HISTORY205.find(row => row.key === 'core-portfolios').text.includes('War, Treasury, Artisanry and Heraldry') && model.nodes.find(node => node.id === 'trading').coordinates.includes('treasury'));
 const reserved = directory.families.filter(family => ['leader', 'high_council', 'officer_corps'].includes(family.tier));
 check('every reserved Leader Council and Officer family has its actual tier badge', reserved.every(family => page.families().find(node => node.getAttribute('data-alliance-family') === family.key).all(node => node.getAttribute('data-tier') === family.tier).length > 0));
-check('reserved individual offices cannot become vacancies when no holder is supplied', reserved.filter(family => family.kind === 'role').every(family => /Reserved seat|Reserved appointment/.test(page.families().find(node => node.getAttribute('data-alliance-family') === family.key).textContent)) && !page.section.textContent.includes('Open seat'));
+// CL2-036 (our 4c7b542): one eligibility vocabulary; a reserved seat reads "Reserved leadership seat". The live route passes
+// app.js familyEligibility1112 as the card label (ROUTES.organization), so the directory value and that label are read too.
+const eligibility1112 = (() => {
+  const appSource = fs.readFileSync(path.join(staticRoot, 'app.js'), 'utf8'), marker = '\n  const ELIGIBILITY_LABELS_1112 = ', start = appSource.indexOf(marker), end = appSource.indexOf('});', start);
+  const label = appSource.split(/\r?\n/).filter(line => line.startsWith('  const familyEligibility1112 = '));
+  if (start < 0 || appSource.indexOf(marker, start + 1) >= 0 || end < 0 || label.length !== 1) return null;
+  return vm.runInNewContext(appSource.slice(start, end + 3) + '\n' + label[0] + '\nfamilyEligibility1112', {}, { filename: 'actual-eligibility-labels1112.js' });
+})();
+check('reserved individual offices cannot become vacancies when no holder is supplied', !!eligibility1112 && reserved.filter(family => family.kind === 'role').every(family => family.eligibility === 'reserved_seat' && eligibility1112(family) === 'Reserved leadership seat' && /Reserved leadership seat/.test(page.families().find(node => node.getAttribute('data-alliance-family') === family.key).textContent)) && !page.section.textContent.includes('Open seat'));
+// CL2-036 (our 4c7b542): the reserved-seat wording is "Reserved leadership seat" (it was "Reserved appointment"); neither an
+// institution card nor the label the live route passes for an institution uses it.
 check('.218 institutions are not presented as additional individual Council appointments', directory.families.filter(family => family.kind === 'institution').every(family => {
   const card = page.families().find(node => node.getAttribute('data-alliance-family') === family.key);
-  return card.textContent.includes('Governance institution') && !card.textContent.includes('Reserved appointment') && !card.textContent.includes('Rank 2 High Council');
+  return card.textContent.includes('Governance institution') && !card.textContent.includes('Reserved leadership seat') && !!eligibility1112 && eligibility1112(family) !== 'Reserved leadership seat' && !card.textContent.includes('Rank 2 High Council');
 }) && page.families().find(node => node.getAttribute('data-alliance-family') === 'justice').textContent.includes('Council of Justice — institution'));
 check('overview exposes no application or appointment action and no request', page.section.all(node => node.tagName === 'A').every(node => !/^#\/vote(?:\/|$)/.test(node.getAttribute('href') || '')) && !page.section.all(node => node.getAttribute('data-apply-role201') !== null || node.getAttribute('data-office-application') !== null).length && page.requests.length === 0);
 const auditorCard = page.families().find(node => node.getAttribute('data-alliance-family') === 'bank_auditor');
@@ -222,7 +245,8 @@ check('opening Raid Leader retains its lead definition and complete canonical li
 check('NA and EU link directly to their exact regional specifications and no native association stub appears',
   ['raid_leader_na','raid_leader_eu'].every(key => linkTo(raid,key).length===1 && linkTo(raid,key)[0].textContent===directory.families.find(f=>f.key===raidFamily).variants.find(v=>v.key===key).label)
   && !linkTo(raid,'rank_raid_leader').length && !raid.all(node => node.getAttribute('data-alliance-guide-group218') === 'associations').length
-  && raid.textContent.includes('Rank 5 Raid Leader (Slot 4)') && directory.keyToFamily.rank_raid_leader === raidFamily);
+  // CL2-310 (our 4c7b542; directive line 52): the badge reads "Rank 5 Raid Leader · Slot 4".
+  && raid.textContent.includes('Rank 5 Raid Leader · Slot 4') && directory.keyToFamily.rank_raid_leader === raidFamily);
 const marketCard208 = page.families().find(node => node.getAttribute('data-alliance-family') === 'head_trading');
 marketCard208.open = true; marketCard208.dispatch('toggle');
 check('opening Trading preserves the original definition and canonical destination without an application action', page.guideCalls.length === 0
@@ -255,13 +279,16 @@ async function routeLoading214() {
   const rolePolicySource214=['  const reservedNotice201 = ','  const standingIntro218 = '].map(prefix=>{const lines=appSource.split(/\r?\n/).filter(line=>line.startsWith(prefix));if(lines.length!==1)throw Error('actual_organization_role_policy_boundary');return lines[0];}).join('\n');
   const next = () => new Promise(resolve => setImmediate(resolve));
   function fixture({ holdModel = false } = {}) {
-    const main = { dataset: { viewRequest: 'original' }, nodes: [] }, user = {}, settings = {}, context = {};
+    // Our 4c7b542 (CL2-043, CL2-036, CL2-063, CL2-035): the route widens main, shows a sized placeholder, waits for the page
+    // stylesheet and forwards three more names. Inert stand-ins only let it run: a style object, an already-loaded sheet.
+    const main = { dataset: { viewRequest: 'original' }, nodes: [], style: {} }, user = {}, settings = {}, context = {};
     const requested = [], pending = new Map(), rendered = [];
     let attached = true, route = '#/organization', resolveModel;
     const data = { terms: [] }, modelReady = holdModel ? new Promise(resolve => { resolveModel = () => resolve(data); }) : Promise.resolve(data);
     const sandbox = { ROUTES: {}, S: { user, settings }, COM: () => context,
+      document: { getElementById: () => ({ sheet: {} }) }, familyEligibility1112: () => {}, jumpList1112: () => {}, governanceTitleRoutes228: {},
       app: { contains: node => attached && node === main }, currentRoute: () => route,
-      governanceModel: () => modelReady, h: (_tag, props) => props, add: (parent, node) => parent.nodes.push(node), clear: () => {},
+      governanceModel: () => modelReady, h: (_tag, props) => ({ ...props, style: {} }), add: (parent, node) => parent.nodes.push(node), clear: () => {},
       office199: () => null, offices199: () => [], M: () => ({}), posIcon: () => {}, scrollToSection: () => {},
       applicationRoleDirectory201: () => {}, writsPanel199: () => ({ writs: true }), disposeOrganization: null,
       loadModule(name) { requested.push(name); return new Promise((resolve, reject) => pending.set(name, { resolve, reject })); } };

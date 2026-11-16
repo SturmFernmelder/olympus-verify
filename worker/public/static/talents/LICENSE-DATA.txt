@@ -10,3 +10,9 @@ Warcraft names, tooltip text, icons and art belong to Blizzard Entertainment and
 are not covered by that grant. This is an unofficial fan reference, not endorsed
 by Blizzard or by Talents Forever. No Talents Forever website code or artwork is
 included. Original Olympus calculator code retains the repository’s own license.
+
+Separately, 17 talent icons (the .png files under /static/wow/talents/) are
+Blizzard artwork extracted by Codex Root from the installed game client (build
+1.60.1.70938) and converted to PNG. They are not from Talents Forever and, like
+the other icons and art, belong to Blizzard Entertainment and are not covered by
+the CC BY 4.0 grant.

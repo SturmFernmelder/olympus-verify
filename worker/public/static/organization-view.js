@@ -194,8 +194,12 @@ export function renderOrganization(main, data, ui) {
   function focusNode(id) { if (branchMode) branchLayout(); const p = position.get(id); if (!p) return; scale = Math.max(.85, scale); x = viewport.clientWidth / 2 - p.x * scale; y = Math.max(50, viewport.clientHeight / 3) - p.y * scale; transform(); }
   const reservedTerm201 = term => term.reservedSeat201 || ["leader", "high_council", "officer_corps"].includes(term.tier);
   const termFamily218 = term => ui.roleDirectory203?.families?.find(row => row.key === ui.roleDirectory203.keyToFamily[term.officeKey]);
+  // Owner ruling 15 Nov 2026: one test decides where a card's application aliases are filed; the register drawer and the
+  // search index both use it, so a name filed as historical adds nothing to the search and a retained label always does.
+  const historicalAliases1115 = term => termFamily218(term)?.kind === "institution" || !!term.applicationMetadataScope;
   // CL2-036: one eligibility rule with /#/roles. A link appears exactly where the directory lists an intent the Worker
-  // accepts (validateApplicationIntent199); Core Raider (office_25) is such a target on the Raider track.
+  // accepts (validateApplicationIntent199). Since the owner's ruling of 14 Nov 2026 those are Guild Member, Raider and
+  // Artisan (office_07) only; Core Raider (office_25) and Crafter (office_27) are not targets.
   const targetLabel1112 = (family, target) => target.targetOffice ? (ui.officeFor219?.(target.targetOffice)?.applicationLabel || family.label) : family.label;
   const applicationLink = (family, target, label) => {
     if (!target || ui.officeAvailability?.[target.targetOffice || family.primaryKey] === false) return null;
@@ -375,13 +379,17 @@ export function renderOrganization(main, data, ui) {
       const closed = ui.officeAvailability?.[t.officeKey] === false;
       const family = termFamily218(t), target = termTarget1112(t);
       const aliasLabels = t.applicationAliases?.length ? h("p", { class: "small", text: "Retained portfolio labels: " + t.applicationAliases.join(" · ") }) : null;
-      const historicalAliases = aliasLabels && (family?.kind === "institution" || t.applicationMetadataScope) ? h("details", {class:"org-register-context218", "data-historical-application-labels218":t.officeKey},
+      const historicalAliases = aliasLabels && historicalAliases1115(t) ? h("details", {class:"org-register-context218", "data-historical-application-labels218":t.officeKey},
         h("summary", {text:"Historical application & ballot labels"}), h("p", {class:"small muted",text:t.applicationMetadataScope || "Earlier application vocabulary is retained for record compatibility; it does not open this institution to applications."}), aliasLabels) : aliasLabels;
       const historicalOfficeLabels = t.historicalOfficeLabels?.length ? h("details", { class: "org-register-context218", "data-historical-office-labels": t.officeKey },
         h("summary", { text: "Historical office labels" }), h("p", { class: "small", text: t.historicalOfficeLabels.join(" · ") })) : null;
+      // Owner ruling 14 Nov 2026: a card without a target of its own in a family that has one (Crafter) is not an
+      // application, so it prints its acquisition text alone instead of the family's "Applications accepted.".
+      const ownText = t.acquisition && !/^Apply\b/.test(t.acquisition) ? t.acquisition : "";
       const eligibility = reservedTerm201(t) || family?.eligibility === "reserved_seat" ? null
         : target ? (closed ? h("p", { class: "small muted", text: "This seat is occupied or closed to applications." }) : seatLink(t))
-        : h("p", { class: "small muted", text: (ui.eligibilityLabel?.(family) || "Standing") + (t.acquisition && !/^Apply\b/.test(t.acquisition) ? ". " + t.acquisition : ".") });
+        : family?.applicationTargets?.length ? (ownText ? h("p", { class: "small muted", text: ownText }) : null)
+        : h("p", { class: "small muted", text: (ui.eligibilityLabel?.(family) || "Standing") + (ownText ? ". " + ownText : ".") });
       const li = h("li", { class: "org-office-card", "data-office-key": t.officeKey, "data-office-tier": t.tier },
         h("button", { type: "button", class: "organization-term", text: t.applicationLabel || t.label, onclick: () => select(t.nodeId, true, true, t) }),
         family?.kind === "institution" ? h("p", { class: "small muted", text: family.label }) : null, officeBadges(t), historicalAliases, historicalOfficeLabels,
@@ -393,8 +401,10 @@ export function renderOrganization(main, data, ui) {
     }
     termList.append(h("section", { class: "org-office-tier-group", "data-catalog-group": groupKey }, h("h3", { text: title + " · " + terms.length + " offices" }), group));
   }
-  // CL2-190: one index per title (labels, aliases, historical labels, key and department) serves the chart and the register.
-  const termIndex1112 = t => [t.label, t.applicationLabel, ...(t.applicationAliases || []), ...(t.historicalOfficeLabels || []), t.officeKey, t.department, t.tierLabel, termFamily218(t)?.label].filter(Boolean).join(" ").toLowerCase();
+  // CL2-190: one index per title (labels, aliases, key and department) serves the chart and the register. Owner ruling
+  // 15 Nov 2026: current titles only; a historical office label stays in its history drawer and does not match a search.
+  // Owner ruling 15 Nov 2026 ("Yes, stop matching"): aliases filed under "Historical application & ballot labels" do not match either.
+  const termIndex1112 = t => [t.label, t.applicationLabel, ...(historicalAliases1115(t) ? [] : t.applicationAliases || []), t.officeKey, t.department, t.tierLabel, termFamily218(t)?.label].filter(Boolean).join(" ").toLowerCase();
   search.addEventListener("input", () => {
     const q = search.value.trim().toLowerCase(); let count = 0, outside = 0;
     for (const n of data.nodes) {

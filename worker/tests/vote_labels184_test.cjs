@@ -88,6 +88,190 @@ Object.defineProperty(Element.prototype, 'value', { ...value184, set(value) {
   await new Promise(resolve => setTimeout(resolve, 210));
   check('a late old closed-role summary cannot damage the replacement role or either special label', late184.app.querySelector('.role-pick')?.value === 'officer' && late184.app.querySelector('.role-item[aria-current="page"] .n')?.textContent === '0/1' && option184(late184, 'co_gm')?.textContent === label184(late184, 'co_gm') + ' (appointed)' && !!marker184(late184, 'co_gm', 'appointed') && option184(late184, 'pvp_leader')?.textContent === label184(late184, 'pvp_leader') + ' (no public vote)' && lateReads184.filter(call => call.pathname === '/api/board').length === 2);
   check('all exercised navigation remains read-only and preserves the seeded settings, application and zero votes', calls184.every(call => call.method === 'GET') && one('SELECT COUNT(*) AS n FROM site_board_votes').n === 0 && one('SELECT COUNT(*) AS n FROM site_applications').n === 1 && one("SELECT value FROM site_settings WHERE key='appointed'").value === appointed184 && one("SELECT value FROM site_settings WHERE key='noVote'").value === JSON.stringify(['pvp_leader']));
+
+  // Unit h3, the owner's question of 15 Nov 2026 ("Shouldn't .../#/vote already have assigned HC roles since we have them
+  // ingame and on Discord?"): the board lists every current High Council portfolio with the holder from the website
+  // appointment record only, or the existing fallback. The expected portfolios and their order are the Council register,
+  // governance/organization.json councilComposition.currentSeats without the Guild Master's chair, not the page's code.
+  const register184 = JSON.parse(fs.readFileSync(path.join(root, 'public', 'static', 'governance', 'organization.json'), 'utf8')).councilComposition.currentSeats.filter(seat => seat.familyKey !== 'leader').map(seat => [seat.officeKeys[0], seat.label]);
+  const none184 = 'No website appointment recorded.';
+  const panelOf184 = page => { const kids = page.app.querySelector('main')?.children || []; return kids.length === 3 ? kids[2] : null; };
+  const shape184 = page => {
+    const kids = page.app.querySelector('main')?.children || [], panel = kids[2], list = panel?.children[1];
+    return kids.length === 3 && kids[0].querySelector('.plaque')?.textContent === 'Leadership applications board' && kids[1].classList.contains('board-layout')
+      && panel.tagName === 'SECTION' && panel.classList.contains('frame') && panel.children.length === 2 && panel.children[0].classList.contains('plaque') && panel.children[0].textContent === 'High Council portfolios'
+      && list.tagName === 'DL' && list.classList.contains('kv') && JSON.stringify(list.children.map(el => el.tagName)) === JSON.stringify(register184.flatMap(() => ['DT', 'DD']))
+      && JSON.stringify(list.querySelectorAll('dt').map(dt => dt.textContent)) === JSON.stringify(register184.map(([, label]) => label));
+  };
+  const rows184 = page => JSON.stringify((panelOf184(page)?.querySelectorAll('dd') || []).map(dd => [dd.getAttribute('data-council-holder'), dd.textContent, dd.querySelector('[data-appointment-label]')?.getAttribute('data-appointment-label') || null]));
+  const expected184 = holders => JSON.stringify(register184.map(([key]) => [key, ...(holders[key] || [none184, null])]));
+  const note184 = page => page.app.querySelector('.board-role-content .notice-box');
+  // No fixed pause: the page is ready when the Worker has answered its identity read (the answer hook runs after the
+  // Worker and before the page sees the reply), or when the page holds no appointment label to read, or when the state
+  // the caller names is reached.
+  const identitiesSettled184 = (page, answered) => answered.length > 0 || !page.app.querySelector('[data-appointment-label]') && !page.app.querySelector('[data-appointment-title]');
+  const openHolders184 = async (appointed, hash, { answer = null, settled = identitiesSettled184, what = hash + ' identity read answered, or no appointment label to read', boot = null } = {}) => {
+    await fixtureRun("UPDATE site_settings SET value=? WHERE key='appointed'", JSON.stringify(appointed));
+    const page = await openPage(MEMBER, {}, boot ? { bootTransform: boot } : {}), reads = [], answered = [];
+    page.before(pathname => { reads.push(pathname); return false; });
+    page.answer((pathname, init) => { if (pathname.startsWith('/api/appointed-identities')) answered.push(pathname); return answer ? answer(pathname, init) : null; });
+    await page.go(hash);
+    await waitFor(() => page.app.querySelector('.board-summary-status')?.textContent === '' && !!panelOf184(page), hash + ' summary and holders panel', 15000);
+    await waitFor(() => settled(page, answered), what, 15000);
+    return { page, reads };
+  };
+
+  const seeded184 = await openHolders184({ co_gm: 'Example Co-GM', treasurer: 'Example Treasurer' }, '#/vote/officer');
+  check('h3 the board shows one High Council portfolios panel after the board, with the thirteen register portfolios in register order', register184.length === 13 && shape184(seeded184.page));
+  check('h3 each portfolio shows its holder through the key the record is stored under, and the fallback where nothing is recorded', rows184(seeded184.page) === expected184({ office_19: ['Appointed: Example Co-GM.', 'co_gm'], office_86: ['Appointed: Example Treasurer.', 'treasurer'] }), rows184(seeded184.page));
+
+  const hand184 = await openHolders184({ office_19: 'Recorded Hand', office_101: 'Recorded Justiciar', office_96: '<@' + OTHER + '>' }, '#/vote/co_gm');
+  const handNote184 = note184(hand184.page);
+  check('h3 a record under office_19 closes the co_gm ballot and names that record as the source', shape184(hand184.page) && option184(hand184.page, 'co_gm')?.textContent === label184(hand184.page, 'co_gm') + ' (appointed)' && !!marker184(hand184.page, 'co_gm', 'appointed') && closed184(hand184.page)
+    && handNote184?.textContent === 'Appointed: Recorded Hand. ' + label184(hand184.page, 'co_gm') + ' is filled by appointment rather than by the board, so there is nothing to vote on or write in here.' && handNote184.querySelector('[data-appointment-label]')?.getAttribute('data-appointment-label') === 'office_19', handNote184?.textContent);
+  check('h3 recorded typed holders show as recorded, an account holder the projection does not name keeps the opaque label, every other portfolio the fallback', rows184(hand184.page) === expected184({ office_19: ['Appointed: Recorded Hand.', 'office_19'], office_101: ['Appointed: Recorded Justiciar.', 'office_101'], office_96: ['Filled by appointment.', 'office_96'] }) && hand184.reads.some(pathname => pathname.startsWith('/api/appointed-identities')), rows184(hand184.page));
+
+  const both184 = await openHolders184({ co_gm: 'Exact Co-GM record', office_19: 'Exact Hand record' }, '#/vote/co_gm');
+  check('h3 with records under both co_gm and office_19, the ballot and the portfolio each read their own record first', shape184(both184.page) && note184(both184.page)?.textContent.startsWith('Appointed: Exact Co-GM record. ') && note184(both184.page).querySelector('[data-appointment-label]')?.getAttribute('data-appointment-label') === 'co_gm'
+    && rows184(both184.page) === expected184({ office_19: ['Appointed: Exact Hand record.', 'office_19'] }), rows184(both184.page));
+
+  const ranks184 = await openHolders184({ rank_high_council: 'Rank holder', rank_treasurer: 'Rank treasurer record', office_45: 'High Council office record', office_92: 'Vice Guild Master record' }, '#/vote/officer');
+  check('h3 a record under the High Council rank, the historical Treasurer rank key or another High Council office fills no portfolio and closes neither co_gm nor treasurer', shape184(ranks184.page) && rows184(ranks184.page) === expected184({})
+    && !option184(ranks184.page, 'co_gm')?.textContent.endsWith('(appointed)') && !option184(ranks184.page, 'treasurer')?.textContent.endsWith('(appointed)') && !marker184(ranks184.page, 'co_gm', 'appointed') && !marker184(ranks184.page, 'treasurer', 'appointed'), rows184(ranks184.page));
+
+  // The page's existing projection reader names an account holder by the stored key; this reply has the contract's shape.
+  const projected184 = await openHolders184({ co_gm: '<@' + OTHER + '>' }, '#/vote/officer', { answer: pathname => pathname.startsWith('/api/appointed-identities')
+    ? { scope: 'qualified_community_readers', identities: [{ role: 'co_gm', appointment: '<@' + OTHER + '>', displayName: 'Projected Hand', username: 'projected_hand', characters: [] }], revision: 'A'.repeat(43), nextCursor: null, complete: true } : null,
+    settled: (page, answered) => answered.includes('/api/appointed-identities?role=co_gm') && page.app.querySelector('[data-council-holder="office_19"]')?.textContent === 'Appointed: Projected Hand (projected_hand).',
+    what: 'the co_gm identity stub answered and the office_19 portfolio label set to its name' });
+  check('h3 the identity reader asks for the stored key co_gm and its name fills the office_19 portfolio only', shape184(projected184.page) && projected184.reads.includes('/api/appointed-identities?role=co_gm')
+    && rows184(projected184.page) === expected184({ office_19: ['Appointed: Projected Hand (projected_hand).', 'co_gm'] }), rows184(projected184.page), JSON.stringify(projected184.reads));
+
+  // Unit h3, lead's decisions after the review. The fallback row is one muted span.
+  const fallbacks184 = (panelOf184(seeded184.page)?.querySelectorAll('dd') || []).filter(dd => !dd.querySelector('[data-appointment-label]'));
+  check('h3 each portfolio without a record holds one muted span with the fallback text', fallbacks184.length === 11 && fallbacks184.every(dd => dd.children.length === 1 && dd.children[0].tagName === 'SPAN' && dd.children[0].getAttribute('class') === 'muted' && dd.textContent === none184));
+
+  // The panel applies the Roles catalogue's guard (officeAssignmentPanel): a stored holder text longer than 40 characters,
+  // with a control character or an angle bracket, or of 17 to 20 digits shows "Name withheld". The Worker's cleanAppointed
+  // cuts a stored text to 40 characters and turns control characters into spaces when it reads the setting, so this test
+  // gives all six texts to the page through the fixture's boot hook.
+  const withheld184 = 'Appointed: Name withheld.';
+  const odd184 = { office_58: 'A'.repeat(41), office_98: 'B'.repeat(40), office_59: 'Tab\there', office_96: 'Holder <b>', office_97: '123456789012345678', office_99: '1234567890123456' };
+  const guarded184 = await openHolders184({}, '#/vote/officer', { boot: boot => { boot.settings.appointed = { ...odd184 }; } });
+  const holderRow184 = (page, keys) => JSON.stringify(keys.map(key => { const dd = page.app.querySelector('[data-council-holder="' + key + '"]'); return [dd?.textContent, dd?.querySelector('[data-appointment-label]')?.getAttribute('data-appointment-label') || null]; }));
+  check('h3 a recorded holder text longer than 40 characters shows "Name withheld" in the panel; one of 40 shows as recorded', holderRow184(guarded184.page, ['office_58', 'office_98']) === JSON.stringify([[withheld184, 'office_58'], ['Appointed: ' + 'B'.repeat(40) + '.', 'office_98']]), holderRow184(guarded184.page, ['office_58', 'office_98']));
+  check('h3 a recorded holder text with a control character or an angle bracket shows "Name withheld" in the panel', holderRow184(guarded184.page, ['office_59', 'office_96']) === JSON.stringify([[withheld184, 'office_59'], [withheld184, 'office_96']]), holderRow184(guarded184.page, ['office_59', 'office_96']));
+  check('h3 a recorded holder text of 17 to 20 digits shows "Name withheld" in the panel; one of 16 digits shows as recorded', holderRow184(guarded184.page, ['office_97', 'office_99']) === JSON.stringify([[withheld184, 'office_97'], ['Appointed: 1234567890123456.', 'office_99']]), holderRow184(guarded184.page, ['office_97', 'office_99']));
+  check('h3 with those records every other portfolio shows the fallback, and the office_58 and office_59 ballot rows keep the recorded text', rows184(guarded184.page) === expected184({ office_58: [withheld184, 'office_58'], office_98: ['Appointed: ' + 'B'.repeat(40) + '.', 'office_98'], office_59: [withheld184, 'office_59'], office_96: [withheld184, 'office_96'], office_97: [withheld184, 'office_97'], office_99: ['Appointed: 1234567890123456.', 'office_99'] })
+    && option184(guarded184.page, 'office_58')?.textContent === label184(guarded184.page, 'office_58') + ' (appointed)' && guarded184.page.app.querySelector('.role-item[href="#/vote/office_58"] .n')?.getAttribute('title') === 'Appointed: ' + odd184.office_58 && guarded184.page.app.querySelector('.role-item[href="#/vote/office_59"] .n')?.getAttribute('title') === 'Appointed: ' + odd184.office_59, rows184(guarded184.page));
+  // The guard's boundaries (lead's decision after the second review): 17 and 20 digits are withheld, 21 digits are shown;
+  // U+007F is a control character; ">" alone and "<" alone are brackets. 16 digits, 40 and 41 characters are above.
+  const edge184 = { office_14: '12345678901234567', office_100: '12345678901234567890', office_101: '123456789012345678901', office_102: 'Del\u007fhere', office_103: 'Holder>b', office_96: 'Holder<b' };
+  const guardedEdge184 = await openHolders184({}, '#/vote/officer', { boot: boot => { boot.settings.appointed = { ...edge184 }; } });
+  check('h3 a recorded holder text of exactly 17 or exactly 20 digits shows "Name withheld" in the panel; one of 21 digits shows as recorded', holderRow184(guardedEdge184.page, ['office_14', 'office_100', 'office_101']) === JSON.stringify([[withheld184, 'office_14'], [withheld184, 'office_100'], ['Appointed: 123456789012345678901.', 'office_101']]), holderRow184(guardedEdge184.page, ['office_14', 'office_100', 'office_101']));
+  check('h3 a recorded holder text holding U+007F shows "Name withheld" in the panel', holderRow184(guardedEdge184.page, ['office_102']) === JSON.stringify([[withheld184, 'office_102']]), holderRow184(guardedEdge184.page, ['office_102']));
+  check('h3 a recorded holder text holding only ">" or only "<" beside letters shows "Name withheld" in the panel, and every other portfolio the fallback', holderRow184(guardedEdge184.page, ['office_103', 'office_96']) === JSON.stringify([[withheld184, 'office_103'], [withheld184, 'office_96']])
+    && rows184(guardedEdge184.page) === expected184({ office_14: [withheld184, 'office_14'], office_100: [withheld184, 'office_100'], office_101: ['Appointed: 123456789012345678901.', 'office_101'], office_102: [withheld184, 'office_102'], office_103: [withheld184, 'office_103'], office_96: [withheld184, 'office_96'] }), rows184(guardedEdge184.page));
+
+  // The panel belongs to the board's shell, which the route rebuilds when settings.appointed changes (settingsKey). Here the
+  // mounted page learns of a new record from the Worker's refusal of the office_14 board as appointed.
+  const kept184 = await openHolders184({}, '#/vote/officer'), keptPanel184 = panelOf184(kept184.page), keptRows184 = rows184(kept184.page);
+  await fixtureRun("UPDATE site_settings SET value=? WHERE key='appointed'", JSON.stringify({ office_14: 'Later Chancellor' }));
+  await kept184.page.go('#/vote/office_14');
+  await waitFor(() => kept184.page.app.querySelector('[data-council-holder="office_14"]')?.textContent === 'Appointed: Later Chancellor.', 'the Worker refused the office_14 board as appointed and the mounted page rebuilt its portfolio panel', 15000);
+  check('h3 when the appointed map changes while #/vote stays mounted, the board shell and its portfolio panel are rebuilt with the new record', keptRows184 === expected184({}) && !!keptPanel184 && panelOf184(kept184.page) !== keptPanel184
+    && rows184(kept184.page) === expected184({ office_14: ['Appointed: Later Chancellor.', 'office_14'] }) && option184(kept184.page, 'office_14')?.textContent === label184(kept184.page, 'office_14') + ' (appointed)' && !!marker184(kept184.page, 'office_14', 'appointed')
+    && kept184.reads.some(pathname => pathname.startsWith('/api/board/office_14')), rows184(kept184.page));
+
+  // Nothing else on the vote page changes. The panel is taken out of main and the rest is compared with anchors: the board
+  // introduction, the role list, the role picker, the selected board's frame and the Royal Writs panel. The order of the
+  // ballots and the introduction are literal, taken from the base page (a4d35f0f) as this fixture rendered it; labels come
+  // from the boot's ballots and Royal Writs, the appointed rows from the stored map. Anchors rather than a render of the base
+  // script, so that the check needs no git history and stays true when app.js changes outside #/vote.
+  const intro184 = "Leadership applications boardChoose a role, read its retained applications and record a view for or against a candidate. Leadership seats are filled by appointment; these views inform the leadership review.Leader, High Council and Officer Corps seats are reserved appointments. You cannot apply for them, including when no holder is listed.Search the Roles directory · Open application tracksHow the board worksLeadership applicants are on this board under each voted role they chose, first choice or backup, with their answers. Vote for the people you want in a role and against the ones you do not; click again to take a vote back. You can change your mind until voting closes.Roles marked with the crown  are chosen by the guild's leadership without a public vote: they have no board and no write-ins.Your votes are private. Nobody sees how anyone voted or how many votes anyone has, except the guild's leadership. Every voter sees the applicants in a different order, so nobody is first for everyone.";
+  const groups184 = [['Sovereign & High Council', ['guild_master', 'co_gm', 'treasurer', 'office_14', 'office_58', 'office_59', 'office_28', 'office_45', 'office_57', 'office_26', 'office_67', 'office_94']],
+    ['Officer Corps & Branch Command', ['officer', 'office_01', 'office_03', 'office_02', 'office_09', 'office_10', 'office_72', 'office_37', 'office_65', 'office_34', 'office_35', 'office_36', 'office_38', 'office_15', 'office_22', 'community', 'office_39', 'office_40', 'office_29', 'liaison', 'office_06', 'office_20', 'office_30', 'office_31', 'office_32', 'office_08', 'office_49', 'leveling', 'office_50', 'office_53', 'office_54', 'moderator', 'office_60', 'office_44', 'office_77', 'recruitment', 'office_78', 'office_82', 'office_83', 'office_88', 'office_95', 'office_63']],
+    ['Raid, PvP & Class Leadership', ['office_16', 'office_17', 'class_lead:druid', 'class_lead:hunter', 'class_lead:mage', 'class_lead:paladin', 'class_lead:priest', 'class_lead:rogue', 'class_lead:shaman', 'class_lead:warlock', 'class_lead:warrior', 'raid_leader_na', 'raid_leader_eu', 'loot_council', 'office_52', 'raid_assist_na', 'raid_assist_eu', 'pvp_leader', 'office_70']],
+    ['Guild Workshop & Master Artisans', ['professions']]];
+  const portfolioPanel184 = el => el.tagName === 'SECTION' && el.querySelector('.plaque')?.textContent === 'High Council portfolios';
+  const restActual184 = page => {
+    const kids = (page.app.querySelector('main')?.children || []).filter(el => !portfolioPanel184(el)), nav = kids[1]?.children[0], content = kids[1]?.children[1], writs = kids[2] || null, pick = content?.querySelector('.role-pick');
+    return JSON.stringify({ kids: kids.map(el => [el.tagName, el.getAttribute('class')]), intro: kids[0]?.textContent,
+      nav: (nav?.children || []).map(el => el.tagName !== 'A' ? [el.tagName, el.getAttribute('class'), el.textContent] : [el.getAttribute('href'), el.getAttribute('class'), el.getAttribute('aria-current'), el.textContent, el.querySelector('.n')?.getAttribute('class'),
+        el.classList.contains('appointed') || el.classList.contains('novote') ? el.querySelector('.n')?.getAttribute('title') : null, (el.querySelector('.n')?.querySelectorAll('img') || []).map(img => img.getAttribute('alt'))]),
+      contentKids: (content?.children || []).map(el => [el.tagName, el.getAttribute('class')]), pick: (pick?.children || []).map(group => [group.getAttribute('label'), group.children.map(option => [option.getAttribute('value'), option.textContent])]),
+      plaque: content?.children[1]?.querySelector('.plaque')?.textContent,
+      writs: writs && [writs.tagName, writs.getAttribute('class'), writs.getAttribute('data-royal-writ-page'), writs.querySelector('summary')?.textContent, writs.querySelectorAll('[data-writ-key]').map(card => card.getAttribute('data-writ-key'))] });
+  };
+  const restExpected184 = (page, holders, writs) => {
+    const ballot = key => page.boot.meta.ballots.find(row => row.key === key), royal = page.boot.meta.royalWrits || [];
+    const state = key => holders[key] ? 'appointed' : key === 'pvp_leader' ? 'novote' : 'open';
+    return JSON.stringify({ kids: [['SECTION', 'frame'], ['DIV', 'board-layout'], ...(writs ? [['SECTION', 'royal-writs199']] : [])], intro: intro184,
+      nav: [['P', 'role-list-hint small muted', 'Scroll this list for every role.'], ...groups184.flatMap(([label, keys]) => [['DIV', 'group-label', label], ...keys.map(key => ['#/vote/' + encodeURIComponent(key), 'role-item' + (state(key) === 'open' ? '' : ' ' + state(key)), key === 'officer' ? 'page' : null,
+        (ballot(key).group === 'class' ? ballot(key).label.replace(' Class Lead', '') : ballot(key).label) + (state(key) !== 'open' ? '' : key === 'officer' ? '0/1' : '—'), 'n',
+        state(key) === 'appointed' ? 'Appointed: ' + holders[key] : state(key) === 'novote' ? 'No public vote: the leadership chooses' : null, state(key) === 'appointed' ? ['appointed'] : state(key) === 'novote' ? ['no public vote'] : []])])],
+      contentKids: [['SELECT', 'role-pick'], ['SECTION', 'frame'], ['SECTION', 'frame']],
+      pick: groups184.map(([label, keys]) => [label, keys.map(key => [key, ballot(key).label + (state(key) === 'appointed' ? ' (appointed)' : state(key) === 'novote' ? ' (no public vote)' : key === 'officer' ? ' (1)' : ' (0)')])]),
+      plaque: ' ' + ballot('officer').label + '1 applicant',
+      writs: writs ? ['SECTION', 'royal-writs199', 'vote', 'Schedule of Royal Writs, Indulgences & Guild Services', [...royal.filter(row => !row.activation), ...royal.filter(row => row.activation)].map(row => row.key)] : null });
+  };
+  // The ballot rows each map closes: the seeded and typed records are as before; office_19 alone now closes co_gm (the pair).
+  const maps184 = [['seeded', { co_gm: 'Example Co-GM', treasurer: 'Example Treasurer' }, { co_gm: 'Example Co-GM', treasurer: 'Example Treasurer' }], ['empty', {}, {}],
+    ['typed', { office_101: 'Recorded Justiciar', office_86: 'Exchequer record', office_96: '<@' + OTHER + '>' }, { treasurer: 'Exchequer record' }], ['office_19-only', { office_19: 'Recorded Hand' }, { co_gm: 'Recorded Hand' }]];
+  // Lead's decision after a browser look: the panel's list alone carries the class council-holders, which app.css gives two
+  // equal columns. Read for every page the panel checks above open and for the eight pages below.
+  const holderClass184 = (name, page) => { const list = (page.app.querySelector('main')?.children || []).find(portfolioPanel184)?.children[1], named = page.document.body.querySelectorAll('[class]').filter(el => el.getAttribute('class').split(/\s+/).includes('council-holders'));
+    return [name, list?.tagName || null, list ? list.getAttribute('class') : null, named.length === 1 && named[0] === list]; };
+  const classed184 = [['seeded', seeded184], ['office_19 record', hand184], ['both co_gm and office_19', both184], ['ranks', ranks184], ['projected', projected184], ['guarded', guarded184], ['guard boundaries', guardedEdge184], ['rebuilt', kept184]].map(([name, opened]) => holderClass184(name, opened.page));
+  for (const writs184 of [false, true]) {
+    if (writs184) await fixtureRun("INSERT INTO site_settings(key,value,updated_at) VALUES('royalWritsOn','1',?) ON CONFLICT(key) DO UPDATE SET value='1'", now);
+    const placed184 = [];
+    for (const [name184, appointed184x, ballots184] of maps184) {
+      await fixtureRun("UPDATE site_settings SET value=? WHERE key='appointed'", JSON.stringify(appointed184x));
+      const page = await openPage(MEMBER);
+      await page.go('#/vote/officer');
+      await waitFor(() => page.app.querySelector('.board-summary-status')?.textContent === '' && page.app.querySelector('.board-results')?.getAttribute('aria-busy') === 'false', name184 + ' map, Royal Writs ' + (writs184 ? 'on' : 'off') + ': summary and officer board delivered', 15000);
+      check('h3 apart from the panel, #/vote/officer with the ' + name184 + ' appointment map and Royal Writs ' + (writs184 ? 'on' : 'off') + ' shows the board introduction, role list, role picker, board frame' + (writs184 ? ' and Royal Writs panel' : '') + ' as before',
+        restActual184(page) === restExpected184(page, ballots184, writs184) && (!writs184 || (page.boot.meta.royalWrits || []).length > 0), restActual184(page));
+      const kids = page.app.querySelector('main')?.children || [];
+      placed184.push(kids.length === (writs184 ? 4 : 3) && kids[0].querySelector('.plaque')?.textContent === 'Leadership applications board' && kids[1].classList.contains('board-layout') && portfolioPanel184(kids[2]) && (!writs184 || kids[3].classList.contains('royal-writs199')));
+      classed184.push(holderClass184(name184 + ', Royal Writs ' + (writs184 ? 'on' : 'off'), page));
+    }
+    check(writs184 ? 'h3 with Royal Writs on, the portfolio panel stands after the board layout and before the Royal Writs panel, for all four maps' : 'h3 with Royal Writs off, main holds the board introduction, the board layout and the portfolio panel in this order, for all four maps', placed184.length === 4 && placed184.every(Boolean), JSON.stringify(placed184));
+  }
+  const appText184 = fs.readFileSync(path.join(root, 'public', 'static', 'app.js'), 'utf8');
+  check('h3 the portfolio panel\'s list has exactly the class "kv council-holders" on all 16 pages, no other element of those pages carries council-holders, and app.js names it once', classed184.length === 16 && classed184.every(([, tag, cls, alone]) => tag === 'DL' && cls === 'kv council-holders' && alone) && appText184.split('council-holders').length === 2, JSON.stringify(classed184));
+  // The two app.css rules of that list, read as text. The splitter drops comments and splits the sheet into rules and
+  // blocks (an @-rule whose body holds braces); a rule is kept as "<selector> { <declarations> }".
+  const css184 = fs.readFileSync(path.join(root, 'public', 'static', 'app.css'), 'utf8');
+  const split184 = text => {
+    const items = [];
+    for (let at = 0; ;) {
+      const open = text.indexOf('{', at);
+      if (open < 0) { if (text.slice(at).trim()) throw Error('app.css: text after the last rule'); return items; }
+      let close = open, depth = 0;
+      for (; close < text.length; close++) { if (text[close] === '{') depth++; else if (text[close] === '}' && --depth === 0) break; }
+      if (close >= text.length) throw Error('app.css: unbalanced braces');
+      const head = text.slice(at, open).trim(), body = text.slice(open + 1, close);
+      items.push(body.includes('{') ? { block: head, items: split184(body) } : { rule: head + ' { ' + body.trim() + ' }' });
+      at = close + 1;
+    }
+  };
+  const sheet184 = split184(css184.replace(/\/\*[\s\S]*?\*\//g, ''));
+  const deep184 = (items, outer = null) => items.flatMap(item => item.block ? deep184(item.items, outer ? outer + ' ' + item.block : item.block) : [[outer, item.rule]]);
+  const holderRules184 = ['.kv.council-holders { grid-template-columns: repeat(auto-fit, minmax(min(100%, max(260px, calc((100% - 16px) / 2 - 1px))), 1fr)); }', '.kv.council-holders dd { margin-bottom: 8px; }'];
+  const kvTop184 = ['.kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; }', '.kv dt { color: var(--gold); }', '.kv dd { margin: 0; overflow-wrap: anywhere; }', '.kv { grid-template-columns: minmax(0, max-content) minmax(0, 1fr); }', '.kv dt { overflow-wrap: anywhere; }'];
+  const kvNarrow184 = ['.kv { grid-template-columns: minmax(0, 1fr); }', '.kv dt { margin-top: 6px; }'];
+  const at184 = sheet184.findIndex(item => item.rule === kvTop184[3]), next184 = sheet184[at184 + 4];
+  const cssFacts184 = {
+    named: deep184(sheet184).filter(([, rule]) => rule.includes('council-holders')),
+    window: sheet184.slice(at184, at184 + 4).map(item => item.rule || '@' + item.block),
+    narrowBlock: next184 && next184.block, narrowKv: next184 && next184.items ? next184.items.filter(item => /^\.kv[ {]/.test(item.rule || '')).map(item => item.rule) : null,
+    kvTop: sheet184.filter(item => /^\.kv( dt| dd)? \{/.test(item.rule || '')).map(item => item.rule),
+    lines: [...holderRules184, ...kvTop184].map(rule => css184.split('\n').filter(line => line === rule).length) };
+  check('h3 app.css: the two council-holders rules stand exactly as decided, outside every @media block, directly after the later two top-level .kv rules and before the @media (max-width: 480px) block that follows them; no other rule names council-holders; the .kv rules are as on the base',
+    JSON.stringify(cssFacts184) === JSON.stringify({ named: holderRules184.map(rule => [null, rule]), window: [kvTop184[3], kvTop184[4], ...holderRules184], narrowBlock: '@media (max-width: 480px)', narrowKv: kvNarrow184, kvTop: kvTop184, lines: [1, 1, 1, 1, 1, 1, 1] }), JSON.stringify(cssFacts184));
+  await fixtureRun("DELETE FROM site_settings WHERE key='royalWritsOn'");
   console.log('\n' + ok + '/' + n + ' vote labels184 checks passed'); process.exit(ok === n ? 0 : 1);
 })().catch(error => { console.error(error); process.exit(1); });
 `;

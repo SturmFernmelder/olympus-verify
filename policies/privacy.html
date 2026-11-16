@@ -16,7 +16,7 @@
 </style>
 <main>
 <h1>Privacy Policy</h1>
-<p class="meta">Olympus Verify and the Olympus guild site · last updated 13 November 2026</p>
+<p class="meta">Olympus Verify and the Olympus guild site · last updated 15 November 2026</p>
 
 <p>Olympus Verify and the Olympus guild site are administered by Olympus officers, moderators and administrators on behalf of Asmongold and Rich Campbell. The bot serves the Olympus channels in Asmongold's Discord server and is not offered for installation in other servers. It links a Discord account to an in-game character using verification codes, officer attestations and roster checks, so guild channels can be opened to confirmed guild members. These checks are evidence of account and character control, not proof of a person's real-world identity.</p>
 
@@ -333,19 +333,35 @@ when your access changes. The <a href="./terms.html">Terms of Service</a> list w
 <code>/verify-status</code> shows the detail to you alone. The bot's log channel is private to staff.</p>
 <p>The site's administrators also use the staff pages of the community features: the directory's claims review,
 trials, cases and their watch-lists, departure items, the dues ledger with the payer names and sources of recorded
-payments, the privacy inbox cases, the News notices with who posted and last changed each, and two staff views that
-change nothing: a coverage report (the latest roster export
-next to what the bot and the site already know about each bound account) and the counts behind the officer digest. Every
+payments, the privacy inbox cases, the News notices with who posted and last changed each, and two read-only views:
+a coverage report (the latest roster export next to what the bot and the site already know about each bound account)
+and the counts behind the officer digest. Every
 change a staff member makes is recorded in the dated log under their Discord user ID; reading is not. Once a day the bot
 may post to a staff channel how many things wait for an officer, as counts only, never a name or an ID. A staff
 rank-planning page keeps its draft in that administrator's own browser and stores nothing on the server; that browser
 copy outlives signing out and any deletion on the server until the administrator clears their browser's data.</p>
+<p>Site administrators have a private role-check page. It reads the guild's Discord server through the bot and, for
+accounts with a linked character or an Olympus guild role, can show Discord user ID, username, display name, Discord
+join time, Olympus guild roles, the in-game character and rank on the roster and the guild role that rank supports,
+linked characters with the date each
+name was first seen on a roster, and summary counts and status flags from retained role-operation records. This can
+include people without a website account. Other accounts are only counted. Accounts under a privacy hold or being
+deleted, accounts still in Discord's membership screening, and bots are withheld from identifiable rows and exports.
+These are dated observations; a Discord join time or a name's first appearance is not an in-game guild join date.
+Administrators may download a CSV subset of the named rows (Discord ID, username, display name, character, ranks,
+expected and observed guild roles, and summary counts) to their own computer; signing out or deleting server data
+cannot recall that file. The page does not save its fetched Discord role observations on the server. Its planning
+view changes no roles. An administrator can read one member again and separately confirm a correction: the existing
+role system rechecks the evidence and may add the supported guild role and remove a guild role the bot itself gave.
+The administrator's Discord user ID and request are recorded in the dated log; the role system keeps separate
+operation receipts, including uncertain attempts. Uncertain outcomes stay for review and are not automatically
+resent by this page. In-game ranks are never changed.</p>
 
 <h2>Optional guild census preview</h2>
 <p>If enabled, confirmed guild members can paste an optional addon export to preview guild observations. The accepted format contains an addon version, guild names, realm and faction, character and online counts, and observation times; it has no player-list field. These are unsigned community observations, not proof of a person's membership or character ownership. Older observations remain historical and are labelled with their age.</p>
 <p>The export is sent to the Olympus server to validate it and produce the preview. The application does not save the pasted export or its preview in its database or browser storage. The browser clears them when you leave or hide the page, sign out, use Clear, or reach the preview's fifteen-minute limit. Editing the input clears the previous preview. Ordinary hosting and request-security metadata is separate, as described below. If the server refuses current guild access, the preview clears and the page reloads to check your access again.</p>
 
-<p><strong>Olympus University quiz scores.</strong> Your answers and best scores on the guide quizzes and exams are kept only in your own browser, in one storage entry (olympus.university.v1), and are never sent to Olympus. The guide pages let you export or clear them at any time, and clearing this site’s data in your browser also removes them.</p>
+<p><strong>Guide quiz scores.</strong> Your answers and best scores on the guide quizzes and exams are kept only in your own browser, in one storage entry (olympus.university.v1), and are never sent to Olympus. The guide pages let you export or clear them at any time, and clearing this site’s data in your browser also removes them.</p>
 
 <h2>Councillor browser verification</h2>
 <p>AddOn-free members send their website verification code as an ordinary in-game whisper to an online qualified High Councillor. The councillor runs the AddOn and browser scanner; the browser holds a non-extractable signing key locally and the service stores its public key with a fixed twenty-four-hour lease. A separately accepted automatic scanner session lasts at most five minutes and ten proofs. Signing needs that councillor's game and browser to be running; Cloudflare alone cannot observe game membership. Proofs are councillor attestations, not Blizzard-issued ownership certificates.</p>

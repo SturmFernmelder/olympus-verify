@@ -42,8 +42,9 @@ independently allocatable Classic tree or every Classic rank. The source does no
 so the UI does not invent one or extrapolate missing rank descriptions.
 
 Artwork: the 10 November mapping (`talents/art.json`) reuses the Blizzard artwork imported in .170 where a talent keeps
-an icon already on file. The 17 talents whose icon is not on file are listed in `talentIconsUnavailable` and show the
-calculator's plain no-art tile; no new artwork was fetched.
+an icon already on file; no artwork was fetched for that mapping. The 17 talents whose icon was not on file use icons
+extracted by Codex Root from the installed game client, build 1.60.1.70938, as 64 by 64 PNG files; none is listed in
+`talentIconsUnavailable`. The 369 other talent icons are copies from talentsforever.com.
 
 Archive: the 16 October snapshot stays at `/static/talents/archive/260cf99b52db/` (`data.json` and `art.json`). The
 calculator loads it only to open a build code made on that revision, read-only; new builds and attachments use the

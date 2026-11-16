@@ -372,7 +372,7 @@
       if (!active) return controller;
       const linkedClass = classOf(data, options.className || "warrior");
       build = emptyBuild(data, linkedClass ? linkedClass.id : "warrior");
-      if (!linkedClass) message = "That linked class is unavailable. Showing a blank Warrior plan; choose a supported class below.";
+      if (!linkedClass && !options.build) message = "That linked class is unavailable. Showing a blank Warrior plan; choose a supported class below.";
       if (options.build) {
         const incoming = parseBuild(data, options.build);
         if (incoming.ok) {

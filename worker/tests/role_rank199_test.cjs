@@ -31,6 +31,16 @@ function originalTerms218(terms) {
   delete term.historicalApplicationProfile;delete term.applicationMetadataScope;return term;
  });
 }
+// Owner ruling of 14 Nov 2026 ("No, three choices only"; "Raid leads grant it"; our 111867e): office_25 and office_27
+// changed exactly three term fields. This finite inverse undoes exactly that delta and refuses any other value of them.
+const OLD_ACQUISITION1114='Apply on /#/vote; acceptance, appointment and access require separate officer review.';
+const RULING1114={office_25:{applicationEligible:[true,false],applicationRoleKeys:[['raider'],[]],acquisition:[OLD_ACQUISITION1114,'Granted by the raid leads. There is no separate application: apply as Raider.']},office_27:{applicationEligible:[true,false],applicationRoleKeys:[['member'],[]],acquisition:[OLD_ACQUISITION1114,'There is no separate application: apply as Artisan.']}};
+function undoTerms1114(terms) {
+ terms=structuredClone(terms);
+ for(const [key,fields] of Object.entries(RULING1114)){const rows=terms.filter(t=>t.officeKey===key);if(rows.length!==1)throw Error('ruling1114_row '+key);
+  for(const [field,[before,after]] of Object.entries(fields)){if(JSON.stringify(rows[0][field])!==JSON.stringify(after))throw Error('ruling1114_value '+key+' '+field);rows[0][field]=structuredClone(before);}}
+ return terms;
+}
 check('all three .199 rank projections agree on exact order and zero-based slots',()=>{
  for(const rows of [organization.nativeRanks,browser.ranks,server.NATIVE_RANKS_199]){assert.deepEqual(rows.map(r=>r.name),names);assert.deepEqual(rows.map(r=>r.nativeSlot),[0,1,2,3,4,5,6,7,8,9]);assert.ok(rows.every((r,i)=>r.nativeRankOrdinal===i+1&&r.mappingApplies===false));}
 });
@@ -73,7 +83,10 @@ check('.208 adds one separately reserved Council trading office without repurpos
  const row=server.OFFICE_APPOINTMENTS.find(o=>o.key==='office_96');
  assert.equal(row.label,'Lord High Factor · Minister of Trading & Markets');assert.equal(row.nativeSlot,1);assert.equal(row.nativeRankOrdinal,2);assert.equal(row.tier,'high_council');
  assert.equal(row.applicationEligible,false);assert.deepEqual(row.applicationRoleKeys,[]);assert.equal(row.mappingApplies,false);
- const originalTerms=JSON.stringify(originalTerms218(organization.terms.slice(0,95)));
+ // CL2-039 (our 6162226/80db07c, owner ruling of 13 Nov 2026) moved three terms' nodeId; the repository's exact
+ // inverse undoes only that recorded delta (and refuses any other change) before the original digest applies.
+ // Owner ruling of 14 Nov 2026 (our 111867e): undoTerms1114 undoes exactly the three ruled fields of office_25 and office_27.
+ const originalTerms=JSON.stringify(originalTerms218(undoTerms1114(require('../../scripts/build-governance-titles.cjs').restoreReportingLines1113(organization).terms).slice(0,95)));
  // Preserve the original JSON property order, as JSON.stringify does. The
  // original 95 objects were compared against accepted .207 before pinning.
  assert.equal(require('node:crypto').createHash('sha256').update(originalTerms).digest('hex'),'74fb4f44153a550b7b306789763e73932393e96124d781572c6d2db5c9b87d3b');
@@ -81,9 +94,12 @@ check('.208 adds one separately reserved Council trading office without repurpos
  assert.equal(server.OFFICE_APPOINTMENTS.find(o=>o.key==='office_86').label,'Lord High Treasurer · Minister of the Imperial Exchequer');
 });
 check('the finite two-institution inverse preserves all96 originals and rejects unscoped or unapproved rewrites',()=>{
- const digest=terms=>require('node:crypto').createHash('sha256').update(JSON.stringify(originalTerms218(terms))).digest('hex');
- assert.equal(digest(organization.terms.slice(0,96)),'edf51ea2b8b757b359fa77b676e56644a641264df3bd06d7393390221e54a5de');
- const copy=()=>JSON.parse(JSON.stringify(organization.terms.slice(0,96)));
+ // CL2-039 (our 6162226/80db07c): the recorded reporting-line delta is undone first, by the repository's exact inverse.
+ const restored1113=require('../../scripts/build-governance-titles.cjs').restoreReportingLines1113(organization).terms;
+ // Owner ruling of 14 Nov 2026 (our 111867e): the ruled delta of office_25 and office_27 is undone exactly before the digest.
+ const digest=terms=>require('node:crypto').createHash('sha256').update(JSON.stringify(originalTerms218(undoTerms1114(terms)))).digest('hex');
+ assert.equal(digest(restored1113.slice(0,96)),'edf51ea2b8b757b359fa77b676e56644a641264df3bd06d7393390221e54a5de');
+ const copy=()=>JSON.parse(JSON.stringify(restored1113.slice(0,96)));
  const extra=copy();extra[25].historicalApplicationProfile.note='unreviewed';assert.throws(()=>originalTerms218(extra),/exact six historical fields/);
  const unscoped=copy();unscoped[0].applicationMetadataScope=historicalScope218;assert.throws(()=>originalTerms218(unscoped),/unscoped historical field/);
  const label=copy();label[25].applicationLabel='Head of Justice';assert.throws(()=>originalTerms218(label));

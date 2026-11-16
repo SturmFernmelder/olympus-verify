@@ -14,7 +14,8 @@ import { DB_NOW, sha256 } from './account-generation-contracts';
 import { privacyGenerationFenceSql } from './privacy-serving-authority';
 import { NATIVE_RANKS } from './qr-phase1';
 import {NATIVE_SCOPE232} from './native-rank-reconciliation232';
-import {directiveSnapshotSql280} from './directive-native-authority';
+import {directiveSnapshotSql280,directiveRankRowSql280} from './directive-native-authority';
+import {NATIVE_RANK_SCHEMES,nativeRankSchemeForCanonical,nativeRankPrecedenceSql,qualifiedNativeSnapshotSource,type NativeRankScheme} from './native-rank-schemes';
 import { parseNativeRoleMap,privilegedNativeMap } from './native-rank-adapter';
 import { BETA_RESET_CUTOFF,BETA_RESET_ROLE_IDS } from './beta-reset-policy';
 import { intVar } from './env';
@@ -284,14 +285,31 @@ export const ORIGINAL_CANONICAL_SWEEP280_SELECT=originalCanonicalSweep280();
  * Old receipts remain candidates/lineage, never a new ordinal's settled rank.
  * Unqualified tables admit only independent standing-cleanup candidates. The
  * original issuer and adjacent writer CAS still prove every actual effect. */
+const canonicalProfiles280=NATIVE_RANK_SCHEMES.map(s=>"'"+s.canonicalProfile+"'").join(',');
 const DIRECTIVE_CANDIDATES280=CANONICAL_CANDIDATES266
- .replace("a.native_profile='olympus-canonical-ranks-20261106-v1'","a.native_profile IN('olympus-canonical-ranks-20261106-v1','olympus-canonical-ranks-directive-20261112-v2')")
- .replace("IN('olympus-prime-live-20261105-v1','olympus-canonical-ranks-20261106-v1')","IN('olympus-prime-live-20261105-v1','olympus-canonical-ranks-20261106-v1','olympus-canonical-ranks-directive-20261112-v2')")
+ .replace("a.native_profile='olympus-canonical-ranks-20261106-v1'",`a.native_profile IN('olympus-canonical-ranks-20261106-v1',${canonicalProfiles280})`)
+ .replace("IN('olympus-prime-live-20261105-v1','olympus-canonical-ranks-20261106-v1')",`IN('olympus-prime-live-20261105-v1','olympus-canonical-ranks-20261106-v1',${canonicalProfiles280})`)
   +NEUTRAL_CANONICAL_CANDIDATES280;
-const DIRECTIVE_SWEEP_WORK280=CANONICAL_SWEEP_WORK266.replace(CANONICAL_CANDIDATES266,DIRECTIVE_CANDIDATES280)
- .replace("r.native_profile='olympus-canonical-ranks-20261106-v1'","r.native_profile='olympus-canonical-ranks-directive-20261112-v2'");
-export const DIRECTIVE_CANONICAL_SWEEP280_SELECT=boundedCanonicalSweep266(CANONICAL_SWEEP_SELECT266.replace(CANONICAL_SWEEP_WORK266,
- `SELECT * FROM (${DIRECTIVE_SWEEP_WORK280}) WHERE restricted OR EXISTS(SELECT 1 FROM roster_snapshots rank_scope280 WHERE ${directiveSnapshotSql280('rank_scope280.id',NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)})`));
+function directiveCanonicalSweep280(scheme:NativeRankScheme):string{
+ const nativePick=(alias:string)=>`(MIN(${nativeRankPrecedenceSql(scheme,alias+'.rank_index')}*10+${alias}.rank_index)%10)`;
+ // Return the winning native ordinal, not its canonical position. History and
+ // delta comparisons still refer to the exact profile/slot that was observed.
+ const work=CANONICAL_SWEEP_WORK266.replace(CANONICAL_CANDIDATES266,DIRECTIVE_CANDIDATES280)
+  .replace('MIN(r.rank_index) AS top_rank',nativePick('r')+' AS top_rank')
+  .replace('MIN(previous266.rank_index)',nativePick('previous266'))
+  .replace('AND previous266.snapshot_id=sweep266.last_attempt_snapshot)',`AND previous266.snapshot_id=sweep266.last_attempt_snapshot
+   AND EXISTS(SELECT 1 FROM roster_snapshots previous_scope280 WHERE previous_scope280.id=previous266.snapshot_id
+    AND previous_scope280.source='${qualifiedNativeSnapshotSource(NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm,scheme).replace(/'/g,"''")}'
+    AND NOT EXISTS(SELECT 1 FROM roster_members previous_row280 WHERE previous_row280.snapshot_id=previous_scope280.id AND NOT(${directiveRankRowSql280('previous_row280',scheme)}))))`)
+  .replace("r.native_profile='olympus-canonical-ranks-20261106-v1'",`r.native_profile='${scheme.canonicalProfile}'`);
+ return boundedCanonicalSweep266(CANONICAL_SWEEP_SELECT266.replace(CANONICAL_SWEEP_WORK266,
+  `SELECT * FROM (${work}) WHERE restricted OR EXISTS(SELECT 1 FROM roster_snapshots rank_scope280 WHERE ${directiveSnapshotSql280('rank_scope280.id',NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm,scheme)})`));
+}
+export const DIRECTIVE_CANONICAL_SWEEP280_SELECT=directiveCanonicalSweep280(NATIVE_RANK_SCHEMES[0]);
+const directiveSelectors280=new Map(NATIVE_RANK_SCHEMES.map(s=>[s.canonicalProfile,directiveCanonicalSweep280(s)]));
+export function directiveCanonicalSweepSelect280(profile:unknown):string{
+ const scheme=nativeRankSchemeForCanonical(profile);return scheme?directiveSelectors280.get(scheme.canonicalProfile)!:'SELECT NULL AS subject WHERE 0';
+}
 
 // --- configuration capture (A1, Q6). Synchronous, descriptor-based: an accessor or inherited key is never invoked.
 export const LANE_CONFIG_KEYS=Object.freeze(['CANONICAL_ENTITLEMENTS233','CANONICAL_RANKS233','FULL_RELEASE_ROLES','STAFF_TEN_RANK_ROLES','LINKS_NOT_BEFORE','LINKS_NOT_BEFORE_CLOCK_GATED','ROSTER_MIN_MEMBERS','ROSTER_MAX_SHRINK_PCT',

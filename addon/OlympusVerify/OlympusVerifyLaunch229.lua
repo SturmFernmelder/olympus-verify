@@ -145,9 +145,9 @@ local function HistoricalCurrent(data, selectedPage, selectedTTL)
     if type(page) ~= "table" then return refuse("malformed_page", "A launch page is malformed; no action taken.") end
     if page.protocol~=protocol then
       return refuse("page_protocol", "Launch pages have different source purposes; no action taken.") end
-    local ranks=OlympusVerifyNativeRankConstants
+    local ranks=OlympusVerifyNativeRanks and OlympusVerifyNativeRanks.Profile(page.rankProfile,page.rankSchemeDigest)
     local rankQualified=ranks and page.rankProfile==ranks.profile and page.rankSchemeDigest==ranks.digest
-      and OlympusVerifyNativeRanks and OlympusVerifyNativeRanks.Qualified({version=1,names=page.rankNames})
+      and OlympusVerifyNativeRanks and OlympusVerifyNativeRanks.Scheme({version=1,names=page.rankNames})==ranks
     local rankReason
     if type(page.heldReasons)=="table" then
       for _,reason in ipairs(page.heldReasons) do
@@ -202,9 +202,9 @@ local function HistoricalCurrent(data, selectedPage, selectedTTL)
           queueIds[row.queueId],proofIds[row.proofId]=true,true
           result.freshness[row.guid].expiresAt=math.min(page.expiresAt,row.expiresAt)
         elseif label == "promotions" then
-          if not Number(row.currentSlot, 6, 9) or not Number(row.targetSlot, 0, 9) or row.targetSlot >= row.currentSlot
-            or not ((row.targetSlot == 5 and row.targetName == "Veteran" and row.reason == "knight-veteran")
-              or (row.targetSlot == 7 and row.targetName == "Member" and row.reason == "verified-initiate" and (row.currentSlot == 9 or selectedPage and row.currentSlot==8)))
+          if not ranks or not Number(row.currentSlot, ranks.veteran+1, ranks.initiate) or not Number(row.targetSlot, 0, 9) or row.targetSlot >= row.currentSlot
+            or not ((row.targetSlot == ranks.veteran and row.targetName == "Veteran" and row.reason == "knight-veteran")
+              or (row.targetSlot == ranks.member and row.targetName == "Member" and row.reason == "verified-initiate" and (row.currentSlot == ranks.initiate or selectedPage and row.currentSlot>ranks.member)))
             or selectedPage and not DirectiveIntent(row,page,identity,now) then
             return refuse("unsupported_promotion_target", "The launch projection contains a malformed or unsupported promotion target; no action taken.") end
         elseif label == "riskBuffer" and (row.currentSlot ~= 9 or row.reviewOnly ~= true or row.reason ~= "unverified-initiate") then
@@ -238,15 +238,17 @@ local INTENT_KEYS={version=true,id=true,actorGuid=true,targetGuid=true,name=true
   originSnapshotId=true,originSnapshotAt=true,originContext=true,startSlot=true,finalSlot=true,reason=true,issuedAt=true,expiresAt=true,
   acknowledgedSteps=true,lastSnapshotId=true,lastObservedAt=true}
 DirectiveIntent=function(row,page,identity,now)
-  local p,ranks=row.intent,OlympusVerifyNativeRankConstants
+  if type(row)~="table" or type(page)~="table" then return false end
+  local p=row.intent
+  local ranks=OlympusVerifyNativeRanks and OlympusVerifyNativeRanks.Profile(page.rankProfile,page.rankSchemeDigest)
   if not ranks or not ExactKeys(p,INTENT_KEYS) or p.version~=1 or not Text(p.id,160) or #p.id<8
     or p.actorGuid~=identity.guid or p.targetGuid~=row.guid or p.targetGuid==identity.guid or p.name~=row.name
     or not Text(p.subjectDigest,64) or #p.subjectDigest~=64 or not p.subjectDigest:match("^[0-9a-f]+$")
     or p.rankProfile~=ranks.profile or p.rankSchemeDigest~=ranks.digest
     or not Number(p.originSnapshotId,1,2147483647) or not Number(p.originSnapshotAt,1,now+5)
     or not Text(p.originContext,32) or #p.originContext~=32 or not p.originContext:match("^[0-9a-f]+$")
-    or not Number(p.startSlot,6,9) or p.finalSlot~=row.targetSlot or p.reason~=row.reason
-    or not ((p.finalSlot==5 and p.reason=="knight-veteran") or (p.finalSlot==7 and p.startSlot==9 and p.reason=="verified-initiate"))
+    or not Number(p.startSlot,ranks.veteran+1,ranks.initiate) or p.finalSlot~=row.targetSlot or p.reason~=row.reason
+    or not ((p.finalSlot==ranks.veteran and p.reason=="knight-veteran") or (p.finalSlot==ranks.member and p.startSlot==ranks.initiate and p.reason=="verified-initiate"))
     or not Number(p.acknowledgedSteps,0,p.startSlot-p.finalSlot-1) or row.currentSlot~=p.startSlot-p.acknowledgedSteps
     or not Number(p.issuedAt,p.originSnapshotAt,now+5) or not Number(p.expiresAt,p.issuedAt+1,p.issuedAt+600)
     or page.expiresAt>p.expiresAt or p.lastSnapshotId~=page.snapshotId or p.originSnapshotId>p.lastSnapshotId
@@ -355,8 +357,11 @@ local function SelectedCurrent(identity, now, control)
     or page.nextCursor~=nil or page.pageCursor~=nil then return held end
   -- The owner's longer window applies only to new selected-promotion observations.
   -- Legacy selected results and all discovery actions keep their original 60-second cap.
-  local checked=HistoricalCurrent({version=3,controlId=control.id,scanComplete=false,pages={page}},true,600)
-  if not checked then return held end
+  local checked,why,code=HistoricalCurrent({version=3,controlId=control.id,scanComplete=false,pages={page}},true,600)
+  if not checked then
+    if code=="rank_scheme" then held.reason=why end -- Keep the validated rank-specific cause visible in a held selection.
+    return held
+  end
   for _,kind in ipairs({"promotions","held","riskBuffer"}) do
     for _,row in ipairs(checked[kind]) do if not covered[row.guid] then return held end end
   end
@@ -426,14 +431,15 @@ local function NativeRoster(identity)
   local final = Identity()
   if not final or final.guild ~= identity.guild or final.realm ~= identity.realm or final.guid ~= identity.guid or final.rank~=identity.rank then return nil, "Native identity changed; no action taken." end
   if not ranks.Same(beforeRanks,ranks.Observe()) then return nil,"The native rank table changed during observation; no rank action is ready." end
-  return rows
+  return rows,nil,ranks.Scheme(beforeRanks)
 end
 local function ActionContext()
   local current, why = Q.Current()
   if not current then return nil, why end
   if Read(InCombatLockdown) ~= false then return nil, "Leave combat before a hardware action." end
-  local roster, held = NativeRoster(current.identity)
+  local roster, held, scheme = NativeRoster(current.identity)
   if not roster then return nil, held end
+  current.nativeRankScheme=scheme
   return current, roster
 end
 local function ActionFresh(current,source)
@@ -556,12 +562,11 @@ local function PromotionRow(current,id)
   for _,row in ipairs(current.promotions) do if row.guid==id then return row,current.freshness[id] end end
 end
 local function SameAttempt(record,id,current)
+  local ranks=type(record)=="table" and OlympusVerifyNativeRanks and OlympusVerifyNativeRanks.Profile(record.rankProfile,record.rankSchemeDigest)
   if not (type(record)=="table" and getmetatable(record)==nil and record.version==3
     and record.scopeHash==current.identity.scopeHash and record.actorGuid==current.identity.guid
-    and record.targetGuid==id and Text(record.name,100) and Number(record.startSlot,6,9)
-    and (record.target==5 or record.target==7 and record.startSlot==9) and Number(record.attemptedAt,1,time())
-    and OlympusVerifyNativeRankConstants and record.rankProfile==OlympusVerifyNativeRankConstants.profile
-    and record.rankSchemeDigest==OlympusVerifyNativeRankConstants.digest
+    and record.targetGuid==id and Text(record.name,100) and ranks and Number(record.startSlot,ranks.veteran+1,ranks.initiate)
+    and (record.target==ranks.veteran or record.target==ranks.member and record.startSlot==ranks.initiate) and Number(record.attemptedAt,1,time())
     and Text(record.intentId,160) and Text(record.intentName,100) and Text(record.intentToken,4096) and Text(record.originalIntentToken,4096) and Text(record.subjectDigest,64)
     and Number(record.intentIssuedAt,1,record.attemptedAt) and Number(record.intentExpiresAt,record.intentIssuedAt+1,record.intentIssuedAt+600)
     and Number(record.snapshotId,1,2147483647)
@@ -753,7 +758,7 @@ ReconcilePromotions=function()
   lastReconcileAt=now
   local current=Q.Current()
   if not current then return end
-  local roster=NativeRoster(current.identity)
+  local roster,_,scheme=NativeRoster(current.identity)
   local ledger=AttemptLedger()
   if not roster or not ledger then return end
   for id,pending in pairs(Q.pending) do
@@ -763,6 +768,7 @@ ReconcilePromotions=function()
       and row and source and record==pending.record and SamePromotion(record,row,source,current) and pending.step==record.steps[#record.steps]
       and row.intent.acknowledgedSteps==record.admittedSteps and source.snapshotId==record.selectedSnapshotId and source.contextId==record.selectedContextId
       and ActionFresh(current,source) and Q.generation>pending.generation
+      and scheme and record.rankProfile==scheme.profile and record.rankSchemeDigest==scheme.digest
       and native and native.slot==pending.expected and native.name==record.name then
       record.state,record.observedSlot,record.observedAt,record.observedGeneration="confirmed",native.slot,time(),Q.generation
       record.completed=native.slot==record.target
@@ -792,7 +798,12 @@ local function PreparePromotion(target)
   for index, value in ipairs(current.promotions) do if value.guid == target or tostring(index) == target then row = value; break end end
   if not row then Say("No current promotion matches that GUID/index."); return false end
   local fresh = current.freshness[row.guid]
-  if not fresh or fresh.kind~="selected" or not DirectiveIntent(row,fresh.page,current.identity,time()) then
+  local scheme=current.nativeRankScheme
+  if type(fresh)~="table" or fresh.kind~="selected" or type(fresh.page)~="table" then
+    Say("A fresh Directive selected plan is required before a promotion click; discovery remains advisory.");return false end
+  if not scheme or fresh.page.rankProfile~=scheme.profile or fresh.page.rankSchemeDigest~=scheme.digest then
+    Say("The current native rank table differs from the selected plan; no promotion sent.");return false end
+  if not DirectiveIntent(row,fresh.page,current.identity,time()) then
     Say("A fresh Directive selected plan is required before a promotion click; discovery remains advisory.");return false end
   if not fresh or (fresh.actionHeld==nil and current.actionHeld or fresh.actionHeld) or not Number(fresh.expiresAt,1,2147483647)
     or not Number(fresh.scanExpiresAt,1,2147483647) or time() >= fresh.expiresAt or time() >= fresh.scanExpiresAt then Say("This page is stale or stopped. Explicitly recheck it and reload before acting."); return false end
@@ -813,7 +824,7 @@ local function PreparePromotion(target)
   if status~="continue" and native.slot~=row.currentSlot then Say("The native rank changed since this projection; refresh it."); return false end
   if Read(GuildControlGetRankName, row.targetSlot + 1) ~= row.targetName then
     Say("The client cannot confirm the named target rank. Use the normal guild roster UI; no promotion sent."); return false end
-  if Read(GuildControlGetRankName,native.slot)~=OlympusVerifyNativeRankConstants.names[native.slot] then
+  if Read(GuildControlGetRankName,native.slot)~=scheme.names[native.slot] then
     Say("The immediately next native rank label is unconfirmed; no promotion sent.");return false end
   local cg = type(C_GuildInfo) == "table" and C_GuildInfo or {}
   -- Direct promotion API calls were forbidden in the attended .35 client checks
@@ -1062,7 +1073,7 @@ function Q.RecordCurrentPromotionObservation(target)
   if not Text(target,40) or not target:match("^Player%-%d+%-%x+$") then return refuse("Select one exact native GUID for a history observation; no rank action taken.") end
   local identity=Identity()
   if not identity or Preview() or Read(InCombatLockdown)~=false or Read(CanGuildPromote)~=true then return refuse("Current native officer identity is unavailable; no history or rank action taken.") end
-  local roster,why=NativeRoster(identity)
+  local roster,why,scheme=NativeRoster(identity)
   if not roster then return refuse(why) end
   local member=roster[target]
   if not member then return refuse("That exact GUID is absent from the complete native roster; no history or rank action taken.") end
@@ -1080,7 +1091,7 @@ function Q.RecordCurrentPromotionObservation(target)
     or type(receipt)=="table" and (receipt.state=="unknown" or receipt.state=="confirmed") and receipt.state or "invalid"
   local observation={version=2,origin="current-native-rank-observation",guid=target,name=member.name,actorGuid=identity.guid,
     scopeHash=identity.scopeHash,guild=identity.guild,realm=identity.realm,observedAt=time(),nativeGeneration=Q.generation,
-    rankIndex=member.slot,rankName=rankName,rankProfile=OlympusVerifyNativeRankConstants.profile,rankSchemeDigest=OlympusVerifyNativeRankConstants.digest,
+    rankIndex=member.slot,rankName=rankName,rankProfile=scheme.profile,rankSchemeDigest=scheme.digest,
     receiptStatus=status,commandAttempted=false,historicalOutcomeSettled=false}
   local previous=history[target]
   if previous~=nil then

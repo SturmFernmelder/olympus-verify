@@ -31,14 +31,16 @@ const directoryCoverage203 = page => {
   const member = await openPage(MEMBER);
   check(".176 signed-in header keeps Sign out and removes the redundant Account data shortcut", !byText(member.app.querySelector("header"), "a", "Account data") && !!byText(member.app, "button", "Sign out") && !byText(member.app.querySelector("footer"), "a", "Private request"));
   await member.go("#/guide/member");
-  check("member guide account action opens the actual account surface instead of Home", byText(member.app, "a", "Open my account")?.getAttribute("href") === "/privacy/account" && member.app.querySelectorAll(".guide-steps section").length === 5);
+  // CL2-040 (our 7d62b9c): the Member guide is eight concrete steps, merged with the Member Quick Guide (RC8).
+  check("member guide account action opens the actual account surface instead of Home", byText(member.app, "a", "Open my account")?.getAttribute("href") === "/privacy/account" && member.app.querySelectorAll(".guide-steps section").length === 8);
 
   const staff = await openPage(STAFF), requests = [];
   staff.before((pathname, init) => { requests.push({ pathname, method: init.method || "GET" }); return false; });
   await staff.go("#/community/directory");
   // .196: the owner-approved default is the Olympus Discord directory. The
   // original .176 member-profile reader remains behind this explicit button.
-  byText(staff.app, "button", "Show Member profiles and crafting offers").click();
+  // CL2-134 (our 1e8baa4): the button names Member profiles only; crafting offers are in the Workshop.
+  byText(staff.app, "button", "Show Member profiles").click();
   await waitFor(() => staff.app.textContent.includes("Site administrator") && requests.some(r => r.pathname.startsWith("/api/community/directory")), ".176 explicit optional profile reader");
   check(".176 actual site admin reads the directory without being marked roster-confirmed", staff.boot.user.isAdmin === true && staff.boot.community.capabilities.confirmedGuildData === false && staff.boot.community.capabilities.communityRead === true && staff.app.textContent.includes("Site administrator") && !staff.app.textContent.includes("not yet confirmed") && requests.some(r => r.pathname.startsWith("/api/community/directory")));
   await staff.go("#/community/profile");
@@ -145,7 +147,13 @@ const directoryCoverage203 = page => {
   check("adoption qualifications remain intact and blank instrument fields are explicitly unexecuted", !!adoption && adoption.textContent.includes("Adoption issues no individual appointment or named signature") && adoption.textContent.includes("changes no native rank, bank limit or platform permission") && member.app.querySelector('[data-chapter="2-royal-charter-of-olympus"] .governance-instrument-note')?.textContent.includes("A blank field is not a completed record") && member.app.textContent.includes("Article S12a") && member.app.textContent.includes("Independent auditor warrant"));
   const instrumentNoteIndices = member.app.querySelectorAll("details.governance-chapter").map((chapter, index) => chapter.querySelector(".governance-instrument-note") ? index : null).filter(index => index !== null);
   const instrumentNoteIds = member.app.querySelectorAll("details.governance-chapter").filter(chapter => chapter.querySelector(".governance-instrument-note")).map(chapter => chapter.getAttribute("data-chapter")).sort();
-  const instrumentIdsDigest = require("node:crypto").createHash("sha256").update(JSON.stringify(instrumentNoteIds)).digest("hex"), reviewedBookDigest = require("node:crypto").createHash("sha256").update(fs.readFileSync(path.join(root, "public/static/governance/reconciled-book.md"))).digest("hex");
+  // CL2-032, CL2-033, CL2-038, CL2-044, CL2-193 (our 5a8103c), CL2-282 (our 36e2c81, 0270ea8), REV-GOV-2/3/4, CONTENT-07 and
+  // CL2-038 (our 92f9d66, 9cd2793, 4fe9e59, 1ea4e2f), CL2-039 and CL2-291 (our 6162226, f443043, 80db07c): the book changed only
+  // through the finite manifest docs/governance-evergreen1112.json. With the manifest pinned as build-governance-titles.cjs
+  // pins it, each of its book paragraphs is undone exactly once (any other text is refused) before the earlier digest is compared.
+  const editorialManifest1112 = fs.readFileSync(path.join(root, "../docs/governance-evergreen1112.json")), editorialManifestDigest1112 = require("node:crypto").createHash("sha256").update(editorialManifest1112).digest("hex");
+  const undoEditorial1112 = text => { if (editorialManifestDigest1112 !== "b55224c6240cea33dc36de1ce272d17a955b97faedf304c6ef880620238d8a4e") return "refused: manifest"; for (const change of JSON.parse(editorialManifest1112).changes.filter(c => c.scope.includes("book")).reverse()) { const before = "\n\n" + change.before + "\n\n", parts = text.split("\n\n" + change.after + "\n\n"); if (parts.length !== 2 || text.includes(before)) return "refused: " + change.key; text = parts.join(before); } return text; };
+  const instrumentIdsDigest = require("node:crypto").createHash("sha256").update(JSON.stringify(instrumentNoteIds)).digest("hex"), reviewedBookDigest = require("node:crypto").createHash("sha256").update(undoEditorial1112(fs.readFileSync(path.join(root, "public/static/governance/reconciled-book.md"), "utf8"))).digest("hex");
   check("the reviewed book's four instrument-note placements and execution limits remain exact", reviewedBookDigest === "fb6816b77507c2855f45511a32d1b46fbdcab804965e78a3650eb6f071684cac" && instrumentIdsDigest === "a5cf89f9778efa8f188b4af0db64ab6fb02ca02a177206f7d8247034f47636cf" && JSON.stringify(instrumentNoteIndices) === "[2,3,17,18]" && member.app.querySelectorAll(".governance-instrument-note").every(note => note.textContent.includes("A blank field is not a completed record")));
   // Search through the real reviewed book, including its genuine strong/plain
   // inline boundary. Mark fragments share one logical match index; neither
@@ -264,10 +272,12 @@ const directoryCoverage203 = page => {
   searchGovernance("No.");
   const literalHit192 = governanceMarks();
   check(".192 a query that a regular expression would read differently is matched literally", independentCount192("No.", "giu") > 100 && governanceGroups().length === 1 && literalHit192.length === 1 && literalHit192[0].textContent === "No." && blockTag192(literalHit192[0]) === "TH" && matchStatus().includes("Match 1 of 1") && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
-  for (const spacedQuery of ["Article S10 Treasury", "  article\tS10   TREASURY "]) {
+  // CL2-193 (our 5a8103c): the S10 heading regained its dash and comma, so the book's repeated spaces are checked where they
+  // remain, in the Charter's version line.
+  for (const spacedQuery of ["Version: R7 Adoption date", "  version:\tR7   ADOPTION date "]) {
     searchGovernance(spacedQuery);
     const spaced192 = governanceMarks();
-    check(".192 whitespace in the query matches the book's collapsed spacing: " + JSON.stringify(spacedQuery), governanceGroups().length === 1 && spaced192.map(mark => mark.textContent).join("") === "Article S10   Treasury" && blockTag192(spaced192[0]) === "H3" && spaced192[0].closest("h3").textContent.startsWith("Article S10   Treasury") && matchStatus().includes("Match 1 of 1") && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
+    check(".192 whitespace in the query matches the book's collapsed spacing: " + JSON.stringify(spacedQuery), governanceGroups().length === 1 && spaced192.map(mark => mark.textContent).join("") === "Version: R7  Adoption date" && blockTag192(spaced192[0]) === "P" && spaced192[0].closest("p").textContent.startsWith("Version: R7  Adoption date") && matchStatus().includes("Match 1 of 1") && JSON.stringify(governanceSourceText()) === unmarkedGovernanceText);
   }
 
   const scrollsBeforeTyping192 = scrolled192.length;

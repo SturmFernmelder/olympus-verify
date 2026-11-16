@@ -59,7 +59,8 @@ check('judicial guide preserves evidence, hearing, recusal and appeal duties', /
 check('Broadcaster guide preserves consent and separate Stream Shield authorization', /refusal to appear/.test(guides.office_12.expectations.join(' ')) && /not automatic Stream Shield authorization/.test(guides.office_12.boundaries));
 check('honorary officer title does not create a current Officer Corps seat', guides.office_91.eligibility === 'standing' && /not a current Officer Corps appointment/.test(guides.office_91.boundaries));
 check('paused cosmetic recognition cannot advertise a currently available payment service', /paused by default/.test(guides.office_85.definition) && /no payment or service is offered/.test(guides.office_85.eligibilityNote));
-check('real site metadata exposes the same complete guides and exact ten native guides', Object.keys(meta.roleGuides201).length === Object.keys(complete).length && JSON.stringify(meta.roleGuides201) === JSON.stringify(complete) && JSON.stringify(meta.nativeRankGuides201) === JSON.stringify(content.NATIVE_RANK_GUIDES_201));
+// CL2-072 (our 5d36707): the unread nativeRankGuides201 is no longer sent; NATIVE_RANK_GUIDES_201 stays exported (checked above).
+check('real site metadata exposes the same complete guides and no longer sends the unread native guides', Object.keys(meta.roleGuides201).length === Object.keys(complete).length && JSON.stringify(meta.roleGuides201) === JSON.stringify(complete) && !Object.prototype.hasOwnProperty.call(meta, 'nativeRankGuides201'));
 check('guide map, guide objects and text arrays are immutable', Object.isFrozen(guides) && Object.values(guides).every(row => Object.isFrozen(row) && Object.isFrozen(row.responsibilities) && Object.isFrozen(row.expectations)) && Object.isFrozen(complete));
 console.log(`${checks - failed}/${checks} checks passed`);
 process.exitCode = failed ? 1 : 0;

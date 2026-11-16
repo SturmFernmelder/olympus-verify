@@ -11,7 +11,8 @@ let tabPreference196=null;
  await siteUser(MEMBER,{global_name:'Member'});await character(MEMBER,'Member One','Player-1-0001');await siteUser(STAFF);
  await fixtureRun("INSERT INTO site_settings(key,value,updated_at)VALUES('newsOn','true',?)ON CONFLICT(key)DO UPDATE SET value='true'",now);
  const staff=await openPage(STAFF),shield=staff.app.querySelector(".stream-shield-toggle");
- check('unified addon promo names published1.3.3 with separate website setup and availability',staff.app.textContent.includes('Olympus Guild 1.3.3 is published as the optional unified guild addon for census and Army reporting. Website snapshot reporting has separate setup and availability. Verification remains separate.')&&!staff.app.textContent.includes('publisher adoption')&&!staff.app.textContent.includes('separate from verification and Army QR reporting'));
+ // CL2-071 (our e1076a7, 1d3d046): Home names no unverified Olympus Guild version and points to its CurseForge project page.
+ check('unified addon promo names its CurseForge project page with separate website setup and availability',staff.app.textContent.includes('Olympus Guild, from its CurseForge project page, is the optional unified guild addon for census and Army reporting. Website snapshot reporting has separate setup and availability. Verification remains separate.')&&!!staff.app.querySelector('[data-addon-promotion="olympus-guild"]')&&!/\d+\.\d+/.test(staff.app.querySelector('[data-addon-promotion="olympus-guild"]').textContent)&&!staff.app.textContent.includes('publisher adoption')&&!staff.app.textContent.includes('separate from verification and Army QR reporting'));
  check('Stream Shield control sits outside both navigation and the private identity area',!!shield&&!shield.closest('nav')&&!shield.closest('.who')&&!!shield.closest('.topbar-actions'));
  // .210 Master QA: bind the shared content-link rule to actual rendered panels.
  // This minimal DOM checks scope/wiring only; real viewport geometry is separate.
@@ -33,8 +34,11 @@ let tabPreference196=null;
  const wrappingPage210=await openPage(STAFF),treasuryText210='Open the treasury programme & financial model';
  for(const route210 of ['#/admin','#/admin/treasury']){
    await wrappingPage210.go(route210);
+   if(route210==='#/admin')await waitFor(()=>!!byText(wrappingPage210.app,'th','First choice'),'.210 Admin Overview roster');
    const link210=byText(wrappingPage210.app,'a',treasuryText210);
-   check('.210 '+route210+' retains the complete Treasury CTA and selects shared content wrapping',!!link210&&link210.textContent===treasuryText210&&link210.getAttribute('href')==='#/treasury-plan'&&contentWrapped210(link210));
+   // CL2-014 (our a6f591d): the Admin Overview opens with the roster; the Treasury frames live under Imperial Treasury only.
+   if(route210==='#/admin')check('.210 #/admin Overview leads with the roster figures and has no Treasury programme frame, Royal Writs panel or CTA',!!byText(wrappingPage210.app,'h1','Admin')&&!!byText(wrappingPage210.app,'h3','Signed up')&&!!byText(wrappingPage210.app,'th','First choice')&&!link210&&!wrappingPage210.app.textContent.includes(treasuryText210)&&!wrappingPage210.app.textContent.includes('Treasury programme · officer operating plan')&&!wrappingPage210.app.querySelector('[data-royal-writ-page="admin"]'));
+   else check('.210 '+route210+' retains the complete Treasury CTA and selects shared content wrapping',!!link210&&link210.textContent===treasuryText210&&link210.getAttribute('href')==='#/treasury-plan'&&contentWrapped210(link210));
    const navLinks210=wrappingPage210.app.querySelectorAll('nav a.btn'),currentShield210=wrappingPage210.app.querySelector('.stream-shield-toggle');
    check('.210 '+route210+' keeps all header/section navigation and Shield outside content wrapping',navLinks210.length>0&&navLinks210.every(link=>!contentWrapped210(link))&&!!currentShield210&&!contentWrapped210(currentShield210));
  }
@@ -45,7 +49,8 @@ let tabPreference196=null;
  const guideAdmin210=byText(wrappingPage210.app,'a','Open Admin');
  check('.210 officer guide paragraph CTA uses the same rule without changing its target',!!guideAdmin210&&guideAdmin210.getAttribute('href')==='#/admin'&&contentWrapped210(guideAdmin210));
  await wrappingPage210.go('#/army');
- check('.210 Army reader distinguishes the published addon from administrator-enabled website reporting',wrappingPage210.app.textContent.includes('Olympus Guild 1.3.3 is published. Website reporting is available only when enabled by site administrators.')&&wrappingPage210.app.textContent.includes('Reporting uses the unified Olympus Guild addon and a separate attended page with current server admission. Publishing the addon does not enable website reporting.')&&!wrappingPage210.app.textContent.includes('publisher adoption'));
+ // CL2-071 (our e1076a7, 1d3d046): the Army reader links the CurseForge project page and names no unverified version.
+ check('.210 Army reader distinguishes the published addon from administrator-enabled website reporting',wrappingPage210.app.textContent.includes('Olympus Guild on CurseForge · Website reporting is available only when enabled by site administrators.')&&wrappingPage210.app.textContent.includes('Reporting uses the unified Olympus Guild addon and a separate attended page with current server admission. Publishing the addon does not enable website reporting.')&&!wrappingPage210.app.textContent.includes('publisher adoption'));
  const shieldRule210=/\.stream-shield-toggle\.btn\s*\{([^}]+)\}/.exec(contentCss210)?.[1]||'';
  check('.210 content wrapping preserves the fixed44px header control and compact ordinary-button default',/width:\s*44px(?:;|$)/.test(shieldRule210)&&/height:\s*44px(?:;|$)/.test(shieldRule210)&&/min-width:\s*44px(?:;|$)/.test(shieldRule210)&&/\.btn\s*\{[^}]*white-space:\s*nowrap\s*;/.test(contentCss210));
  await staff.go('#/apply');const detail=staff.app.querySelectorAll('button').find(button=>(button.getAttribute('aria-label')||'').startsWith('Details:'));

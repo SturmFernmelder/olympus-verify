@@ -16,7 +16,8 @@ local function ready(fallback,o) local f=fixture(fallback);f.directive(o);return
 local function record(f) local ledger=f.env.OlympusVerifyDB.launchPromotionAttempts;return ledger and ledger[id] end
 local function model(f)
   if not f.env.OlympusVerifyRosterModel then setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyRosterModel.lua")),f.env)("OlympusVerify") end
-  return f.env.OlympusVerifyRosterModel.Promotions({{name="Candidate-Forever",guid=id,rankIndex=f.env.ROSTER[2].rankIndex,status="verified"}},f.q,f.env.NOW)
+  local _,rank,slot=f.env.GetGuildRosterInfo(2) -- Model inputs include the actual captured native label, as both live views do.
+  return f.env.OlympusVerifyRosterModel.Promotions({{name="Candidate-Forever",guid=id,rank=rank,rankIndex=slot,status="verified"}},f.q,f.env.NOW)
 end
 local function reload(f)
   setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLaunch229.lua")),f.env)("OlympusVerify")

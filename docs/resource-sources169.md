@@ -1,14 +1,17 @@
 # Resource sources (.169, owner items3/4/11)
 
 The catalog is a curated source snapshot, not an exhaustive inventory, a guild addon requirement, independent
-in-game qualification or a claim of a final beta meta. Its `checkedAt` records the actual source check; a file's
-`releasedAt`, guide scope and advertised client are separate facts. No addons, paid guides, article bodies,
+in-game qualification or a claim of a final beta meta. Its `checkedAt` (19 October 2026) records the source check of the
+catalogue and is the date the guides view shows; `addonsCheckedAt` (15 November 2026) records the later review of the
+addon list and watchlist and is the date the addon view shows. A file's `releasedAt`, guide scope and advertised client
+are separate facts. No addons, paid guides, article bodies,
 pictures or publisher branding are mirrored. The directory adds original summaries of the owner's supplied
 recommendations and qualifications. Authors retain their licenses and attribution.
 
 ## Reviewed catalog
 
-`worker/public/static/resources169.json` holds 29 addon choices, 12 guide/source entries and 7 news/discovery links. The .218 review
+`worker/public/static/resources169.json` holds 73 addon choices, a watchlist of 8, 12 guide/source entries and 8 news/discovery
+links; the addon list and watchlist come from the review of 15 November 2026 described below. The earlier .218 review
 (research dated 30-31 October 2026) refreshed eight addon versions, added eight addons whose authors list a Forever file
 dated in October 2026, and moved nine requested addons without a qualified Forever file to a separate `addonWatchlist`
 that makes no compatibility claim. The combat log is reported closed to addons on Forever; Olympus made no install, FPS
@@ -39,6 +42,48 @@ Prices, private class Discord content and paid guide contents were not qualified
 the author's advertised Forever file; they do not replace testing the exact installed file on the current client.
 Automated structured CurseForge ingestion would need an authorized API key under its documented API; this feature
 uses direct links and requires no new credential.
+
+## Addon review of 15 November 2026
+
+The rule, in plain words:
+
+- **Listed:** the author's own page offers a full release (not an alpha or beta) for Forever, dated within 60 days
+  before the review. An entry stays listed until its newest Forever release is more than 90 days old. One entry is
+  listed without a reviewed file: Olympus Guild, the guild's own addon, carries no version and no date.
+- **Watched, with the reason:** no Forever release, only alpha or beta files, a release too old for the rule, or an
+  abandoned project. Two rows are watched although a release meets the dates, each for the reason its row gives:
+  ForeverAutoQuest (its only file is from before the launch, without an update since, and a listed addon does the
+  same) and Spy (the original has no Forever release; its Forever port has one, and whether an enemy-detection addon
+  belongs in the list is not decided). A watch row links the project page and says why; it makes no compatibility
+  claim.
+- **Addons that act for the player** (they perform a game action without a click for that action, such as handing out
+  or rolling on loot, inviting, leaving or rearranging a group, changing the loot setting, placing talent points,
+  accepting or turning in quests, selling, repairing, setting raid marks or sending messages to other players) are
+  listed when they meet the rule; ForeverAutoQuest, which turns in quests by itself, is the one exception and is
+  named above. Their first limitation begins "Acts for you: " and says what they do by themselves
+  and, as far as the page says, whether that is on by default. The directory describes addons; it sets no guild rule.
+
+How it was read. A survey on 15 November 2026 read every current and candidate entry on its CurseForge Files tab,
+filtered to Forever, in a real browser, twice: a first reader, then a checker who re-read each Files tab between
+20:04 and 20:17 UTC. The version and date of each entry are the checker's values, except Scrap: its project page,
+read at 23:39 UTC, already showed a newer Forever release, 12.1.10 of 15 November 2026, and the entry gives that
+release. The Guidelime + TUGs entry joins the checker's two values, one for TUGs and one for Guidelime, in one
+version string. Wago, WoWInterface, GitHub and two community lists were also looked at. Between 23:38 and 23:42 UTC the project description of 22 addons and the newest
+Forever file page of Gargul, Layer-Swap and Talents Forever were read again, where the survey had not read them or a
+claim was in doubt; `addonsCheckedAt` (2026-11-15T23:42:22Z) is the time of the last of those reads. The catalogue's
+`checkedAt` keeps its earlier value, 2026-10-19T00:26:49Z: the guide cards, the news sources and the owner directory
+were not reviewed on 15 November. Not checked: nothing was installed or run in
+the game, so no entry is an in-game compatibility test; of the CurseForge Forever listing (50 per page), only pages 1
+to 4 sorted by popularity and pages 1 to 2 sorted by total downloads were read; version strings change within hours on some projects, so the date is the more useful field.
+
+What the review changed: 73 listed entries (28 refreshed, Olympus Guild unchanged, TradeSkillMaster and GatherMate2
+moved from the watchlist, 42 new), one new category "Interface and action bars", and a watchlist of 8 (WeakAuras,
+OmniCC, ClassicCastbars, Cell, Spy, BattlegroundTargets Classic, Luna Unit Frames and ForeverAutoQuest). Syndicator
+and BugGrabber are named inside the Baganator and BugSack entries. Decursive stays listed while its author still
+names the Forever file a release candidate (RC4). ForeverAutoQuest is watched because its only file is a 2.7 KB
+release of 18 September 2026, before the launch, and ForeverForge does the same. Spy stays watched: the original has
+no Forever release, and its Forever port, which now has one, waits for a decision on whether an enemy-detection addon
+belongs in the list.
 
 ## On-demand headlines
 

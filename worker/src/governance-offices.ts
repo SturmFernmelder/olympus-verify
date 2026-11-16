@@ -827,14 +827,12 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     ],
     "department": "Activity and courtesy tags",
     "applicationTrack": "raider",
-    "applicationEligible": true,
+    "applicationEligible": false,
     "applicationLabel": "Core Raider",
     "applicationAliases": [],
-    "applicationRoleKeys": [
-      "raider"
-    ],
+    "applicationRoleKeys": [],
     "statusOverlay": false,
-    "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
+    "acquisition": "Granted by the raid leads. There is no separate application: apply as Raider.",
     "discordPortal": "Olympus Guild Member admission remains separate. Cosmetic Tithe Tiers and Broadcaster / Stream Shield do not grant officer authority.",
     "cabinetSeatId": "main-raid-lead",
     "ministry": "Department of War",
@@ -898,14 +896,12 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     ],
     "department": "Activity and courtesy tags",
     "applicationTrack": "artisan",
-    "applicationEligible": true,
+    "applicationEligible": false,
     "applicationLabel": "Crafter",
     "applicationAliases": [],
-    "applicationRoleKeys": [
-      "member"
-    ],
+    "applicationRoleKeys": [],
     "statusOverlay": false,
-    "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
+    "acquisition": "There is no separate application: apply as Artisan.",
     "discordPortal": "Olympus Guild Member admission remains separate. Cosmetic Tithe Tiers and Broadcaster / Stream Shield do not grant officer authority.",
     "cabinetSeatId": "artisanry",
     "ministry": "Association of Artisanry",
@@ -4739,7 +4735,7 @@ export const APPLICATION_TRACKS_199 = Object.freeze([
   },
   {
     "id": "raider",
-    "label": "Core Raider & PvE Progression Track",
+    "label": "Raider & PvE Progression Track",
     "rankPath": "Rank 7 Raider",
     "description": "Progression readiness and event eligibility are reviewed separately from membership."
   },

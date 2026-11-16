@@ -26,5 +26,28 @@ const input={actorGuid:plan.actorGuid,guid:plan.targetGuid,name:plan.name,subjec
  }
  assert.equal(current.acknowledgedSteps,3,'fourth click only remains after three confirmed continuations');
  assert.equal(m.validPromotionIntent({...current,acknowledgedSteps:4},at+20),false,'completed plan does not authorize fifth click');
+ const steward={...plan,rankProfile:r.STEWARD_NATIVE_PROFILE,rankSchemeDigest:r.STEWARD_RANK_DIGEST,finalSlot:8};
+ const stewardToken=await m.sealPromotionIntent(steward,key,at);
+ assert.deepEqual(await m.readPromotionIntent(stewardToken,key,at),steward,'new profile seal retains Initiate9 to Member8');
+ assert.equal(m.validPromotionIntent({...steward,finalSlot:7},at),false,'old Member slot is Alt in the new profile');
+ assert.equal(m.validPromotionIntent({...steward,rankSchemeDigest:r.DIRECTIVE_RANK_DIGEST},at),false,'profile cannot borrow an old table digest');
+ assert.equal(m.validPromotionIntent({...steward,rankSchemeDigest:undefined},at),false,'an own undefined digest cannot use profile-only lookup');
+ assert.equal(m.validPromotionIntent({...steward,rankSchemeDigest:null},at),false,'an own null digest is not a table witness');
+ assert.equal(m.continuationAdmitted(plan,{...input,rankProfile:steward.rankProfile,rankSchemeDigest:steward.rankSchemeDigest},at+3),false,'old intent cannot continue on a changed native ladder');
+ assert.equal(m.continuationAdmitted(steward,{...input,rankProfile:steward.rankProfile,rankSchemeDigest:steward.rankSchemeDigest},at+3),false,'one-step Member8 intent completes without a further continuation');
+ assert.deepEqual(await m.readPromotionIntent(token,key,at),plan,'adding the new profile does not reinterpret the original old seal');
+ const launch=loadPureSource218(root,'launch-operations229'),source={snapshotId:10,snapshotAt:at-10,memberCount:2,guild:'OLYMPUS PRIME',realm:'Fixture',scopeHash:'a'.repeat(16),nativeRankTable:{version:1,names:[...r.STEWARD_RANK_NAMES]}};
+ const row=(name,guid,slot,rank)=>({name,guid,currentSlot:slot,rank,verification:'verified',level:60,lastOnlineSeconds:null});
+ const rows=[row('Initiate','Player-1-0002',9,'Initiate'),row('Alt','Player-1-0003',7,'Alt')];
+ const projected=launch.projectSelectedPromotions274(source,rows,new Map([['Player-1-0002','non-knight'],['Player-1-0003','knight']]),at,at+500);
+ assert.deepEqual(projected.promotions.map(p=>[p.name,p.targetSlot,p.targetName]),[['Alt',6,'Veteran'],['Initiate',8,'Member']]);
+ assert.equal(projected.rankProfile,r.STEWARD_NATIVE_PROFILE);
+ const sourceWire=r.qualifiedNativeSnapshotSource(source.guild,source.realm,r.NATIVE_RANK_SCHEMES[1]);
+ assert.equal(r.nativeRankSchemeFromSource(sourceWire)?.profile,r.STEWARD_NATIVE_PROFILE);
+ const missingDigest=JSON.parse(sourceWire.slice(16));delete missingDigest.rankSchemeDigest;
+ assert.equal(r.nativeRankSchemeFromSource('addon-native-v2:'+JSON.stringify(missingDigest)),null,'source must retain the exact digest');
+ assert.equal(launch.needsLaunchRole229(row('Veteran','Player-1-0004',6,'Veteran'),source.nativeRankTable),false);
+ const mixed={...source,nativeRankTable:{version:1,names:[...r.STEWARD_RANK_NAMES]}};mixed.nativeRankTable.names[7]='Raider';
+ assert.equal(launch.projectSelectedPromotions274(mixed,rows,new Map(),at,at+500).promotions.length,0,'mixed full table remains held');
  console.log('PASS server seal, immutable original intent, fresh identity/privacy/source fences, ordinaryAlt and three Knight continuations');
 })().catch(error=>{console.error(error);process.exitCode=1;});
