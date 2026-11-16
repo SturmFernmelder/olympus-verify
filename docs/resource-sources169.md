@@ -61,8 +61,8 @@ filtered to Forever, in a real browser, twice: a first reader, then a checker wh
 community lists were also looked at. Between 23:38 and 23:42 UTC the project description of 22 addons and the newest
 Forever file page of Gargul, Layer-Swap and Talents Forever were read again, where the survey had not read them or a
 claim was in doubt; `checkedAt` is the time of the last of those reads. Not checked: nothing was installed or run in
-the game, so no entry is an in-game compatibility test; pages 3 and later of the CurseForge Forever search were not
-read; version strings change within hours on some projects, so the date is the more useful field.
+the game, so no entry is an in-game compatibility test; of the CurseForge Forever listing (50 per page), only pages 1
+to 4 sorted by popularity and pages 1 to 2 sorted by total downloads were read; version strings change within hours on some projects, so the date is the more useful field.
 
 What the review changed: 73 listed entries (28 refreshed, Olympus Guild unchanged, TradeSkillMaster and GatherMate2
 moved from the watchlist, 42 new), one new category "Interface and action bars", and a watchlist of 8 (WeakAuras,
