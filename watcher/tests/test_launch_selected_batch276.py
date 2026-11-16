@@ -132,6 +132,39 @@ class SelectedBatch276(unittest.TestCase):
         f.clock = f.at+60; f.tick(f.call()); self.assertEqual(f.calls, [])
         self.assertEqual(f.selected.record['stoppedReason'], 'selection-admission-expired')
 
+    def test_selected_read_is_served_before_slow_unrelated_background_work(self):
+        f = self.f
+        class Finished(BaseException):
+            pass
+        with tempfile.TemporaryDirectory() as temporary:
+            w, db, original = f.watcher(Path(temporary))
+            events = []
+            normal = w.worker.call
+            def transport(method, path, body=None, retries=3):
+                events.append('selected' if method == 'GET' else 'roster')
+                return normal(method, path, body, retries)
+            w.worker.call = transport
+            w.require_launch_worker = lambda: None
+            w.recover_local_settlement = lambda: None
+            def outbox():
+                events.append('outbox')
+                f.clock += 61  # Would expire initial admission if scheduled first.
+            w.flush_outbox = outbox
+            w.tail_chat_log = lambda: events.append('chat')
+            w.pull_queue = lambda: None
+            def finish():
+                raise Finished()
+            w.scan_diag_logs = finish
+            with patch.object(watcher.time, 'time', lambda: f.clock), patch.object(watcher.time, 'monotonic', lambda: f.clock), patch.object(watcher.time, 'sleep'), self.assertRaises(Finished):
+                w.run()
+            self.assertEqual(len(f.calls), 1)
+            self.assertLess(events.index('selected'), events.index('outbox'))
+            self.assertTrue(w.launch_selected.record['completed'])
+            self.assertEqual(w.launch_selected.record['attempts'], 1)
+            self.assertEqual(w.launch_operations_file.read_bytes(), original)
+            self.assertEqual(w.launch_selected.record['observedAt'], f.control['observedAt'])
+            self.assertEqual(w.launch_selected.record['expiresAt'], f.at+600)
+
     def test_actual_batch_intake_ack_witness_and_reload_preserve_discovery(self):
         f = self.f
         with tempfile.TemporaryDirectory() as temporary:

@@ -40,7 +40,7 @@ import { handleInteraction, USER_MENU_LOOKUP } from "./interactions";
 import { DiscordError, INTERACTION_FAILED, json, readInteractionBody, reply, verifyInteraction, type Interaction } from "./discord";
 import { errorRef, idNamespace, heldCause, readUnavailable, routeClass } from "./log";
 import { audit, now } from "./db";
-import { getQueue, postEvents, postQueueWritten, postRoster, postVerify, sweepInviteQueue, watcherAuthorized } from "./ingest";
+import { getQueue, postEvents, postQueueWritten, postRoster, postVerify, isRetainedForwardVerificationReply285, sweepInviteQueue, watcherAuthorized } from "./ingest";
 import { PrivacySiteRequestHeld, privacySiteFailure, readPrivacySubject, privacyBoundSubjectEnv } from './privacy-serving-authority';
 import { guildMap } from "./guildmap";
 import { backfillOptions, backfillRoles } from "./backfill";
@@ -293,6 +293,7 @@ export default {
       }
       const res = await route(request, env, path, schemaReady, ctx, namesOrigin,roleDispatch);
       if(request.method==='POST'&&res.ok&&['/ingest/verify','/ingest/roster','/ingest/intake242'].includes(path)
+        &&(path!=='/ingest/verify'||!isRetainedForwardVerificationReply285(res))
         &&(path!=='/ingest/intake242'||await intakeCreatedRoleRequest280(res))){
        const verification242=captureLaunchVerification(env);
        if(verification242.mode==='members-only'&&verification242.scope&&verification242.current()){
@@ -673,13 +674,28 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
   if (path.startsWith("/ingest/") || path.startsWith("/queue")) {
     if (!(await watcherAuthorized(env, request))) return new Response("unauthorized", { status: 401 });
     if (!schemaReady) return json({ error: "database schema not ready; retry shortly" }, 503);
+    let legacyIntakeBody285:Readonly<{body:unknown}>|null=null;
+    // The original versioned intake request is read by its native origin
+    // issuer. A caller-supplied parsed body cannot mint future-proof authority.
+    if(request.method==='POST'&&path==='/ingest/intake242'&&query.size===1&&query.get('keyVersion')==='launch-membership-v1'){
+      const launch=captureLaunchVerification(env);
+      if(launch.mode==='members-only'&&launch.scope&&launch.current()){
+        const native=launchVerificationEnv(env,launch),originModule=await import('./watcher-late-origin285');
+        const origin=await originModule.captureOriginalWatcherIntake285(request,native);
+        if(origin){const facts=originModule.originalWatcherIntake285(origin);facts.check();return postIntake242(native,{entries:facts.entries},origin);}
+        // Optional historical-proof authority failing must not reject valid
+        // ordinary rows. Retain only parsed native data, never an origin.
+        legacyIntakeBody285=originModule.takeLegacyWatcherIntakeBody285(request);
+      }
+    }
     // Older sources reject every keyVersion before queue/ingest effects. The exact
     // .227 query marker gives the strict host that same fail-closed rollback fence.
     // It is not a secret/key rotation or permission for other versioned routes.
     let body: any = null; // each handler validates its own body, exactly as before .66
     if (request.method === "POST") {
       // .210: a body that is not a JSON object is a final 400; it was a 500, which the watcher retries forever.
-      try {
+      if(legacyIntakeBody285)body=legacyIntakeBody285.body;
+      else try {
         const raw = await readInteractionBody(request, MAX_WATCHER_POST_BYTES);
         if (raw === null) return json({ error: "body_too_large", message: "The request body exceeds 1 MiB." }, 413);
         body = JSON.parse(raw);
@@ -797,7 +813,7 @@ async function freshRegistrationRefused(env: Env, trigger: string): Promise<void
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-11-15.283 Exact native ranks and private role comparison";
+const BUILD = "2026-11-16.285 Guarded verification recovery and promotion checks";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a

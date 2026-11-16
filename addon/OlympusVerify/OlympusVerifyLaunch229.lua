@@ -304,17 +304,42 @@ local SELECT_HOLDS={
   ["source-unknown"]="The selected response was unknown. Keep this request stopped and inspect Watcher/status before any new explicit read.",
   ["source-refused"]="The selected source was refused. Ask staff to review the current source and access; no promotion is ready.",
   ["source-held"]="The selected source held eligibility. Review the current target with staff; display verification cannot clear that hold.",
+  ["directive-rank-policy-held"]="The server's rank settings do not allow this promotion. Verify and Sync & reload cannot change that; only a change to the server's rank settings can.",
+  ["native-rank-scheme-unconfirmed"]="The server could not confirm the guild's full list of ranks, so no promotion is ready. Click Sync & reload to send a fresh roster, wait for the Watcher, then click Check again. If this message stays, compare the guild's rank names and order with the server settings.",
+  ["flagship-native-scope-unconfirmed"]="The server could not confirm which guild and realm it is set up for. Check the server's guild and realm settings; this view cannot change them.",
+  ["native-secret-unconfigured"]="The server's verification key is missing or unusable. This cannot be fixed in the addon; the key must be corrected in the server settings.",
+  ["selection-source-not-current"]="This check does not match the current guild setup. Click Sync & reload to send the current roster, wait for the Watcher, then click Check again.",
+  ["native-snapshot-unavailable"]="The server has no complete, current guild roster. Click Sync & reload to send it, wait for the Watcher, then click Check again.",
+  ["promotion-actor-unconfirmed"]="The current guild roster does not show you with a rank that may do this promotion. Check your own rank in the game's guild window; if it has changed, click Sync & reload, then Check again.",
+  ["native-identity-ambiguous"]="The guild roster does not identify this character uniquely (for example, two entries look the same). Check the character in the game's guild window, then click Sync & reload.",
+  ["entitlement-expired"]="This check result is too old to use. Click Check again to request a current result.",
+  ["native-snapshot-changed"]="The guild roster changed while this check was running. Click Sync & reload to send the new roster, wait for the Watcher, then click Check again.",
+  ["launch-page-verification-changed"]="The member's verification changed while this check was running. Click Check again to request the current state.",
+  ["selection-read-expired"]="This check ran out of time before it finished. Click Check again.",
+  ["launch-read-window-exhausted"]="This check ran out of its allowed time. Click Check again; the old result is not used.",
   ["scan-expired"]="The original selected-read context expired. Make a new explicit selected read; its old dates remain unchanged.",
   ["operator-stopped"]="The selected read was explicitly stopped. It cannot resume automatically; a later read is a separate explicit request.",
   ["superseded"]="A newer control superseded this selected read. Load the matching current result; no old action authority is restored.",
   ["rate-limited-wait"]="The last loaded selected read reports a known rate-limit wait. Keep its original request and load its later result; this view cannot observe the Watcher process.",
 }
+-- These stopped READS may be replaced only by a new deliberate control. This
+-- never resumes discovery, clears an attempt, or changes the old result/dates.
+local SELECT_REFRESH={['native-roster-receipt-required']=true,['native-roster-changed-or-expired']=true,
+  ['selection-admission-expired']=true,['scan-expired']=true,['operator-stopped']=true,['superseded']=true,
+  ['rate-limit-retries-exhausted']=true,['rate-limit-exceeds-scan']=true,['selected-target-unavailable']=true,
+  ['native-rank-scheme-unconfirmed']=true,['selection-source-not-current']=true,['native-snapshot-unavailable']=true,
+  ['promotion-actor-unconfirmed']=true,['entitlement-expired']=true,['native-snapshot-changed']=true,
+  ['launch-page-verification-changed']=true,['selection-read-expired']=true,['launch-read-window-exhausted']=true}
 local function SelectedCurrent(identity, now, control)
   local data=OlympusLaunchSelected
   local targets,batch,encoded=ValidSelect(control,identity,now)
   if not targets then return nil end
   local requested={};for _,id in ipairs(targets) do requested[id]=true end
-  local held={targetGuid=targets[1],targetGuids=batch and targets or nil,covered=requested,state="pending",reason="The selected read is awaiting a matching result; its historical recommendation is held."}
+  local held={targetGuid=targets[1],targetGuids=batch and targets or nil,covered=requested,state="pending",code="awaiting-result",reason="This check is waiting for its result. Wait for the Watcher, then click Sync & reload to load it. Do not click Check again while it is waiting."}
+  if now>=control.observedAt+60 then
+    held.state,held.code,held.refreshable="held","selection-admission-expired",true
+    held.reason=SELECT_HOLDS[held.code]
+  end
   if not ExactKeys(data,BATCH_KEYS) or data.version~=2 or data.protocol~="promotion-selection-directive-v1" or data.confirmations~=control.confirmations
     or data.controlId~=control.id or data.actorGuid~=identity.guid or not batch and data.targetGuid~=control.targetGuid
     or data.scopeHash~=identity.scopeHash or data.observedAt~=control.observedAt or data.startedAt~=data.observedAt
@@ -326,6 +351,8 @@ local function SelectedCurrent(identity, now, control)
       or data.targetsDigest~=H.sha256hex(encoded) then return held end
   end
   held.state=data.running and "pending" or "held"
+  held.code=data.stoppedReason or (data.running and "pending" or "incomplete")
+  held.refreshable=held.state=="held" and SELECT_REFRESH[held.code]==true
   held.reason=SELECT_HOLDS[data.stoppedReason] or (data.running
     and "The last loaded selected read is pending. Load its later dated result; this view cannot observe the Watcher process."
     or "The selected read is held or incomplete. Review the current source with staff; its historical recommendation remains advisory.")

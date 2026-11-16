@@ -142,6 +142,40 @@ function captureRoleReply280(env:Env,method:string,path:string,callback:(()=>voi
 export function takeOriginalDiscordRoleReply280(error:unknown,env:Env,method:string,path:string,callback:()=>void):OriginalDiscordRoleReply280|null{try{if(!error||typeof error!=='object')return null;const r=roleReplyErrors280.get(error);if(!r||r.spent||r.env!==env||method!=='DELETE'||r.path!==path||r.callback!==callback)return null;r.check();r.spent=true;return r.cap;}catch{return null;}}
 export function originalDiscordRoleReplyFacts280(cap:OriginalDiscordRoleReply280):OriginalDiscordRoleReplyFacts280{const r=roleReplyCaps280.get(cap);if(!r||!r.spent)throw Error('original_role_reply_held');r.check();return r.facts;}
 
+/** Separate PUT witness: DELETE280 remains a distinct method and private brand. */
+export type OriginalDiscordPutReply285=Readonly<{kind:'source_original_discord_put_reply285'}>;
+export type OriginalDiscordPutReplyFacts285=Readonly<Omit<OriginalDiscordRoleReplyFacts280,'method'>&{method:'PUT'}>;
+type PutReply285={error:DiscordError;cap:OriginalDiscordPutReply285;env:Env;path:string;callback:()=>void;facts:OriginalDiscordPutReplyFacts285;spent:boolean;check:()=>void};
+const putReplyErrors285=new WeakMap<object,PutReply285>(),putReplyCaps285=new WeakMap<OriginalDiscordPutReply285,PutReply285>();
+function capturePutReply285(env:Env,method:string,path:string,callback:(()=>void)|undefined){try{
+ if(method!=='PUT'||!/^\/guilds\/[0-9]{17,20}\/members\/[0-9]{17,20}\/roles\/[0-9]{17,20}$/.test(path)||typeof callback!=='function')return null;
+ const token=Object.getOwnPropertyDescriptor(env,'DISCORD_BOT_TOKEN'),guild=Object.getOwnPropertyDescriptor(env,'GUILD_ID'),ep=Object.getPrototypeOf(env),callbackCheck=replyGraph280(callback),providerCheck=replyProvider280(),credential=credentialFetch,start=originalRecoveryClockMilliseconds()/1000;
+ if(!token||!Object.hasOwn(token,'value')||typeof token.value!=='string'||!token.value.length)return null;
+ const check=()=>{providerCheck();callbackCheck();replyParser280();if(Object.getPrototypeOf(env)!==ep||!replySame280(token,Object.getOwnPropertyDescriptor(env,'DISCORD_BOT_TOKEN'))||!replySame280(guild,Object.getOwnPropertyDescriptor(env,'GUILD_ID'))||credentialFetch!==credential)throw Error('original_role_reply_held');};check();let invoked=false;
+ return {invoked(value:unknown){try{check();invoked=value===undefined;}catch{invoked=false;}},response(res:Response){try{
+   check();if(!invoked)return null;checkOriginalNativeResponse(res);const status=Reflect.apply(ORIGINAL_RESPONSE_DESCRIPTORS.status!.get!,res,[]) as number;if(status!==403&&status!==404&&status!==429)return null;
+   const headers=Reflect.apply(ORIGINAL_RESPONSE_DESCRIPTORS.headers!.get!,res,[]) as Headers;checkOriginalNativeHeaders(headers);const get=(key:string)=>Reflect.apply(ORIGINAL_HEADER_DESCRIPTORS.get!.value,headers,[key]) as string|null,contentType=get('Content-Type'),retry=get('Retry-After'),scope=get('X-RateLimit-Scope'),contentLength=get('Content-Length'),contentEncoding=get('Content-Encoding');
+   if(!/^application\/json(?:\s*;|$)/i.test(contentType??''))return null;
+   const declaredLength=contentLength===null?null:/^(?:0|[1-9][0-9]*)$/.test(contentLength)?Number(contentLength):NaN;
+   // Fetch decodes supported content codings before text(). Content-Length can
+   // still describe the encoded wire body. EOF and the decoded 4 KiB JSON cap
+   // remain mandatory; compare lengths only for an identity representation.
+   const encoded=contentEncoding!==null&&/^(?:gzip|br)$/i.test(contentEncoding.trim());
+   if(contentEncoding!==null&&!encoded&&contentEncoding.trim().toLowerCase()!=='identity')return null;
+   if(declaredLength!==null&&(!Number.isSafeInteger(declaredLength)||declaredLength<0||!encoded&&declaredLength>4096))return null;
+   const headerRetry=retry===null?null:retry.length<=32&&/^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/.test(retry)?Number(retry):NaN;
+   if(headerRetry!==null&&(!Number.isFinite(headerRetry)||headerRetry<0)||scope!==null&&!['user','global','shared'].includes(scope))return null;
+   const responseCheck=()=>{check();checkOriginalNativeResponse(res);checkOriginalNativeHeaders(headers);if(Reflect.apply(ORIGINAL_RESPONSE_DESCRIPTORS.status!.get!,res,[])!==status||Reflect.apply(ORIGINAL_RESPONSE_DESCRIPTORS.headers!.get!,res,[])!==headers||get('Content-Type')!==contentType||get('Retry-After')!==retry||get('X-RateLimit-Scope')!==scope||get('Content-Length')!==contentLength||get('Content-Encoding')!==contentEncoding)throw Error('original_role_reply_held');};
+   return (text:string,error:DiscordError)=>{try{responseCheck();const eof=originalRecoveryClockMilliseconds()/1000,body=replyBody280(text,status);if(!body||!encoded&&declaredLength!==null&&new replyEncoder280().encode(text).byteLength!==declaredLength||eof<start||Object.getPrototypeOf(error)!==replyErrorPrototype280||error.status!==status||error.body!==text||Reflect.apply(ORIGINAL_RESPONSE_DESCRIPTORS.bodyUsed!.get!,res,[])!==true)return;
+    const errorCheck=replyGraph280(error),cap=Object.freeze({kind:'source_original_discord_put_reply285' as const}),facts=Object.freeze({method:'PUT' as const,path,status,code:body.code,eofSeconds:eof,retryAfterHeaderSeconds:headerRetry,retryAfterBodySeconds:body.retryAfterBodySeconds,global:body.global,rateScope:scope as 'user'|'global'|'shared'|null});
+    const current=()=>{responseCheck();errorCheck();if(Object.getPrototypeOf(error)!==replyErrorPrototype280||error.status!==status||error.body!==text||originalRecoveryClockMilliseconds()/1000<eof)throw Error('original_role_reply_held');};current();const record:PutReply285={error,cap,env,path,callback,facts,spent:false,check:current};putReplyErrors285.set(error,record);putReplyCaps285.set(cap,record);
+   }catch{/* Observation failure never changes the original error. */}};
+  }catch{return null;}}};
+ }catch{return null;}}
+
+export function takeOriginalDiscordPutReply285(error:unknown,env:Env,method:string,path:string,callback:()=>void):OriginalDiscordPutReply285|null{try{if(!error||typeof error!=='object')return null;const r=putReplyErrors285.get(error);if(!r||r.spent||r.env!==env||method!=='PUT'||r.path!==path||r.callback!==callback)return null;r.check();r.spent=true;return r.cap;}catch{return null;}}
+export function originalDiscordPutReplyFacts285(cap:OriginalDiscordPutReply285,env:Env,path:string):OriginalDiscordPutReplyFacts285{const r=putReplyCaps285.get(cap);if(!r||!r.spent||r.env!==env||r.path!==path)throw Error('original_put_reply_held');r.check();return r.facts;}
+
 /**
  * Say what a Discord failure actually means. 401 and 403 read alike in a log line and need opposite fixes: 401 is the
  * bot's TOKEN (a Worker secret), 403 is the bot's PERMISSIONS (Discord settings). Blaming permissions for a 401 sends
@@ -201,7 +235,9 @@ export async function rest<T = unknown>(env: Env, method: string, path: string, 
   };
   if (reason) headers["X-Audit-Log-Reason"] = auditReason(reason);
   const replyObserver280=attempt===1?captureRoleReply280(env,method,path,beforeDispatch):null;
-  const observedDispatch280=replyObserver280?()=>{const value=beforeDispatch!();replyObserver280.invoked(value);return value;}:beforeDispatch;
+  const putReplyObserver285=attempt===1?capturePutReply285(env,method,path,beforeDispatch):null;
+  const originalReplyObserver285=replyObserver280??putReplyObserver285;
+  const observedDispatch280=originalReplyObserver285?()=>{const value=beforeDispatch!();originalReplyObserver285.invoked(value);return value;}:beforeDispatch;
   const res = await credentialFetch(API + path, {
     method,
     headers,
@@ -224,7 +260,7 @@ export async function rest<T = unknown>(env: Env, method: string, path: string, 
     return rest<T>(env, method, path, body, attempt + 1, reason, budget, mandatory, beforeDispatch);
   }
   if (!res.ok) {
-    const observeReply280=replyObserver280?.response(res)??null;
+    const observeReply280=originalReplyObserver285?.response(res)??null;
     const text=await res.text(),error=new DiscordError(res.status,text);
     observeReply280?.(text,error);
     throw error;

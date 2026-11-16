@@ -41,7 +41,7 @@ local SECRET = cfg.secret
 -- 0.6.12: the example's placeholder is public, so a Config.lua copied without replacing it must not accept codes made from it.
 if type(SECRET) ~= "string" or SECRET == "" or string.find(SECRET, "^REPLACE_WITH_") then SECRET = nil end
 local secretWarned = false  -- 0.6.12: say once per session, not on every whisper, that codes cannot be checked
-local SOURCE_VERSION = "0.6.39" -- Keep this source fallback and OlympusVerify.toc aligned.
+local SOURCE_VERSION = "0.6.40" -- Keep this source fallback and OlympusVerify.toc aligned.
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
   or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or SOURCE_VERSION
 local SET_NOTES = cfg.setNotes == true  -- SetNote is forbidden for addons on the Forever beta; leave false there
@@ -381,7 +381,7 @@ local function HandleCode(source, sender, text, guid, lineId, mailObservation)
   guid = ok and Presence.IsGuid(guid) and guid or nil
   local nativeMembership
   if ok and cfg.membershipOnly == true and source == "whisper" and guid then
-    local captured, proof = pcall(Presence.NativeMembershipProof, sender, guid, code)
+    local captured, proof = pcall(Presence.NativeMembershipProof, sender, guid, code, observation and observation.observedAt)
     if captured then nativeMembership = proof end
   end
   local eventMember = member
@@ -1591,7 +1591,7 @@ end
 
 -- A fresh, code-bound native cache observation closes the gap left by an older Worker roster.
 -- False means only "not on THIS collector's own guild roster"; it never claims the player has no guild.
-function Presence.NativeMembershipProof(sender, guid, code)
+function Presence.NativeMembershipProof(sender, guid, code, eventObservedAt)
   if not SECRET or not L.hmacSha256hex or not L.sha256hex or not Presence.IsGuid(guid) or #guid > 40 or type(code) ~= "string" or L.strictCode(code) ~= code then return nil end
   sender = Presence.Readable(sender)
   if not sender or #sender < 2 or #sender > 96 or sender:find("[%c|%(%)<>]") then return nil end
@@ -1612,7 +1612,11 @@ function Presence.NativeMembershipProof(sender, guid, code)
   local member = boolean(getter, sender)
   local finalGuild, finalRealm = Presence.NativeRosterScope()
   if member == nil or member ~= first or finalGuild ~= guild or finalRealm ~= realm or boolean(rawget(_G, "IsInGuild")) ~= true then return nil end
-  local observedAt = time()
+  local capturedAt = time()
+  local observedAt = eventObservedAt or capturedAt
+  -- A native event and its immediate membership read share one clock sample.
+  -- Duplicate old events cannot backdate a newly captured membership proof.
+  if type(capturedAt) ~= "number" or type(observedAt) ~= "number" or observedAt > capturedAt or capturedAt - observedAt > 5 then return nil end
   if type(observedAt) ~= "number" or observedAt <= 0 or observedAt ~= math.floor(observedAt) then return nil end
   local scopeHash = L.sha256hex("native-scope|1|" .. guild .. "|" .. realm):sub(1, 16)
   local truth = member and "1" or "0"

@@ -113,7 +113,7 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.40"
+WATCHER_VERSION = "0.6.41"
 STRICT_DISPLAY_PROTOCOL = "launch-roster-display-v2"
 STRICT_DISPLAY_PATH = "/queue/unverified?keyVersion=" + STRICT_DISPLAY_PROTOCOL
 STRICT_DISPLAY_MAX_BYTES = 512 * 1024
@@ -2844,26 +2844,42 @@ class Watcher:
             prefix_seconds = 0.0
             launch_seconds = None
             tail_started = None
+            selected_priority = False
             try:
                 prefix_started = time.monotonic()
                 self.recover_local_settlement()
                 self._require_custody_continuation()
                 if self.membership_only:
                     savedvars_lane()
+                    selected = getattr(self, 'launch_selected', None)
+                    if selected is not None and selected.running:
+                        # An explicit read has only a 60s initial admission window.
+                        # Intake has already committed its roster ACK and exact file
+                        # witness; serve it before unrelated outbox/chat work. The
+                        # existing dispatcher still rechecks custody/source/cooldown.
+                        prefix_seconds = max(0.0, time.monotonic() - prefix_started)
+                        launch_started = time.monotonic()
+                        launch_calls = selected.record['attempts']
+                        self.pull_launch_operations()
+                        selected_priority = True
+                        if selected.record['attempts'] > launch_calls:
+                            tail_started = time.monotonic()
+                            launch_seconds = max(0.0, tail_started - launch_started)
                 self.flush_outbox()
                 self._require_custody_continuation()
                 self.tail_chat_log()
                 if not self.membership_only:
                     savedvars_lane()
-                prefix_seconds = max(0.0, time.monotonic() - prefix_started)
-                launch_started = time.monotonic()
-                selected = getattr(self, 'launch_selected', None)
-                launch_calls = (self.launch_scan.calls + (selected.record['attempts'] if selected and selected.record else 0)) if self.membership_only else None
-                self.pull_launch_operations()
-                current_calls = self.launch_scan.calls + (selected.record['attempts'] if selected and selected.record else 0)
-                if launch_calls is not None and current_calls > launch_calls:
-                    tail_started = time.monotonic()
-                    launch_seconds = max(0.0, tail_started - launch_started)
+                if not selected_priority:
+                    prefix_seconds = max(0.0, time.monotonic() - prefix_started)
+                    launch_started = time.monotonic()
+                    selected = getattr(self, 'launch_selected', None)
+                    launch_calls = (self.launch_scan.calls + (selected.record['attempts'] if selected and selected.record else 0)) if self.membership_only else None
+                    self.pull_launch_operations()
+                    current_calls = self.launch_scan.calls + (selected.record['attempts'] if selected and selected.record else 0)
+                    if launch_calls is not None and current_calls > launch_calls:
+                        tail_started = time.monotonic()
+                        launch_seconds = max(0.0, tail_started - launch_started)
                 self.pull_queue()
                 self.scan_diag_logs()
                 if time.time() - self._last_lag_report > 1800 and self.state.d.get("lag"):

@@ -86,13 +86,48 @@ local ownUnknown,A,B=setup();ownUnknown.selectedA();ownUnknown.unknown=true;asse
 local unknownImage=copy(ownUnknown.e.OlympusVerifyDB.launchPromotionAttempts[A]);local before=ownUnknown.syncs
 ownUnknown.buttons()[2].promote:Click()
 check('same GUID unknown original remains disabled and unrepaired',not ownUnknown.buttons()[2].promote:IsEnabled()and ownUnknown.syncs==before and same(unknownImage,ownUnknown.e.OlympusVerifyDB.launchPromotionAttempts[A])and ownUnknown.clicks==1)
-for _,reason in ipairs({'source-unknown','operator-stopped','unrecognized-source-hold'})do
+for _,reason in ipairs({'source-unknown','unrecognized-source-hold'})do
  local stopped,A,B=setup();stopped.selectedA();stopped.e.OlympusLaunchQueue.stoppedReason=reason;stopped.tick()
  local before=stopped.syncs;stopped.buttons()[3].promote:Click()
  check(reason..' remains held rather than becoming a read Check',not stopped.buttons()[3].promote:IsEnabled()and stopped.syncs==before)
 end
-local stopped,A,B=setup();stopped.selectedA();assert(stopped.q.Control('stop'));stopped.tick();local before=stopped.syncs;stopped.buttons()[3].promote:Click()
-check('actual explicit Stop control withholds B read without new control',not stopped.buttons()[3].promote:IsEnabled()and stopped.syncs==before and stopped.e.OlympusVerifyDB.launchControl.action=='stop')
+for _,reason in ipairs({'operator-stopped','scan-expired','superseded'})do
+ local stopped,A,B,discovery=setup();stopped.selectedA()
+ if reason=='operator-stopped'then assert(stopped.q.Control('stop'))
+ elseif reason=='scan-expired'then stopped.e.OlympusLaunchQueue.stoppedReason=reason end
+ stopped.tick();local db=stopped.e.OlympusVerifyDB;local oldControl=db.launchControl
+ local controlImage,sourceImage,attempts=copy(oldControl),copy(stopped.e.OlympusLaunchQueue),copy(db.launchPromotionAttempts)
+ local before=stopped.syncs;local b=stopped.buttons()[3].promote;local offered=b:GetText()=='Check'and b:IsEnabled();b:Click()
+ check(reason..' discovery offers a separate deliberate Check',offered and stopped.syncs==before+1)
+ check(reason..' creates new signed read without resuming or rewriting the old control',db.launchControl~=oldControl and db.launchControl.id~=oldControl.id and db.launchControl.action=='select-directive'and same(oldControl,controlImage)and same(stopped.e.OlympusLaunchQueue,sourceImage))
+ check(reason..' new read keeps original attempt history and sends no rank action',same(db.launchPromotionAttempts,attempts)and stopped.clicks==0 and stopped.direct==0)
+end
+-- Serving-v1 discovery remains advisory; a supported separate one-step check
+-- must still be reachable from its qualified Steward native table.
+do
+ local f,A,B,page=setup();local e=f.e;local c=e.OlympusVerifyNativeRankConstants.profiles[2]
+ for i,name in ipairs(c.names)do f.names[i]=name end
+ e.ROSTER[1].rankIndex=2;e.GetGuildInfo=function()return 'OLYMPUS PRIME','High Council',2 end
+ page.protocol='officer-operations-v235';page.rankProfile=nil;page.rankSchemeDigest=nil;page.rankNames=nil
+ page.status='partial';page.promotions={};page.riskBuffer={};page.heldReasons={'directive-rank-policy-held'}
+ page.held={};for _,r in ipairs(e.ROSTER)do table.insert(page.held,{guid=r.guid,name=r.name,reason='directive-rank-policy-held'})end
+ f.rosterEvent();f.tick();local b=f.buttons()[3].promote;local offered=b:GetText()=='Check'and b:IsEnabled()
+ local sourceImage=copy(e.OlympusLaunchQueue);local before=f.syncs;b:Click()
+ check('v1 advisory discovery permits only a new qualified Initiate Check',offered and f.syncs==before+1 and e.OlympusVerifyDB.launchControl.targetGuids[1]==B)
+ check('v1 Check does not rewrite advisory discovery or perform a promotion',same(e.OlympusLaunchQueue,sourceImage)and f.clicks==0 and f.direct==0 and next(e.OlympusVerifyDB.launchPromotionAttempts or{})==nil)
+end
+-- The current selected request explains its own state even while discovery is superseded.
+for _,reason in ipairs({'native-roster-changed-or-expired','selection-admission-expired','source-unknown','directive-rank-policy-held','native-rank-scheme-unconfirmed'})do
+ local held,A,B=setup();held.selectedA();local e=held.e;local data=e.OlympusLaunchSelected
+ data.running=false;data.completed=false;data.stoppedReason=reason;data.page=nil;data.coveredGuids={}
+ local oldControl=e.OlympusVerifyDB.launchControl;local oldImage=copy(oldControl);local selectedImage=copy(data)
+ held.tick();local current=held.q.Current();local _,details=e.OlympusVerifyRosterModel.Promotions({{name='Candidate',guid=A,rank='Initiate',rankIndex=9,status='verified'}},held.q,e.NOW)
+ local d=details.byGuid[A];local b=held.buttons()[2].promote;local before=held.syncs
+ check(reason..' selected cause is visible ahead of old discovery supersession',d and d.reason==current.selection.reason and d.label~='Superseded (last loaded)')
+ b:Click();local refresh=reason=='native-roster-changed-or-expired'or reason=='selection-admission-expired'or reason=='native-rank-scheme-unconfirmed'
+ check(reason..' only refreshable read failure can create a new Check',refresh and b:GetText()=='Check'and held.syncs==before+1 and e.OlympusVerifyDB.launchControl.id~=oldControl.id or not refresh and not b:IsEnabled()and held.syncs==before)
+ check(reason..' retains old selected result and signed control and no effects',same(data,selectedImage)and same(oldControl,oldImage)and held.clicks==0 and held.direct==0)
+end
 for _,kind in ipairs({'held','risk'})do
  local held,A,B,page=setup();page.promotions={page.promotions[1]}
  if kind=='held'then page.held={{name='Other Candidate',guid=B,reason='discord-entitlement-unknown'}}

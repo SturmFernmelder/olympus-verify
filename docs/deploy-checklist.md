@@ -2,6 +2,36 @@
 
 > Current qualification policy: the owner permanently retired full-suite marathons, historical static-source projection pins and throwaway operator control loops on 10 November 2026. [Release qualification](release-qualification.md) supersedes all older testing instructions below. Dated evidence remains history; runtime/privacy/identity and deployment authority are preserved.
 
+## Build .285 — guarded verification recovery (candidate, 16 November 2026)
+
+The role audit can focus on current native members, disclose a closed hold
+reason and review an old uncertain operation through a separate grants-only
+starting point. Original receipts stay unchanged. A new ordinary PUT's own
+completed 403/404/429 response can establish no-effect; old unknowns cannot.
+Manual roles and later departure removals remain attended for an adopted
+account. Exact source, identity, privacy, standing and provider guards remain.
+
+New attended stored-whisper claims and genuinely new delayed normal intake
+share original signed-time/request validation and atomic neutral identity
+issuance. Stored mail and unsupported identity histories stay held. No old
+upload is replayed. The addon/Watcher selected Initiate-to-Member check can
+obtain fresh advice after stopped discovery without clearing an unresolved
+native attempt. See [verification recovery](verification-recovery285.md).
+
+Qualification remains pending on the final frozen commit/tree: bounded four
+Workerd targets, new genuine recovery/refusal/intake cases and measured D1
+limits, all offline Lua plus 1,000-member benchmark, complete required-Lua
+Watcher suite, production bundle, package/policy parity and required Linux CI.
+Actual external Claude and Root must both sign that exact candidate.
+
+Root alone then takes and locally restores/checks a fresh production D1
+backup, preserves the current catalogue including audit_reconcile266, performs
+the authorized squash merge/main CI/exact-commit deployment, 92 public probes,
+first healthy cron, guarded RT-16 and native installation/round trips. Safe
+attended link/role corrections and visible promotion tests require fresh
+action-time source evidence. This entry does not claim a live deployment or
+native acceptance. Rollback restores reviewed code, never old receipts/data.
+
 
 > **Historical record, not the current procedure.** This file is the build-by-build log since September 2026, kept as
 > written. Its opening lines and the undated sections "Already filled in `worker/wrangler.toml`" and "Your part" record

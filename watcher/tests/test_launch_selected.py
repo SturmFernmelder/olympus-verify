@@ -71,6 +71,32 @@ class SelectedReads(unittest.TestCase):
         self.clock=max(self.clock,self.selected.next_at)
         return self.selected.step(transport,self.clock)
 
+    def test_fixed_policy_and_rank_holds_remain_distinct_stopped_observations(self):
+        for reason in ('directive-rank-policy-held', 'native-rank-scheme-unconfirmed',
+                       'flagship-native-scope-unconfirmed', 'native-secret-unconfigured',
+                       'selection-source-not-current', 'native-snapshot-unavailable',
+                       'promotion-actor-unconfirmed', 'native-identity-ambiguous', 'entitlement-expired',
+                       'native-snapshot-changed', 'launch-page-verification-changed',
+                       'selection-read-expired', 'launch-read-window-exhausted'):
+            with self.subTest(reason=reason):
+                self.setUp()
+                response = self.reply()
+                response['page'].update(status='held', promotions=[], invites=[], riskBuffer=[], held=[], heldReasons=[reason])
+                response['coveredGuids'] = []
+                original = copy.deepcopy(self.control)
+                self.tick(self.call((True, response)))
+                self.assertEqual(self.selected.record['stoppedReason'], reason)
+                self.assertFalse(self.selected.running)
+                self.assertFalse(self.selected.record['completed'])
+                self.assertIsNone(self.selected.record['page'])
+                self.clock += 10
+                self.tick(self.call())
+                self.assertEqual(len(self.calls), 1)
+                self.assertEqual(self.control, original)
+                rendered = launch.render_selected(self.selected.record, int(self.clock))
+                self.assertIsNotNone(rendered)
+                self.assertEqual(savedvars.parse(rendered)['OlympusLaunchSelected']['stoppedReason'], reason)
+
     def test_control_v4_exact_mac_actor_target_clock_and_legacy_separation(self):
         args=('synthetic-secret',self.control,self.at,self.control['guid'],'OLYMPUS PRIME','Native Realm')
         self.assertTrue(launch.validate_selected_control(*args))

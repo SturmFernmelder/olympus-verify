@@ -1,6 +1,6 @@
-import { nativeMembershipSourceSql, nativeMembershipSourceMatches, qualifiedNativeSnapshotSource, nativeRankTableFromSource, nativeRankSchemeForCanonical, type NativeRankScheme } from './native-rank-schemes';
+import { nativeMembershipSourceSql, nativeMembershipSourceMatches, qualifiedNativeSnapshotSource, nativeRankTableFromSource, nativeRankSchemeForCanonical, nativeRankSchemeByProfile, STEWARD_NATIVE_PROFILE, STEWARD_RANK_DIGEST, type NativeRankScheme } from './native-rank-schemes';
 import { sealPromotionIntent, readPromotionIntent, continuationAdmitted, type PromotionIntent } from './promotion-intent-directive';
-import { captureCanonicalRankConfig233, currentDirectiveCanonicalPolicy233 } from './canonical-ranks233';
+import { captureCanonicalRankConfig233, currentDirectiveCanonicalPolicy233, currentOriginalCanonicalPolicy233, canonicalNativeRole233 } from './canonical-ranks233';
 /** Read-only launch operations view. Existing Native roster/links; no new storage or queue writes. */
 import type { Env } from './env';
 import { linksNotBefore, now } from './db';
@@ -38,7 +38,9 @@ const GUID273=/^Player-\d{1,6}-[0-9A-Fa-f]{4,16}$/;
 class LaunchCursor229 extends Error { constructor(readonly code: string, readonly status = 400) { super(code); } }
 const hex = (bytes: ArrayBuffer) => Array.from(new Uint8Array(bytes), n => n.toString(16).padStart(2, '0')).join('');
 const digest229 = async (value: string) => hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)));
-const held229 = (at: number, reason: string) => {const dto = projectLaunchOperations229(null, [], new Map(), at, at + LAUNCH_ROLE_TTL229); dto.heldReasons.push(reason); return dto;};
+// The empty projector has no source to inspect. Its placeholder rank/snapshot
+// failures must not mask the actual reason this reader stopped.
+const held229 = (at: number, reason: string) => {const dto = projectLaunchOperations229(null, [], new Map(), at, at + LAUNCH_ROLE_TTL229); dto.heldReasons = [reason]; return dto;};
 const bytes229 = (value: string) => new Uint8Array(value.match(/../g)!.map(n => parseInt(n, 16)));
 function encoded229(value: string) { return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 function secret229(env: Env): string | null { const d=Object.getOwnPropertyDescriptor(env,'VERIFY_SECRET');return d&&Object.hasOwn(d,'value')&&typeof d.value==='string'&&d.value?d.value:null; }
@@ -186,11 +188,21 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
   const rankPolicy=captureCanonicalRankConfig233(env);
   const batch=selection&&'targetGuids' in selection?selection:null,single=selection&&!('targetGuids' in selection)?selection:null;
   if(launch.mode!=='members-only'||!launch.scope||!launch.current()||canonicalOlympusGuildName(launch.scope.guild)!==FLAGSHIP_GUILD_NAME)return held229(at,'flagship-native-scope-unconfirmed');
-  if(!currentDirectiveCanonicalPolicy233(rankPolicy.policy)||!rankPolicy.current())return held229(at,'directive-rank-policy-held');
-  const scheme=nativeRankSchemeForCanonical(rankPolicy.policy.profile)!;
+  // The serving v1 policy already maps these exact native tuples to Initiate
+  // and Member. Its one-step selected reader is deliberately narrower than a
+  // Directive policy: reviewed Steward source only, no continuation/Veteran or
+  // other native ranks, and no discovery/legacy selected-route activation.
+  const originalMemberSelection=!!directive&&!!batch&&directive.confirmations.length===0
+    &&currentOriginalCanonicalPolicy233(rankPolicy.policy)&&rankPolicy.current()
+    &&canonicalNativeRole233(rankPolicy.policy,9,'Initiate')?.key==='initiate'
+    &&canonicalNativeRole233(rankPolicy.policy,8,'Member')?.key==='member';
+  if(!currentDirectiveCanonicalPolicy233(rankPolicy.policy)&&!originalMemberSelection||!rankPolicy.current())return held229(at,'directive-rank-policy-held');
+  const scheme=originalMemberSelection?nativeRankSchemeByProfile(STEWARD_NATIVE_PROFILE,STEWARD_RANK_DIGEST)!
+    :nativeRankSchemeForCanonical(rankPolicy.policy!.profile)!;
   const lineage=captureRosterLineage275(env,launch);
   if(!secret)return held229(at,'native-secret-unconfigured');
   const configuration=roleConfiguration229(env);
+  if(originalMemberSelection&&configuration?.guild!==rankPolicy.policy!.guildId)return held229(at,'directive-rank-policy-held');
   const roleSecret271=configuration?JSON.stringify(['officer-role-cursor',271,secret,configuration.guild,configuration.token]):null;
   const roleSecret272=configuration?JSON.stringify(['officer-role-cursor',272,secret,configuration.guild,configuration.token]):null;
   const selectionSecret=configuration?JSON.stringify(['promotion-selection-cursor',batch?276:273,secret,configuration.guild,configuration.token]):null;
@@ -201,10 +213,12 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
   if(!nativeRankTable||rows.some(row=>!Number.isInteger(row.currentSlot)||row.currentSlot===null||row.currentSlot<0||row.currentSlot>9||row.rank!==nativeRankTable.names[row.currentSlot]))return held229(at,'native-rank-scheme-unconfirmed');
   if(selection&&(selection.snapshotId!==first.snapshotId||selection.snapshotAt!==first.snapshotAt))throw new LaunchCursor229('selection_native_source_changed',409);
   const requested=batch?batch.targetGuids:single?[single.targetGuid]:[];
-  if(directive && (!rows.some(row=>row.guid===directive.actorGuid&&row.currentSlot!==null&&row.currentSlot<scheme.veteran&&scheme.names[row.currentSlot]===row.rank)
+  if(directive && (!rows.some(row=>row.guid===directive.actorGuid&&row.currentSlot!==null&&row.currentSlot<scheme.veteran&&scheme.names[row.currentSlot]===row.rank
+    &&(!originalMemberSelection||!!canonicalNativeRole233(rankPolicy.policy!,row.currentSlot,row.rank)))
     ||requested.includes(directive.actorGuid)))return held229(at,'promotion-actor-unconfirmed');
   const matches=requested.map(guid=>rows.flatMap((row,index)=>row.guid===guid?[index]:[]));
   if(selection&&matches.some(indices=>indices.length!==1))return held229(at,'selected-target-unavailable');
+  if(originalMemberSelection&&matches.some(indices=>rows[indices[0]!]!.currentSlot!==9||rows[indices[0]!]!.rank!=='Initiate'))return held229(at,'directive-rank-policy-held');
   const selectedIndices=matches.map(indices=>indices[0]!);
   const legacy=captured?.version===1||captured?.version===2||!roleSecret272;
   const scopeHash=(await digest229('native-scope|1|'+launch.scope.guild+'|'+launch.scope.realm)).slice(0,16),nativeDigest=await digest229(JSON.stringify(nativeRows272(rows)));
@@ -295,6 +309,12 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
   if(readWindowHeld)return held229(now(),'launch-read-window-exhausted');
   const project=selection?projectSelectedPromotions274:projectLaunchOperations229;
   const dto=project({snapshotId:first.snapshotId,snapshotAt:first.snapshotAt,memberCount:first.memberCount,guild:launch.scope.guild,realm:launch.scope.realm,scopeHash,nativeRankTable},rows,states,now(),expiresAt);
+  if(originalMemberSelection){
+    // Unknown Discord replies remain unknown. A Knight's Veteran proposal is
+    // still outside v1's selected subset, never downgraded into a Member intent.
+    for(const row of dto.promotions)if(row.currentSlot!==9||row.targetSlot!==8||row.reason!=='verified-initiate')dto.held.push({guid:row.guid,name:row.name,reason:'directive-rank-policy-held'});
+    dto.promotions.splice(0,dto.promotions.length,...dto.promotions.filter(row=>row.currentSlot===9&&row.targetSlot===8&&row.reason==='verified-initiate'));
+  }
   dto.scan={id:scanId,startedAt:issuedAt,expiresAt:scanExpiresAt};
   const pageGuids=new Set(page.map(row=>row.guid));
   // Page every native row, not just linked accounts: risk/held data stays bounded

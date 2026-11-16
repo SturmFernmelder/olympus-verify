@@ -79,6 +79,14 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".285", date: "2026-11-16", lines: [
+      "The officers' addon (Verify 0.6.40, Watcher 0.6.41) can now run a fresh Check for verified Initiates. Promotion to Member still needs a current recommendation and a separate officer click in game. Old attempts stay recorded.",
+      "The staff page compares Discord roles with current guild links and shows why checks are on hold. An old role change with an unknown result can receive a separate starting point without being replayed. After that decision, new grants need their own checks and existing rank-role removals stay manual for that account. Bans, erased accounts and undoing the bot's own new grant still follow their existing rules.",
+      "Staff can now review a stored verification whisper against its original code request and a fresh guild roster. Earlier uploads are not changed. A verification mail stays on hold when the sending character cannot be confirmed.",
+      "A newly recorded delayed whisper can establish a first character link using its signed send time, original code request and a fresh guild roster. Refreshing an existing link still needs a new code and a Sync within ten minutes. Earlier rejected or uncertain uploads are not sent again automatically.",
+    ],
+  },
+  {
     build: ".283", date: "2026-11-15", lines: [
       "Verify 0.6.39 and Watcher 0.6.40 identify the Steward rank table. Promotion buttons still need the separately reviewed policy activation and fresh evidence; old attempts stay preserved.",
       "Admins can compare live Discord roles and preview the inactive Steward mapping. Activation needs reviewed effects; corrections keep holds on manual roles and unknown outcomes.",
