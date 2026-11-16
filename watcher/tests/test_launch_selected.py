@@ -72,7 +72,12 @@ class SelectedReads(unittest.TestCase):
         return self.selected.step(transport,self.clock)
 
     def test_fixed_policy_and_rank_holds_remain_distinct_stopped_observations(self):
-        for reason in ('directive-rank-policy-held', 'native-rank-scheme-unconfirmed'):
+        for reason in ('directive-rank-policy-held', 'native-rank-scheme-unconfirmed',
+                       'flagship-native-scope-unconfirmed', 'native-secret-unconfigured',
+                       'selection-source-not-current', 'native-snapshot-unavailable',
+                       'promotion-actor-unconfirmed', 'native-identity-ambiguous', 'entitlement-expired',
+                       'native-snapshot-changed', 'launch-page-verification-changed',
+                       'selection-read-expired', 'launch-read-window-exhausted'):
             with self.subTest(reason=reason):
                 self.setUp()
                 response = self.reply()

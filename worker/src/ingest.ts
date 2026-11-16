@@ -32,7 +32,8 @@ function queueMutation(env:Env,row:CapturedQueue,set:string,values:unknown[]):D1
     .bind(...values,row.id,row.discord_id,row.name_key,row.name,row.created_at,row.status,row.attempts,row.retry_after,row.last_reason,
       row.claimed_by,row.claimed_at,row.last_reason_at,row.note,row.written_at,row.invited_at,row.joined_at,row.approved_by,row.priority);
 }
-function pendingFingerprintFence(env:Env,p:PendingRow,identity?:IdentityIntent280):D1PreparedStatement {
+type RetainedForwardFence285=Readonly<{keys:string;sql:(parameter:number)=>string}>;
+function pendingFingerprintFence(env:Env,p:PendingRow,identity?:IdentityIntent280,retained?:RetainedForwardFence285|null):D1PreparedStatement {
   const original=identity?identityIntents280.get(identity):null;if(identity&&!original)consumed230Held();original?.check();
   // The same original guard precedes every business write. An already linked
   // row may keep its old source and may have its GUID updated by this batch;
@@ -42,10 +43,16 @@ function pendingFingerprintFence(env:Env,p:PendingRow,identity?:IdentityIntent28
     WHERE c.name_key=?8 AND c.name=?9 AND c.discord_id=?10 AND c.guid IS ?11 AND c.status=?12
     AND c.bound_at IS ?13 AND typeof(c.bound_at)=?19 AND c.verified_at IS ?14 AND typeof(c.verified_at)=?20
     AND c.source IS ?15 AND hs.generation IS ?16 AND hs.state IS ?17 AND hs.revision IS ?18)`:'';
+  const values:(string|number|null)[]=[p.id,p.discord_id,p.created_at,p.name_key,p.name,p.expires_at,p.nonce??null,...(holder??[])];
+  // Denial only: a retained original intake decision can never be bypassed by
+  // switching to an older intake or direct verifier route. Recheck in this same
+  // transaction, rather than trusting a preflight read across provider awaits.
+  const retainedGuard=retained?' AND NOT('+retained.sql(values.length+1)+')':'';
+  if(retained)values.push(retained.keys);
   return env.DB.prepare(`SELECT CASE WHEN EXISTS(SELECT 1 FROM pending WHERE id=?1 AND discord_id=?2
     AND created_at=?3 AND name_key=?4 AND name=?5 AND expires_at=?6 AND nonce IS ?7 AND consumed_at IS NULL
-    AND expires_at>CAST(strftime('%s','now') AS INTEGER))${binding} THEN 1 ELSE json_extract('privacy_pending_proof_refused','$') END AS admitted`)
-    .bind(p.id,p.discord_id,p.created_at,p.name_key,p.name,p.expires_at,p.nonce??null,...(holder??[]));
+    AND expires_at>CAST(strftime('%s','now') AS INTEGER))${binding}${retainedGuard} THEN 1 ELSE json_extract('privacy_pending_proof_refused','$') END AS admitted`)
+    .bind(...values);
 }
 function bindWatcher(env:Env,subject:string,capture:PrivacySubject|null,context:WatcherCapture):Env {
   context.references.push({subject,capture});
@@ -319,6 +326,10 @@ export function playerGuid(v: unknown): string | null {
   return g && /^Player-\d{1,6}-[0-9A-Fa-f]{4,16}$/.test(g) ? g : null;
 }
 
+const retainedForwardResponses285=new WeakSet<Response>();
+/** Deny-only original-response metadata. No caller field can suppress or create
+ * a role request, and this marker provides no identity/effect authority. */
+export function isRetainedForwardVerificationReply285(response:Response):boolean{return retainedForwardResponses285.has(response);}
 export async function postVerify(env: Env, body: VerifyIn,originalDispatch?:BetaRoleDispatch): Promise<Response> {
   const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
   const launch = captureLaunchVerification(env);
@@ -399,6 +410,12 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
     return json({ result: "no_pending" });
   }
   if(privacyCapture && privacyCapture.state!=='active')return json({result:'privacy_held'},409);
+  let retainedForward:RetainedForwardFence285|null=null;
+  if(launch.mode==='members-only'&&body.nativeMembership){
+    const ledger=await import('./site-late-proof285');
+    const proofKey=await ledger.retainedForwardProofKey285(name,playerGuid(body.guid),code,body.nativeMembership);
+    if(proofKey)retainedForward=Object.freeze({keys:JSON.stringify([proofKey]),sql:ledger.retainedForwardProofSql285});
+  }
   // A ban closes the account's open requests (/olympus-admin ban), but a code whispered in the moment before the ban,
   // or a request opened by an older build, must not link anything either.
   // Known standing refusals are not an uncertain consuming batch. Keep the
@@ -406,9 +423,12 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
   // These scalar facts replace the former member-only read at the same cost.
   const account = await env.DB.prepare(`SELECT (SELECT banned FROM members WHERE discord_id=?1) AS banned,
     EXISTS(SELECT 1 FROM site_users WHERE discord_id=?1 AND denied=1) AS denied,
-    EXISTS(SELECT 1 FROM rename_holds WHERE discord_id=?1 AND state='reapply') AS rename_held`)
-    .bind(pending.discord_id).first<{banned:number|null;denied:number;rename_held:number}>();
+    EXISTS(SELECT 1 FROM rename_holds WHERE discord_id=?1 AND state='reapply') AS rename_held,
+    ${retainedForward?retainedForward.sql(2):'0'} AS forward_retained`)
+    .bind(pending.discord_id,...(retainedForward?[retainedForward.keys]:[])).first<{banned:number|null;denied:number;rename_held:number;forward_retained:number}>();
   if(!account)return json({result:'outcome_unknown'},503);
+  if(account.forward_retained===1){const response=json({result:'forward_original_retained',pendingConsumed:false,roleGranted:false,inviteQueued:false});retainedForwardResponses285.add(response);return response;}
+  if(account.forward_retained!==0)return json({result:'outcome_unknown'},503);
   if (account?.banned) {
     await closeRequest(env, pending, "banned");
     await audit(env, "watcher", "verify.banned", name, { discordId: pending.discord_id, source: body.source, ticket },reference);
@@ -451,7 +471,7 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
     // A lost/changed Native result is unknown, never acknowledged as a refusal.
     try{
       const restriction=launchContradictionRestriction(env,launch,nativeMembership,onRoster,nameKey);
-      const refused=await admittedPrivacySubjectWrite(env,pending.discord_id,privacyCapture,[pendingFingerprintFence(env,pending),
+      const refused=await admittedPrivacySubjectWrite(env,pending.discord_id,privacyCapture,[pendingFingerprintFence(env,pending,undefined,retainedForward),
         env.DB.prepare(`UPDATE pending SET consumed_at=?8,consumed_source='membership_refused' WHERE id=?1 AND discord_id=?2
           AND created_at=?3 AND name_key=?4 AND name=?5 AND expires_at=?6 AND nonce IS ?7 AND consumed_at IS NULL RETURNING id`)
           .bind(pending.id,pending.discord_id,pending.created_at,pending.name_key,pending.name,pending.expires_at,pending.nonce??null,now()),...(restriction?[restriction]:[])]);
@@ -537,7 +557,7 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
   let allDone:D1Result[];
   if (!launch.current()) return json({ result: 'verification_configuration_held', roleGranted: false, inviteQueued: false, pendingConsumed: false }, 503);
   try {
-    const guards=[pendingFingerprintFence(env,pending,identityIntent280),...(launchSource?[launchMembershipFence(env,launchSource)]:[])];
+    const guards=[pendingFingerprintFence(env,pending,identityIntent280,retainedForward),...(launchSource?[launchMembershipFence(env,launchSource)]:[])];
     allDone = await admittedPrivacySubjectWrite(env,pending.discord_id,privacyCapture,[...guards,...stmts]);
   } catch {
     // A competing relay or account closure can refuse the original consuming proof. Read only

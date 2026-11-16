@@ -3,7 +3,8 @@
 // answered by the local test host.
 import {handleSiteRoleAudit283,classifyRoleAudit283,ROLE_AUDIT_PAGE283,ROLE_AUDIT_FOCUSED_PAGE285} from '../src/site-role-audit283.ts';
 import {currentUser,originalUserSession,b64u} from '../src/site-core.ts';
-import {privacyBoundSiteEnv,privacyBoundSiteRoleActionEnv,privacyProviderCustodyDatabase} from '../src/privacy-serving-authority.ts';
+import {privacyBoundSiteEnv,privacyBoundSiteRoleActionEnv,privacyProviderCustodyDatabase,PRIVACY_YEAR} from '../src/privacy-serving-authority.ts';
+import {accountAuditAttributionSql280} from '../src/tithe-erased-replay280.ts';
 import {captureRoutineMembership232,closeRoutineMembership232,routineMembership232Facts,routineMembership232Predicate,routineMembership232AttendedRoleMatches} from '../src/routine-membership-authority232.ts';
 import {rest} from '../src/discord.ts';
 import worker from '../src/index.ts';
@@ -14,10 +15,11 @@ import {NATIVE_SCOPE232,SHARED_MEMBER232,NATIVE_GUILD232} from '../src/native-ra
 import {STEWARD_CANONICAL_PROFILE,STEWARD_RANK_NAMES,NATIVE_RANK_SCHEMES,qualifiedNativeSnapshotSource} from '../src/native-rank-schemes.ts';
 import {SHARED_MEMBER230_CONTRACT,SHARED_MEMBER230_SEAL_PREFIX,sharedMember230SHA256} from '../src/shared-membership-cutover230.ts';
 import {reconcileRoleBatch242} from '../src/role-reconcile242.ts';
+import {attendedPutRefusalRetry285} from '../src/site-role-put-refusal-retry285.ts';
 import {handleSiteRoleBaseline285,captureRoleGrantBaseline285,roleGrantBaselineFacts285,roleGrantBaselinePredicate285} from '../src/role-baseline285.ts';
 const ADMIN='800000000000000001',SECOND_ADMIN='800000000000000002',BASE=800000000000001000n,EPOCH='a'.repeat(32),BIRTH='b'.repeat(32),SECOND_BIRTH='c'.repeat(32),SECRET='synthetic-role-audit-cookie',ROLE=CANONICAL_RANKS233[9].roleId;
-let config,rawDB,physical=0,wires=[],ready=false,savedExport=null,savedAlt=null;const effects=new Map();
-const baselineCaps=new Map(),baselineOld=new Map(),baselineActorBirth=new Map(),baselineCookies=new Map();let baselineAppendRace=null,baselineReadRace=null;
+let config,rawDB,physical=0,wires=[],ready=false,savedExport=null,savedAlt=null,retryFenceRace285=null;const effects=new Map();
+const baselineCaps=new Map(),baselineOld=new Map(),baselineActorBirth=new Map(),baselineCookies=new Map();let baselineAppendRace=null,baselineReadRace=null,baselineGrantRace=null,baselineGrantRaceObserved=null,baselineAdmins=[];
 const method=(o,k)=>{for(let p=o;p;p=Object.getPrototypeOf(p)){const d=Object.getOwnPropertyDescriptor(p,k);if(d)return d.value;}throw Error('fixture method missing');};
 const h=n=>n.toString(16).padStart(32,'0');
 async function setup(db,layout='canonical',adminId=ADMIN,lateFinal=null){
@@ -65,7 +67,11 @@ async function setup(db,layout='canonical',adminId=ADMIN,lateFinal=null){
  Object.defineProperty(fetcher,'fetch',{configurable:true,value:async function(input,init){
   const packets=JSON.parse(init.body);physical+=Array.isArray(packets)?packets.length:1;
   const originalPackets=Array.isArray(packets)?packets:[packets];
+  if(retryFenceRace285&&originalPackets.some(p=>p.sql?.includes(' AS current')&&p.sql?.includes('COUNT(*) FROM role_settlements r JOIN json_each'))){if(--retryFenceRace285.remaining===0){const race=retryFenceRace285;retryFenceRace285=null;await baselineMutation285({slot:race.slot,kind:race.kind});}}
   if(baselineAppendRace&&originalPackets.some(p=>p.sql?.startsWith('INSERT INTO audit(id,ts,actor,action,subject,details)')&&p.sql.includes('role.baseline285_adopted'))){const race=baselineAppendRace;baselineAppendRace=null;await baselineMutation285(race);}
+  if(baselineGrantRace&&originalPackets.some(p=>/\)\s+SELECT 1 FROM role_settlements WHERE/.test(p.sql||'')&&(p.sql||'').includes("state='dispatching'")&&(p.sql||'').includes('claim_nonce')&&p.params?.[1]===baselineSubject285(baselineGrantRace.slot)&&p.params?.[9]===1)){
+   const race=baselineGrantRace;baselineGrantRace=null;baselineGrantRaceObserved={slot:race.slot,phase:'before_real_final_put_fence',at:Math.floor(Date.now()/1000)};await baselineMutation285({slot:race.slot,kind:'new-unknown'});
+  }
   const response=await Reflect.apply(send,fetcher,[input,init]),responseText=await response.clone().text();wires.push({request:packets,status:response.status,response:responseText});
   if(baselineReadRace&&originalPackets.some(p=>p.sql?.includes(' AS oldCount')&&p.sql?.includes(' AS findingsJSON')&&p.params?.[0]===baselineSubject285(baselineReadRace.slot))){
    // Keep the real admitted response. Change the older adopter after its READ
@@ -90,8 +96,8 @@ async function setup(db,layout='canonical',adminId=ADMIN,lateFinal=null){
   return response;
  }});ready=true;
 }
-async function cookie(adminId=ADMIN,expiresAt=Math.floor(Date.now()/1000)+3600){
- const body=b64u(new TextEncoder().encode(JSON.stringify({u:adminId,v:1,e:expiresAt,g:null,n:baselineActorBirth.get(adminId)??(adminId===SECOND_ADMIN?SECOND_BIRTH:BIRTH)})));
+async function cookie(adminId=ADMIN,expiresAt=Math.floor(Date.now()/1000)+3600,version=1){
+ const body=b64u(new TextEncoder().encode(JSON.stringify({u:adminId,v:version,e:expiresAt,g:null,n:baselineActorBirth.get(adminId)??(adminId===SECOND_ADMIN?SECOND_BIRTH:BIRTH)})));
  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode('olympus-site/session-incarnation-v1|'+SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']);
  return '__Host-olg='+body+'.'+b64u(new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(body))));
 }
@@ -106,7 +112,7 @@ async function shortOriginalPreview(env,user,token,seconds=5){
  const iv=crypto.getRandomValues(new Uint8Array(12)),sealed='1.'+b64u(iv)+'.'+b64u(new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:new TextEncoder().encode(binding)},key,new TextEncoder().encode(JSON.stringify(value)))));
  return {token:sealed,expiresAt:value.expiresAt};
 }
-function baselineSubject285(slot=2){if(!Number.isSafeInteger(slot)||slot<0||slot>39)throw Error('baseline_fixture_slot');return String(BASE+BigInt(slot));}
+function baselineSubject285(slot=2){if(!Number.isSafeInteger(slot)||slot<0||slot>95)throw Error('baseline_fixture_slot');return String(BASE+BigInt(slot));}
 const baselineActor285=slot=>slot<4?ADMIN:String(800000000000000010n+BigInt(Math.floor(slot/4)-1));
 async function baselineMutation285(spec){
  const subject=baselineSubject285(spec.slot),t=Math.floor(Date.now()/1000);
@@ -117,13 +123,36 @@ async function baselineMutation285(spec){
  if(spec.kind==='privacy'||spec.kind==='generation')await config.DB.prepare("INSERT INTO privacy_subjects(subject_id,generation,state,revision,created_at,updated_at)VALUES(?1,?2,?3,0,?4,?4)").bind(subject,'e'.repeat(32),spec.kind==='privacy'?'retiring':'active',t).run();
  if(spec.kind==='actor-denied')await config.DB.prepare('UPDATE site_users SET denied=1 WHERE discord_id=?1').bind(spec.actor??baselineActor285(spec.slot)).run();
  if(spec.kind==='actor-version')await config.DB.prepare('UPDATE site_users SET session_version=2 WHERE discord_id=?1').bind(spec.actor??baselineActor285(spec.slot)).run();
+ if(spec.kind==='actor-left')await config.DB.prepare('UPDATE site_users SET in_server=0 WHERE discord_id=?1').bind(spec.actor??baselineActor285(spec.slot)).run();
+ if(spec.kind==='actor-generation')await config.DB.prepare("INSERT INTO privacy_subjects(subject_id,generation,state,revision,created_at,updated_at)VALUES(?1,?2,'active',0,?3,?3)").bind(spec.actor??baselineActor285(spec.slot),'6'.repeat(32),t).run();
  if(spec.kind==='actor-incarnation'){
   const actor=spec.actor??baselineActor285(spec.slot);
   // The genuine schema refuses changing an incarnation in place. Recreate the
   // synthetic account through DELETE+INSERT; no trigger is replaced/disabled.
   await config.DB.batch([config.DB.prepare('DELETE FROM site_users WHERE discord_id=?1').bind(actor),config.DB.prepare('INSERT INTO site_users(discord_id,username,first_login,last_login,checked_at,in_server,denied,session_version,account_incarnation)VALUES(?1,?2,?3,?3,?3,1,0,1,?4)').bind(actor,'Recreated synthetic admin',t,'f'.repeat(32))]);
  }
- if(spec.kind==='actor-restore')await config.DB.prepare('UPDATE site_users SET denied=0,session_version=1 WHERE discord_id=?1').bind(spec.actor??baselineActor285(spec.slot)).run();
+ if(spec.kind==='actor-restore')await config.DB.prepare('UPDATE site_users SET denied=0,in_server=1,session_version=1 WHERE discord_id=?1').bind(spec.actor??baselineActor285(spec.slot)).run();
+ if(spec.kind==='target-banned')await config.DB.prepare('UPDATE members SET banned=1 WHERE discord_id=?1').bind(subject).run();
+ if(spec.kind==='target-denied')await config.DB.prepare("INSERT INTO site_users(discord_id,username,first_login,last_login,in_server,denied,session_version,account_incarnation)VALUES(?1,'Synthetic denied target',?2,?2,1,1,1,?3) ON CONFLICT(discord_id)DO UPDATE SET denied=1").bind(subject,t,h(BigInt(subject))).run();
+ if(spec.kind==='target-rename')await config.DB.prepare("INSERT INTO rename_holds(discord_id,old_name,new_name,char_key,nonce,state,decided_by,decided_at)VALUES(?1,'Synthetic old','Synthetic new',?2,?3,'reapply',?4,?5)").bind(subject,'synthetic '+spec.slot,h(8000+spec.slot),ADMIN,t).run();
+ if(spec.kind==='target-restore')await config.DB.batch([config.DB.prepare('UPDATE members SET banned=0 WHERE discord_id=?1').bind(subject),config.DB.prepare('UPDATE site_users SET denied=0 WHERE discord_id=?1').bind(subject),config.DB.prepare("DELETE FROM rename_holds WHERE discord_id=?1 AND state='reapply'").bind(subject)]);
+ if(spec.kind==='erase-finding')await config.DB.prepare(`DELETE FROM audit WHERE ${accountAuditAttributionSql280('audit')}`).bind(subject).run();
+ if(spec.kind==='entitlements'){
+  const value=spec.clear?null:spec.invalid?'{"version":1}':JSON.stringify({version:1,profile:CANONICAL_PROFILE233,guildId:NATIVE_GUILD232,packetSHA256:'1'.repeat(64),entries:spec.entries});
+  if(value===null)delete config.CANONICAL_ENTITLEMENTS233;else config.CANONICAL_ENTITLEMENTS233=value;
+  for(const saved of baselineCaps.values()){if(value===null)delete saved.env.CANONICAL_ENTITLEMENTS233;else saved.env.CANONICAL_ENTITLEMENTS233=value;}
+ }
+ if(spec.kind==='irrelevant-findings'){
+  const rows=Array.from({length:9},(_,i)=>config.DB.prepare("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?1,?2,'role.baseline285_adopted',?3,?4)").bind(t,baselineActor285(spec.slot),subject,JSON.stringify({payload:{subject,generation:null,oldId:h(9000+i)}})));await config.DB.batch(rows);
+ }
+ if(spec.kind==='year-expired'||spec.kind==='year-near-end'){
+  // Synthetic historical record, signed with this fixture's own known key.
+  // The production DB clock is unchanged; no issuer or validator is replaced.
+  const a=await rawDB.prepare("SELECT id,details FROM audit WHERE action='role.baseline285_adopted' AND subject=?1 ORDER BY id DESC LIMIT 1").bind(subject).first(),d=JSON.parse(a.details),p=d.payload;
+  p.adoptedAt=t-PRIVACY_YEAR+(spec.kind==='year-near-end'?120:0);p.expiresAt=p.adoptedAt+PRIVACY_YEAR;p.snapshotAt=p.adoptedAt-1;
+  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode('olympus-role-grant-baseline285-v1\0finding\0'+SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']);d.signature=[...new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(JSON.stringify(p))))].map(n=>n.toString(16).padStart(2,'0')).join('');
+  await config.DB.prepare('UPDATE audit SET ts=?1,details=?2 WHERE id=?3').bind(p.adoptedAt,JSON.stringify(d),a.id).run();
+ }
  if(spec.kind==='old-nonce')await config.DB.prepare('UPDATE role_settlements SET claim_nonce=?1 WHERE id=?2').bind('7'.repeat(32),h(1000+spec.slot)).run();
  if(spec.kind==='too-young')await config.DB.prepare('UPDATE role_settlements SET created_at=?1,expires_at=?2 WHERE id=?3').bind(t-3600,t-3300,h(1000+spec.slot)).run();
  if(spec.kind==='identity-control')await config.DB.prepare("UPDATE role_settlements SET purpose='canonical_identity233',native_profile=?1,native_rank=8,native_rank_name='Member' WHERE id=?2").bind(CANONICAL_PROFILE233,h(1000+spec.slot)).run();
@@ -149,6 +178,10 @@ async function baselineMutation285(spec){
  if(spec.kind==='departure'){
   const prior=await config.DB.prepare('SELECT MAX(id)AS id FROM roster_snapshots').first(),id=prior.id+1,guid='Player-4613-'+(0x10000000+spec.slot).toString(16).toUpperCase();
   await config.DB.batch([config.DB.prepare("UPDATE characters SET status='left' WHERE discord_id=?1").bind(subject),config.DB.prepare('INSERT INTO roster_snapshots(id,exported_at,received_at,source,member_count,complete,trusted)SELECT ?1,?2,?2,source,member_count-1,complete,trusted FROM roster_snapshots WHERE id=?3').bind(id,t,prior.id),config.DB.prepare('INSERT INTO roster_members(snapshot_id,name_key,name,guid,rank,rank_index,level)SELECT ?1,name_key,name,guid,rank,rank_index,level FROM roster_members WHERE snapshot_id=?2 AND guid<>?3').bind(id,prior.id,guid)]);
+ }
+ if(spec.kind==='demotion'){
+  const prior=await config.DB.prepare('SELECT MAX(id)AS id FROM roster_snapshots').first(),id=prior.id+1,guid='Player-4613-'+(0x10000000+spec.slot).toString(16).toUpperCase();
+  await config.DB.batch([config.DB.prepare('INSERT INTO roster_snapshots(id,exported_at,received_at,source,member_count,complete,trusted)SELECT ?1,?2,?2,source,member_count,complete,trusted FROM roster_snapshots WHERE id=?3').bind(id,t,prior.id),config.DB.prepare('INSERT INTO roster_members(snapshot_id,name_key,name,guid,rank,rank_index,level)SELECT ?1,name_key,name,guid,CASE WHEN guid=?2 THEN ?3 ELSE rank END,CASE WHEN guid=?2 THEN 9 ELSE rank_index END,level FROM roster_members WHERE snapshot_id=?4').bind(id,guid,STEWARD_RANK_NAMES[9],prior.id)]);
  }
 }
 
@@ -227,21 +260,21 @@ export default {async fetch(request,bindings){
  const path=new URL(request.url).pathname;
  if(path==='/baseline285/setup'){
   await setup(bindings.DB,'recorded-live-pre-seal-20261017',ADMIN);const t=Math.floor(Date.now()/1000),rows=[];
-  const actors=[ADMIN,...Array.from({length:9},(_,i)=>String(800000000000000010n+BigInt(i)))];
+  const actors=[ADMIN,...Array.from({length:23},(_,i)=>String(800000000000000010n+BigInt(i)))];baselineAdmins=actors;
   for(const actor of actors.slice(1)){baselineActorBirth.set(actor,h(BigInt(actor)));rows.push(config.DB.prepare('INSERT INTO site_users(discord_id,username,first_login,last_login,checked_at,in_server,denied,session_version,account_incarnation)VALUES(?1,?2,?3,?3,?3,1,0,1,?4)').bind(actor,'Synthetic baseline admin',t,baselineActorBirth.get(actor)),config.DB.prepare('INSERT INTO members(discord_id)VALUES(?1)').bind(actor));}
-  for(let slot=20;slot<40;slot++){const subject=baselineSubject285(slot),guid='Player-4613-'+(0x10000000+slot).toString(16).toUpperCase();rows.push(config.DB.prepare('INSERT INTO members(discord_id)VALUES(?1)').bind(subject),config.DB.prepare("INSERT INTO characters(name_key,name,discord_id,status,bound_at,verified_at,source,guid)VALUES(?1,?2,?3,'member',?4,?4,'whisper',?5)").bind('synthetic '+slot,'Synthetic '+slot,subject,t-20,guid),config.DB.prepare("INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,attempts,request_digest,created_at,expires_at,checked_at,roster_id,native_guid,native_profile,native_rank,native_rank_name)VALUES(?1,?2,'canonical_identity233',?3,?4,1,'settled','canonical233_original_control_verified',0,?5,?6,?7,?8,1,?9,?10,8,'Member')").bind(h(slot+1),subject,NATIVE_GUILD232,ROLE,'c'.repeat(64),t-10,t+290,t-9,guid,CANONICAL_PROFILE233));}
+  for(let slot=20;slot<96;slot++){const subject=baselineSubject285(slot),guid='Player-4613-'+(0x10000000+slot).toString(16).toUpperCase();rows.push(config.DB.prepare('INSERT INTO members(discord_id)VALUES(?1)').bind(subject),config.DB.prepare("INSERT INTO characters(name_key,name,discord_id,status,bound_at,verified_at,source,guid)VALUES(?1,?2,?3,'member',?4,?4,'whisper',?5)").bind('synthetic '+slot,'Synthetic '+slot,subject,t-20,guid),config.DB.prepare("INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,attempts,request_digest,created_at,expires_at,checked_at,roster_id,native_guid,native_profile,native_rank,native_rank_name)VALUES(?1,?2,'canonical_identity233',?3,?4,1,'settled','canonical233_original_control_verified',0,?5,?6,?7,?8,1,?9,?10,8,'Member')").bind(h(slot+1),subject,NATIVE_GUILD232,ROLE,'c'.repeat(64),t-10,t+290,t-9,guid,CANONICAL_PROFILE233));}
   while(rows.length)await config.DB.batch(rows.splice(0,30));config.SITE_ADMINS=actors.join(',');
   // Keep an actual older source for the old claim and a distinct fresh source
   // for today's decision; an old claim is never attached to a future export.
   await config.DB.batch([config.DB.prepare('INSERT INTO roster_snapshots(id,exported_at,received_at,source,member_count,complete,trusted)SELECT 2,?1,?1,source,member_count,complete,trusted FROM roster_snapshots WHERE id=1').bind(t),config.DB.prepare('INSERT INTO roster_members(snapshot_id,name_key,name,guid,rank,rank_index,level)SELECT 2,name_key,name,guid,rank,rank_index,level FROM roster_members WHERE snapshot_id=1'),config.DB.prepare('UPDATE roster_snapshots SET exported_at=?1,received_at=?1 WHERE id=1').bind(t-90001)]);
-  for(let slot=0;slot<40;slot++)rows.push(config.DB.prepare("INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,attempts,claim_nonce,request_digest,created_at,expires_at,roster_id,native_guid,native_profile)VALUES(?1,?2,'launch_membership230',?3,?4,1,'dispatching','launch230_dispatching',1,?5,?6,?7,?8,1,?9,'prime-native-230')").bind(h(1000+slot),baselineSubject285(slot),NATIVE_GUILD232,ROLE,'8'.repeat(32),'9'.repeat(64),t-90000,t-89700,'Player-4613-'+(0x10000000+slot).toString(16).toUpperCase()));
-  while(rows.length)await config.DB.batch(rows.splice(0,30));for(let slot=0;slot<40;slot++)baselineOld.set(slot,await rawDB.prepare('SELECT * FROM role_settlements WHERE id=?1').bind(h(1000+slot)).first());
+  for(let slot=0;slot<96;slot++)rows.push(config.DB.prepare("INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,attempts,claim_nonce,request_digest,created_at,expires_at,roster_id,native_guid,native_profile)VALUES(?1,?2,'launch_membership230',?3,?4,1,'dispatching','launch230_dispatching',1,?5,?6,?7,?8,1,?9,'prime-native-230')").bind(h(1000+slot),baselineSubject285(slot),NATIVE_GUILD232,ROLE,'8'.repeat(32),'9'.repeat(64),t-90000,t-89700,'Player-4613-'+(0x10000000+slot).toString(16).toUpperCase()));
+  while(rows.length)await config.DB.batch(rows.splice(0,30));for(let slot=0;slot<96;slot++)baselineOld.set(slot,await rawDB.prepare('SELECT * FROM role_settlements WHERE id=?1').bind(h(1000+slot)).first());
   for(const actor of actors)baselineCookies.set(actor,await cookie(actor));
-  return Response.json({cookie:await cookie(),subject:baselineSubject285(2),admin:ADMIN,initiate:CANONICAL_RANKS233[11].roleId,member:ROLE,officer:CANONICAL_RANKS233[2].roleId,ranks:CANONICAL_RANKS233,pageLimit:ROLE_AUDIT_PAGE283,focusedPageLimit:ROLE_AUDIT_FOCUSED_PAGE285});
+  return Response.json({cookie:await cookie(),subject:baselineSubject285(2),admin:ADMIN,actors,privacyYear:PRIVACY_YEAR,initiate:CANONICAL_RANKS233[11].roleId,member:ROLE,officer:CANONICAL_RANKS233[2].roleId,ranks:CANONICAL_RANKS233,pageLimit:ROLE_AUDIT_PAGE283,focusedPageLimit:ROLE_AUDIT_FOCUSED_PAGE285});
  }
  if(path==='/baseline285/run'){
-  const spec=await request.json(),subject=baselineSubject285(spec.slot),before=physical,start=wires.length,env={...config,DISCORD_BOT_TOKEN:'baseline285-'+(spec.mode||'normal'),...(spec.blocking?{BLOCKING_ROLE_IDS:spec.blocking}:{})},method=spec.method||'GET';
-  const selectedActor=spec.actor??baselineActor285(spec.slot??2),req=new Request('https://guild.example/api/admin/role-baseline'+(method==='GET'?'?subject='+subject:''),{method,headers:{Cookie:spec.cookie||baselineCookies.get(selectedActor)||await cookie(selectedActor),Origin:spec.badOrigin?'https://elsewhere.invalid':'https://guild.example','X-Olympus':'2'}}),user=await currentUser(env,req);
+  const spec=await request.json(),subject=baselineSubject285(spec.slot),before=physical,start=wires.length,env={...config,DISCORD_BOT_TOKEN:'baseline285-'+(spec.mode||'normal'),...(spec.blocking?{BLOCKING_ROLE_IDS:spec.blocking}:{}),...(spec.nonAdmin?{SITE_ADMINS:ADMIN}:{})},method=spec.method||'GET';
+  const selectedActor=spec.actor??baselineActor285(spec.slot??2),version=spec.refreshCookie?(await rawDB.prepare('SELECT session_version FROM site_users WHERE discord_id=?1').bind(selectedActor).first()).session_version:1,requestCookie=spec.cookie||(spec.refreshCookie?await cookie(selectedActor,Math.floor(Date.now()/1000)+3600,version):baselineCookies.get(selectedActor)||await cookie(selectedActor)),req=new Request('https://guild.example/api/admin/role-baseline'+(method==='GET'?'?subject='+subject:''),{method,headers:{Cookie:requestCookie,Origin:spec.badOrigin?'https://elsewhere.invalid':'https://guild.example','X-Olympus':'2'}}),user=await currentUser(env,req);
   if(!user)return Response.json({status:401,result:{error:'signed_out'},statements:physical-before});
   const response=await handleSiteRoleBaseline285(req,privacyBoundSiteEnv(env,originalUserSession(user)),user,method==='POST'?{subject,previewToken:spec.token,confirm:spec.confirm??true}:{});
   const result=await response.json(),queries=wires.slice(start).flatMap(w=>Array.isArray(w.request)?w.request:[w.request]).map(s=>({sqlBytes:new TextEncoder().encode(s.sql||'').length,bindings:s.params?.length??0,kind:s.sql?.startsWith('INSERT INTO audit(id,ts,actor,action,subject,details)')?'baseline_append':'read_or_admission'}));
@@ -257,19 +290,62 @@ export default {async fetch(request,bindings){
   }catch(e){return Response.json({captured:false,held:String(e.message)});}finally{if(inherited)Reflect.deleteProperty(proto,'BLOCKING_ROLE_IDS');}
  }
  if(path==='/baseline285/arm-info-race'){const spec=await request.json();baselineReadRace={slot:spec.slot};return Response.json({armed:true});}
+ if(path==='/baseline285/arm-grant-race'){const spec=await request.json();baselineGrantRace={slot:spec.slot};baselineGrantRaceObserved=null;return Response.json({armed:true});}
+ if(path==='/baseline285/admins'){const spec=await request.json();config.SITE_ADMINS=(spec.actor?[spec.actor]:baselineAdmins).join(',');return Response.json({ok:true});}
  if(path==='/baseline285/mutate'){
   const spec=await request.json();if(spec.atAppend)baselineAppendRace={kind:spec.kind,slot:spec.slot};else await baselineMutation285(spec);return Response.json({ok:true});
  }
  if(path==='/baseline285/state'){
   const spec=await request.json(),subject=baselineSubject285(spec.slot),current=await rawDB.prepare('SELECT * FROM role_settlements WHERE id=?1').bind(h(1000+spec.slot)).first(),all=(await rawDB.prepare('SELECT * FROM role_settlements WHERE subject=?1 ORDER BY created_at,id').bind(subject).all()).results,audits=(await rawDB.prepare("SELECT * FROM audit WHERE action='role.baseline285_adopted' AND subject=?1 ORDER BY id").bind(subject).all()).results;
-  return Response.json({original:baselineOld.get(spec.slot),current,all,audits});
+  return Response.json({original:baselineOld.get(spec.slot),current,all,audits,grantRaceObserved:baselineGrantRaceObserved?.slot===spec.slot?baselineGrantRaceObserved:null});
  }
  if(path==='/baseline285/reconcile'){
   const spec=await request.json(),before=physical,env={...config,DISCORD_BOT_TOKEN:'baseline285-reconcile'};
   return Response.json({result:await reconcileRoleBatch242(env,[baselineSubject285(spec.slot)]),statements:physical-before});
  }
  if(path==='/setup'){if(ready)return new Response(null,{status:409});await setup(bindings.DB);const shortSessionExpiresAt=Math.floor(Date.now()/1000)+90;return Response.json({cookie:await cookie(),secondCookie:await cookie(SECOND_ADMIN),shortCookie:await cookie(SECOND_ADMIN,shortSessionExpiresAt),shortSessionExpiresAt,admin:ADMIN,subject:String(BASE),role:ROLE,council:CANONICAL_RANKS233[1].roleId,officer:CANONICAL_RANKS233[2].roleId,ranks:CANONICAL_RANKS233,nativeRows:1000,pageLimit:ROLE_AUDIT_PAGE283,focusedPageLimit:ROLE_AUDIT_FOCUSED_PAGE285});}
+ if(path==='/put285/setup'){if(ready)return new Response(null,{status:409});await setup(bindings.DB,'recorded-live-pre-seal-20261017');const t=Math.floor(Date.now()/1000);await config.DB.batch([config.DB.prepare('INSERT INTO site_users(discord_id,username,first_login,last_login,checked_at,in_server,denied,session_version,account_incarnation)VALUES(?1,?2,?3,?3,?3,1,0,1,?4)').bind(SECOND_ADMIN,'Synthetic second retry admin',t,SECOND_BIRTH),config.DB.prepare('INSERT INTO members(discord_id)VALUES(?1)').bind(SECOND_ADMIN)]);config.SITE_ADMINS=ADMIN+','+SECOND_ADMIN;if(new URL(request.url).searchParams.get('activeV1')==='1')config.CANONICAL_RANKS233=JSON.stringify({version:1,enabled:true,profile:CANONICAL_PROFILE233,guildId:NATIVE_GUILD232,ranks:CANONICAL_RANKS233.map(r=>({...r,permissions:'0'}))});return Response.json({cookie:await cookie(),secondCookie:await cookie(SECOND_ADMIN),admin:ADMIN,subject:String(BASE),role:ROLE,council:CANONICAL_RANKS233[1].roleId,officer:CANONICAL_RANKS233[2].roleId,ranks:CANONICAL_RANKS233,nativeRows:1000});}
  if(!ready)return new Response(null,{status:409});
+
+ if(path==='/put285/probe'){
+  const env={...config,DISCORD_BOT_TOKEN:'role-audit-put-retry'},subject=String(BASE),results=[];
+  for(const kind of ['automatic','same-admin-new-action','other-admin-new-action','copied-cap']){
+   let cap=null;try{
+    let testEnv=env;if(kind!=='automatic'&&kind!=='copied-cap'){
+     const req=new Request('https://guild.example/api/admin/role-put-refusal-retry',{headers:{Cookie:await cookie(kind==='other-admin-new-action'?SECOND_ADMIN:ADMIN)}}),user=await currentUser(env,req),first=await captureRoutineMembership232(env,subject);if(!user||!first)throw Error('genuine_probe_capture_required');const f=routineMembership232Facts(first);closeRoutineMembership232(first);
+     testEnv=privacyBoundSiteRoleActionEnv(env,originalUserSession(user),{subject,snapshotId:f.snapshotId,snapshotAt:f.snapshotExportedAt,expectedRole:ROLE,expiresAt:Math.min(f.deadline,Math.floor(Date.now()/1000)+300)});
+    }
+    cap=await captureRoutineMembership232(testEnv,subject);if(!cap)throw Error('genuine_probe_capture_required');const f=routineMembership232Facts(cap),scope={subject,generation:f.subjectGeneration,role:ROLE,snapshotId:f.snapshotId,snapshotAt:f.snapshotExportedAt,guid:f.primary?.guid??null,rank:f.primary?.index??null,rankName:f.primary?.rank??null};
+    let borrowed=false,held=false;try{borrowed=!!attendedPutRefusalRetry285(testEnv,scope,kind==='copied-cap'?{...cap}:cap);}catch{held=true;}results.push({kind,nativeCaptured:true,borrowed,held});
+   }catch(e){results.push({kind,nativeCaptured:false,error:String(e?.message||e)});}finally{if(cap)closeRoutineMembership232(cap);}
+  }return Response.json({results});
+ }
+ if(path==='/put285/native'){
+  const spec=await request.json(),slot=spec.slot??0;if(![0,2].includes(slot)||![3,8].includes(spec.rank))return new Response(null,{status:400});
+  const before=physical,start=wires.length,source=await rawDB.prepare('SELECT * FROM roster_snapshots ORDER BY id DESC LIMIT 1').first(),next=source.id+1,t=Math.floor(Date.now()/1000);
+  await config.DB.batch([
+   config.DB.prepare('INSERT INTO roster_snapshots(id,exported_at,received_at,source,member_count,complete,trusted)SELECT ?1,?2,?2,source,member_count,complete,trusted FROM roster_snapshots WHERE id=?3').bind(next,t,source.id),
+   config.DB.prepare('INSERT INTO roster_members(snapshot_id,name_key,name,guid,rank,rank_index,level)SELECT ?1,name_key,name,guid,CASE WHEN name_key=?3 THEN ?4 ELSE rank END,CASE WHEN name_key=?3 THEN ?5 ELSE rank_index END,level FROM roster_members WHERE snapshot_id=?2').bind(next,source.id,'synthetic '+slot,STEWARD_RANK_NAMES[spec.rank],spec.rank)
+  ]);return Response.json({snapshotId:next,statements:physical-before,wires:wires.slice(start),historicalSourcePreserved:true});
+ }
+ if(path==='/put285/normal'){
+  const spec=await request.json(),slot=spec.slot??0;if(![0,2].includes(slot))return new Response(null,{status:400});const before=physical,start=wires.length;
+  const result=await reconcileRoleBatch242({...config,DISCORD_BOT_TOKEN:'role-audit-put-retry'},[baselineSubject285(slot)]);
+  return Response.json({result,statements:physical-before,wires:wires.slice(start)});
+ }
+ if(path==='/put285/schema')return Response.json({objects:(await rawDB.prepare("SELECT type,name,tbl_name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY CASE type WHEN 'table' THEN 0 WHEN 'index' THEN 1 WHEN 'view' THEN 2 ELSE 3 END,name").all()).results});
+ if(path==='/put285/records'){
+  const subject=baselineSubject285(Number(new URL(request.url).searchParams.get('slot')||0));
+  const rows=(await rawDB.prepare('SELECT * FROM role_settlements WHERE subject=?1 ORDER BY created_at,id').bind(subject).all()).results,audits=(await rawDB.prepare('SELECT * FROM audit WHERE subject=?1 ORDER BY id').bind(subject).all()).results;
+  return Response.json({rows,audits});
+ }
+ if(path==='/put285/mutate'){
+  const spec=await request.json();if(![0,2].includes(spec.slot??0)||!['new-unknown','active-claim','privacy','actor-denied','target-banned'].includes(spec.kind))return new Response(null,{status:400});await baselineMutation285({...spec,slot:spec.slot??0});return Response.json({ok:true});
+ }
+ if(path==='/put285/fence-race'){
+  const spec=await request.json();if(spec.kind!=='privacy'||spec.after!==2)return new Response(null,{status:400});retryFenceRace285={remaining:2,kind:spec.kind,slot:0};return Response.json({armed:true});
+ }
+
  if(path==='/mutate'){
   const body=await request.json();
   // Attended synthetic changes are made by the existing admitted writer, never
@@ -426,7 +502,7 @@ export default {async fetch(request,bindings){
   const spec=await request.json(),before=physical,start=wires.length,env={...config,DISCORD_BOT_TOKEN:'role-audit-'+(spec.mode||'normal')};
   if(spec.activeV1)env.CANONICAL_RANKS233=JSON.stringify({version:1,enabled:true,profile:CANONICAL_PROFILE233,guildId:NATIVE_GUILD232,ranks:CANONICAL_RANKS233.map(r=>({...r,permissions:'0'}))});
   const query=[spec.cursor?'cursor='+encodeURIComponent(spec.cursor):'',spec.policyPreview?'policyPreview='+encodeURIComponent(spec.policyPreview):'',spec.subjectQuery?'subject='+encodeURIComponent(spec.subjectQuery):'',spec.scopeQuery?'scope='+encodeURIComponent(spec.scopeQuery):''].filter(Boolean).join('&');
-  const req=new Request('https://guild.example/api/admin/role-audit'+(query?'?'+query:''),{method:spec.method||'GET',headers:{Cookie:spec.cookie||await cookie(),Origin:'https://guild.example','X-Olympus':'2'}});
+  const req=new Request('https://guild.example/api/admin/'+(spec.putRetry?'role-put-refusal-retry':'role-audit')+(query?'?'+query:''),{method:spec.method||'GET',headers:{Cookie:spec.cookie||await cookie(),Origin:'https://guild.example','X-Olympus':'2',...(spec.putRetry&&spec.method==='POST'?{'Content-Type':'application/json'}:{})},...(spec.putRetry&&spec.method==='POST'?{body:JSON.stringify(spec.body)}:{})});
   let response,error=null;
   try{if(path==='/full-route')response=await worker.fetch(req,{...env,DB:rawDB},{waitUntil(){},passThroughOnException(){}});else{const user=await currentUser(env,req);if(!user)response=Response.json({error:'signed_out'},{status:401});else response=await handleSiteRoleAudit283(req,privacyBoundSiteEnv(env,originalUserSession(user)),user,spec.body||{});}}
   catch(e){error=String(e?.stack||e);response=Response.json({error:'fixture_failed'},{status:500});}

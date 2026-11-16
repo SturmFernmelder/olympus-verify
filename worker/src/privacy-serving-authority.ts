@@ -76,6 +76,10 @@ const authorityContexts=new WeakMap<D1Database,AuthorityContext>(),custodyByEnv=
 export type SiteRoleActionSelection283=Readonly<{subject:string;snapshotId:number;snapshotAt:number;expectedRole:string;expiresAt:number}>;
 export type SiteRoleActionAuthority283=Readonly<{sql:string;selection:SiteRoleActionSelection283|null;current:()=>void}>;
 const siteRoleActions283=new WeakMap<D1Database,SiteRoleActionAuthority283>();
+// Captures are checked facades, not the registered action itself. Keep their
+// original identity private so two real captures can be compared without
+// equating SQL, account, selection or database values.
+const siteRoleActionOrigins285=new WeakMap<SiteRoleActionAuthority283,SiteRoleActionAuthority283>();
 type OriginalAuthorityProjection=Readonly<{logical:readonly AuthorityPlan[];records:readonly object[];check:()=>void}>;
 type OriginalAuthorityBatchLineage=Readonly<{kind:'ordinary'|'counted';parent:object;guardCount:number;check:()=>void}>;
 const originalAuthorityProjectors=new WeakMap<D1Database,(plan:D1PreparedStatement[])=>OriginalAuthorityProjection>();
@@ -177,9 +181,18 @@ export function captureSiteRoleActionAuthority283(env:Env):SiteRoleActionAuthori
   if(counted){counted.check();if(!counted.registered)return authorityHeld();db=counted.parent;continue;}
   if(!isPrivacyWriteAdmissionDatabase(db))return authorityHeld();
   original.check();if(!found.length)return null;if(found.length!==1)return authorityHeld();
-  const captured=found[0]!;return Object.freeze({sql:captured.sql,selection:captured.selection,current:()=>{original.check();captured.current();original.check();}});
+  const captured=found[0]!,facade=Object.freeze({sql:captured.sql,selection:captured.selection,current:()=>{original.check();captured.current();original.check();}});
+  siteRoleActionOrigins285.set(facade,captured);return facade;
  }
  return authorityHeld();
+}
+/** Identity comparison only: copied DTOs and independently registered actions
+ * never match, even with identical values. No original reference, SQL, callback
+ * or capability is returned. Both genuine captures must still be current. */
+export function sameOriginalSiteRoleAction285(left:SiteRoleActionAuthority283|null|undefined,right:SiteRoleActionAuthority283|null|undefined):boolean{
+ if(!left||!right)return false;
+ const a=siteRoleActionOrigins285.get(left),b=siteRoleActionOrigins285.get(right);
+ if(!a||!b)return false;left.current();right.current();return a===b;
 }
 /** Original subject/G or explicit absence is copied, with the existing active-state contract. */
 export function privacyBoundSubjectEnv(env:Env,subject:string,capture:PrivacySubject|null):Env{

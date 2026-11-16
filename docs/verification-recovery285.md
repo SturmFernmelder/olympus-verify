@@ -36,6 +36,14 @@ v3 activation. An unresolved native attempt still prevents another addon
 promotion; the officer can inspect the game's current guild rank and use its
 normal controls after staff review. No Discord finding clears native history.
 
+An already linked character can explicitly request **Refresh character proof**.
+The initial link/status read does not mint a code. The explicit action reuses
+an outstanding request or issues one normal request when officer services are
+ready; the player sends its code from that same character. An incomplete own
+Member record is a code hint, never fresh identity evidence. A new signed
+whisper and current exact native GUID are still required. No prior identity
+clock or receipt is backfilled.
+
 The supported exchange remains file based. Check exports through a normal
 reload; a later Sync/reload loads the Watcher's dated result. This release does
 not activate the unavailable live relay or pretend an old loaded file is live.
@@ -48,28 +56,57 @@ The old complete operation tuple stays unchanged and historically uncertain.
 Age of at least one day is eligibility for the owner's override, not evidence
 that a request finished, was cancelled or can no longer arrive.
 
-The record contains the actor and subject, their relevant account versions,
-the equal role observation confirmed twice, current roster reference, old
-operation ID and tuple fingerprint, policy fingerprints, birth and one-year
-expiry. It does not copy the full old operation or the unrelated entitlement
+The record contains the actor and subject, their privacy generations and the
+actor's account incarnation, the equal role observation confirmed twice,
+current roster reference, old operation ID and tuple fingerprint, policy and
+subject-specific entitlement fingerprints, birth and one-year expiry. The
+original session is checked for the preview and confirmation. A later ordinary
+logout does not cancel the durable decision: it still requires that same
+account incarnation and privacy generation, current administrator access and
+standing. Erasure, denied/departed/banned standing, loss of administrator
+access, relevant policy or subject entitlement changes close the exception.
+Unrelated accounts' entitlement changes do not renew or revoke it.
+
+The record does not copy the full old operation or unrelated entitlement
 manifest. The audit's account-access, erasure and retention rules apply. A
-missing, expired, tampered or revoked record closes the exception.
+missing, expired, tampered or otherwise revoked record closes the exception.
 
 Only a new ordinary canonical grant can exclude that one exact reviewed row
 from its physical barrier. Original current identity, source, standing, actor,
 provider and SQL guards remain. Other unknown operations still block. No
 automatic correction follows adoption: a fresh separate Review and Confirm
 are required. Existing roles, subsequent demotions and departure removals stay
-with staff for that account, even after a clean new grant. Separate ban,
-erasure and original compensation custody is not broadened. Null-identity old
+with staff for that account, even after a clean new grant. Separate ban
+and erasure custody is not broadened. The private `noExistingRoleRemovals`
+scope excludes existing-role removal planning; the original owned compensator
+may still undo only this action's newly dispatched grant if its authority or
+ACK cannot be retained. Null-identity old
 departure operations and unsupported historical shapes remain manual.
 
 A distinct private transport witness handles only a **new** ordinary PUT's
-own completed Discord 403/404/429 response. An exact original tuple/source/G
+own completed Discord 403/404/429 response. The original native response must
+reach EOF with bounded valid JSON. Supported `gzip`/`br` content coding keeps
+the decoded four-KiB limit; its declared wire length is not compared with the
+decoded length. Identity coding retains the exact length check. Unsupported,
+truncated or malformed representations do not create a refusal witness.
+An exact original tuple/source/G
 CAS records known no-effect; 429 pacing is in the same atomic batch. This is
 neither ownership nor an ACK. A timeout, lost/truncated response, 5xx or forged
 status remains unknown. Manual-entitlement grant shapes remain conservative.
 Historical unknowns are never reclassified through this response path.
+
+A separate attended `/api/admin/role-put-refusal-retry` route handles only
+strictly retained ordinary PUT 403/404 refusals. Its GET previews current
+native eligibility, exact old tuples, current role presence and bot hierarchy;
+a separate POST confirms that same unexpired preview and appends a new
+attributed decision. If the expected role is absent, the private one-use
+permit allows one new ordinary grant attempt. If it is already present, the
+action records only current presence without a PUT or a claim that the old
+attempt delivered it. In both modes old receipts stay unchanged, unresolved
+operations remain blockers, and no existing-role removal plan is authorized.
+Original compensation may undo only a newly dispatched grant. 429 remains on
+the existing cooldown path, not this attended 403/404 route. A lost append or
+writer result stays uncertain and is not automatically repeated.
 
 ## Stored whisper claims
 
@@ -109,29 +146,76 @@ sent. Ordinary later role synchronization is separately guarded.
 
 The existing authenticated, versioned Watcher intake can qualify a genuinely
 new delayed whisper through the same validator and neutral identity issuer.
-Its opaque origin reads the actual native Request stream itself and pins the
+Watcher 0.6.41 explicitly advertises
+`transportCapability: "late-whisper-capacity285-v1"` in its original body.
+Without that capability, old clients keep the ordinary per-row verifier and
+never receive new capacity receipts or enter the historical-claim branch.
+The retained-proof denial described below still applies to every accepted
+ingress; it confers no new claim authority.
+
+The opaque origin reads the actual native Request stream itself and pins the
 bearer, native database, configuration, body and five-minute invocation lease.
 A caller-supplied parsed body, site cookie, copied response or boolean cannot
 mint this provenance. The fixed signed-observation birth boundary is
 `1794844114` (16 November 2026, 15:48:34 UTC), never renewed by the Watcher.
 All 577 previously inventoried originals precede it and remain attended.
 
-One whole raw same-code group is admitted per invocation. Mail, malformed,
-opposing, pre-boundary or unsigned evidence in that group holds the whole
-group rather than selecting favorable rows. The original signed-time code,
-request interval, cutoff, thirty-day age and fresh current roster rules still
-apply. The existing under-ten-minute live verifier remains unchanged.
+One whole raw same-code group is considered for a historical claim per
+invocation. Qualified conflicting signed senders hold the submitted group;
+favorable rows are never selected from that conflict. If mail, bridge,
+malformed, pre-boundary or unsigned evidence prevents that late claim, the
+legacy-valid ordinary peers still pass through their unchanged verifier now.
+The exact skipped late rows remain nonterminal holds rather than being
+acknowledged as terminal failures on behalf of unprocessed peers.
+
+The original code must have been valid for that same request when each
+whisper was sent. The original request interval, cutoff, thirty-day signed
+observation age and fresh current roster rules still apply. A fully qualifying
+first upload can be older than one hour. The one-hour bound applies only to
+repeated waiting after a failed current-source check: after that window the
+observation requires attended review instead of deferring peers every sixty
+seconds for thirty days. The existing under-ten-minute live verifier remains
+unchanged.
+
+Before any automatic neutral mutation, the server appends and confirms an
+original intent in the existing audit log. Its opaque proof keys are derived
+from the signed observation independently of client IDs, batch membership and
+unsigned arrival time. It binds the full original pending tuple and active
+subject generation. Only the same invocation's private confirmed intent can
+admit the atomic consume/link/neutral transaction. A terminal refusal for an
+attributable active subject is retained before its terminal ACK. Inactive
+privacy or ambiguous original history without a safe subject ledger remains
+a nonterminal policy hold, not a fictitious retained refusal.
+
+Retained intents and refusals deny the same observation on every accepted
+native-proof ingress, including old-client versioned or unversioned intake,
+direct verification and unsigned source changes. The original verifier checks
+that denial beside its account read and again inside the consuming or negative
+transaction; a decision arriving between read and write still fences the
+original batch. Restoring a local ledger, changing a client ID or splitting a
+batch does not reset a server-known refusal or admitted/unknown mutation.
+This does not prove delivery of an upload that never reached the server.
+
+The new audit payload contains opaque proof/row/tuple digests, original request
+reference, subject/privacy attribution, server signature and expiry derived from the original signed
+observation time; it contains no raw code, proof MAC, character name or GUID. Existing
+privacy export and erasure references apply. Retention ends at the signed
+observation plus thirty days, with deletion only strictly after that deadline.
+The bounded existing normal/cron purge remains independent of new uploads;
+mixed proof calls skip only its opportunistic write to preserve their request
+budget. An uncertain intent/refusal append or neutral result gets no ACK,
+no no-effect receipt and no automatic retry or wake.
 
 After a confirmed neutral link, this normal path requests the existing durable
 role reconciliation through the same original target-bound environment. Only
 an original confirmed queue creation wakes that existing lane; it sends no
 role HTTP or notice inline. The attended recovery Apply remains separate and
-does not enqueue a role request. An uncertain selected write gets no ACK and
-no no-effect receipt. Other untouched rows receive exact canonical-body-bound
-capacity receipts, including financial rows; these authorize one spent retry
-at an existing Watcher poll after five seconds, not an added dispatcher.
-Existing membership/collector retry delays stay sixty seconds. Retired,
-rejected, uncertain, changed-body and changed-binding rows are not reopened.
+does not enqueue a role request. Other untouched rows receive exact
+canonical-body-bound capacity receipts only for a capability-bearing client,
+including financial rows. These authorize one spent retry at an existing
+Watcher poll after five seconds, not an added dispatcher. Existing
+membership/collector retry delays stay sixty seconds. Retired, rejected,
+uncertain, changed-body and changed-binding rows are not reopened.
 
 ## Qualification and rollout
 
@@ -147,7 +231,7 @@ Root and actual external Claude must review and sign the same final commit and
 tree before rollout. Root alone performs the authorized fresh D1 export/local
 integrity/FK/catalogue restore check, squash merge, main CI and exact-commit
 deployment. Retain audit_reconcile266 and remeasure the live/portable catalogue.
-Then run the92 public probes, first healthy cron, guarded empty-note RT-16,
+Then run the 95 public probes, first healthy cron, guarded empty-note RT-16,
 public installation, fresh native export and attended source-bounded actions.
 Report remaining identity holds, manual roles and unknown operations separately
 from successful corrections. Never claim everyone converged from counts alone.

@@ -38,7 +38,9 @@ const GUID273=/^Player-\d{1,6}-[0-9A-Fa-f]{4,16}$/;
 class LaunchCursor229 extends Error { constructor(readonly code: string, readonly status = 400) { super(code); } }
 const hex = (bytes: ArrayBuffer) => Array.from(new Uint8Array(bytes), n => n.toString(16).padStart(2, '0')).join('');
 const digest229 = async (value: string) => hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)));
-const held229 = (at: number, reason: string) => {const dto = projectLaunchOperations229(null, [], new Map(), at, at + LAUNCH_ROLE_TTL229); dto.heldReasons.push(reason); return dto;};
+// The empty projector has no source to inspect. Its placeholder rank/snapshot
+// failures must not mask the actual reason this reader stopped.
+const held229 = (at: number, reason: string) => {const dto = projectLaunchOperations229(null, [], new Map(), at, at + LAUNCH_ROLE_TTL229); dto.heldReasons = [reason]; return dto;};
 const bytes229 = (value: string) => new Uint8Array(value.match(/../g)!.map(n => parseInt(n, 16)));
 function encoded229(value: string) { return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 function secret229(env: Env): string | null { const d=Object.getOwnPropertyDescriptor(env,'VERIFY_SECRET');return d&&Object.hasOwn(d,'value')&&typeof d.value==='string'&&d.value?d.value:null; }

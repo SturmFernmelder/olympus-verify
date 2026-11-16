@@ -80,10 +80,10 @@ export interface ReleaseNote {
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
     build: ".285", date: "2026-11-16", lines: [
-      "Verify 0.6.40 and Watcher 0.6.41 offer a fresh Check for verified Initiates. A current recommendation and separate in-game click are required to promote to Member; old attempts stay recorded.",
-      "Private role checks start with current guild links and explain holds. Staff can record a separate starting point for an uncertain old request; fresh grants and manual removals remain separate.",
-      "Staff can review late signed whispers against their original request and a fresh roster. Old uploads stay untouched. Stored mail remains held when its character identity cannot be proven.",
-      "Newly recorded delayed whispers can verify through their original signed request and fresh current roster. Rejected and uncertain old uploads are not automatically resent.",
+      "The officers' addon (Verify 0.6.40, Watcher 0.6.41) can now run a fresh Check for verified Initiates. Promotion to Member still needs a current recommendation and a separate officer click in game. Old attempts stay recorded.",
+      "The staff page compares Discord roles with current guild links and shows why checks are on hold. When an old role change has an unknown result, staff can accept today's roles as a new starting point. After that decision, grants are checked separately and removals are manual.",
+      "Staff can now review a stored verification whisper against its original code request and a fresh guild roster. Earlier uploads are not changed. A verification mail stays on hold when the sending character cannot be confirmed.",
+      "Newly recorded verification whispers can still be checked after a delay, using their signed send time, original code request and a fresh guild roster. Earlier uploads that were rejected or uncertain are not sent again automatically.",
     ],
   },
   {

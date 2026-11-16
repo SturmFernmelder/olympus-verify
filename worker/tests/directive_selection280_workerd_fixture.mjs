@@ -18,6 +18,7 @@ export function fixture280(seed){const scheme=NATIVE_RANK_SCHEMES[seed.steward?1
  const discovery=seed.activeV1?await measured('discovery',()=>readDiscoveryOperations235(env)):null;
  const genericHeld=seed.activeV1?await measured('generic-held',()=>readLaunchOperations229(env)):null;
  const initial=await readSelected('initial',env,input(seed.activeV1?2:1,1,seed.now));
+ const knight=seed.activeV1?await readSelected('knight-initiate', {...env,DISCORD_BOT_TOKEN:env.DISCORD_BOT_TOKEN+'-knight'},input(30,1,seed.now)):null;
  const subsetHeld=[];
  if(seed.activeV1){
   for(const slot of [1,7,8])subsetHeld.push({slot,page:(await readSelected('target-slot-'+slot,env,{...input(10+slot,1,seed.now),targetGuids:['Player-4613-'+(0x10000000+slot).toString(16).toUpperCase()]})).page});
@@ -40,5 +41,5 @@ export function fixture280(seed){const scheme=NATIVE_RANK_SCHEMES[seed.steward?1
  // A failed initial proof/plan must remain a readable failing assertion. Do not
  // manufacture an invalid confirmation which hides it behind an uncaught500.
  const oldScheme=await readSelected('old-source',env,input(6,2,observedAt,token?[confirmation]:[]));
- r.selection={invocations285,activePolicyVersion:JSON.parse(env.CANONICAL_RANKS233).version,discovery,genericHeld,subsetHeld,initial,ordinaryAlt,confirmed,forged,wrongActor,oldScheme};return Response.json(r);
+ r.selection={invocations285,activePolicyVersion:JSON.parse(env.CANONICAL_RANKS233).version,discovery,genericHeld,subsetHeld,initial,knight,ordinaryAlt,confirmed,forged,wrongActor,oldScheme};return Response.json(r);
 }};}

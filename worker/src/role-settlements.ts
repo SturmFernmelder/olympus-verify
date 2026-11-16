@@ -1,3 +1,4 @@
+import {attendedPutRefusalRetry285,reserveAttendedPutRefusalRetryIntent285,attendedPutRefusalRetryMode285,attendedPutRefusalRetryPredicate285,noteAttendedPutRefusalRetryDispatch285} from './site-role-put-refusal-retry285';
 import {takeOriginalDiscordRoleReply280,originalDiscordRoleReplyFacts280,type OriginalDiscordRoleReply280,type OriginalDiscordRoleReplyFacts280} from './discord';
 import {takeOriginalDiscordPutReply285,originalDiscordPutReplyFacts285,type OriginalDiscordPutReply285} from './discord';
 import {captureCanonicalPutRefusal285,canonicalPutRefusalFacts285,canonicalPutRefusalSourceStart285,planCanonicalPutRefusal285,canonicalPutRefusalSql285,type OriginalCanonicalPutRefusal285,type CanonicalPutRefusalSource285} from './role-put-refusal285';
@@ -2193,14 +2194,14 @@ export type NativeRankSettlement232=Readonly<{state:Settlement['state'];reason:s
  * plan, old queued row, member status or a GET result cannot mint this mandate. */
 async function settleRoutineTarget232(env:Env,cap:RoutineMembership232,venue:RuntimeVenue230,role:string,desired:0|1,purpose:string,b:AttemptBudget,canonical233=false,observationOnly=false):Promise<Settlement>{
  let id:string|null=null,parent:Native232Parent|null=null,started=false,acknowledged=false;
- let baselineCurrent285:(()=>void)|null=null;
+ let baselineCurrent285:(()=>void)|null=null,retryCurrent285:(()=>void)|null=null;
  try{
   const I=await import('./routine-membership-authority232');
   env=I.routineMembership232Environment(env,cap);I.assertRoutineMembership232(env,cap);assertRuntimeVenue230(env,venue);
   const f=I.routineMembership232Facts(cap),v=runtimeVenue230Facts(venue),selected=captureNativeRankConfig232(env),canonical=captureCanonicalRankConfig233(env),entitlements=captureCanonicalEntitlements233(env),cfg=canonical233?historicalNativeRankPolicy232():selected.policy,profile=canonical233?canonical.policy?.profile??CANONICAL_PROFILE233:NATIVE_RANK_PROFILE232,admission=canonical233?canonical233RoleOnly:native232RoleOnly;
   if(canonical.present!==canonical233||canonical233&&(canonical.mode!=='enabled'||!canonical.policy))return result('held','canonical233_configuration_held');
   if(canonical233&&entitlements.mode==='held')return result('held','canonical233_entitlement_configuration_held');
-  const provider=launch230ProviderWitness(env),check=()=>{provider();I.assertRoutineMembership232(env,cap);assertRuntimeVenue230(env,venue);baselineCurrent285?.();if(!selected.current()||!canonical.current()||!entitlements.current())throw Error('native232_configuration_changed');};check();
+  const provider=launch230ProviderWitness(env),check=()=>{provider();I.assertRoutineMembership232(env,cap);assertRuntimeVenue230(env,venue);baselineCurrent285?.();retryCurrent285?.();if(!selected.current()||!canonical.current()||!entitlements.current())throw Error('native232_configuration_changed');};check();
   if(!canonical233&&selected.mode!=='enabled'||!cfg||cfg.guildId!==v.guildId||cfg.membershipRole!==v.roleId||f.policyRaw!==(canonical233?JSON.stringify(cfg):selected.raw)||!ID.test(f.subject)||f.subjectGeneration!==null&&!TOKEN.test(f.subjectGeneration)||!Number.isSafeInteger(f.deadline)||f.deadline<=now()||f.deadline>now()+300)return result('held','native232_original_mandate_required');
   const rank=cfg.ranks.find(r=>r.roleId===role),staff=Object.values(NATIVE_STAFF232).some(r=>r===role),base=role===SHARED_MEMBER232;
   if(canonical233?purpose!=='canonical_routine233'||(!canonical.policy!.ranks.some(r=>r.roleId===role)&&!(desired===0&&(base||rank||staff))):base?purpose!==ROUTINE_MEMBERSHIP232_PURPOSE:rank?purpose!=='fresh_roster_rank':!staff||purpose!=='staff_roster_rank'||desired===1&&!cfg.privileged)return result('held','native232_role_configuration');
@@ -2216,7 +2217,9 @@ async function settleRoutineTarget232(env:Env,cap:RoutineMembership232,venue:Run
   if(desired===1&&(f.cause!=='eligible'||!f.primary||!wanted.includes(role))||desired===0&&wanted.includes(role))return result('held','native232_role_not_wanted');
   if(b.limit-b.attempts<6)return result('held','role_request_budget');
   const key=role+':'+desired,used=native232Calls.get(cap)??new Set<string>();if(used.has(key))return result('held','native232_original_turn_spent');used.add(key);native232Calls.set(cap,used);
-  id=randomGeneration();const manualEntitlement=canonical233&&desired===1&&canonicalTarget?.roleId===role&&nativeTarget?.roleId!==role;
+  const retry285=canonical233&&desired===1?attendedPutRefusalRetry285(env,{subject:f.subject,generation:f.subjectGeneration,role,snapshotId:f.snapshotId,snapshotAt:f.snapshotExportedAt,guid:f.primary?.guid??null,rank:f.primary?.index??null,rankName:f.primary?.rank??null},cap):null;
+   const manualEntitlement=canonical233&&desired===1&&canonicalTarget?.roleId===role&&nativeTarget?.roleId!==role;if(retry285&&manualEntitlement)return result('held','canonical285_attended_retry_requires_ordinary_grant');
+   id=retry285?reserveAttendedPutRefusalRetryIntent285(env,retry285):randomGeneration();
   const entitlementId=manualEntitlement?randomGeneration():null,digest=entitlementId??await sha256(f.policyRaw+'|'+f.subject+'|'+f.subjectGeneration+'|'+f.snapshotId+'|'+role+'|'+desired+(canonical233?'|'+canonical.raw:''));check();
   const values:(string|number|null)[]=[id,f.subject,v.guildId,role,f.subjectGeneration,digest,f.snapshotId,f.primary?.guid??null,f.deadline,desired,purpose,f.primary?.index??null,f.primary?.rank??null];
   const p=I.routineMembership232Predicate(env,cap,values.length+1,canonical233&&rankConversion);values.push(...p.values);
@@ -2231,7 +2234,8 @@ async function settleRoutineTarget232(env:Env,cap:RoutineMembership232,venue:Run
   // NEW canonical grant can exclude its one exactly reviewed historical row.
   // This is an explicit policy override, never a historical ACK/drain proof.
   // The DELETE branch and every existing ownership/compensation rule stay intact.
-  const baseline285=canonical233&&desired===1&&I.routineMembership232MayHaveRoleBaseline285(cap)?await captureRoleGrantBaseline285(env,f.subject,f.subjectGeneration):null;check();
+  const retryPredicate285=retry285?attendedPutRefusalRetryPredicate285(env,retry285,values.length+1):null;if(retryPredicate285){values.push(...retryPredicate285.values);retryCurrent285=retryPredicate285.check;check();}
+   const baseline285=!retry285&&canonical233&&desired===1&&I.routineMembership232MayHaveRoleBaseline285(cap)?await captureRoleGrantBaseline285(env,f.subject,f.subjectGeneration):null;check();
   const baselinePredicate285=baseline285?roleGrantBaselinePredicate285(env,baseline285,values.length+1,'old'):null;
   if(baselinePredicate285){values.push(...baselinePredicate285.values);baselineCurrent285=baselinePredicate285.check;check();}
   const legacySource=(await import('./privacy-shared-member-cutover230')).sharedMember230LegacyAckSql('old'),legacy=canonical233?groupLegacyAck233(legacySource):legacySource;check();
@@ -2257,7 +2261,7 @@ async function settleRoutineTarget232(env:Env,cap:RoutineMembership232,venue:Run
    old.state IN('dispatching','unknown') OR (CASE WHEN old.attempts=0 THEN 0 WHEN ${physicalKnown} THEN 0 ELSE 1 END=1)
    OR (old.attempts=0 AND old.state IN('pending','dispatching') AND old.expires_at>${DB_NOW})))`;
   const ownershipBaseFacts=canonical233?canonical239GroupedFacts('?2','?3','?5'):canonical239Facts('?2','?3','?5');
-  const originalOwnershipFacts=ownershipBaseFacts.slice(0,-1)+',\n'+[...legacyPhysicalKnown.map(source=>`${source.name} AS MATERIALIZED(SELECT ${source.alias}.rowid AS c239_row FROM role_settlements ${source.alias} WHERE ${source.alias}.subject=?2 AND ${source.alias}.guild_id=?3 AND ${source.predicate})`),...baselinePredicate285?[`c285_grant_baseline AS MATERIALIZED(SELECT old.rowid AS c285_row FROM role_settlements old WHERE ${baselinePredicate285.sql})`]:[]].join(',\n')+' ';
+  const originalOwnershipFacts=ownershipBaseFacts.slice(0,-1)+',\n'+[...legacyPhysicalKnown.map(source=>`${source.name} AS MATERIALIZED(SELECT ${source.alias}.rowid AS c239_row FROM role_settlements ${source.alias} WHERE ${source.alias}.subject=?2 AND ${source.alias}.guild_id=?3 AND ${source.predicate})`),...baselinePredicate285?[`c285_grant_baseline AS MATERIALIZED(SELECT old.rowid AS c285_row FROM role_settlements old WHERE ${baselinePredicate285.sql})`]:[],...retryPredicate285?[retryPredicate285.facts]:[]].join(',\n')+' ';
   const ownProof=canonical233?`((${canonical233OwnedGrant('own')}) OR (${canonical233MigrationOwnedGrant('own')}) OR (own.purpose IN('${ROUTINE_MEMBERSHIP232_PURPOSE}','fresh_roster_rank','staff_roster_rank','launch_membership230') AND ${native232OwnedGrant('own',base)}))`:`(own.purpose=?11${base?" OR own.purpose='launch_membership230'":''}) AND ${native232OwnedGrant('own',base)}`;
   const childClear=`NOT EXISTS(SELECT 1 FROM role_settlements child WHERE child.id<>?1 AND child.request_digest=own.id AND child.desired=0 ${canonical233?`AND NOT(${canonical233AliasRemoval('child','own')})`:''} AND (child.state IN('dispatching','unknown','settled') OR child.attempts<>0 AND NOT(${native232NoSend('child')})))`;
   const originalOwnParent=desired===0?`EXISTS(SELECT 1 FROM role_settlements own WHERE own.id=?${familyAt+1} AND own.subject=?2 AND own.guild_id=?3 AND own.role_id=?4 AND own.subject_generation IS ?5 AND (${ownProof})
@@ -2274,15 +2278,15 @@ async function settleRoutineTarget232(env:Env,cap:RoutineMembership232,venue:Run
   // A role already present before our PUT remains unowned/manual.
   if(desired===0){const parentRow=await env.DB.prepare(`${canonical239Facts('?1','?2','?4')}SELECT id FROM role_settlements own WHERE own.subject=?1 AND own.guild_id=?2 AND own.role_id=?3 AND own.subject_generation IS ?4 AND (${canonical233?ownProof:ownProof.replace(/\?11\b/g,'?5')}) AND NOT EXISTS(SELECT 1 FROM role_settlements child WHERE child.request_digest=own.id AND child.desired=0 ${canonical233?`AND NOT(${canonical233AliasRemoval('child','own')})`:''} AND (child.state IN('dispatching','unknown','settled') OR child.attempts<>0 AND NOT(${native232NoSend('child')}))) ORDER BY own.created_at DESC,own.id DESC LIMIT 1`).bind(...[f.subject,v.guildId,role,f.subjectGeneration,...canonical233?[]:[purpose]]).first<{id:string}>();check();if(!parentRow)return result('held','native232_manual_or_unowned_role');values[5]=parentRow.id;values.push(parentRow.id);}
   const originalGuardBase=canonical239And([p.sql,g.sql,physical,ownParent,canonical239NoAmbiguousOwnership('?2','?3','?5')]);
-  const baseAtoms=[p.sql,g.sql,physical,ownParent,canonical239NoAmbiguousOwnership('?2','?3','?5')],baseAdmission=(canonical233||desired===0)?canonical239GuardFacts(ownershipFacts,baseAtoms):{facts:ownershipFacts,guard:originalGuardBase,clauses:[]},guardBase=baseAdmission.guard;
+  const baseAtoms=[p.sql,g.sql,physical,ownParent,canonical239NoAmbiguousOwnership('?2','?3','?5'),...retryPredicate285?[retryPredicate285.guard]:[]],baseAdmission=(canonical233||desired===0)?canonical239GuardFacts(ownershipFacts,baseAtoms):{facts:ownershipFacts,guard:originalGuardBase,clauses:[]},guardBase=baseAdmission.guard;
   const entitlementGuard=manualEntitlement?`EXISTS(SELECT 1 FROM role_settlements e WHERE e.id=?6 AND e.subject=?2 AND e.subject_generation IS ?5 AND e.guild_id=?3 AND e.role_id=?4 AND e.purpose='canonical_entitlement233' AND e.native_profile='${profile}' AND e.desired=1 AND e.state='settled' AND e.attempts=0 AND e.claim_nonce IS NULL AND e.reason='owner_inventory_authorized' AND e.request_digest='${entitlements.manifest!.packetSHA256}' AND e.expires_at=?9 AND e.checked_at>=e.created_at AND e.checked_at<e.expires_at AND e.roster_id=?7 AND e.native_guid=?8 AND e.native_rank=?12 AND e.native_rank_name=?13)`:'1=1';
   const {facts,guard,clauses}=manualEntitlement?canonical239GuardFacts(ownershipFacts,[...baseAtoms,entitlementGuard]):baseAdmission;
   // A complete403/404 is known no-effect, but does not authorize another
   // implicit request. Reuse this statement's strict known-row set, then hold
   // that same current account/role until staff resolves its access manually.
-  const putManualAllowed285=canonical233&&desired===1?`NOT EXISTS(SELECT 1 FROM role_settlements f285 WHERE f285.subject=?2 AND f285.guild_id=?3 AND f285.role_id=?4 AND f285.subject_generation IS ?5 AND f285.desired=1 AND f285.state='held' AND EXISTS(SELECT 1 FROM ${knownName285('canonical')} k285 WHERE k285.c239_row=f285.rowid) AND CASE WHEN json_valid(f285.reason) THEN json_extract(f285.reason,'$.type')='canonical-put-refusal-v1' AND json_extract(f285.reason,'$.status') IN(403,404) ELSE 0 END)`:'1=1';
+  const putManualAllowed285=canonical233&&desired===1?`NOT EXISTS(SELECT 1 FROM role_settlements f285 WHERE f285.subject=?2 AND f285.guild_id=?3 AND f285.role_id=?4 AND f285.subject_generation IS ?5 AND f285.desired=1 AND f285.state='held' AND EXISTS(SELECT 1 FROM ${knownName285('canonical')} k285 WHERE k285.c239_row=f285.rowid) AND CASE WHEN json_valid(f285.reason) THEN json_extract(f285.reason,'$.type')='canonical-put-refusal-v1' AND json_extract(f285.reason,'$.status') IN(403,404) ELSE 0 END${retryPredicate285?' AND NOT('+retryPredicate285.bypass+')':''})`:'1=1';
   const pacing=canonical233?canonical239And([managedRankCooldownAllowedSql280(),desired===0&&!observationOnly?managedRankTargetAllowedSql285('?2','?3','?4',{kind:'routine',generation:'?5',parent:'?6'}):'1=1',putManualAllowed285]):'1=1';
-  const effectAdmission=canonical233?canonical239GuardFacts(ownershipFacts,[p.sql,g.sql,canonical239And([physical,pacing]),ownParent,canonical239NoAmbiguousOwnership('?2','?3','?5'),...manualEntitlement?[entitlementGuard]:[]]):{facts,guard,clauses};
+  const effectAdmission=canonical233?canonical239GuardFacts(ownershipFacts,[p.sql,g.sql,canonical239And([physical,pacing]),ownParent,canonical239NoAmbiguousOwnership('?2','?3','?5'),...manualEntitlement?[entitlementGuard]:[],...retryPredicate285?[retryPredicate285.guard]:[]]):{facts,guard,clauses};
   const row=`id=?1 AND subject=?2 AND guild_id=?3 AND role_id=?4 AND subject_generation IS ?5 AND request_digest=?6 AND roster_id=?7 AND native_guid IS ?8 AND expires_at=?9 AND desired=?10 AND purpose=?11 AND native_rank IS ?12 AND native_rank_name IS ?13 AND native_profile='${profile}'`;
   const rowClauses=['id=?1','subject=?2','guild_id=?3','role_id=?4','subject_generation IS ?5','request_digest=?6','roster_id=?7','native_guid IS ?8','expires_at=?9','desired=?10','purpose=?11','native_rank IS ?12','native_rank_name IS ?13',`native_profile='${profile}'`];
   const grouped=(original:string,extra:readonly string[])=>canonical233||desired===0?canonical239And([...extra,...clauses]):original;
@@ -2310,7 +2314,11 @@ async function settleRoutineTarget232(env:Env,cap:RoutineMembership232,venue:Run
   let restrictionCheck=()=>{};
   if(desired===0&&restriction){restriction.check();if(!target||!launch230Blocker(env,target))return result('held','native232_restriction_withdrawn',id);const graph=launch230MemberWitness(target,f.subject),at=now();restrictionCheck=()=>{restriction.check();graph();if(now()<at||now()-at>=60||!launch230Blocker(env,target))throw Error('native232_restriction_changed');};restrictionCheck();}
   if(!canonical233&&!base&&desired===1&&!target?.roles.includes(SHARED_MEMBER232))return result('held','native232_shared_access_required_first',id);
-  if(canonical233&&desired===1&&!baseline285&&target?.roles.some(r=>r!==role&&CANONICAL_MIGRATION_ROLE_IDS233.includes(r)))return result('held','canonical233_existing_rank_requires_reconciliation',id);
+  if(canonical233&&desired===1&&!baseline285&&!retry285&&target?.roles.some(r=>r!==role&&CANONICAL_MIGRATION_ROLE_IDS233.includes(r)))return result('held','canonical233_existing_rank_requires_reconciliation',id);
+  if(retry285&&attendedPutRefusalRetryMode285(env,retry285)==='record_present_role'&&!target?.roles.includes(role)){
+   const parked=await env.DB.prepare(`${facts}UPDATE role_settlements SET state='held',reason='canonical285_presence_withdrawn_no_dispatch',checked_at=${DB_NOW} WHERE ${grouped(`${row} AND attempts=0 AND state='pending' AND ${guard}`,[...rowClauses,'attempts=0',"state='pending'"])} RETURNING id`).bind(...values).first();allCheck();
+   return result('held',parked?'canonical285_presence_withdrawn_no_dispatch':'canonical285_presence_observation_held',id);
+  }
   if(observationOnly&&target?.roles.includes(role)){
    const held=await env.DB.prepare(`${facts}UPDATE role_settlements SET state='held',reason='canonical233_observation_not_absent',checked_at=${DB_NOW} WHERE ${grouped(`${row} AND attempts=0 AND state='pending' AND ${guard}`,[...rowClauses,'attempts=0',"state='pending'"])} RETURNING id`).bind(...values).first();allCheck();
    return result('held',held?'canonical233_observation_not_absent':'canonical233_observation_held',id);
@@ -2327,7 +2335,7 @@ async function settleRoutineTarget232(env:Env,cap:RoutineMembership232,venue:Run
   const finalAdmission280=effectTuple280([...ownedClauses,"state='dispatching'",`expires_at>${DB_NOW}`]);
   const final=async()=>{allCheck();restrictionCheck();const r=await env.DB.prepare(`${finalAdmission280.facts}SELECT 1 FROM role_settlements WHERE ${finalAdmission280.where}`).bind(...ownedValues).first();allCheck();restrictionCheck();return !!r;};
   const path280=`/guilds/${v.guildId}/members/${f.subject}/roles/${role}`;
-  const beforeDispatch280=()=>{allCheck();restrictionCheck();if(now()>=I.routineMembership232EffectDeadline(env,cap))throw Error('native232_expired');started=true;};
+  const beforeDispatch280=()=>{allCheck();restrictionCheck();if(now()>=I.routineMembership232EffectDeadline(env,cap))throw Error('native232_expired');if(retry285)noteAttendedPutRefusalRetryDispatch285(env,retry285,id!);started=true;};
   try{await request(env,b,desired===1?'PUT':'DELETE',path280,final,beforeDispatch280,admission);acknowledged=true;}
   catch(error){
    if(canonical233&&desired===1&&started&&putRefusalSource285){try{
@@ -2451,10 +2459,11 @@ export async function reconcileCanonicalRanks233(env:Env,cap:RoutineMembership23
   if(f.cause==='eligible'&&!restriction&&!canonicalRankWitnessMatches280(c.policy,f.canonicalRankProfile,f.rankQualified))return done('held','directive280_current_rank_authority_required');
   const wanted=f.cause==='eligible'&&f.primary&&!restriction?highestCanonicalRank233(c.policy,{index:f.primary.index,name:f.primary.rank},extra)?.roleId:null;
   if(!I.routineMembership232AttendedRoleMatches(env,cap,wanted??null))return done('held','attended_role_preview_changed');
-  const adopted285=I.routineMembership232MayHaveRoleBaseline285(cap)?await captureRoleGrantBaseline285(env,f.subject,f.subjectGeneration):null;
+  const retry285=attendedPutRefusalRetry285(env,{subject:f.subject,generation:f.subjectGeneration,role:wanted??'',snapshotId:f.snapshotId,snapshotAt:f.snapshotExportedAt,guid:f.primary?.guid??null,rank:f.primary?.index??null,rankName:f.primary?.rank??null},cap);
+   const adopted285=!retry285&&I.routineMembership232MayHaveRoleBaseline285(cap)?await captureRoleGrantBaseline285(env,f.subject,f.subjectGeneration):null;
   I.assertRoutineMembership232(env,cap);assertRuntimeVenue230(env,venue);
   if(!c.current()||!old.current()||!entitlements.current())return done('held','canonical233_configuration_changed');
-  if(adopted285){
+  if(adopted285||retry285){
    // A reviewed starting point is intentionally grant-only, including when a
    // later native change would otherwise plan a demotion/departure removal.
    // Never traverse the ordinary unwanted-role/owned-parent removal planner.
@@ -2463,7 +2472,7 @@ export async function reconcileCanonicalRanks233(env:Env,cap:RoutineMembership23
    if(effectDeadline-now()<64)return done('held','canonical285_grant_deadline_insufficient');
    const grant=await settleRoutineTarget232(env,cap,venue,wanted,1,'canonical_routine233',b,true);
    outcomes.push(grant);
-   return done(grant.state,grant.state==='settled'?'canonical285_grant_only_manual_removal_custody':grant.reason);
+   return done(grant.state,grant.state==='settled'?(retry285?'canonical285_attended_put_retry_complete':'canonical285_grant_only_manual_removal_custody'):grant.reason);
   }
   const family=[...new Set([...c.policy.ranks.map(r=>r.roleId),...historical.ranks.map(r=>r.roleId),...Object.values(NATIVE_STAFF232)])];
   const ownedFacts280=canonical239Facts('?1','?2','?3');

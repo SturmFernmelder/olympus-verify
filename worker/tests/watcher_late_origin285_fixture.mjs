@@ -1,6 +1,6 @@
 // Actual local Workerd Request/Headers/body primitives and original D1 wrapper.
 // This isolates origin custody; it does not qualify an identity or execute SQL.
-import {captureOriginalWatcherIntake285,originalWatcherIntake285,canonicalIntakeBodySHA285} from '../src/watcher-late-origin285.ts';
+import {captureOriginalWatcherIntake285,originalWatcherIntake285,canonicalIntakeBodySHA285,INTAKE_CAPABILITY285} from '../src/watcher-late-origin285.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
 import {NATIVE_SCOPE232,NATIVE_GUILD232} from '../src/native-rank-reconciliation232.ts';
 import {postIntake242} from '../src/intake242.ts';
@@ -13,7 +13,12 @@ export default {async fetch(input,bindings){
  }
  const proto={},env=Object.assign(Object.create(proto),{DB:createPrivacyWriteAdmissionDatabase(bindings.DB,'writer','canonical','a'.repeat(32)),GUILD_ID:NATIVE_GUILD232,WATCHER_TOKEN:TOKEN,VERIFY_SECRET:'synthetic-native-key',VERIFY_MEMBERSHIP_ONLY:'true',VERIFY_NATIVE_SCOPE:JSON.stringify({version:1,...NATIVE_SCOPE232}),PUBLIC_BASE_URL:'https://verify.example',DISCORD_BOT_TOKEN:'synthetic-provider-token',LINKS_NOT_BEFORE:'0'});
  const body={entries:[{id:'origin:synthetic:1',type:'verify',source:'whisper',character:'Synthetic Ålice 😀',guid:'Player-1-AAAABBBB',observedAt:1794845000,nativeMembership:{version:1,member:true,observedAt:1794845000,scopeHash:'a'.repeat(16),mac:'b'.repeat(32)}}]};
- const mode=spec.mode||'valid',headers={'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},at=Math.floor(Date.now()/1000);let request,raw=JSON.stringify(body),pulls=0;
+ const mode=spec.mode||'valid',headers={'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},at=Math.floor(Date.now()/1000);let request,pulls=0;
+ if(['capability-valid','capability-authorized-copy','capability-extra'].includes(mode))body.transportCapability=INTAKE_CAPABILITY285;
+ if(mode==='capability-unknown')body.transportCapability='unknown-capability';
+ if(mode==='capability-type')body.transportCapability=true;
+ if(mode==='capability-extra')body.unapproved=true;
+ let raw=JSON.stringify(body);
  let url='https://verify.example/ingest/intake242?keyVersion=launch-membership-v1',method='POST';
  if(mode==='wrong-auth')headers.Authorization='Bearer '+ 'x'.repeat(40);
  if(mode==='wrong-content')headers['Content-Type']='text/plain';
@@ -25,6 +30,7 @@ export default {async fetch(input,bindings){
  if(mode==='extra-query')url+='&other=1';
  if(mode==='duplicate-json')raw='{"entries":[],"entries":[]}';
  if(mode==='nested-duplicate-json')raw='{"entries":[{"id":"a","n":{"x":1,"x":2}}]}';
+ if(mode==='capability-duplicate')raw='{"entries":[],"transportCapability":"'+INTAKE_CAPABILITY285+'","transportCapability":"'+INTAKE_CAPABILITY285+'"}';
  if(mode==='invalid-json')raw='{"entries":[';
  if(mode==='too-many')raw=JSON.stringify({entries:Array.from({length:26},(_,i)=>({id:'x'+i}))});
  if(mode==='oversized')raw=JSON.stringify({entries:[{id:'x',data:'a'.repeat(1048576)}]});
@@ -49,15 +55,17 @@ export default {async fetch(input,bindings){
  if(mode==='post-forged-origin'){try{await postIntake242(env,{entries:body.entries},Object.freeze({kind:'original_watcher_intake285'}));return Response.json({refused:false});}catch{return Response.json({refused:true});}}
  let cap=null,second=null,concurrent=[];
  if(mode==='concurrent')concurrent=await Promise.all([captureOriginalWatcherIntake285(request,env),captureOriginalWatcherIntake285(request,env)]),cap=concurrent.find(Boolean)??null;
- else {const pending=mode==='forged-raw-arguments'?captureOriginalWatcherIntake285(request,env,'{"entries":[{"id":"forged"}]}',{entries:[{id:'forged'}]}):captureOriginalWatcherIntake285(request,env);if(mode.endsWith('-crypto'))mutate();if(mode==='competing-reader')await request.text().catch(()=>{});cap=await pending;}
+ else {const pending=mode==='forged-raw-arguments'?captureOriginalWatcherIntake285(request,env,'{"entries":[{"id":"forged"}]}',{entries:[{id:'forged'}]}):mode==='capability-forged-arguments'?captureOriginalWatcherIntake285(request,env,JSON.stringify({...body,transportCapability:INTAKE_CAPABILITY285}),{...body,transportCapability:INTAKE_CAPABILITY285}):captureOriginalWatcherIntake285(request,env);if(mode==='capability-caller-mutation')body.transportCapability=INTAKE_CAPABILITY285;if(mode==='capability-authorized-copy')body.transportCapability='changed-after-original-stream';if(mode.endsWith('-crypto'))mutate();if(mode==='competing-reader')await request.text().catch(()=>{});cap=await pending;}
  if(!cap)return Response.json({captured:false,invoked,pulls,concurrent:concurrent.map(Boolean)});
  const facts=originalWatcherIntake285(cap),before=facts.entries[0]?.character;
  if(mode==='post-env-copy'||mode==='post-entries-copy'){try{await postIntake242(mode==='post-env-copy'?{...env}:env,{entries:mode==='post-entries-copy'?[...facts.entries]:facts.entries},cap);return Response.json({refused:false});}catch{return Response.json({refused:true});}}
  if(mode.startsWith('retained-')){if(mode==='retained-header')request.headers.set('Authorization','Bearer changed');if(mode==='retained-config')env.WATCHER_TOKEN='changed';if(mode==='retained-inherited')proto.BLOCKING_ROLE_IDS='800000000000000001';try{facts.check();return Response.json({captured:true,retainedRefused:false});}catch{return Response.json({captured:true,retainedRefused:true});}}
- let copiedRejected=false,secondSpendRejected=false,mutationRejected=false;
+ let copiedRejected=false,secondSpendRejected=false,mutationRejected=false,capabilityCopyRejected=false,capabilityMutationRejected=false;
  try{originalWatcherIntake285(JSON.parse(JSON.stringify(cap)));}catch{copiedRejected=true;}
+ try{originalWatcherIntake285({...cap,supportsForward285:true});}catch{capabilityCopyRejected=true;}
+ try{facts.supportsForward285=!facts.supportsForward285;}catch{capabilityMutationRejected=true;}
  try{facts.entries[0].character='forged';}catch{mutationRejected=true;}
  if(mode==='one-use'){facts.spend();try{facts.spend();}catch{secondSpendRejected=true;}}
  if(mode==='valid')second=await captureOriginalWatcherIntake285(request,env);
- return Response.json({captured:true,invoked,pulls,concurrent:concurrent.map(Boolean),bodyUsed:request.bodyUsed,actualBody:JSON.stringify({entries:facts.entries})===raw,envMatched:facts.env===env,deepFrozen:Object.isFrozen(facts.entries)&&Object.isFrozen(facts.entries[0])&&Object.isFrozen(facts.entries[0].nativeMembership),copiedRejected,mutationRejected,unchanged:facts.entries[0].character===before,secondRejected:second===null,secondSpendRejected,expiresIn:facts.expiresAt-at,bodyDigest:facts.bodyDigest});
+ return Response.json({captured:true,invoked,pulls,concurrent:concurrent.map(Boolean),bodyUsed:request.bodyUsed,actualBody:JSON.stringify({entries:facts.entries,...(facts.supportsForward285?{transportCapability:INTAKE_CAPABILITY285}:{})})===raw,actualWireBody:JSON.parse(raw),supportsForward285:facts.supportsForward285,capabilityCopyRejected,capabilityMutationRejected,envMatched:facts.env===env,deepFrozen:Object.isFrozen(facts.entries)&&Object.isFrozen(facts.entries[0])&&Object.isFrozen(facts.entries[0].nativeMembership),copiedRejected,mutationRejected,unchanged:facts.entries[0].character===before,secondRejected:second===null,secondSpendRejected,expiresIn:facts.expiresAt-at,bodyDigest:facts.bodyDigest});
 }};

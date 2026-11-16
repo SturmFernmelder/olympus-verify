@@ -1496,3 +1496,12 @@ main.shell:focus-visible { outline: none; }
   .launch234-invites tbody td { border-bottom: 0; padding: 4px 10px; }
   .launch234-invites td[data-label]::before { content: attr(data-label) / ""; display: block; color: var(--gold); font-size: 0.78rem; }
 }
+
+/* Private verification/reconciliation actions remain usable on narrow screens. */
+.role-audit283 .btn, .verification-recovery285 .btn {
+  min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere;
+}
+.role-audit283 dd, .verification-recovery285 dd { overflow-wrap: anywhere; }
+.role-audit283 .btn-row, .verification-recovery285 .btn-row { margin-bottom: 12px; }
+.role-audit283 .btn-row > *, .verification-recovery285 .btn-row > * { min-width: 0; max-width: 100%; }
+.verification-recovery285 input[type="file"] { width: 100%; overflow: hidden; }

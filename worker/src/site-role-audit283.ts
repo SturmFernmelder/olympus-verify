@@ -15,7 +15,7 @@ import {reconcileRoleBatch242} from './role-reconcile242';
 import {canonicalNeverSentDeleteAuditFacts284} from './role-settlements';
 import {privacyBoundSiteRoleActionEnv,privacyCaptureFromColumns} from './privacy-serving-authority';
 import {readCanonicalPutRefusal285} from './role-put-refusal285';
-import {captureRoleGrantBaseline285,roleGrantBaselineFacts285,roleBaselineRelatedSql285,roleBaselineAuditActorCurrentSql285,ROLE_BASELINE_FAMILY_IDS285} from './role-baseline285';
+import {captureRoleGrantBaseline285,roleGrantBaselineFacts285,roleBaselineRelatedSql285,roleBaselineAuditActorCurrentSql285,roleBaselineRelevantFindingSql285,ROLE_BASELINE_FAMILY_IDS285} from './role-baseline285';
 
 export const ROLE_AUDIT_PAGE283=12;
 export const ROLE_AUDIT_FOCUSED_PAGE285=6;
@@ -50,10 +50,11 @@ export function classifyRoleAudit283(roles:readonly string[],expected:string|nul
  const extraUnowned=extra.filter(r=>!extraOwned.includes(r)),missing=expected&&!actual.includes(expected)?[expected]:[];
  // This is a conservative display/preview restriction only. The writer repeats
  // its full original-row classifier in the same statement before any effect.
- const manualPutHeld=missing.length>0&&receipts.some(r=>{const refusal=readCanonicalPutRefusal285(r.reason);
+ const refusedPutReview=!!expected&&!sourceHeld&&receipts.some(r=>{const refusal=readCanonicalPutRefusal285(r.reason);
   return r.role===expected&&r.generation===generation&&r.desired===1&&r.attempts===1&&r.state==='held'&&!!refusal&&[403,404].includes(refusal.status);});
+ const manualPutHeld=missing.length>0&&refusedPutReview;
  return {actual,missing,extraOwned,extraUnowned,unknown:unknown.length,expiredUnattempted,
-   sourceHeld,manualPutHeld,review:sourceHeld||unknown.length>0||extraUnowned.length>0||manualPutHeld,
+   sourceHeld,manualPutHeld,refusedPutReview,review:sourceHeld||unknown.length>0||extraUnowned.length>0||manualPutHeld,
    repairable:!sourceHeld&&!manualPutHeld&&unknown.length===0&&extraUnowned.length===0&&!!expected&&(missing.length>0||extraOwned.length>0)};
 }
 function providerPage(raw:unknown,after:string){
@@ -96,7 +97,7 @@ const targetsSQL284=()=>`WITH ${canonicalNeverSentDeleteAuditFacts284()}
  EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.subject_id=wanted.value AND j.state<>'complete' AND j.state IN('waiting_role','held','erasing')) AS privacyHeld,
  (SELECT COUNT(*) FROM characters c WHERE c.discord_id=wanted.value AND c.status NOT IN('unbound','denied')) AS characterCount,
  COALESCE((SELECT json_group_array(json_object('name',c.name,'status',c.status,'legacyNameFirstObservedAt',f.first_seen,'actualJoinedAt',NULL,'currentEpisodeFirstObservedAt',NULL)) FROM (SELECT name_key,name,status FROM characters WHERE discord_id=wanted.value AND status NOT IN('unbound','denied') ORDER BY name_key LIMIT ${CHARACTER_LIMIT}) c LEFT JOIN roster_first_seen f ON f.name_key=c.name_key), '[]') AS characters,
- COALESCE((SELECT json_group_array(json_object('id',b.id,'actor',b.actor,'ts',b.ts,'details',b.details,'actorCurrent',${roleBaselineAuditActorCurrentSql285('b')})) FROM (SELECT a.id,a.actor,a.ts,a.details FROM audit a WHERE a.action='role.baseline285_adopted' AND a.actor IN(SELECT value FROM json_each(?4)) AND a.subject=wanted.value ORDER BY a.ts DESC,a.id DESC LIMIT 8) b),'[]') AS baselineFindings,
+ COALESCE((SELECT json_group_array(json_object('id',b.id,'actor',b.actor,'ts',b.ts,'details',b.details,'actorCurrent',${roleBaselineAuditActorCurrentSql285('b')})) FROM (SELECT a.id,a.actor,a.ts,a.details FROM audit a WHERE a.action='role.baseline285_adopted' AND a.actor IN(SELECT value FROM json_each(?4)) AND a.subject=wanted.value AND ${roleBaselineRelevantFindingSql285('a','wanted.value','p.generation','?2','?3')} ORDER BY a.ts DESC,a.id DESC LIMIT 8) b),'[]') AS baselineFindings,
  (SELECT COUNT(*) FROM role_settlements r WHERE ${roleBaselineRelatedSql285('r','wanted.value','?2','?3')}) AS receiptCount,
  (SELECT COUNT(*) FROM role_settlements r WHERE ${roleBaselineRelatedSql285('r','wanted.value','?2','?3')} AND r.attempts=1 AND r.state IN('dispatching','unknown') AND NOT EXISTS(SELECT 1 FROM audit_no_effect284 n WHERE n.receipt_row=r.rowid)) AS unknownAttempts,
  (SELECT COUNT(*) FROM role_settlements r WHERE ${roleBaselineRelatedSql285('r','wanted.value','?2','?3')} AND r.attempts=0 AND r.expires_at<=CAST(strftime('%s','now')AS INTEGER) AND r.state IN('pending','held')) AS expiredUnattempted,
@@ -178,7 +179,7 @@ export async function handleSiteRoleAudit283(request:Request,env:Env,admin:SiteU
    try{check();const f=routineMembership232Facts(cap),extra=entitlements.manifest?.entries.filter(e=>e.subject===id&&e.generation===f.subjectGeneration).map(e=>canonical.policy!.ranks.find(r=>r.key===e.roleKey)!.roleId)??[];
     const choose=(policy:NonNullable<typeof canonical.policy>)=>f.cause==='eligible'&&!!f.primary&&entitlements.mode!=='held'&&canonicalRankWitnessMatches280(policy,f.canonicalRankProfile,f.rankQualified)?highestCanonicalRank233(policy,{index:f.primary.index,name:f.primary.rank},extra)?.roleId??null:null;
     const wanted=choose(canonical.policy!);
-    return {expected:wanted,cause:wanted?'eligible':f.cause==='eligible'?'rank_source_held':f.cause,holdReason:wanted?null:f.cause==='eligible'?'native_rank_unmapped':f.cause,nativeRank:f.primary?.rank??null,nativeCharacter:f.primary?.nameKey??null,snapshotId:f.snapshotId,deadline:f.deadline};
+    return {expected:wanted,cause:wanted?'eligible':f.cause==='eligible'?'rank_source_held':f.cause,holdReason:wanted?null:f.cause==='eligible'?entitlements.mode==='held'?'configuration_held':'native_rank_unmapped':f.cause,nativeRank:f.primary?.rank??null,nativeCharacter:f.primary?.nameKey??null,snapshotId:f.snapshotId,deadline:f.deadline};
    }finally{closeRoutineMembership232(cap);}
   };
   if(request.method==='POST'){

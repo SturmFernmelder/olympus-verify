@@ -304,8 +304,19 @@ local SELECT_HOLDS={
   ["source-unknown"]="The selected response was unknown. Keep this request stopped and inspect Watcher/status before any new explicit read.",
   ["source-refused"]="The selected source was refused. Ask staff to review the current source and access; no promotion is ready.",
   ["source-held"]="The selected source held eligibility. Review the current target with staff; display verification cannot clear that hold.",
-  ["directive-rank-policy-held"]="The server promotion policy does not support this selected plan. Staff must review the active rank policy; verification and reloading cannot activate it.",
-  ["native-rank-scheme-unconfirmed"]="The server could not qualify the complete native rank table. Refresh the native roster and ask staff to review its exact profile; no promotion is ready.",
+  ["directive-rank-policy-held"]="The server's rank settings do not allow this promotion. Verify and Sync & reload cannot change that; only a change to the server's rank settings can.",
+  ["native-rank-scheme-unconfirmed"]="The server could not confirm the guild's full list of ranks, so no promotion is ready. Click Sync & reload to send a fresh roster, wait for the Watcher, then click Check again. If this message stays, compare the guild's rank names and order with the server settings.",
+  ["flagship-native-scope-unconfirmed"]="The server could not confirm which guild and realm it is set up for. Check the server's guild and realm settings; this view cannot change them.",
+  ["native-secret-unconfigured"]="The server's verification key is missing or unusable. This cannot be fixed in the addon; the key must be corrected in the server settings.",
+  ["selection-source-not-current"]="This check does not match the current guild setup. Click Sync & reload to send the current roster, wait for the Watcher, then click Check again.",
+  ["native-snapshot-unavailable"]="The server has no complete, current guild roster. Click Sync & reload to send it, wait for the Watcher, then click Check again.",
+  ["promotion-actor-unconfirmed"]="The current guild roster does not show you with a rank that may do this promotion. Check your own rank in the game's guild window; if it has changed, click Sync & reload, then Check again.",
+  ["native-identity-ambiguous"]="The guild roster does not identify this character uniquely (for example, two entries look the same). Check the character in the game's guild window, then click Sync & reload.",
+  ["entitlement-expired"]="This check result is too old to use. Click Check again to request a current result.",
+  ["native-snapshot-changed"]="The guild roster changed while this check was running. Click Sync & reload to send the new roster, wait for the Watcher, then click Check again.",
+  ["launch-page-verification-changed"]="The member's verification changed while this check was running. Click Check again to request the current state.",
+  ["selection-read-expired"]="This check ran out of time before it finished. Click Check again.",
+  ["launch-read-window-exhausted"]="This check ran out of its allowed time. Click Check again; the old result is not used.",
   ["scan-expired"]="The original selected-read context expired. Make a new explicit selected read; its old dates remain unchanged.",
   ["operator-stopped"]="The selected read was explicitly stopped. It cannot resume automatically; a later read is a separate explicit request.",
   ["superseded"]="A newer control superseded this selected read. Load the matching current result; no old action authority is restored.",
@@ -321,7 +332,7 @@ local function SelectedCurrent(identity, now, control)
   local targets,batch,encoded=ValidSelect(control,identity,now)
   if not targets then return nil end
   local requested={};for _,id in ipairs(targets) do requested[id]=true end
-  local held={targetGuid=targets[1],targetGuids=batch and targets or nil,covered=requested,state="pending",code="awaiting-result",reason="The selected read is awaiting a matching result. Wait for the Watcher, then Sync and reload to load it; do not submit Check again while it is pending."}
+  local held={targetGuid=targets[1],targetGuids=batch and targets or nil,covered=requested,state="pending",code="awaiting-result",reason="This check is waiting for its result. Wait for the Watcher, then click Sync & reload to load it. Do not click Check again while it is waiting."}
   if now>=control.observedAt+60 then
     held.state,held.code,held.refreshable="held","selection-admission-expired",true
     held.reason=SELECT_HOLDS[held.code]

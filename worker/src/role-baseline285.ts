@@ -19,7 +19,7 @@ import {canonicalRankWitnessMatches280} from './canonical-native-authority280';
 
 export const ROLE_BASELINE_ACTION285='role.baseline285_adopted';
 export const ROLE_BASELINE_MIN_AGE285=86400;
-const PURPOSE='olympus-role-grant-baseline285-v1',MAX_FINDINGS=8,PREVIEW_SECONDS=300;
+const PURPOSE='olympus-role-grant-baseline285-v1',FINDING_PAGE=8,PREVIEW_SECONDS=300;
 const FIELDS=['id','subject','purpose','proof_id','guild_id','role_id','desired','state','reason','claim_nonce','subject_generation','request_digest','roster_id','native_guid','native_profile','native_rank','native_rank_name','attempts','created_at','expires_at','checked_at'] as const;
 type Scalar=string|number|null;
 type Old=Readonly<Record<typeof FIELDS[number],Scalar>>;
@@ -69,19 +69,31 @@ export function roleBaselineRelatedSql285(alias:string,subject:string,guild:stri
 }
 const noPrivacyJob=(id:string)=>`NOT EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.subject_id=${id} AND j.state<>'complete' AND j.state IN('waiting_role','held','erasing'))`;
 const currentTarget=(id:string,g:string)=>`(${privacyGenerationExpressionFenceSql(id,g)} AND ${noPrivacyJob(id)} AND NOT EXISTS(SELECT 1 FROM members m WHERE m.discord_id=${id} AND m.banned=1) AND NOT EXISTS(SELECT 1 FROM site_users u WHERE u.discord_id=${id} AND u.denied=1) AND NOT EXISTS(SELECT 1 FROM rename_holds h WHERE h.discord_id=${id} AND h.state='reapply'))`;
-const actorCurrent=(actor:string,g:string,v:string,n:string)=>`(${currentTarget(actor,g)} AND EXISTS(SELECT 1 FROM site_users u WHERE u.discord_id=${actor} AND u.session_version=${v} AND u.account_incarnation=${n} AND u.denied=0 AND u.in_server=1))`;
+// The owner's durable decision follows the adopter's account and continuing
+// access, not an ordinary logout. Original preview/action sessions remain
+// fenced separately by admittedReadAs and the Native predicate.
+const actorCurrent=(actor:string,g:string,n:string)=>`(${currentTarget(actor,g)} AND EXISTS(SELECT 1 FROM site_users u WHERE u.discord_id=${actor} AND u.account_incarnation=${n} AND u.denied=0 AND u.in_server=1))`;
 /** Informational only: include the exact adopter standing in both audit fact
  * snapshots. This SQL text does not verify a signature or issue a capability. */
 export function roleBaselineAuditActorCurrentSql285(alias:string):string{
  if(!/^[a-z][a-z0-9_]{0,30}$/.test(alias))return held();
- return `CASE WHEN json_valid(${alias}.details) THEN ${actorCurrent(alias+'.actor',`json_extract(${alias}.details,'$.payload.actorGeneration')`,`json_extract(${alias}.details,'$.payload.actorSessionVersion')`,`json_extract(${alias}.details,'$.payload.actorAccountIncarnation')`)} ELSE 0 END`;
+ return `CASE WHEN json_valid(${alias}.details) THEN ${actorCurrent(alias+'.actor',`json_extract(${alias}.details,'$.payload.actorGeneration')`,`json_extract(${alias}.details,'$.payload.actorAccountIncarnation')`)} ELSE 0 END`;
 }
+/** Bound the candidate page, not the lifetime number of decisions. This is
+ * informational filtering only; every returned record still needs its HMAC,
+ * complete immutable old tuple, policy and current standing verified. */
+export function roleBaselineRelevantFindingSql285(alias:string,subject:string,g:string,guild:string,family:string):string{
+ const expression=/^(?:\?[1-9][0-9]{0,2}|[a-z][a-z0-9_]{0,30}\.[a-z][a-z0-9_]{0,30})$/;
+ if(!/^[a-z][a-z0-9_]{0,30}$/.test(alias)||![subject,g,guild,family].every(v=>expression.test(v)))return held();
+ return `(CASE WHEN json_valid(${alias}.details) THEN json_extract(${alias}.details,'$.payload.subject')=${subject} AND json_extract(${alias}.details,'$.payload.generation') IS ${g} AND json_extract(${alias}.details,'$.payload.oldId') IN(SELECT baseline_old285.id FROM role_settlements baseline_old285 WHERE ${related('baseline_old285',subject,guild,family)} AND baseline_old285.subject_generation IS ${g} AND baseline_old285.attempts=1 AND baseline_old285.state IN('dispatching','unknown')) ELSE 0 END)`;
+}
+const subjectEntitlementsDigest=async(config:Config,subject:string,g:string|null)=>hash(json({kind:'effective-subject-entitlements285-v1',guildId:config.guild,subject,generation:g,entries:config.entitlements.manifest?.entries.filter(e=>e.subject===subject&&e.generation===g).map(e=>e.roleKey)??[]}));
 const READ=`SELECT ${DB_NOW} AS at,p.generation,p.revision,
  ${currentTarget('?1','p.generation')} AS targetCurrent,
  (SELECT COUNT(*) FROM role_settlements r WHERE ${related('r','?1','?2','?3')} AND r.attempts=1 AND r.state IN('dispatching','unknown')) AS oldCount,
  (SELECT COUNT(*) FROM role_settlements r WHERE ${related('r','?1','?2','?3')} AND r.attempts=0 AND r.state IN('pending','dispatching') AND r.expires_at>${DB_NOW}) AS activeClaims,
  COALESCE((SELECT json_group_array(json_array(${FIELDS.map(k=>'r.'+k).join(',')})) FROM(SELECT ${FIELDS.join(',')} FROM role_settlements r WHERE ${related('r','?1','?2','?3')} AND r.attempts=1 AND r.state IN('dispatching','unknown') ORDER BY r.id LIMIT 2)r),'[]') AS oldJSON,
- COALESCE((SELECT json_group_array(json_object('id',a.id,'ts',a.ts,'actor',a.actor,'subject',a.subject,'details',a.details,'actorCurrent',${roleBaselineAuditActorCurrentSql285('a')})) FROM(SELECT id,ts,actor,subject,details FROM audit WHERE action='${ROLE_BASELINE_ACTION285}' AND actor IN(SELECT value FROM json_each(?4)) AND subject=?1 AND ts>${DB_NOW}-${PRIVACY_YEAR} ORDER BY ts DESC,id DESC LIMIT ${MAX_FINDINGS+1})a),'[]') AS findingsJSON,
+ COALESCE((SELECT json_group_array(json_object('id',a.id,'ts',a.ts,'actor',a.actor,'subject',a.subject,'details',a.details,'actorCurrent',${roleBaselineAuditActorCurrentSql285('a')})) FROM(SELECT a.id,a.ts,a.actor,a.subject,a.details FROM audit a WHERE a.action='${ROLE_BASELINE_ACTION285}' AND a.actor IN(SELECT value FROM json_each(?4)) AND a.subject=?1 AND a.ts>${DB_NOW}-${PRIVACY_YEAR} AND ${roleBaselineRelevantFindingSql285('a','?1','p.generation','?2','?3')} ORDER BY a.ts DESC,a.id DESC LIMIT ${FINDING_PAGE})a),'[]') AS findingsJSON,
  (SELECT COALESCE(MAX(id),0)+1 FROM audit) AS nextAuditId
  FROM(SELECT 1)one LEFT JOIN privacy_subjects p ON p.subject_id=?1`;
 function oldFromTuple(input:unknown):Old{
@@ -106,7 +118,7 @@ async function readState(db:D1Database,config:Config,subject:string,native?:Read
  const r=snapshotDataFields(raw,['at','generation','revision','targetCurrent','oldCount','activeClaims','oldJSON','findingsJSON','nextAuditId'],'baseline_read');
  if(!integer(r.at,1)||!generation(r.generation)||r.revision!==null&&!integer(r.revision)||r.targetCurrent!==0&&r.targetCurrent!==1||!integer(r.oldCount)||!integer(r.activeClaims)||typeof r.oldJSON!=='string'||typeof r.findingsJSON!=='string'||!integer(r.nextAuditId,1))return held();
  const old=snapshotDataArray(parse(r.oldJSON),2,'baseline_old_rows').map(oldFromTuple);
- const findings=snapshotDataArray(parse(r.findingsJSON),MAX_FINDINGS+1,'baseline_findings').map(input=>{
+ const findings=snapshotDataArray(parse(r.findingsJSON),FINDING_PAGE,'baseline_findings').map(input=>{
   const a=snapshotDataFields(input,['id','ts','actor','subject','details','actorCurrent'],'baseline_finding');
   if(!integer(a.id,1)||!integer(a.ts,1)||!validId(a.actor)||a.subject!==subject||typeof a.details!=='string'||encode(a.details).length>24000||a.actorCurrent!==0&&a.actorCurrent!==1)return held();return Object.freeze(a) as AuditRow;
  });
@@ -120,13 +132,13 @@ async function verifyFinding(config:Config,a:AuditRow,old:Old,state:State):Promi
   if(a.actorCurrent!==1||!config.actorIds.includes(a.actor)||a.ts<=state.at-PRIVACY_YEAR)return null;
   const d=snapshotDataFields(parse(a.details),['version','kind','payload','signature','_privacySubjectIds'],'baseline_details'),p=snapshotDataFields(d.payload,payloadKeys.split(','),'baseline_payload');
   const refs=[...new Set([a.actor,a.subject])];if(d.version!==1||d.kind!==PURPOSE||typeof d.signature!=='string'||!HEX64.test(d.signature)||json(d._privacySubjectIds)!==json(refs)||Object.keys(p).join(',')!==payloadKeys||json({version:d.version,kind:d.kind,payload:p,signature:d.signature,_privacySubjectIds:refs})!==a.details)return null;
-  if(p.receiptId!==a.id||p.actor!==a.actor||p.subject!==a.subject||p.subject!==old.subject||p.generation!==state.generation||!generation(p.actorGeneration)||!integer(p.actorSessionVersion,1)||typeof p.actorAccountIncarnation!=='string'||privacyAccountIncarnation(p.actorAccountIncarnation)!==p.actorAccountIncarnation||p.guildId!==config.guild||p.policyDigest!==await hash(config.canonical.raw!)||p.entitlementsDigest!==await hash(json(config.entitlements.raw))||typeof p.nonce!=='string'||!HEX32.test(p.nonce)||p.grantOnly!==true||p.manualExistingRoles!==true||p.historicalUnknown!==true||!integer(p.adoptedAt,1)||p.adoptedAt!==a.ts||p.adoptedAt>state.at||!integer(p.expiresAt,1)||p.expiresAt!==p.adoptedAt+PRIVACY_YEAR||p.expiresAt<=state.at||!integer(p.snapshotId,1)||!integer(p.snapshotAt,1)||p.snapshotAt>p.adoptedAt||p.snapshotAt<=p.adoptedAt-600||!validId(p.expectedRole)||!config.canonical.policy!.ranks.some(r=>r.roleId===p.expectedRole)||typeof p.oldTupleDigest!=='string'||!HEX64.test(p.oldTupleDigest))return null;
+  if(p.receiptId!==a.id||p.actor!==a.actor||p.subject!==a.subject||p.subject!==old.subject||p.generation!==state.generation||!generation(p.actorGeneration)||!integer(p.actorSessionVersion,1)||typeof p.actorAccountIncarnation!=='string'||privacyAccountIncarnation(p.actorAccountIncarnation)!==p.actorAccountIncarnation||p.guildId!==config.guild||p.policyDigest!==await hash(config.canonical.raw!)||p.entitlementsDigest!==await subjectEntitlementsDigest(config,p.subject as string,state.generation)||typeof p.nonce!=='string'||!HEX32.test(p.nonce)||p.grantOnly!==true||p.manualExistingRoles!==true||p.historicalUnknown!==true||!integer(p.adoptedAt,1)||p.adoptedAt!==a.ts||p.adoptedAt>state.at||!integer(p.expiresAt,1)||p.expiresAt!==p.adoptedAt+PRIVACY_YEAR||p.expiresAt<=state.at||!integer(p.snapshotId,1)||!integer(p.snapshotAt,1)||p.snapshotAt>p.adoptedAt||p.snapshotAt<=p.adoptedAt-600||!validId(p.expectedRole)||!config.canonical.policy!.ranks.some(r=>r.roleId===p.expectedRole)||typeof p.oldTupleDigest!=='string'||!HEX64.test(p.oldTupleDigest))return null;
   roles(p.observedRoles);if(p.oldId!==old.id||!eligible(old,a.subject,state.generation,state.at)||await hash(json(tuple(old)))!==p.oldTupleDigest)return null;
   const bytes=Uint8Array.from(d.signature.match(/../g)!,x=>parseInt(x,16));if(!await verify('HMAC',await signingKey(config.secret),bytes,encode(json(p))))return null;config.check();return Object.freeze(p) as Payload;
  }catch{return null;}
 }
 async function fromState(env:Env,config:Config,db:D1Database,state:State,subject:string,g:string|null):Promise<RoleGrantBaseline285|null>{
- if(state.targetCurrent!==1||state.generation!==g||state.oldCount!==1||state.old.length!==1||state.activeClaims!==0||state.findings.length>MAX_FINDINGS||!eligible(state.old[0]!,subject,g,state.at))return null;
+ if(state.targetCurrent!==1||state.generation!==g||state.oldCount!==1||state.old.length!==1||state.activeClaims!==0||!eligible(state.old[0]!,subject,g,state.at))return null;
  const old=state.old[0]!;
  for(const a of state.findings){const payload=await verifyFinding(config,a,old,state);if(!payload)continue;
   const check=()=>{config.check();if(privacyProviderCustodyDatabase(env)!==db||now()>=payload.expiresAt)return held();};check();
@@ -142,9 +154,9 @@ export function roleGrantBaselineFacts285(cap:RoleGrantBaseline285):RoleGrantBas
  * other old rows/claims and every DELETE retain their original predicates. */
 export function roleGrantBaselinePredicate285(env:Env,cap:RoleGrantBaseline285,start=1,alias='old'):Readonly<{sql:string;values:readonly Scalar[];next:number;check:()=>void}>{
  const r=originals.get(cap);if(!r||r.env!==env||!integer(start,1)||start>75||!/^[a-z][a-z0-9_]{0,30}$/.test(alias))return held();r.check();
- const p=r.payload,q=(i:number)=>'?'+(start+i),values:readonly Scalar[]=Object.freeze([r.audit.id,r.audit.details,p.actor,p.actorGeneration,p.actorSessionVersion,p.actorAccountIncarnation,p.subject,p.generation,p.expiresAt,json(tuple(r.old))]);
- const match=FIELDS.map((k,i)=>`${alias}.${k} IS json_extract(${q(9)},'$[${i}]')`).join(' AND ');
- const sql=`(${match} AND ${q(8)}>${DB_NOW} AND EXISTS(SELECT 1 FROM audit a WHERE a.id=${q(0)} AND a.action='${ROLE_BASELINE_ACTION285}' AND a.actor=${q(2)} AND a.subject=${q(6)} AND a.details=${q(1)} AND a.ts>${DB_NOW}-${PRIVACY_YEAR}) AND ${actorCurrent(q(2),q(3),q(4),q(5))} AND ${currentTarget(q(6),q(7))})`;
+ const p=r.payload,q=(i:number)=>'?'+(start+i),values:readonly Scalar[]=Object.freeze([r.audit.id,r.audit.details,p.actor,p.actorGeneration,p.actorAccountIncarnation,p.subject,p.generation,p.expiresAt,json(tuple(r.old))]);
+ const match=FIELDS.map((k,i)=>`${alias}.${k} IS json_extract(${q(8)},'$[${i}]')`).join(' AND ');
+ const sql=`(${match} AND ${q(7)}>${DB_NOW} AND EXISTS(SELECT 1 FROM audit a WHERE a.id=${q(0)} AND a.action='${ROLE_BASELINE_ACTION285}' AND a.actor=${q(2)} AND a.subject=${q(5)} AND a.details=${q(1)} AND a.ts>${DB_NOW}-${PRIVACY_YEAR}) AND ${actorCurrent(q(2),q(3),q(4))} AND ${currentTarget(q(5),q(6))})`;
  return Object.freeze({sql,values,next:start+values.length,check:r.check});
 }
 function decode(raw:string):Uint8Array{if(!/^[A-Za-z0-9_-]+$/.test(raw))return held();const data=Uint8Array.from(atob(raw.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-raw.length%4)%4)),c=>c.charCodeAt(0));if(b64u(data)!==raw)return held();return data;}
@@ -203,7 +215,7 @@ export async function handleSiteRoleBaseline285(request:Request,env:Env,admin:Si
   if(state.targetCurrent!==1||state.generation!==f.subjectGeneration)return held();
   const existing=await fromState(actionEnv,config,db,state,subject,f.subjectGeneration);check();
   const alreadyAdopted=existing&&(!preview||originals.get(existing)!.payload.nonce===preview.nonce);
-  if(state.oldCount!==1||state.old.length!==1||state.activeClaims!==0||state.findings.length>MAX_FINDINGS||!eligible(state.old[0]!,subject,f.subjectGeneration,state.at))return held();
+  if(state.oldCount!==1||state.old.length!==1||state.activeClaims!==0||!eligible(state.old[0]!,subject,f.subjectGeneration,state.at))return held();
   const old=state.old[0]!,oldDigest=await hash(json(tuple(old)));check();
   if(preview&&(preview.expiresAt<=now()||preview.generation!==state.generation||preview.revision!==state.revision||preview.oldTupleDigest!==oldDigest||preview.snapshotId!==f.snapshotId||preview.snapshotAt!==f.snapshotExportedAt||preview.expectedRole!==wanted))throw new Held('baseline_preview_changed');
   const observedRoles=await memberRoles(actionEnv,subject);check();await read();assertRoutineMembership232(actionEnv,cap);
@@ -222,7 +234,7 @@ export async function handleSiteRoleBaseline285(request:Request,env:Env,admin:Si
   if(json(observedRoles)!==json(preview!.observedRoles))throw new Held('baseline_preview_changed');
   state=await readState(db,config,subject);check();assertRoutineMembership232(actionEnv,cap);
   if(state.targetCurrent!==1||state.generation!==preview!.generation||state.revision!==preview!.revision||state.oldCount!==1||state.old.length!==1||state.activeClaims!==0||json(tuple(state.old[0]!))!==json(tuple(old))||!eligible(old,subject,state.generation,state.at)||preview!.expiresAt<=now())throw new Held('baseline_preview_changed');
-  const payload=Object.freeze({receiptId:state.nextAuditId,nonce:preview!.nonce,subject,generation:state.generation,actor:original.u,actorGeneration:original.g,actorSessionVersion:original.v,actorAccountIncarnation:original.n,guildId:config.guild,policyDigest:await hash(config.canonical.raw!),entitlementsDigest:await hash(json(config.entitlements.raw)),oldId:String(old.id),oldTupleDigest:oldDigest,observedRoles:observedRoles.filter(r=>FAMILY.includes(r)),snapshotId:f.snapshotId,snapshotAt:f.snapshotExportedAt,expectedRole:wanted,adoptedAt:state.at,expiresAt:state.at+PRIVACY_YEAR,grantOnly:true,manualExistingRoles:true,historicalUnknown:true}) satisfies Payload;
+  const payload=Object.freeze({receiptId:state.nextAuditId,nonce:preview!.nonce,subject,generation:state.generation,actor:original.u,actorGeneration:original.g,actorSessionVersion:original.v,actorAccountIncarnation:original.n,guildId:config.guild,policyDigest:await hash(config.canonical.raw!),entitlementsDigest:await subjectEntitlementsDigest(config,subject,state.generation),oldId:String(old.id),oldTupleDigest:oldDigest,observedRoles:observedRoles.filter(r=>FAMILY.includes(r)),snapshotId:f.snapshotId,snapshotAt:f.snapshotExportedAt,expectedRole:wanted,adoptedAt:state.at,expiresAt:state.at+PRIVACY_YEAR,grantOnly:true,manualExistingRoles:true,historicalUnknown:true}) satisfies Payload;
   const signature=hex(await sign('HMAC',await signingKey(config.secret),encode(json(payload)))),refs=[...new Set([original.u,subject])],details=json({version:1,kind:PURPOSE,payload,signature,_privacySubjectIds:refs});
   const values:Scalar[]=[payload.receiptId,payload.adoptedAt,original.u,subject,details,json(tuple(old)),FAMILY_JSON,state.generation,preview!.nonce];
   const native=routineMembership232Predicate(actionEnv,cap,values.length+1,true);values.push(...native.values);

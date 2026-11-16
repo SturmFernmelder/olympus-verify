@@ -6,7 +6,7 @@ import { callBudget, revokeForBan } from './roles';
 import {captureBetaRoleDispatch,betaRoleDispatchHeld,betaSourceEpochState,type BetaRoleDispatch} from './beta-reset-policy';
 import type { Env } from "./env";
 import { readPrivacySubject, privacyBoundSubjectEnv,privacyActorAlreadyBound,pendingPrivacyCapture } from './privacy-serving-authority';
-import { audit, getCharacter, getMember, likeArg, now, openPendingFor, openTicketFor, type PendingRow } from "./db";
+import { audit, getCharacter, getMember, likeArg, linksNotBefore, now, openPendingFor, openTicketFor, type PendingRow } from "./db";
 import { banApproverRoles, officerRankNames, officerRoles, staffChannel } from "./env";
 import { codeFor, dayBucket, normalizeCharacter, randomNonce, ticketFor } from "./codes";
 import { autocomplete, banMember, DiscordError, editMessage, explainDiscordError, fitContent, focusedOption, hasAnyRole, type Interaction, EPHEMERAL, json, logLine, modalField, option, postMessage, removeRole, reply, rest, subcommand, updateMessage, userOf } from "./discord";
@@ -32,7 +32,22 @@ async function requestRoleReconciliation242(...args:Parameters<typeof import('./
 async function kickRoleWork242(...args:Parameters<typeof import('./role-reconcile242').kickRoleWork242>){if(currentNativeVerification242(args[0]))return (await import('./role-reconcile242')).kickRoleWork242(...args);}
 import {captureLaunchVerification} from './launch-verification227';
 import {captureCanonicalRankConfig233} from './canonical-ranks233';
+import {captureNativeRankConfig232,historicalNativeRankPolicy232} from './native-rank-reconciliation232';
+import {recognizedMembershipAnchor232} from './roster-verification275';
+import {NEUTRAL_IDENTITY_PURPOSE280} from './consumed-identity280';
 function currentNativeVerification242(env:Env):boolean{const capture=captureLaunchVerification(env);return capture.mode==='members-only'&&capture.scope!==null&&capture.current();}
+/** A member-facing hint only. Reuse the writer's anchor classifier to name an
+ * unresolved character before a more recently verified alt. No capability or
+ * mutation follows from this read; the fresh whisper still proves control. */
+async function linkedProofRefreshTarget285(env:Env,subject:string):Promise<{name:string}|null>{
+ const canonical=captureCanonicalRankConfig233(env),native=captureNativeRankConfig232(env);
+ const policy=canonical.mode==='enabled'?JSON.stringify(historicalNativeRankPolicy232()):native.raw??'null';
+ return env.DB.prepare(`SELECT c.name FROM characters c LEFT JOIN privacy_subjects p ON p.subject_id=c.discord_id
+ WHERE c.discord_id=?1 AND c.status IN('member','verified','queued') AND (c.status='member' OR c.verified_at IS NOT NULL AND c.guid IS NOT NULL)
+ ORDER BY CASE WHEN c.verified_at IS NULL OR c.verified_at<c.bound_at OR NOT EXISTS(SELECT 1 FROM role_settlements a
+ WHERE (${recognizedMembershipAnchor232('?2','?3','?4')}) AND (c.source IN('whisper','mail') OR a.purpose='${NEUTRAL_IDENTITY_PURPOSE280}')) THEN 0 ELSE 1 END,
+ c.verified_at,c.name_key LIMIT 1`).bind(subject,policy,canonical.mode==='enabled'?canonical.raw:'null',linksNotBefore(env)).first<{name:string}>();
+}
 /** Informational previous-result hint only: no identity, role or re-link authority. */
 async function originalIdentityHint280(env:Env,subject:string):Promise<boolean>{
  if(!/^[1-9][0-9]{16,19}$/.test(subject))return false;
@@ -46,10 +61,10 @@ async function originalIdentityHint280(env:Env,subject:string):Promise<boolean>{
  return v.schema==='role-request280-v1'&&Object.hasOwn(v,'generation')&&v.generation===row.generation&&Number.isSafeInteger(v.requestId)&&Number(v.requestId)>0
   &&v.state==='held'&&v.reason==='native232_original_identity_or_source_held';
 }
-const ORIGINAL_IDENTITY_HINT280='Your previous check could not confirm the original identity proof or current guild source. Ask an officer to refresh the guild data. If access is still held, press **Refresh character proof** and send its fresh code from **the same character**. Older links are not backfilled automatically.';
+const ORIGINAL_IDENTITY_HINT280='Your last check could not confirm the earlier proof that this character is yours, or could not confirm the current guild roster. Ask an officer to refresh the guild data. If access is still held, press **Refresh character proof** in Discord and send the new code from **the same character**. Missing character proofs are not filled in automatically.';
 const REFRESH_PROOF285='guide:refresh-proof';
 const originalIdentityReply285=(content:string,offer:boolean)=>reply(content,offer?{components:[{type:1,components:[{type:2,style:1,custom_id:REFRESH_PROOF285,label:'Refresh character proof'}]}]}:{});
-const ORIGINAL_IDENTITY_TOOLS_HELD280='This existing link needs a fresh request code to prove control again, but current officer tools have not confirmed support for request codes. Ask an officer to update and sync them, then use **Refresh character proof** from this same character. Your link is retained; no fresh code or role was issued.';
+const ORIGINAL_IDENTITY_TOOLS_HELD280='This link needs a new request code to prove the character is still yours, but the officers\' addon and Watcher have not yet confirmed support for request codes. Ask an officer to update and sync them, then press **Refresh character proof** in Discord and send the code from this same character. Your link is kept; no new code or role was given.';
 
 /** Revision 4: registers deferred work past the reply (index.ts deferOriginalServing). Absent in tests and direct callers. */
 type Defer = (label: string, work: () => Promise<unknown>) => void;
@@ -301,8 +316,8 @@ async function issueTicket(env: Env, i: Interaction, lane?: LaneCapture,newChara
   const member = await getMember(env, user.id);
   if (member?.banned) return reply("This account cannot verify. Contact High Council if you think that is a mistake.");
   const native=currentNativeVerification242(env);
-  const linked=native&&(!newCharacter||refreshProof)?await env.DB.prepare("SELECT name FROM characters WHERE discord_id=?1 AND status IN('member','verified','queued') AND verified_at IS NOT NULL AND guid IS NOT NULL ORDER BY verified_at DESC LIMIT 1").bind(user.id).first<{name:string}>():null;
-  if(refreshProof&&!linked)return reply('No existing linked character is available to refresh. Use **Get my code** to verify a character.');
+  const linked=native&&(!newCharacter||refreshProof)?await linkedProofRefreshTarget285(env,user.id):null;
+  if(refreshProof&&!linked)return reply('No existing linked character is available to refresh. Press **Get my code** in the pinned guide to verify a character.');
   if(native&&!newCharacter){
     if(linked){const originalHeld=await originalIdentityHint280(env,user.id);if(originalHeld&&!await ticketsReady(env))return reply(ORIGINAL_IDENTITY_TOOLS_HELD280);const reconciliation=await requestRoleReconciliation242(env,user.id,'existing_verified_button')??Object.freeze({kind:'held' as const});return issueReply280(originalIdentityReply285(`**${linked.name}** is already linked. ${roleRequestText280(reconciliation)} ${originalHeld?ORIGINAL_IDENTITY_HINT280:'No new whisper is needed to request this check. The in-game Watcher list is a dated snapshot and can lag behind. To link a different character, press **Verify another character**.'}`,originalHeld),{reconciliation});}
   }

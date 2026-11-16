@@ -157,5 +157,27 @@ do
   check("busy601 new proof has current observation and distinct MAC", fresh.nativeMembership and fresh.nativeMembership.observedAt == firstAt + 601 and fresh.nativeMembership.mac ~= firstMAC)
   check("busy601 old proof is never retimestamped or mutated", first.nativeMembership.observedAt == firstAt and first.nativeMembership.mac == firstMAC)
 end
+do
+  local f = fixture()
+  local originalAt = f.e.NOW
+  local captured
+  f.e.OlympusVerifyLive242 = {
+    NewVerificationObservation = function() return {id=string.rep("a",32),observedAt=originalAt} end,
+    CaptureVerification = function(_,_,_,_,proof,_,observation) captured={proof=proof,observation=observation} end,
+    VerificationReply = function(_,_,text) return text end,
+  }
+  f.change = function(n) if n == 1 then f.e.NOW = f.e.NOW + 1 end end
+  local event = f.whisper()
+  check("whisper crossing a second boundary keeps one original event/proof timestamp", event.ts == originalAt and event.nativeMembership and event.nativeMembership.observedAt == originalAt)
+  check("captured intake shares the exact signed event time", captured and captured.proof.observedAt == captured.observation.observedAt)
+end
+do
+  local f = fixture()
+  local originalAt = f.e.NOW
+  f.e.OlympusVerifyLive242 = {NewVerificationObservation=function() return {id=string.rep("b",32),observedAt=originalAt} end,CaptureVerification=function() end,VerificationReply=function(_,_,text) return text end}
+  f.change = function(n) if n == 1 then f.e.NOW = f.e.NOW + 6 end end
+  local event = f.whisper()
+  check("an old duplicate event cannot backdate a new native membership proof", event.ts == originalAt and event.nativeMembership == nil)
+end
 print(string.format("%d passed, %d failed", passed, failed))
 if failed > 0 then os.exit(1) end

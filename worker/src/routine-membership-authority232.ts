@@ -5,7 +5,7 @@ import {NEUTRAL_IDENTITY_PURPOSE280} from './consumed-identity280';
 import type { Env } from './env';
 import { intVar } from './env';
 import { linksNotBefore } from './db';
-import { privacyProviderCustodyDatabase,privacyGenerationFenceSql,captureSiteRoleActionAuthority283,type SiteRoleActionAuthority283 } from './privacy-serving-authority';
+import { privacyProviderCustodyDatabase,privacyGenerationFenceSql,captureSiteRoleActionAuthority283,sameOriginalSiteRoleAction285,type SiteRoleActionAuthority283 } from './privacy-serving-authority';
 import { captureLaunchVerification } from './launch-verification227';
 import { captureNativeRankConfig232,historicalNativeRankPolicy232,NATIVE_RANK_NAMES232,NATIVE_SCOPE232,NATIVE_GUILD232,SHARED_MEMBER232 } from './native-rank-reconciliation232';
 import {captureCanonicalRankConfig233} from './canonical-ranks233';
@@ -266,6 +266,13 @@ export function closeRoutineMembership232(cap:RoutineMembership232):void{origina
 export function routineMembership232AttendedRoleMatches(env:Env,cap:RoutineMembership232,expected:string|null):boolean{
  assertRoutineMembership232(env,cap);const action=originals.get(cap)!.siteRoleAction;
  return !action||action.selection?.expectedRole===expected;
+}
+/** Identity comparison only. The Native effect environment deliberately sheds
+ * the action database wrapper; a same-invocation permit must still match the
+ * exact original action retained by this genuine Native capability. This gives
+ * no SQL, callback, new capability or dispatch authority to the caller. */
+export function routineMembership232SiteRoleActionMatches285(env:Env,cap:RoutineMembership232,action:SiteRoleActionAuthority283):boolean{
+ assertRoutineMembership232(env,cap);return sameOriginalSiteRoleAction285(originals.get(cap)!.siteRoleAction,action);
 }
 /** Fixed authored JSON comparisons freeze every linked alt and the exact original
  * current Native profile. Deadline, standing and generation are checked in SQL

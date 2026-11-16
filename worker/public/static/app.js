@@ -4797,7 +4797,7 @@
     try {
       await loadMemberScript("mountLateProof285", "/static/late-proof285.js"); if (!live()) return;
       clear(body);
-      const privateApi = async (...args) => { if (!live()) throw Error("This private recovery page is no longer open."); const result = await api(...args); if (!live()) throw Error("The original recovery session changed."); return result; };
+      const privateApi = async (...args) => { if (!live()) throw Error("This private recovery page is no longer open."); const result = await api(...args); if (!live()) throw Error("You left this page or your sign-in changed while it was loading. Open Stored verification again."); return result; };
       instance = window.mountLateProof285(body, {api:privateApi}); if (!live()) instance?.destroy();
     } catch (error) { if (live()) { clear(body); add(body, errorLine(explain(error,"Private verification recovery could not be opened."))); } }
   }

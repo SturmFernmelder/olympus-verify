@@ -40,6 +40,7 @@ const freshPage=(changes={})=>({...page,rows:[{...row,previewToken:'fresh-per-ro
  check('malicious-display CSV cells are literal across leading LF/whitespace/fullwidth formula prefixes',csv.includes('"\'\n ＝HYPERLINK(')&&csv.includes('"\' \t=2+2"'));
  check('CSV preserves full 18-digit Discord snowflakes as literal text',csv.includes('"\''+id+'"'));
  check('withheld privacy identity is absent from private CSV',!csv.includes('Private held')&&!csv.includes('900000000000000003'));
+ check('CSV omits account hold classifications under the approved export policy',!csv.includes('Hold reason')&&!csv.includes('rename_hold')&&!csv.includes('"ban"')&&csv.split('\r\n')[0].split(',').length===15);
  const repair=button(root,'Review reconciliation to Olympus Member');await repair.click();
  check('Review performs a new exact-account read and names desired consequences before any POST',calls.filter(c=>c.method==='POST').length===0&&calls.length===2&&calls[1].url==='/api/admin/role-audit?subject='+id&&!!button(root,'Confirm Olympus Member reconciliation (up to 2 planned changes)')&&root.textContent.includes('acknowledged unwanted-role removal and/or the desired grant')&&root.textContent.includes('additional owned compensation')&&root.textContent.includes('112-second allowance'));
  const confirm=button(root,'Confirm Olympus Member reconciliation (up to 2 planned changes)');await confirm.click();await confirm.click();

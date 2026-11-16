@@ -40,6 +40,7 @@ import { guildSeats } from "./guild-seats";
 import { handleLaunchOperations229 } from './site-launch229';
 import { handleSiteRoleAudit283 } from './site-role-audit283';
 import { handleSiteRoleBaseline285 } from './role-baseline285';
+import { handleSitePutRefusalRetry285 } from './site-role-put-refusal-retry285';
 import { handleSiteLateProof285 } from './site-late-proof285';
 import { accountInfo, ownerOfCharacter } from "./lookup";
 import { communityEraseStatements, communityContext, fenceSql } from "./community-context";
@@ -88,6 +89,7 @@ export async function handleAdmin(request: Request, env: Env, path: string, admi
 
   if (path === '/api/admin/role-audit') return handleSiteRoleAudit283(request,env,admin,body);
   if (path === '/api/admin/role-baseline') return handleSiteRoleBaseline285(request,env,admin,body);
+  if (path === '/api/admin/role-put-refusal-retry') return handleSitePutRefusalRetry285(request,env,admin,body);
   if (path === '/api/admin/late-proof') return handleSiteLateProof285(request,env,admin,body);
 
   if (parts[0] === 'ruleset-publication') return handleRulesetPublication(request,env,parts.slice(1),body);

@@ -450,7 +450,8 @@ def drain(watcher, collect_inputs=True):
     _save_state(watcher)
     selected = {r["body"]["id"]: r for r in batch}
     # Transport receives a copy; it cannot mutate the frozen custody original.
-    payload = json.loads(json.dumps({"entries": [r["body"] for r in batch]}, allow_nan=False))
+    payload = json.loads(json.dumps({"entries": [r["body"] for r in batch],
+                                           "transportCapability": "late-whisper-capacity285-v1"}, allow_nan=False))
     delivery_binding285 = watcher._delivery_binding()
     okay, response = watcher.worker.call("POST", PATH, payload, retries=1)
     if not okay or not isinstance(response, dict) or response.get("version") != 242:

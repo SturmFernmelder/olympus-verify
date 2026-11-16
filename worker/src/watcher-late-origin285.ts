@@ -8,9 +8,10 @@ import {checkOriginalNativeRequest,checkOriginalNativeHeaders,ORIGINAL_REQUEST_D
 import {uniqueJsonKeys} from './network-profile';
 import {originalRecoveryClockMilliseconds} from './privacy-recovery-original-clock';
 
+export const INTAKE_CAPABILITY285='late-whisper-capacity285-v1';
 export const LATE_FORWARD_SINCE285=1794844114; // Actual16Nov2026 15:48:34UTC design boundary; never renewed.
 export type OriginalWatcherIntake285=Readonly<{kind:'original_watcher_intake285'}>;
-export type WatcherIntakeFacts285=Readonly<{env:Env;entries:readonly Readonly<Record<string,unknown>>[];bodyDigest:string;expiresAt:number;check:()=>void;spend:()=>void}>;
+export type WatcherIntakeFacts285=Readonly<{env:Env;entries:readonly Readonly<Record<string,unknown>>[];bodyDigest:string;expiresAt:number;supportsForward285:boolean;check:()=>void;spend:()=>void}>;
 const origins=new WeakMap<OriginalWatcherIntake285,WatcherIntakeFacts285>(),requests=new WeakSet<Request>();
 const encoder=new TextEncoder(),encode=encoder.encode.bind(encoder),subtle=crypto.subtle,digest=subtle.digest.bind(subtle),parse=JSON.parse.bind(JSON),stringify=JSON.stringify.bind(JSON);
 const VOLATILE=new Set(['status','acknowledgedAt','outcome','attempts','serverReceipt']);
@@ -68,12 +69,13 @@ export async function captureOriginalWatcherIntake285(request:Request,env:Env):P
    raw=new TextDecoder('utf-8',{fatal:true,ignoreBOM:false}).decode(joined);
   }finally{try{releaseOriginalNativeBodyReader(reader);}catch{}}
   if(!uniqueJsonKeys(raw))return null;
-  const data=parse(raw),object=snapshotDataFields(data,['entries'],'watcher_intake_body285');
+  const data=parse(raw),hasCapability=!!data&&typeof data==='object'&&Object.hasOwn(data,'transportCapability'),object=snapshotDataFields(data,hasCapability?['entries','transportCapability']:['entries'],'watcher_intake_body285');
+  if(hasCapability&&object.transportCapability!==INTAKE_CAPABILITY285)return null;const supportsForward285=hasCapability;
   const entries=Array.isArray(object.entries)?object.entries:object.entries&&typeof object.entries==='object'?Object.values(object.entries):null;
   if(!entries||entries.length>25||entries.some(e=>!e||typeof e!=='object'||Array.isArray(e)))return null;
   const bodyDigest=await hash(canonical(data)),copied=freeze(entries) as WatcherIntakeFacts285['entries'];check();
   const origin=Object.freeze({kind:'original_watcher_intake285' as const}),spend=()=>{check();if(spent)held();spent=true;};
-  origins.set(origin,Object.freeze({env,entries:copied,bodyDigest,expiresAt,check,spend}));return origin;
+  origins.set(origin,Object.freeze({env,entries:copied,bodyDigest,expiresAt,supportsForward285,check,spend}));return origin;
  }catch{return null;}
 }
 export function originalWatcherIntake285(origin:OriginalWatcherIntake285):WatcherIntakeFacts285{const facts=origins.get(origin);if(!facts)return held();facts.check();return facts;}

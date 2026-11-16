@@ -1,6 +1,6 @@
 {
   "schema": "olympus-public-routes-v1",
-  "scope": "Ninety-two anonymous postdeployment behaviors: the existing 90 owner-approved ones plus, since 12 November 2026, the two member-gated talent archive files (/static/talents/archive/260cf99b52db/), which answer 401 to an anonymous caller like every other member-only static file. Static source digests are computed from the supplied current commit, not frozen here.",
+  "scope": "Ninety-five anonymous postdeployment behaviors: the existing 90 owner-approved ones, the two member-gated talent archive files added on 12 November 2026, and anonymous refusal at the three administrator-only verification recovery routes. Static source digests are computed from the supplied current commit, not frozen here.",
   "cases": [
     {
       "method": "GET",
@@ -4970,6 +4970,66 @@
           "name": "location",
           "mode": "equals",
           "value": "https://olympus.roachcouncil.com/"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/api/admin/role-baseline",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/api/admin/late-proof",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/api/admin/role-put-refusal-retry",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
         }
       ]
     }

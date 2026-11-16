@@ -55,6 +55,8 @@ class IntakeCapacityCustody285(unittest.TestCase):
         calls = []
         def transport(method, path, payload, retries):
             calls.append(copy.deepcopy(payload))
+            self.assertEqual(payload["transportCapability"], "late-whisper-capacity285-v1")
+            self.assertEqual(set(payload), {"entries", "transportCapability"})
             self.assertEqual(retries, 1)
             if len(calls) == 1:
                 return True, dict(version=242, acknowledgements=[ack], deferred=[self.receipt(ordinary), self.receipt(financial)])

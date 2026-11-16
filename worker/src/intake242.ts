@@ -22,7 +22,7 @@ const RECEIPT_DEADLINE="CASE WHEN json_valid(details) THEN CASE WHEN json_type(d
 /** One fixed page of expired receipts/closed replay markers, independent of new uploads.
  * Marker expiry is logical at the original deadline; physical purge is bounded. Root must charge its measured
  * Native cost in the existing schedule before wiring a quiet cron call. */
-export const RECEIPT242_PURGE_SQL=`DELETE FROM audit WHERE id IN(SELECT id FROM audit WHERE (action='treasury.receipt242' AND COALESCE((${RECEIPT_DEADLINE}),ts+2592000)<=CAST(strftime('%s','now') AS INTEGER)) OR ((${erasedReceiptMarkerSql280('audit')}) AND ts<=CAST(strftime('%s','now') AS INTEGER)) ORDER BY id LIMIT 100)`;
+export const RECEIPT242_PURGE_SQL=`DELETE FROM audit WHERE id IN(SELECT id FROM audit WHERE (action='treasury.receipt242' AND COALESCE((${RECEIPT_DEADLINE}),ts+2592000)<=CAST(strftime('%s','now') AS INTEGER)) OR (action IN('verify.forward285_intent','verify.forward285_refused') AND COALESCE(CASE WHEN json_valid(details) THEN CASE WHEN json_type(details,'$.payload.observedAt')='integer' AND json_type(details,'$.payload.expiresAt')='integer' AND json_extract(details,'$.payload.expiresAt')=json_extract(details,'$.payload.observedAt')+2592000 AND json_extract(details,'$.payload.observedAt')>0 AND json_extract(details,'$.payload.observedAt')<=ts+5 THEN json_extract(details,'$.payload.expiresAt') END END,ts+2592000)<CAST(strftime('%s','now') AS INTEGER)) OR ((${erasedReceiptMarkerSql280('audit')}) AND ts<=CAST(strftime('%s','now') AS INTEGER)) ORDER BY id LIMIT 100)`;
 export async function purgeReceipt242(env:Env):Promise<{deleted:number;limit:100}>{
  const result=await env.DB.prepare(RECEIPT242_PURGE_SQL).run();
  const deleted=result.meta.changes;if(!result.success||!Number.isSafeInteger(deleted)||deleted<0||deleted>100)throw Error('receipt_retention_unknown');
@@ -58,20 +58,25 @@ async function nativeDiscord242(env:Env,e:Record<string,unknown>,subject:string,
  return launch.current();
 }
 export async function postIntake242(env:Env,body:{entries?:unknown},origin?:OriginalWatcherIntake285):Promise<Response>{
- const rows=Array.isArray(body.entries)?body.entries:body.entries&&typeof body.entries==='object'?Object.values(body.entries):null;
+ let rows=Array.isArray(body.entries)?body.entries:body.entries&&typeof body.entries==='object'?Object.values(body.entries):null;
  if(!rows||rows.length>25)return json({error:'entries_limit_25'},400);
- const acknowledgements:Record<string,unknown>[]=[],deferred:Record<string,unknown>[]=[],policyHolds:Record<string,unknown>[]=[];let createdAny=false;
+ const acknowledgements:Record<string,unknown>[]=[],deferred:Record<string,unknown>[]=[],policyHolds:Record<string,unknown>[]=[];let createdAny=false,originalProofLedgerRead=false;
  if(origin){
   const original=originalWatcherIntake285(origin);original.check();
   if(original.env!==env||rows!==original.entries)throw Error('original_intake_body_changed');
   const {processNewLateWhisperIntake285,lateWhisperIntakeOutcome285}=await import('./site-late-proof285');
   const result=await processNewLateWhisperIntake285(origin),outcome=lateWhisperIntakeOutcome285(result);original.check();
-  if(!outcome)throw Error('original_intake_outcome_missing');
-  if(outcome.kind!=='not_applicable'){
+  if(!outcome)throw Error('original_intake_outcome_missing');originalProofLedgerRead=outcome.ledgerRead;
+  if(outcome.kind==='legacy_mixed'||outcome.kind==='legacy_retained'){
+   // Unsupported co-batched rows retain their original ordinary verifier. Only
+   // the exact late rows skipped above wait; no historical claim was attempted.
+   const skipped=new Set(outcome.selectedIds),held=new Set(outcome.heldIds);for(const id of skipped){const entry=rows.find(value=>value&&typeof value==='object'&&(value as Record<string,unknown>).id===id) as Record<string,unknown>|undefined;if(outcome.kind==='legacy_retained')acknowledgements.push({id,character:typeof entry?.character==='string'?entry.character:'',guid:typeof entry?.guid==='string'?entry.guid:'',status:'rejected',outcome:'forward_original_retained'});else if(held.has(id))policyHolds.push({id,outcome:'intake_policy_held'});else if(entry)deferred.push({id,character:typeof entry.character==='string'?entry.character:'',guid:typeof entry.guid==='string'?entry.guid:'',outcome:'membership_source_pending',originalNoEffect:true});}
+   body={entries:rows.filter(value=>!value||typeof value!=='object'||!skipped.has(String((value as Record<string,unknown>).id)))};
+  }else if(outcome.kind!=='not_applicable'){
    // One original request group per invocation. Every other row is explicitly
    // untouched; the Watcher may retry only its exact body/binding receipt.
    const selected=new Set(outcome.selectedIds),unprocessed=new Set(outcome.unprocessedIds);
-   const retryable=new Set(['native_guid_not_current','late_intake_read_unconfirmed','late_intake_admission_changed','late_intake_unavailable','configuration_changed','configuration_held','approved_branch_authority_pending']);
+   const retryable=new Set(['native_guid_not_current','late_intake_read_unconfirmed','late_intake_admission_changed','late_intake_unavailable','configuration_changed','configuration_held','approved_branch_authority_pending','forward_ledger_read_unconfirmed']);
    for(const value of rows){
     if(!value||typeof value!=='object'||Array.isArray(value))continue;
     const entry=value as Record<string,unknown>,id=typeof entry.id==='string'?entry.id:'';
@@ -80,6 +85,7 @@ export async function postIntake242(env:Env,body:{entries?:unknown},origin?:Orig
     if(unprocessed.has(id))deferred.push({...base,bodySHA256:await canonicalIntakeBodySHA285(entry),outcome:'intake_capacity_pending285',originalNoEffect:true});
     else if(selected.has(id)){
      if(outcome.kind==='linked')acknowledgements.push({...base,status:'done',outcome:'member'});
+     else if(outcome.kind==='policy_held')policyHolds.push({id,outcome:'intake_policy_held'});
      else if(outcome.kind==='known_no_effect'){
       if(outcome.reason&&retryable.has(outcome.reason))deferred.push({...base,outcome:'membership_source_pending',originalNoEffect:true});
       else acknowledgements.push({...base,status:'rejected',outcome:outcome.reason??'late_intake_held'});
@@ -92,9 +98,12 @@ export async function postIntake242(env:Env,body:{entries?:unknown},origin?:Orig
    createdRoleRequestResponses280.set(response,outcome.roleRequestCreated===true);return response;
   }
  }
+ rows=Array.isArray(body.entries)?body.entries:body.entries&&typeof body.entries==='object'?Object.values(body.entries):[];
  // Bounded retention of this evidence family only; no unrelated audit history touched.
  // Unreadable historical deadlines stay hidden; arrival+30 days remains their deletion-only fallback bound.
- await purgeReceipt242(env);
+ // The deny-only original-key read replaces this opportunistic write on mixed/legacy proof calls.
+ // The existing normal/cron purge retains the same closed family and deadlines.
+ if(!originalProofLedgerRead)await purgeReceipt242(env);
  for(const value of rows){
   if(!value||typeof value!=='object'||Array.isArray(value))continue;
   const e=value as Record<string,unknown>,id=typeof e.id==='string'?e.id:'';

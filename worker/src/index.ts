@@ -40,7 +40,7 @@ import { handleInteraction, USER_MENU_LOOKUP } from "./interactions";
 import { DiscordError, INTERACTION_FAILED, json, readInteractionBody, reply, verifyInteraction, type Interaction } from "./discord";
 import { errorRef, idNamespace, heldCause, readUnavailable, routeClass } from "./log";
 import { audit, now } from "./db";
-import { getQueue, postEvents, postQueueWritten, postRoster, postVerify, sweepInviteQueue, watcherAuthorized } from "./ingest";
+import { getQueue, postEvents, postQueueWritten, postRoster, postVerify, isRetainedForwardVerificationReply285, sweepInviteQueue, watcherAuthorized } from "./ingest";
 import { PrivacySiteRequestHeld, privacySiteFailure, readPrivacySubject, privacyBoundSubjectEnv } from './privacy-serving-authority';
 import { guildMap } from "./guildmap";
 import { backfillOptions, backfillRoles } from "./backfill";
@@ -293,6 +293,7 @@ export default {
       }
       const res = await route(request, env, path, schemaReady, ctx, namesOrigin,roleDispatch);
       if(request.method==='POST'&&res.ok&&['/ingest/verify','/ingest/roster','/ingest/intake242'].includes(path)
+        &&(path!=='/ingest/verify'||!isRetainedForwardVerificationReply285(res))
         &&(path!=='/ingest/intake242'||await intakeCreatedRoleRequest280(res))){
        const verification242=captureLaunchVerification(env);
        if(verification242.mode==='members-only'&&verification242.scope&&verification242.current()){

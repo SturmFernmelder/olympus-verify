@@ -9,9 +9,9 @@ for(let i=0;i<args.length;i+=2){
 const build=options['--build'],commit=options['--commit'],output=options['--output'],root=path.resolve(__dirname,'..');
 if(!/^\d{4}-\d{2}-\d{2}\.\d+ .+$/.test(build??'')||!/^[a-f0-9]{40}$/.test(commit??'')||!output||!path.isAbsolute(output)||fs.existsSync(output))throw Error('Exact current build/commit and new absolute output file required');
 const cases=JSON.parse(fs.readFileSync(path.join(__dirname,'public-route-cases.json'),'utf8')).cases;
-// 12 Nov 2026: 92 = the 90 owner-approved behaviors plus the two member-gated talent archive files.
-const EXPECTED_CASES=92;
-if(cases.length!==EXPECTED_CASES)throw Error('Expected the 92 recorded public behaviors');
+// Preserve all 92 existing cases; also observe anonymous refusal at all three recovery routes.
+const EXPECTED_CASES=95;
+if(cases.length!==EXPECTED_CASES)throw Error('Expected all 95 recorded public behaviors');
 const hosts=new Set(['olympus.roachcouncil.com','olympus-verify.roach-council.workers.dev','guild.roachcouncil.com']);
 const hash=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 function source(relative){
