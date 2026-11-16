@@ -339,3 +339,17 @@ condition = "AND"
 paths = ['''^worker/tests/erasure196_debt280_workerd_fixture\.mjs$''']
 regexTarget = "match"
 regexes = ['''^DISCORD_BOT_TOKEN:'synthetic\-erasure196\-bot'$''']
+
+# Public wowf 1.60.1.70938 CASC build metadata from the 17-icon extraction, not authentication.
+# Manifest SHA256: 6a2cff460c2efd39eb5786eb3ed039ac0f6249f88eded9558d3dc889b71f0447.
+# Keep the exact rule AND either exact provenance path AND this complete public identifier together.
+[[allowlists]]
+description = "Exact public WoW Forever 1.60.1.70938 CASC build identifier in the two icon provenance records"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+  '''^worker/public/static/wow/asset-provenance\.json$''',
+  '''^worker/public/static/talents/art-provenance\.json$''',
+]
+regexTarget = "secret"
+regexes = ['''^3627b099867bfde3e37a17cf44f69cdc$''']

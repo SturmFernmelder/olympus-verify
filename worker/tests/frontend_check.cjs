@@ -2928,6 +2928,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
         && route.includes('allianceOverview205:renderAllianceOverview205') && route.includes('roleGuides201:M().roleGuides201')
         && organizationSource.includes('ui.allianceOverview205?.(data, ui, id =>') && organizationSource.includes('h("summary", { text: "Organization chart · reporting & coordination lines" })') && !organizationSource.includes('Explore exact reporting & coordination lines'); // our 4c7b542 (CL2-041): the chart's drawer is named once
     })());
+    let privateModelChecks208;
     check(".208 actual private model keeps a unique linked graph and reserved Trading and Council portfolios", (() => {
       const terms = new Map(model.terms.map(term => [term.officeKey, term]));
       const appointments = new Map(model.appointments.map(office => [office.key, office]));
@@ -2949,8 +2950,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
         && node.coordinates.every(id => nodes.has(id)));
       const linkedCatalogues = terms.size === model.terms.length && new Set(model.terms.map(term => term.label)).size === model.terms.length
         && model.terms.every(term => nodes.has(term.nodeId))
-        && new Set(model.officeMandates.map(office => office.nodeId)).size === model.officeMandates.length
-        && model.officeMandates.every(office => nodes.has(office.nodeId))
+        && new Set(model.officeMandates.map(office => JSON.stringify([office.nodeId, office.title]))).size === model.officeMandates.length
+        && model.officeMandates.every(office => nodes.has(office.nodeId) && typeof office.title === "string" && office.title.trim().length > 0)
         && appointments.size === model.appointments.length && new Set(seats.map(seat => seat.id)).size === seats.length
         && seats.every(seat => nodes.has(seat.nodeId) && Array.isArray(seat.officeKeys)
           && seat.officeKeys.length > 0 && seat.officeKeys.every(key => terms.has(key)));
@@ -2979,11 +2980,21 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
       const bookMatches = model.book.path === "/static/governance/reconciled-book.md" && model.book.bytes === book.length
         && /^[a-f0-9]{64}$/.test(model.book.sha256)
         && require("node:crypto").createHash("sha256").update(book).digest("hex") === model.book.sha256;
+      // Failure detail carries only booleans/counts; shared department nodes are not mandate identities.
+      privateModelChecks208 = {
+        privateResponse: modelResponse.status === 200 && modelResponse.headers.get("Cache-Control") === "private, no-store",
+        modelHeader: model.schema === "olympus-public-organization-v1" && model.revision === "R7" && model.draft === false && model.ratified === true,
+        noIssuedAuthority: model.appointmentsIssued === false && model.councilComposition.eligibleSeatIssued === false && model.councilComposition.permissionsApplied === false,
+        nativeRankContract: model.nativeRanks.length === 10, linkedGraph, linkedCatalogues, reservedPortfolios, bookMatches,
+        counts: { nodes: model.nodes.length, mandates: model.officeMandates.length,
+          mandateNodes: new Set(model.officeMandates.map(office => office.nodeId)).size,
+          mandateIdentities: new Set(model.officeMandates.map(office => JSON.stringify([office.nodeId, office.title]))).size }
+      };
       return modelResponse.status === 200 && modelResponse.headers.get("Cache-Control") === "private, no-store"
         && model.schema === "olympus-public-organization-v1" && model.revision === "R7" && model.draft === false && model.ratified === true
         && model.appointmentsIssued === false && model.councilComposition.eligibleSeatIssued === false && model.councilComposition.permissionsApplied === false
         && model.nativeRanks.length === 10 && linkedGraph && linkedCatalogues && reservedPortfolios && bookMatches;
-    })());
+    })(), privateModelChecks208);
     check(".154 actual model keeps hierarchy, independent review and the five liaison remits", nodes.get("council").parent === "founder" && nodes.get("council").relation === "accountability" && nodes.get("war").parent === "council" && nodes.get("officers").parent === "guilds" && nodes.get("justice").relation === "independence" && nodes.get("auditor").relation === "independence" && model.nodes.filter((node) => node.parent === "emissaries").length === 5 && nodes.get("emissary-heraldry").coordinates.includes("propaganda"));
     const marshal = model.terms.find((term) => term.label === "Marshall");
     check(".154 actual model keeps I-X unappointed and Marshall as a bounded event alias, not a native slot", model.guildPlaceholders.length === 10 && model.guildPlaceholders.every((guild) => guild.state === "Unappointed placeholder") && marshal.classification === "local" && marshal.nodeId === "tactical" && marshal.note.includes("Marshal is the book") && nodes.get(marshal.nodeId).kind === "event assignments" && nodes.get(marshal.nodeId).limits.includes("event command is separately assigned and gives no general guild or bank authority") && !model.nativeRanks.some((rank) => rank.name === "Marshall"));
