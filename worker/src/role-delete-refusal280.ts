@@ -105,14 +105,24 @@ export function manualRankRefusalSql280(name:string):string{
 export function canonicalManualRankRefusalSql280(name:string):string{
  const a=alias(name);return all([canonicalDeleteRefusalSql280(a),manualRankRefusalStatusSql280(a)]);
 }
-export function managedRankTargetAllowedSql280(subject:string,guild:string,role:string,binding:Readonly<{kind:'routine';generation:string;parent:string}|{kind:'ban';generation:string;mandate:string}>):string{
+type ManagedRankTargetBinding280=Readonly<{kind:'routine';generation:string;parent:string}|{kind:'ban';generation:string;mandate:string}>;
+function managedRankTargetPredicate280(subject:string,guild:string,role:string,binding:ManagedRankTargetBinding280,a:'m284'|'m'):string{
  const routine=binding.kind==='routine',original=routine?binding.parent:binding.mandate;
  for(const v of [subject,guild,role,binding.generation,original])if(!/^\?[1-9]\d*$/.test(v))throw Error('role_refusal_parameter_held');
- const a='m284',mandate=routine?all([`${a}.purpose='canonical_routine233'`,`${a}.request_digest=${original}`]):all([`${a}.purpose='canonical_ban_remove_v1'`,`(CASE WHEN json_valid(${a}.reason) THEN json_extract(${a}.reason,'$.mandate') ELSE NULL END)=${original}`]);
+ const mandate=routine?all([`${a}.purpose='canonical_routine233'`,`${a}.request_digest=${original}`]):all([`${a}.purpose='canonical_ban_remove_v1'`,`(CASE WHEN json_valid(${a}.reason) THEN json_extract(${a}.reason,'$.mandate') ELSE NULL END)=${original}`]);
  // The fixed mandate already excludes the other purpose. Keep its complete
  // original proof and manual-status filter without the unreachable branch.
  const refusal=all([routine?canonicalDeleteRefusalSql280(a):banDeleteRefusalSql280(a),manualRankRefusalStatusSql280(a)]);
  return `NOT EXISTS(SELECT 1 FROM role_settlements ${a} WHERE ${all([`${a}.subject=${subject}`,`${a}.guild_id=${guild}`,`${a}.role_id=${role}`,`${a}.subject_generation IS ${binding.generation}`,mandate,refusal])})`;
+}
+/** Keep the historical/default formatter byte-identical for existing callers. */
+export function managedRankTargetAllowedSql280(subject:string,guild:string,role:string,binding:ManagedRankTargetBinding280):string{
+ return managedRankTargetPredicate280(subject,guild,role,binding,'m284');
+}
+/** Fixed compact formatter for the current canonical routine writer only. */
+export function managedRankTargetAllowedSql285(subject:string,guild:string,role:string,binding:Readonly<{kind:'routine';generation:string;parent:string}>):string{
+ if(binding.kind!=='routine')throw Error('role_refusal_compact_kind_held');
+ return managedRankTargetPredicate280(subject,guild,role,binding,'m');
 }
 /** Data-only Native status for an original pacing read; never effect authority. */
 export function managedRankCooldownStatusSql280():string{

@@ -89,10 +89,6 @@ jobs:
         timeout-minutes: 3
         working-directory: worker
         run: node tests/site_role_audit283_workerd_test.cjs --only final-d1-expired
-      - name: Never-sent DELETE custody survives expiry and a later fresh pass
-        timeout-minutes: 3
-        working-directory: worker
-        run: node tests/site_role_audit283_workerd_test.cjs --only final-d1-delete-expired
       - name: Concurrent sweep progress and completed-erasure regression
         run: |
           node tests/lane_progress280_test.cjs --layout canonical --only ordinary-last,ban-last,erase-late,read-unknown --out "$RUNNER_TEMP/role-progress-canonical"
@@ -151,6 +147,12 @@ jobs:
           cases=("$RUNNER_TEMP/selected-member285"/after-*/new9.json)
           test "${#cases[@]}" -eq 1
           python3 addon/tests/check_v1_selected_pipeline285.py --case "${cases[0]}" --out "$RUNNER_TEMP/selected-member285-pipeline"
+      # This independent real-clock case waits121seconds. Run it in parallel
+      # with the worker job; retain both original job deadlines and all checks.
+      - name: Never-sent DELETE custody survives expiry and a later fresh pass
+        timeout-minutes: 3
+        working-directory: worker
+        run: node tests/site_role_audit283_workerd_test.cjs --only final-d1-delete-expired
 
   backup:
     name: backup

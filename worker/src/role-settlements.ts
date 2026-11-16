@@ -1,7 +1,7 @@
 import {takeOriginalDiscordRoleReply280,originalDiscordRoleReplyFacts280,type OriginalDiscordRoleReply280,type OriginalDiscordRoleReplyFacts280} from './discord';
 import {takeOriginalDiscordPutReply285,originalDiscordPutReplyFacts285,type OriginalDiscordPutReply285} from './discord';
 import {captureCanonicalPutRefusal285,canonicalPutRefusalFacts285,canonicalPutRefusalSourceStart285,planCanonicalPutRefusal285,canonicalPutRefusalSql285,type OriginalCanonicalPutRefusal285,type CanonicalPutRefusalSource285} from './role-put-refusal285';
-import {CANONICAL_DELETE_REFUSAL280,BAN_DELETE_REFUSAL280,MANAGED_RANK_COOLDOWN280,readManagedRankCooldown280,roleDeletePacing280,canonicalDeleteRefusalSql280,banDeleteRefusalSql280,managedRankCooldownValidSql280,managedRankCooldownAllowedSql280,managedRankTargetAllowedSql280,manualRankRefusalSql280,canonicalManualRankRefusalSql280,managedRankCooldownStatusSql280} from './role-delete-refusal280';
+import {CANONICAL_DELETE_REFUSAL280,BAN_DELETE_REFUSAL280,MANAGED_RANK_COOLDOWN280,readManagedRankCooldown280,roleDeletePacing280,canonicalDeleteRefusalSql280,banDeleteRefusalSql280,managedRankCooldownValidSql280,managedRankCooldownAllowedSql280,managedRankTargetAllowedSql280,managedRankTargetAllowedSql285,manualRankRefusalSql280,canonicalManualRankRefusalSql280,managedRankCooldownStatusSql280} from './role-delete-refusal280';
 /** Central audited writer for new QR/rank and erasure effects. Existing legacy writers are not silently activated here.
  * Each intent is durable before HTTP, one CAS dispatch only. Unknown responses are reconciled by GET, never re-POSTed.
  */
@@ -2019,10 +2019,11 @@ const canonicalNeverSentDeleteParent284=(a:string,p:string)=>canonical239And([`$
  * exactly these acknowledged grant bases. It contains no current-ownership or
  * no-effect filtering, so sharing it neither creates a cycle nor revives a grant
  * consumed by another real/unknown child. Never accept a caller-supplied CTE. */
-function canonicalNeverSentDeleteFacts284():readonly [string,string]{
+function canonicalNeverSentDeleteFacts284(compact=false):readonly [string,string]{
+ const a=compact?'n':'ns284';
  return [
-  `c239_ns284 AS MATERIALIZED(SELECT ns284.rowid AS c239_row,ns284.* FROM role_settlements ns284 WHERE ${canonicalNeverSentDeleteShape284('ns284')})`,
-  `c239_np284 AS MATERIALIZED(SELECT ns284.c239_row FROM c239_ns284 ns284 JOIN c239_base np284 ON ${canonicalNeverSentDeleteParent284('ns284','np284')})`,
+  `c239_ns284 AS MATERIALIZED(SELECT ${a}.rowid AS c239_row,${a}.* FROM role_settlements ${a} WHERE ${canonicalNeverSentDeleteShape284(a)})`,
+  `c239_np284 AS MATERIALIZED(SELECT ${a}.c239_row FROM c239_ns284 ${a} JOIN c239_base np284 ON ${canonicalNeverSentDeleteParent284(a,'np284')})`,
  ];
 }
 /** Read-only audit facts for its fixed bounded subject/guild/role bind tuple.
@@ -2091,7 +2092,7 @@ function canonical239GroupedFacts(subject:string,guild:string,generation:string,
   `c239_canonical AS MATERIALIZED(SELECT b.rowid AS c239_row,b.* FROM role_settlements b WHERE ${canonical239And([scope('b'),`(${canonical233OwnedGrantBase('b')})`])})`,
   `c239_migration AS MATERIALIZED(SELECT b.rowid AS c239_row,b.* FROM role_settlements b WHERE ${canonical239And([scope('b'),`(${canonical233MigrationOwnedGrantBase('b')})`])})`,
   `c239_base AS MATERIALIZED(SELECT * FROM c239_native UNION ALL SELECT * FROM c239_canonical UNION ALL SELECT * FROM c239_migration)`,
-  ...canonicalNeverSentDeleteFacts284(),
+  ...canonicalNeverSentDeleteFacts284(true),
   `c239_no_effect280 AS MATERIALIZED(SELECT r.rowid AS c239_row FROM role_settlements r WHERE (${native232LegacyNoSend('r')}) OR (${canonicalDeleteRefusalSql280('r')}) UNION ALL SELECT c239_row FROM c239_np284)`,
   `c239_negative_self AS MATERIALIZED(SELECT d.rowid AS c239_row,d.*,CASE WHEN ${negativeSelf} THEN 1 ELSE 0 END AS c239_strict FROM role_settlements d WHERE ${negativeWhere})`,
   `c239_negative AS MATERIALIZED(SELECT d.*,CASE WHEN ${canonical239And(['d.c239_strict=1',`EXISTS(SELECT 1 FROM c239_migration t WHERE ${target})`])} THEN 1 ELSE 0 END AS c239_edge FROM c239_negative_self d)`,
@@ -2280,7 +2281,7 @@ async function settleRoutineTarget232(env:Env,cap:RoutineMembership232,venue:Run
   // implicit request. Reuse this statement's strict known-row set, then hold
   // that same current account/role until staff resolves its access manually.
   const putManualAllowed285=canonical233&&desired===1?`NOT EXISTS(SELECT 1 FROM role_settlements f285 WHERE f285.subject=?2 AND f285.guild_id=?3 AND f285.role_id=?4 AND f285.subject_generation IS ?5 AND f285.desired=1 AND f285.state='held' AND EXISTS(SELECT 1 FROM ${knownName285('canonical')} k285 WHERE k285.c239_row=f285.rowid) AND CASE WHEN json_valid(f285.reason) THEN json_extract(f285.reason,'$.type')='canonical-put-refusal-v1' AND json_extract(f285.reason,'$.status') IN(403,404) ELSE 0 END)`:'1=1';
-  const pacing=canonical233?canonical239And([managedRankCooldownAllowedSql280(),desired===0&&!observationOnly?managedRankTargetAllowedSql280('?2','?3','?4',{kind:'routine',generation:'?5',parent:'?6'}):'1=1',putManualAllowed285]):'1=1';
+  const pacing=canonical233?canonical239And([managedRankCooldownAllowedSql280(),desired===0&&!observationOnly?managedRankTargetAllowedSql285('?2','?3','?4',{kind:'routine',generation:'?5',parent:'?6'}):'1=1',putManualAllowed285]):'1=1';
   const effectAdmission=canonical233?canonical239GuardFacts(ownershipFacts,[p.sql,g.sql,canonical239And([physical,pacing]),ownParent,canonical239NoAmbiguousOwnership('?2','?3','?5'),...manualEntitlement?[entitlementGuard]:[]]):{facts,guard,clauses};
   const row=`id=?1 AND subject=?2 AND guild_id=?3 AND role_id=?4 AND subject_generation IS ?5 AND request_digest=?6 AND roster_id=?7 AND native_guid IS ?8 AND expires_at=?9 AND desired=?10 AND purpose=?11 AND native_rank IS ?12 AND native_rank_name IS ?13 AND native_profile='${profile}'`;
   const rowClauses=['id=?1','subject=?2','guild_id=?3','role_id=?4','subject_generation IS ?5','request_digest=?6','roster_id=?7','native_guid IS ?8','expires_at=?9','desired=?10','purpose=?11','native_rank IS ?12','native_rank_name IS ?13',`native_profile='${profile}'`];

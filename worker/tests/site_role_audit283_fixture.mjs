@@ -161,6 +161,11 @@ async function deleteExpiryEffect284(bindings,spec){
  const receipts=async()=> (await state.db.prepare('SELECT * FROM role_settlements WHERE subject=?1 ORDER BY created_at,id').bind(subject).all()).results;
  const rowById=id=>state.db.prepare('SELECT * FROM role_settlements WHERE id=?1').bind(id).first();
  const source=id=>state.db.prepare('SELECT s.*,r.guid,r.name_key,r.rank,r.rank_index FROM roster_snapshots s JOIN roster_members r ON r.snapshot_id=s.id WHERE s.id=?1 AND r.guid=?2').bind(id,'Player-4613-10000001').first();
+ const transport284=captured=>{
+  const packets=captured.flatMap(w=>Array.isArray(w.request)?w.request:[w.request]);let failed=0;
+  for(const w of captured){try{const replies=JSON.parse(w.response),answers=Array.isArray(replies)?replies:[replies];failed+=w.status!==200?1:answers.filter(r=>r.success!==true).length;}catch{failed++;}}
+  return {sentPhysicalStatements:packets.length,maxSentSQLBytes:Math.max(0,...packets.map(p=>new TextEncoder().encode(p.sql||'').length)),maxSentBinds:Math.max(0,...packets.map(p=>p.params?.length??0)),failedTransportReplies:failed};
+ };
  const invoke=async(method,body={})=>{
   const req=new Request('https://guild.example/api/admin/role-audit'+(method==='GET'?'?subject='+subject:''),{method,headers:{Cookie:state.cookie,Origin:'https://guild.example','X-Olympus':'2'}}),user=await currentUser(state.config,req);
   const response=await handleSiteRoleAudit283(req,privacyBoundSiteEnv(state.config,originalUserSession(user)),user,body);
@@ -193,7 +198,7 @@ async function deleteExpiryEffect284(bindings,spec){
  }
  if(!state)return new Response(null,{status:409});
  if(step==='expire'&&state.stage==='bootstrap_done'){
-  state.stage='expiring';state.snapshot2=await advance(2,1);
+  const wireStart284=wires.length;state.stage='expiring';state.snapshot2=await advance(2,1);
   const preview=await invoke('GET'),row=preview.body.rows?.[0];let previewExpiresAt=null;
   const capture=await captureRoutineMembership232(state.config,subject);let nativeDeadline=null;
   if(capture){try{nativeDeadline=routineMembership232Facts(capture).deadline;}finally{closeRoutineMembership232(capture);}}
@@ -203,15 +208,17 @@ async function deleteExpiryEffect284(bindings,spec){
   state.lateFinal.armed=false;
   const history=await receipts(),neverSent=history.find(r=>r.desired===0&&r.attempts===1&&r.state==='held'&&r.reason==='canonical233_never_dispatched'&&r.request_digest===state.owned.id);
   state.neverSent=neverSent;state.expiredHistory=history;state.stage='expired';
-  return Response.json({step,subject,servingPolicy:1,preview,action,previewExpiresAt,nativeDeadline,lateFinal:state.lateFinal.observed,history,originalOwned:state.owned,originalOwnedAfter:await rowById(state.owned.id),neverSent,unrelatedUnknown:state.unrelatedUnknown,unrelatedUnknownAfter:await rowById('8'.repeat(32)),snapshot1After:await source(1),snapshot2:state.snapshot2,actualLocalWorkerdD1:true});
+  const stageWires284=wires.slice(wireStart284);
+  return Response.json({stageTransport284:transport284(stageWires284),wireCapture284:stageWires284,schemaCapture284:(await state.db.prepare("SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY type,name").all()).results,step,subject,servingPolicy:1,preview,action,previewExpiresAt,nativeDeadline,lateFinal:state.lateFinal.observed,history,originalOwned:state.owned,originalOwnedAfter:await rowById(state.owned.id),neverSent,unrelatedUnknown:state.unrelatedUnknown,unrelatedUnknownAfter:await rowById('8'.repeat(32)),snapshot1After:await source(1),snapshot2:state.snapshot2,actualLocalWorkerdD1:true});
  }
  if(step==='recover'&&state.stage==='expired'){
-  state.stage='recovering';const snapshot3=await advance(3,2),review=await invoke('GET');
+  const wireStart284=wires.length;state.stage='recovering';const snapshot3=await advance(3,2),review=await invoke('GET');
   // A fresh normal reconcile with a new original source may create NEW
   // intents. The old attempted child, its nonce and snapshot2 are never reset.
   const sweep=await reconcileRoleBatch242(state.config,[subject]),after=await invoke('GET'),history=await receipts();
   state.stage='done';
-  return Response.json({step,subject,servingPolicy:1,review,sweep,after,history,originalOwned:state.owned,originalOwnedAfter:await rowById(state.owned.id),neverSent:state.neverSent,neverSentAfter:state.neverSent?await rowById(state.neverSent.id):null,unrelatedUnknown:state.unrelatedUnknown,unrelatedUnknownAfter:await rowById('8'.repeat(32)),snapshot1:state.snapshot1,snapshot1After:await source(1),snapshot2:state.snapshot2,snapshot2After:await source(2),snapshot3,intents:(await state.db.prepare("SELECT actor,action,subject,details FROM audit WHERE action='role.audit_requested283'").all()).results,actualLocalWorkerdD1:true});
+  const stageWires284=wires.slice(wireStart284);
+  return Response.json({stageTransport284:transport284(stageWires284),wireCapture284:stageWires284,step,subject,servingPolicy:1,review,sweep,after,history,originalOwned:state.owned,originalOwnedAfter:await rowById(state.owned.id),neverSent:state.neverSent,neverSentAfter:state.neverSent?await rowById(state.neverSent.id):null,unrelatedUnknown:state.unrelatedUnknown,unrelatedUnknownAfter:await rowById('8'.repeat(32)),snapshot1:state.snapshot1,snapshot1After:await source(1),snapshot2:state.snapshot2,snapshot2After:await source(2),snapshot3,intents:(await state.db.prepare("SELECT actor,action,subject,details FROM audit WHERE action='role.audit_requested283'").all()).results,actualLocalWorkerdD1:true});
  }
  return new Response(null,{status:409});
 }
