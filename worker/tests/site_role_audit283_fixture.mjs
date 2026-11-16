@@ -15,10 +15,10 @@ import {NATIVE_SCOPE232,SHARED_MEMBER232,NATIVE_GUILD232} from '../src/native-ra
 import {STEWARD_CANONICAL_PROFILE,STEWARD_RANK_NAMES,NATIVE_RANK_SCHEMES,qualifiedNativeSnapshotSource} from '../src/native-rank-schemes.ts';
 import {SHARED_MEMBER230_CONTRACT,SHARED_MEMBER230_SEAL_PREFIX,sharedMember230SHA256} from '../src/shared-membership-cutover230.ts';
 import {reconcileRoleBatch242} from '../src/role-reconcile242.ts';
-import {attendedPutRefusalRetry285} from '../src/site-role-put-refusal-retry285.ts';
+import {attendedPutRefusalRetry285,handleSitePutRefusalRetry285} from '../src/site-role-put-refusal-retry285.ts';
 import {handleSiteRoleBaseline285,captureRoleGrantBaseline285,roleGrantBaselineFacts285,roleGrantBaselinePredicate285} from '../src/role-baseline285.ts';
 const ADMIN='800000000000000001',SECOND_ADMIN='800000000000000002',BASE=800000000000001000n,EPOCH='a'.repeat(32),BIRTH='b'.repeat(32),SECOND_BIRTH='c'.repeat(32),SECRET='synthetic-role-audit-cookie',ROLE=CANONICAL_RANKS233[9].roleId;
-let config,rawDB,physical=0,wires=[],ready=false,savedExport=null,savedAlt=null,retryFenceRace285=null;const effects=new Map();
+let config,rawDB,physical=0,wires=[],ready=false,savedExport=null,savedAlt=null,retryFenceRace285=null,retryAlignQueue286=false,retryAlignment286=null;const effects=new Map();
 const baselineCaps=new Map(),baselineOld=new Map(),baselineActorBirth=new Map(),baselineCookies=new Map();let baselineAppendRace=null,baselineReadRace=null,baselineGrantRace=null,baselineGrantRaceObserved=null,baselineAdmins=[];
 const method=(o,k)=>{for(let p=o;p;p=Object.getPrototypeOf(p)){const d=Object.getOwnPropertyDescriptor(p,k);if(d)return d.value;}throw Error('fixture method missing');};
 const h=n=>n.toString(16).padStart(32,'0');
@@ -67,6 +67,7 @@ async function setup(db,layout='canonical',adminId=ADMIN,lateFinal=null){
  Object.defineProperty(fetcher,'fetch',{configurable:true,value:async function(input,init){
   const packets=JSON.parse(init.body);physical+=Array.isArray(packets)?packets.length:1;
   const originalPackets=Array.isArray(packets)?packets:[packets];
+  if(retryAlignQueue286&&originalPackets.some(p=>p.sql?.includes('INSERT INTO role_settlements')&&p.sql?.includes("'pending'")&&p.params?.[1]===String(BASE)&&p.params?.[3]===ROLE&&p.params?.[9]===1)){retryAlignQueue286=false;const beganAt=Date.now(),delay=1000-beganAt%1000+5;await new Promise(r=>setTimeout(r,delay));retryAlignment286={beganAt,dispatchedAt:Date.now(),delayMilliseconds:delay,scope:'Delay before identical original pending INSERT only; no clock, SQL, values or result changed.'};}
   if(retryFenceRace285&&originalPackets.some(p=>p.sql?.includes(' AS current')&&p.sql?.includes('COUNT(*) FROM role_settlements r JOIN json_each'))){if(--retryFenceRace285.remaining===0){const race=retryFenceRace285;retryFenceRace285=null;await baselineMutation285({slot:race.slot,kind:race.kind});}}
   if(baselineAppendRace&&originalPackets.some(p=>p.sql?.startsWith('INSERT INTO audit(id,ts,actor,action,subject,details)')&&p.sql.includes('role.baseline285_adopted'))){const race=baselineAppendRace;baselineAppendRace=null;await baselineMutation285(race);}
   if(baselineGrantRace&&originalPackets.some(p=>/\)\s+SELECT 1 FROM role_settlements WHERE/.test(p.sql||'')&&(p.sql||'').includes("state='dispatching'")&&(p.sql||'').includes('claim_nonce')&&p.params?.[1]===baselineSubject285(baselineGrantRace.slot)&&p.params?.[9]===1)){
@@ -322,11 +323,12 @@ export default {async fetch(request,bindings){
  }
 
  if(path==='/put285/permit-fault'){
-  const spec=await request.json();if(!['missing','copied'].includes(spec.kind))return new Response(null,{status:400});globalThis.__retryPermitFault285=spec.kind;return Response.json({armed:true,testOnlyNegativeFault:true});
+  const spec=await request.json();if(!['missing','copied','compensation-copied','compensation-spent'].includes(spec.kind))return new Response(null,{status:400});globalThis.__retryPermitFault285=spec.kind;return Response.json({armed:true,testOnlyNegativeFault:true});
  }
  if(path==='/put285/reuse-cleaned-action'){
   const env=globalThis.__originalRetryEnv285;if(!env)return Response.json({error:'test_original_action_not_retained'},{status:409});const before=physical,start=wires.length,result=await reconcileRoleBatch242(env,[String(BASE)]);return Response.json({result,statements:physical-before,wires:wires.slice(start),testOnlyOriginalActionRetention:true});
  }
+ if(path==='/put285/align-original-queue'){retryAlignQueue286=true;return Response.json({armed:true});}
  if(path==='/put285/native'){
   const spec=await request.json(),slot=spec.slot??0;if(![0,2].includes(slot)||![3,8].includes(spec.rank))return new Response(null,{status:400});
   const before=physical,start=wires.length,source=await rawDB.prepare('SELECT * FROM roster_snapshots ORDER BY id DESC LIMIT 1').first(),next=source.id+1,t=Math.floor(Date.now()/1000);
@@ -344,7 +346,7 @@ export default {async fetch(request,bindings){
  if(path==='/put285/records'){
   const subject=baselineSubject285(Number(new URL(request.url).searchParams.get('slot')||0));
   const rows=(await rawDB.prepare('SELECT * FROM role_settlements WHERE subject=?1 ORDER BY created_at,id').bind(subject).all()).results,audits=(await rawDB.prepare('SELECT * FROM audit WHERE subject=?1 ORDER BY id').bind(subject).all()).results;
-  return Response.json({rows,audits});
+  return Response.json({rows,audits,alignment:retryAlignment286});
  }
  if(path==='/put285/mutate'){
   const spec=await request.json();if(![0,2].includes(spec.slot??0)||!['new-unknown','active-claim','privacy','actor-denied','target-banned'].includes(spec.kind))return new Response(null,{status:400});await baselineMutation285({...spec,slot:spec.slot??0});return Response.json({ok:true});
@@ -505,13 +507,13 @@ export default {async fetch(request,bindings){
   const iv=crypto.getRandomValues(new Uint8Array(12)),token='1.'+b64u(iv)+'.'+b64u(new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:new TextEncoder().encode(binding)},key,new TextEncoder().encode(JSON.stringify(value)))));
   return Response.json({token});
  }
- if(path==='/run'||path==='/full-route'){
+ if(path==='/run'||path==='/full-route'||path==='/put285/direct-route'){
   const spec=await request.json(),before=physical,start=wires.length,env={...config,DISCORD_BOT_TOKEN:'role-audit-'+(spec.mode||'normal')};
   if(spec.activeV1)env.CANONICAL_RANKS233=JSON.stringify({version:1,enabled:true,profile:CANONICAL_PROFILE233,guildId:NATIVE_GUILD232,ranks:CANONICAL_RANKS233.map(r=>({...r,permissions:'0'}))});
   const query=[spec.cursor?'cursor='+encodeURIComponent(spec.cursor):'',spec.policyPreview?'policyPreview='+encodeURIComponent(spec.policyPreview):'',spec.subjectQuery?'subject='+encodeURIComponent(spec.subjectQuery):'',spec.scopeQuery?'scope='+encodeURIComponent(spec.scopeQuery):''].filter(Boolean).join('&');
   const req=new Request('https://guild.example/api/admin/'+(spec.putRetry?'role-put-refusal-retry':'role-audit')+(query?'?'+query:''),{method:spec.method||'GET',headers:{Cookie:Object.hasOwn(spec,'cookie')?spec.cookie:await cookie(),Origin:'https://guild.example','X-Olympus':'2',...(spec.putRetry&&spec.method==='POST'?{'Content-Type':'application/json'}:{})},...(spec.putRetry&&spec.method==='POST'?{body:JSON.stringify(spec.body)}:{})});
   let response,error=null;
-  try{if(path==='/full-route')response=await worker.fetch(req,{...env,DB:rawDB},{waitUntil(){},passThroughOnException(){}});else{const user=await currentUser(env,req);if(!user)response=Response.json({error:'signed_out'},{status:401});else response=await handleSiteRoleAudit283(req,privacyBoundSiteEnv(env,originalUserSession(user)),user,spec.body||{});}}
+  try{if(path==='/full-route')response=await worker.fetch(req,{...env,DB:rawDB},{waitUntil(){},passThroughOnException(){}});else{const user=await currentUser(env,req);if(!user)response=Response.json({error:'signed_out'},{status:401});else response=path==='/put285/direct-route'?await handleSitePutRefusalRetry285(req,privacyBoundSiteEnv(env,originalUserSession(user)),user,spec.body||{}):await handleSiteRoleAudit283(req,privacyBoundSiteEnv(env,originalUserSession(user)),user,spec.body||{});}}
   catch(e){error=String(e?.stack||e);response=Response.json({error:'fixture_failed'},{status:500});}
   const result=await response.json();
   return Response.json({status:response.status,result,error,statements:physical-before,wires:wires.slice(start),actualLocalWorkerdD1:true});

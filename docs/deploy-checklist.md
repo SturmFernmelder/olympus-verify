@@ -2,7 +2,27 @@
 
 > Current qualification policy: the owner permanently retired full-suite marathons, historical static-source projection pins and throwaway operator control loops on 10 November 2026. [Release qualification](release-qualification.md) supersedes all older testing instructions below. Dated evidence remains history; runtime/privacy/identity and deployment authority are preserved.
 
-## Build .285 — guarded verification recovery (candidate, 16 November 2026)
+## Build .286 — attended grant compensation follow-up (candidate, 16 November 2026)
+
+The .285 source was signed and squash-merged as186dc9c9, with the same tree
+9ca2c3f9 as the reviewed c8eceaf7 candidate. Its main CI623 failed the actual
+owned-new-grant compensation assertion. No .285 Worker deployment, public
+addon/Watcher installation, role correction or native promotion followed.
+The failed main gate and all earlier signatures remain historical evidence.
+
+The equal-second cause was reproduced through the genuine serving-v1 handler.
+This follow-up retains one private original-dispatch witness, bound to the
+same newly sent parent and nonce. Compensation rechecks the exact reviewed
+no-effect tuples and audit; only those rows leave its dated-grant comparison.
+Unknown, dispatching and unreviewed operations still block. Existing receipt
+clocks, older roles, the original ACK and parent-close rules stay unchanged.
+Require a new exact commit/tree review, fresh whole
+gates and hosted CI, actual Root/Claude signatures and main CI before rollout.
+The .285 source signatures do not qualify changed follow-up bytes. Existing
+policy, optional-feature holds, source/identity/privacy checks and the guarded
+backup/deploy/native acceptance procedure below remain in force.
+
+## Build .285 — guarded verification recovery (merged source; rollout held, 16 November 2026)
 
 The role audit can focus on current native members, disclose a closed hold
 reason and review an old uncertain operation through a separate grants-only
