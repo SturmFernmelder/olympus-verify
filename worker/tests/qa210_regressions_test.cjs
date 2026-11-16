@@ -60,7 +60,7 @@ check('.210 the top bar is not pinned on narrow or short screens, and scroll off
 const staffTitles = /const staff = \{([^}]*)\}/.exec(app)?.[1] || '';
 const groupedTabs = /function adminGroups\(\) \{\s*return \[([\s\S]*?)\n    \];/.exec(app)?.[1] || '';
 const adminTabs = [...groupedTabs.matchAll(/\["([a-z-]*)", "[^"]+"\]/g)].map(m => m[1]);
-check('.210 every grouped admin tab key has a page title', adminTabs.length === 19 && new Set(adminTabs).size === 19 && adminTabs.includes("launch-operations") && adminTabs.includes("donation-ledger")
+check('.210 every grouped admin tab key has a page title', adminTabs.length === 20 && new Set(adminTabs).size === 20 && adminTabs.includes("launch-operations") && adminTabs.includes("donation-ledger")
   && adminTabs.every(key => new RegExp('(^|[ ,{])"?' + key + '"?:').test(staffTitles))
   && /"directory-visibility": "Discord member list preferences"/.test(staffTitles)
   && /appointments: "Appointed roles"/.test(staffTitles) && staffTitles.split('"Appointed roles"').length === 2);
