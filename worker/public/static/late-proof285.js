@@ -33,7 +33,7 @@ window.mountLateProof285 = function mountLateProof285(container, {api}) {
   input.addEventListener('change',async()=>{
     if(busy||destroyed)return;clear();busy=true;render();
     try{const file=input.files?.[0];if(!file||file.size>2*1024*1024)throw Error('Choose a derived JSON inventory below 2 MiB');
-      const data=JSON.parse(await file.text());if(destroyed)return;
+      let data;try{data=JSON.parse(await file.text());}catch{throw Error('The private inventory is not valid JSON.');}if(destroyed)return;
       if(!data||data.version!==285||data.kind!=='late-verification-inventory'||!Array.isArray(data.groups)||!data.groups.length||data.groups.length>1000||data.groups.some(g=>!g||g.version!==285||g.kind!=='late-verification-claim'||!Array.isArray(g.observations)||!g.observations.length||g.observations.length>32))throw Error('Unsupported or incomplete derived inventory');
       groups=data.groups;status.textContent='Inventory loaded locally. Count the groups before reviewing a new claim. No request has been sent.';
     }catch(error){if(!destroyed)status.textContent=error.message||'Inventory unavailable';}
@@ -49,7 +49,7 @@ window.mountLateProof285 = function mountLateProof285(container, {api}) {
       next++;render();
     }
     if(!destroyed)status.textContent=next===groups.length?'Counts finished. Review an eligible group separately; nothing has been linked.':'Counts paused. Resume makes the next deliberate read.';
-    }catch(error){if(!destroyed)status.textContent='Counts stopped. No automatic retry occurred. Resume deliberately when the source is ready. '+(error?.data?.error||error.message||'Read unavailable');}
+    }catch{if(!destroyed)status.textContent='Counts stopped because the read was not confirmed. No automatic retry occurred. Resume deliberately when the source is ready.';}
     finally{busy=false;render();}
   });
   pause.addEventListener('click',()=>{paused=true;pause.disabled=true;});
@@ -65,7 +65,7 @@ window.mountLateProof285 = function mountLateProof285(container, {api}) {
       const facts=el('dl');for(const [label,value]of [['Discord account',c.subject],['Character',c.character],['Character GUID',c.guid],['Original request',c.requestId],['Signed observation',new Date(c.observedAt*1000).toISOString()],['Current roster',c.snapshotId+' · '+new Date(c.snapshotAt*1000).toISOString()],['Confirmation expires',new Date(data.expiresAt*1000).toISOString()]])facts.append(el('dt',label),el('dd',value));
       detail.append(facts,el('p','Confirm creates a new verification claim and consumes only its original qualifying request. It does not establish what an old upload did. No role change or message is sent by this action.'));
       status.textContent='Fresh private details loaded. Review them before the separate confirmation.';
-    }catch(error){if(!destroyed)status.textContent='Preview unavailable. No claim was submitted. '+(error?.data?.error||error.message||'Read unavailable');}
+    }catch{if(!destroyed)status.textContent='Preview unavailable. The current details were not confirmed; no claim was submitted.';}
     finally{busy=false;render();}
   });
   confirm.addEventListener('click',async()=>{

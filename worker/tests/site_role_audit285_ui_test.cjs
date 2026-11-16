@@ -55,7 +55,7 @@ const checks=[],check=(name,pass)=>{checks.push({name,pass:!!pass});console.log(
  const baselineRoot=new Node('main'),baselineCalls=[];let recorded=false,finishAdoption;
  const baselineController=context.window.mountRoleAudit283(baselineRoot,{api:async(method,url,body)=>{
   baselineCalls.push({method,url,body});
-  if(method==='GET'&&url.startsWith('/api/admin/role-baseline'))return recorded?{adopted:true,roleChangesSent:0}:{previewToken:'separate-baseline-token',expiresAt:Math.floor(Date.now()/1000)+300,roleChangesSent:0,observedRoles:[oldRole],receipt:{id:oldId,roleId:role,desired:1,createdAt:Math.floor(Date.now()/1000)-90000},expectedRole:role,snapshotId:1,snapshotAt:Math.floor(Date.now()/1000)};
+  if(method==='GET'&&url.startsWith('/api/admin/role-baseline'))return recorded?{adopted:true,roleChangesSent:0}:{previewToken:'separate-baseline-token',expiresAt:Math.floor(Date.now()/1000)+300,roleChangesSent:0,observedRoles:[oldRole,...Array.from({length:64},(_v,i)=>String(900000000000000100n+BigInt(i)))],receipt:{id:oldId,roleId:role,desired:1,createdAt:Math.floor(Date.now()/1000)-90000},expectedRole:role,snapshotId:1,snapshotAt:Math.floor(Date.now()/1000)};
   if(method==='POST'&&url==='/api/admin/role-baseline')return new Promise(resolve=>finishAdoption=()=>{recorded=true;resolve({adopted:true,roleChangesSent:0});});
   if(method==='POST')return{result:{requests:1,results:[{subject:id,state:'settled',reason:'canonical285_grant_only_manual_removal_custody'}]}};
   if(url.includes('?subject='))return{...fresh(),managedRoles:uncertainPage.managedRoles,rows:[{...uncertain,...(recorded?{baselineGrantOnly:true,baselineFindingId:123,blockingUnknown:0,repairable:true}:{}),previewToken:'new-grant-token',previewExpiresAt:Math.floor(Date.now()/1000)+300,confirmReserveSeconds:112,confirmBy:Math.floor(Date.now()/1000)+188}]};
@@ -66,6 +66,7 @@ const checks=[],check=(name,pass)=>{checks.push({name,pass:!!pass});console.log(
  assert.ok(button(baselineRoot,'Review uncertain operation'),'Product is missing the separate uncertain-operation review control');
  await button(baselineRoot,'Review uncertain operation').click();
  check('decision shows the newly read roles and original request before its separate confirmation',baselineRoot.textContent.includes('Roles read for this decisionOlympus Initiate')&&baselineRoot.textContent.includes(oldId)&&!!button(baselineRoot,'Accept new starting point — no role changes')&&baselineCalls.every(c=>c.method==='GET'));
+ check('supported account with65 roles can review the entire starting point without a false UI hold',baselineRoot.textContent.includes('900000000000000163')&&!!button(baselineRoot,'Accept new starting point — no role changes'));
  const adopt=button(baselineRoot,'Accept new starting point — no role changes').click();await Promise.resolve();
  check('pending decision locks filters and consumes its preview',select(baselineRoot,'Filter role audit status').disabled&&!button(baselineRoot,'Accept new starting point — no role changes'));
  finishAdoption();await adopt;

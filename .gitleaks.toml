@@ -353,3 +353,15 @@ paths = [
 ]
 regexTarget = "secret"
 regexes = ['''^3627b099867bfde3e37a17cf44f69cdc$''']
+
+# Deterministic local-only provider substitute. This is not a usable bot token;
+# keep the exact rule AND file AND complete captured literal together. All
+# other values, paths and credential rules remain active, including history.
+[[allowlists]]
+
+description = "Exact synthetic PUT-refusal fixture token prefix"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^worker/tests/role_put_refusal285_workerd_fixture\.mjs$''']
+regexTarget = "secret"
+regexes = ['''^synthetic-put285-$''']
