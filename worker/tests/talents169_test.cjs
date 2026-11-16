@@ -83,8 +83,8 @@ check('the compact desktop core retains three trees, 48px icon targets and 66px 
 const art = JSON.parse(fs.readFileSync(path.join(folder, 'art.json'), 'utf8'));
 const artProvenance = JSON.parse(fs.readFileSync(path.join(folder, 'art-provenance.json'), 'utf8'));
 const dataProvenance = JSON.parse(fs.readFileSync(path.join(folder, 'provenance.json'), 'utf8'));
-// CL2-087 (our 2848069): 17 talents whose official icon is not on file are listed in art.json and drawn as a plain tile; the list is the exact set of export icons with no file under static/wow/talents/.
-check('the actual artwork map is closed over all 9 classes, 27 trees and 467 talent identities, 450 drawn and 17 listed without art', api.validateArt(data, art).ok && api.validateArt(data, art).classes === 9 && api.validateArt(data, art).trees === 27 && api.validateArt(data, art).talents === 450 && api.validateArt(data, art).unavailable === 17 && art.talentIconsUnavailable.slice().sort().join() === 'druid-feral-combat-lacerate,druid-feral-combat-predatory-discipline,druid-restoration-bloom,paladin-holy-boundless-light,paladin-holy-divine-precision,paladin-holy-oath-of-light,paladin-protection-shieldsworn,paladin-protection-stoicism,paladin-retribution-turn-evil,rogue-combat-composure,rogue-combat-flash-of-steel,rogue-subtlety-boot-knife,rogue-subtlety-death-mark,rogue-subtlety-quick-getaway,shaman-elemental-call-of-thunder,shaman-elemental-lightning-mastery,warrior-fury-reckless-swings');
+// h4 (15 Nov 2026, owner: "Codex extracts them from the game"): the 17 talents CL2-087 (our 2848069) listed without art have client icons; none is listed.
+check('the actual artwork map is closed over all 9 classes, 27 trees and 467 talent identities, all 467 drawn and none listed without art', api.validateArt(data, art).ok && api.validateArt(data, art).classes === 9 && api.validateArt(data, art).trees === 27 && api.validateArt(data, art).talents === 467 && api.validateArt(data, art).unavailable === 0 && art.talentIconsUnavailable.slice().sort().join() === '');
 check('all 396 recorded game-art distributions retain exact downloaded bytes and honest fan-source limits', artProvenance.assets.length === 396 && artProvenance.sourceDataSHA256 === data.source.rawSHA256 && artProvenance.mappingRevision === data.revision && artProvenance.assets.every(row => { const bytes = fs.readFileSync(path.join(__dirname, '../..', row.path)); return row.path.startsWith('worker/public/static/wow/talents/') && /^https:\/\/talentsforever\.com\/assets\//.test(row.sourceURL) && row.conversion === 'none; exact downloaded JPEG bytes' && bytes.length === row.bytes && crypto.createHash('sha256').update(bytes).digest('hex') === row.sha256; }) && artProvenance.limits.some(text => text.includes('not a Blizzard-hosted download or publisher-signed byte attestation')) && artProvenance.limits.some(text => text.includes('does not grant rights to Blizzard artwork')));
 check('the new art import is declared separately without changing data bytes or copying the source website code', dataProvenance.artCopied === true && dataProvenance.siteCodeCopied === false && dataProvenance.artProvenance === '/static/talents/art-provenance.json' && dataProvenance.normalizedSHA256 === crypto.createHash('sha256').update(raw).digest('hex') && source.includes('World of Warcraft artwork © Blizzard Entertainment.') && source.includes('Unofficial guild tool; not affiliated with Blizzard.'));
 check('a different snapshot revision cannot supply artwork for this calculator', !api.validateArt(data, { ...art, revision: '0'.repeat(12) }).ok);
@@ -182,8 +182,8 @@ async function detailRenderRegression() {
       .all(node => node.tagName === 'OPTION').map(node => node.getAttribute('value')).join() === displayClassIds.join()
     && byClass(container, 'talents-class-banner')[0].textContent.includes('Warrior')
     && byClass(container, 'talents-spec-bars')[0].all(node => node.tagName === 'METER').length === 3);
-  // CL2-087 (our 2848069): Warrior has 53 talents; Reckless Swings has no official icon on file and is a plain tile.
-  check('the compact tree shows all 53 Warrior talents, 52 with their real icons and the one listed without art as a plain tile, three header images and three painted backdrops without fake sigils or extra point rows', byClass(container, 'talents-pick').length === 53 && all(data.classes[0]).filter(talent => art.talentIconsUnavailable.includes(talent.id)).map(talent => talent.id).join() === 'warrior-fury-reckless-swings' && byClass(container, 'talents-pick').every((button, index) => art.talentIconsUnavailable.includes(all(data.classes[0])[index].id) ? button.all(node => node.tagName === 'IMG').length === 0 && byClass(button, 'talents-noart').length === 1 : button.all(node => node.tagName === 'IMG')[0].getAttribute('src') === art.talentIcons[all(data.classes[0])[index].id]) && byClass(container, 'talents-tree-header').every((header, index) => header.all(node => node.tagName === 'IMG')[0].getAttribute('src') === art.treeIcons['warrior-' + data.classes[0].trees[index].id]) && byClass(container, 'talents-backdrop').every((image, index) => image.getAttribute('src') === art.treeBackgrounds['warrior-' + data.classes[0].trees[index].id]) && byClass(container, 'talents-point-controls').length === 0 && !source.includes('talents-sigil'));
+  // CL2-087 (our 2848069): Warrior has 53 talents. h4 (15 Nov 2026): Reckless Swings has the client icon ability_warrior_bloodfrenzy, so no tile is plain.
+  check('the compact tree shows all 53 Warrior talents with their real icons, three header images and three painted backdrops without fake sigils or extra point rows', byClass(container, 'talents-pick').length === 53 && all(data.classes[0]).filter(talent => art.talentIconsUnavailable.includes(talent.id)).map(talent => talent.id).join() === '' && art.talentIcons['warrior-fury-reckless-swings'] === '/static/wow/talents/icon-ability_warrior_bloodfrenzy.png' && byClass(container, 'talents-pick').every((button, index) => byClass(button, 'talents-noart').length === 0 && button.all(node => node.tagName === 'IMG')[0].getAttribute('src') === art.talentIcons[all(data.classes[0])[index].id]) && byClass(container, 'talents-tree-header').every((header, index) => header.all(node => node.tagName === 'IMG')[0].getAttribute('src') === art.treeIcons['warrior-' + data.classes[0].trees[index].id]) && byClass(container, 'talents-backdrop').every((image, index) => image.getAttribute('src') === art.treeBackgrounds['warrior-' + data.classes[0].trees[index].id]) && byClass(container, 'talents-point-controls').length === 0 && !source.includes('talents-sigil'));
   const requirements = all(data.classes[0]).filter(talent => talent.requires), edges = byClass(container, 'talents-link');
   check('every real prerequisite has a behind-grid connection bound to its actual parent row and child position', edges.length === requirements.length && edges.every((edge, index) => { const child = requirements[index], prior = all(data.classes[0]).find(talent => talent.id === child.requires); return edge.className.includes('from-r' + prior.row) && edge.className.includes('to-r' + child.row) && edge.className.includes('to-c' + child.column) && edge.className.includes('span-r' + (child.row - prior.row)); }) && css.includes('.talents-links{position:absolute;z-index:1;') && css.includes('.talents-node{position:relative;z-index:2;'));
   pick(heroic.name).dispatch('pointerenter');
@@ -477,22 +477,25 @@ async function detailRenderRegression() {
   const layoutImages188 = layoutHost188.querySelectorAll('img'), navIcons188 = imagesOf188(layoutHost188, 'talents-class-button'), talentIcons188 = imagesOf188(layoutHost188, 'talents-pick').filter((node, index) => !art.talentIconsUnavailable.includes(all(data.classes[0])[index].id));
   const portrait188 = byClass(layoutHost188, 'talents-portrait')[0], backdrops188 = byClass(layoutHost188, 'talents-backdrop');
   const layoutFirst188 = [...imagesOf188(layoutHost188, 'talents-tree-header'), ...backdrops188, portrait188, imagesOf188(layoutHost188, 'talents-tooltip-heading')[0]];
+  // h4 (15 Nov 2026): all 53 Warrior talents have icons, so a cold Warrior mount has 70 images (9 class, 1 portrait, 3 header, 3 backdrop, 53 talent, 1 tooltip).
   check('.188 queued and loading artwork keeps its CSS-sized layout box: every image carries the pending class, none has the hidden attribute, and the stylesheet hides it by visibility only',
-    pending188.size === 4 && layoutImages188.length === 69 && layoutImages188.filter(node => !node.srcAssignments).length === 65 && layoutImages188.every(node => isPending188(node) && !node.hidden)
+    pending188.size === 4 && layoutImages188.length === 70 && layoutImages188.filter(node => !node.srcAssignments).length === 66 && layoutImages188.every(node => isPending188(node) && !node.hidden)
     && css.includes('.talents-tool img.talents-art-pending{visibility:hidden}') && !/talents-art-pending[^{]*\{[^}]*display\s*:/.test(css) && !/\.style\b|setAttribute\(["']style/.test(source));
   // visibility:hidden reserves only the box CSS gives the image, so every mounted image role must keep its fixed size rules.
   const hasClass188 = (node, name) => !!node && typeof node.className === 'string' && node.className.split(/\s+/).includes(name);
   const roleOf188 = node => [hasClass188(node.parentNode, 'talents-class-button') && 'class', hasClass188(node, 'talents-portrait') && 'portrait', hasClass188(node.parentNode, 'talents-tree-header') && 'header',
     hasClass188(node, 'talents-backdrop') && 'backdrop', hasClass188(node.parentNode, 'talents-pick') && 'talent', hasClass188(node.parentNode, 'talents-tooltip-heading') && 'tooltip'].filter(Boolean);
   const roleCounts188 = {}; for (const node of layoutImages188) { const roles = roleOf188(node); const key = roles.length === 1 ? roles[0] : 'unsized:' + roles.join('+'); roleCounts188[key] = (roleCounts188[key] || 0) + 1; }
-  check('.188 each of the 69 pending images has exactly one CSS-sized role, and calculator.css keeps the fixed width and height of every role at desktop and narrower widths',
-    Object.keys(roleCounts188).length === 6 && Object.entries({ class: 9, portrait: 1, header: 3, backdrop: 3, talent: 52, tooltip: 1 }).every(([role, count]) => roleCounts188[role] === count)
+  // h4 (15 Nov 2026): 70 images, 53 of them talent icons (Reckless Swings has a client icon).
+  check('.188 each of the 70 pending images has exactly one CSS-sized role, and calculator.css keeps the fixed width and height of every role at desktop and narrower widths',
+    Object.keys(roleCounts188).length === 6 && Object.entries({ class: 9, portrait: 1, header: 3, backdrop: 3, talent: 53, tooltip: 1 }).every(([role, count]) => roleCounts188[role] === count)
     && ['.talents-class-button img{width:26px;height:26px;', '.talents-class-banner .talents-portrait{flex:0 0 78px;width:78px;height:78px;', '.talents-class-banner .talents-portrait{width:62px;height:62px;flex-basis:62px}',
       '.talents-tree-header>img{width:28px;height:28px;', '.talents-tree-header>img{width:25px;height:25px}', '.talents-backdrop{position:absolute;inset:0;width:100%;height:100%;',
       '.talents-pick>img{display:block;width:40px;height:40px;', '.talents-tooltip-heading>img{width:32px;height:32px;'].every(rule => css.includes(rule)));
   const layoutSettled188 = drain188(), order188 = attempts188.map(attempt => attempt.node), firstTalent188 = order188.findIndex(node => talentIcons188.includes(node));
+  // h4 (15 Nov 2026): the cold Warrior mount requests 70 images.
   check('.188 after the class strip, the class portrait, tree header icons and backdrops and the current tooltip icon are all requested before any talent icon',
-    layoutSettled188 === 69 && order188.length === 69 && new Set(order188).size === 69 && navIcons188.every((node, index) => order188[index] === node)
+    layoutSettled188 === 70 && order188.length === 70 && new Set(order188).size === 70 && navIcons188.every((node, index) => order188[index] === node)
     && firstTalent188 === navIcons188.length + layoutFirst188.length && layoutFirst188.every(node => { const at = order188.indexOf(node); return at >= navIcons188.length && at < firstTalent188; })
     && order188.indexOf(portrait188) < firstTalent188 && talentIcons188.every((node, index) => order188[firstTalent188 + index] === node) && maximum188 === 4);
   check('.188 loaded artwork drops the pending class, keeps its requested class and stays visible without a second request',
@@ -506,7 +509,7 @@ async function detailRenderRegression() {
     && switchNav188.filter(node => !node.srcAssignments).length === 5 && switchNav188.every(node => isPending188(node) && !node.hidden) && attempts188.length === beforeSwitch188
     && switchHost188.querySelectorAll('img').every(node => isPending188(node) && !node.hidden));
   drain188();
-  // CL2-087 (our 2848069): the six Paladin talents listed in art.json without an official icon are plain tiles with no image to request.
+  // CL2-087 (our 2848069): a Paladin talent listed in art.json without an official icon is a plain tile with no image to request (none since h4, 15 Nov 2026).
   const switchOrder188 = attempts188.slice(beforeSwitch188).map(attempt => attempt.node), paladinTalents188 = imagesOf188(switchHost188, 'talents-pick').filter((node, index) => !art.talentIconsUnavailable.includes(all(data.classes[1])[index].id)), firstPaladinTalent188 = switchOrder188.findIndex(node => paladinTalents188.includes(node));
   const paladinFirst188 = [...imagesOf188(switchHost188, 'talents-tree-header'), ...byClass(switchHost188, 'talents-backdrop'), byClass(switchHost188, 'talents-portrait')[0], imagesOf188(switchHost188, 'talents-tooltip-heading')[0]];
   check('.188 after that switch the new portrait, tree header icons, backdrops and tooltip icon still load ahead of every new talent icon, including still-queued Warrior tree icons reused as Paladin talent icons, and discarded Warrior artwork never starts',
@@ -537,16 +540,18 @@ async function detailRenderRegression() {
     const node = [...pending188.keys()][0]; firstURL188.set(node, node.getAttribute('src')); settleImage188(node, 'error');
   }
   const notice188 = byClass(retryHost188, 'talents-artwork-notice')[0];
-  check('.188 all 69 cold-mount images can fail, four at a time, with no automatic retry; each failed image leaves the layout as before .187 and the notice appears',
-    coldFailures188 === 69 && retryImages188.length === 69 && retryImages188.every(node => node.hidden && !isPending188(node) && node.srcAssignments === 1 && firstURL188.has(node)) && !notice188.hidden && maximum188 === 4);
+  // h4 (15 Nov 2026): the cold Warrior mount has 70 images.
+  check('.188 all 70 cold-mount images can fail, four at a time, with no automatic retry; each failed image leaves the layout as before .187 and the notice appears',
+    coldFailures188 === 70 && retryImages188.length === 70 && retryImages188.every(node => node.hidden && !isPending188(node) && node.srcAssignments === 1 && firstURL188.has(node)) && !notice188.hidden && maximum188 === 4);
   const beforeRetry188 = attempts188.length;
   notice188.all(node => node.tagName === 'BUTTON')[0].click();
   const retried188 = attempts188.slice(beforeRetry188);
-  check('.188 one Retry click after 69 failures starts exactly four new attempts at their exact original URLs; the other 65 failed images stay without src',
+  // h4 (15 Nov 2026): 70 failures, four retried, 66 left waiting.
+  check('.188 one Retry click after 70 failures starts exactly four new attempts at their exact original URLs; the other 66 failed images stay without src',
     retried188.length === 4 && pending188.size === 4 && retried188.every(attempt => pending188.has(attempt.node) && attempt.url === firstURL188.get(attempt.node) && !attempt.url.includes('?') && attempt.node.srcAssignments === 2)
-    && retryImages188.filter(node => !pending188.has(node)).length === 65 && retryImages188.filter(node => !pending188.has(node)).every(node => node.getAttribute('src') === null && node.srcAssignments === 1 && node.hidden) && maximum188 === 4);
+    && retryImages188.filter(node => !pending188.has(node)).length === 66 && retryImages188.filter(node => !pending188.has(node)).every(node => node.getAttribute('src') === null && node.srcAssignments === 1 && node.hidden) && maximum188 === 4);
   notice188.all(node => node.tagName === 'BUTTON')[0].click();
-  check('.188 a second Retry click while those four retried attempts hold every slot starts nothing more; the other 65 failed images still wait without src',
+  check('.188 a second Retry click while those four retried attempts hold every slot starts nothing more; the other 66 failed images still wait without src',
     attempts188.length === beforeRetry188 + 4 && pending188.size === 4 && retried188.every(attempt => pending188.has(attempt.node) && attempt.node.srcAssignments === 2)
     && retryImages188.filter(node => !pending188.has(node)).every(node => node.getAttribute('src') === null && node.srcAssignments === 1 && node.hidden) && maximum188 === 4);
   let retryDrained188 = 0, boundedRetry188 = true;
@@ -556,8 +561,9 @@ async function detailRenderRegression() {
     boundedRetry188 = boundedRetry188 && (waiting > 0 ? pending188.size === 4 : pending188.size <= 4);
     settleImage188([...pending188.keys()][0]);
   }
+  // h4 (15 Nov 2026): all 70 images are retried once.
   check('.188 the retried queue holds exactly four attempts in flight while any failed image waits, never more, and drains with each image retried once at its exact URL',
-    boundedRetry188 && retryDrained188 === 69 && attempts188.length === beforeRetry188 + 69 && retryImages188.every(node => node.srcAssignments === 2 && node.getAttribute('src') === firstURL188.get(node) && !node.hidden && !isPending188(node)) && notice188.hidden && maximum188 === 4);
+    boundedRetry188 && retryDrained188 === 70 && attempts188.length === beforeRetry188 + 70 && retryImages188.every(node => node.srcAssignments === 2 && node.getAttribute('src') === firstURL188.get(node) && !node.hidden && !isPending188(node)) && notice188.hidden && maximum188 === 4);
   retryMount188.destroy();
   // Retry while four other images still hold every slot: the failed images join the queue and start only as slots free.
   const busyHost188 = delayedDocument188.createElement('main'), busyMount188 = await browserModule.exports.mount(busyHost188);
@@ -575,8 +581,9 @@ async function detailRenderRegression() {
     busyBounded188 = busyBounded188 && (waiting > 0 ? pending188.size === 4 : pending188.size <= 4);
     settleImage188([...pending188.keys()][0]);
   }
+  // h4 (15 Nov 2026): 70 images; after five failures and four in flight, 61 first requests and five retries remain (66).
   check('.188 after a busy Retry exactly four attempts stay in flight while any image waits, and the queue drains with each failed image retried once at its exact URL and every other image requested once',
-    busyBounded188 && busyDrained188 === 69 && attempts188.length === beforeBusyRetry188 + 65 && busyFailed188.every(node => node.srcAssignments === 2 && node.getAttribute('src') === busyURL188.get(node) && !busyURL188.get(node).includes('?') && !node.hidden && !isPending188(node))
+    busyBounded188 && busyDrained188 === 70 && attempts188.length === beforeBusyRetry188 + 66 && busyFailed188.every(node => node.srcAssignments === 2 && node.getAttribute('src') === busyURL188.get(node) && !busyURL188.get(node).includes('?') && !node.hidden && !isPending188(node))
     && busyImages188.filter(node => !busyFailed188.includes(node)).every(node => node.srcAssignments === 1 && !node.hidden && !isPending188(node)) && busyNotice188.hidden && maximum188 === 4);
   busyMount188.destroy();
   check('.188 every .188 mount leaves no pending image attempt and the snapshot unchanged', pending188.size === 0 && initialJSON === JSON.stringify(data));
@@ -713,6 +720,29 @@ async function detailRenderRegression() {
   check('.282-f5 a Warrior link with the empty code the route passes shows the ordinary help line, not the unavailable-class recovery',
     warriorEmptyF5.reads === 0 && warriorEmptyF5.feedback.length === 1 && warriorEmptyF5.feedback[0] === 'Left-click adds a point; right-click or Shift-click refunds. Hover or focus a talent to read every rank.'
     && warriorEmptyF5.shown === 'warrior' && warriorEmptyF5.changes === 0);
+  // h4 (finishing round): the shipped art.json lists no talent any more, so no check above reaches the plain no-art tile of talentArt.
+  // A test-only copy of art.json that lists Reckless Swings without an icon is served to a separate calculator realm; no site file changes.
+  const noArtMapH4 = clone(art); delete noArtMapH4.talentIcons['warrior-fury-reckless-swings']; noArtMapH4.talentIconsUnavailable = ['warrior-fury-reckless-swings'];
+  const noArtDocumentH4 = { createElement(tag) { return new TalentElement(tag, this); }, createTextNode(value) { return new TalentText(value); }, activeElement: null };
+  const noArtModuleH4 = { exports: {} };
+  vm.runInNewContext(source, {
+    module: noArtModuleH4, setTimeout() { return 0; }, clearTimeout() {}, location: { origin: 'https://guild.example', pathname: '/' },
+    navigator: { clipboard: { async writeText() {} } }, fetch: async url => ({ ok: true, json: async () => clone(url.endsWith('/art.json') ? noArtMapH4 : data) }),
+  }, { filename: path.join(folder, 'calculator.js'), timeout: 1000 });
+  const noArtHostH4 = noArtDocumentH4.createElement('main'), noArtControllerH4 = await noArtModuleH4.exports.mount(noArtHostH4);
+  const noArtButtonsH4 = byClass(noArtHostH4, 'talents-pick'), noArtIndexH4 = all(data.classes[0]).findIndex(talent => talent.id === 'warrior-fury-reckless-swings');
+  const noArtButtonH4 = noArtButtonsH4[noArtIndexH4], noArtTilesH4 = noArtButtonH4 ? byClass(noArtButtonH4, 'talents-noart') : [];
+  if (noArtButtonH4) noArtButtonH4.focus();
+  const noArtHeadingH4 = byClass(noArtHostH4, 'talents-tooltip-heading')[0], noArtHeadingTilesH4 = noArtHeadingH4 ? byClass(noArtHeadingH4, 'talents-noart') : [];
+  check('h4: a talent the art map lists without an icon (a test copy of art.json with Reckless Swings listed) is one aria-hidden talents-noart span and no image in its tile and its detail heading, while the other 52 Warrior tiles keep one image each',
+    api.validateArt(data, noArtMapH4).ok && api.validateArt(data, noArtMapH4).talents === 466 && api.validateArt(data, noArtMapH4).unavailable === 1
+    && noArtButtonsH4.length === 53 && !!noArtButtonH4 && (noArtButtonH4.getAttribute('aria-label') || '').startsWith('Reckless Swings, rank ')
+    && noArtTilesH4.length === 1 && noArtTilesH4[0].tagName === 'SPAN' && noArtTilesH4[0].getAttribute('aria-hidden') === 'true' && noArtTilesH4[0].childNodes.length === 0
+    && noArtButtonH4.all(node => node.tagName === 'IMG').length === 0
+    && !!noArtHeadingH4 && noArtHeadingH4.all(node => node.tagName === 'H3')[0]?.textContent === 'Reckless Swings' && noArtHeadingH4.all(node => node.tagName === 'IMG').length === 0
+    && noArtHeadingTilesH4.length === 1 && noArtHeadingTilesH4[0].tagName === 'SPAN' && noArtHeadingTilesH4[0].getAttribute('aria-hidden') === 'true'
+    && noArtButtonsH4.every((button, index) => index === noArtIndexH4 || byClass(button, 'talents-noart').length === 0 && button.all(node => node.tagName === 'IMG').length === 1));
+  noArtControllerH4.destroy();
   console.log('\n' + ok + '/' + n + ' passed');
   if (ok !== n) process.exitCode = 1;
 }

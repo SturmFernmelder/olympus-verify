@@ -134,6 +134,37 @@ async function applicationTrackWorker199(){
   browserState199.settings={appointed:{},noVote:[first]};
   check(parent+' child-only no-vote does not freeze another class/region or close the group',sd199.isNoVote(browserState199.settings,first)&&browserHelper199.noVoteFor(first)&&children.slice(1).every(key=>!sd199.isNoVote(browserState199.settings,key)&&!browserHelper199.noVoteFor(key))&&!sd199.isAppointed(browserState199.settings,parent)&&!browserHelper199.displayHolder(parent));
  }
+ // Unit h3 (owner's question of 15 Nov 2026; Codex Root's vote display contract): appointedTo and appointmentSourceKey199
+ // treat exactly co_gm/office_19 and treasurer/office_86 as one seat, the exact key first. Every other relation is the
+ // Worker's own isAppointed, so a third pair, a lost pair or a one-way pair fails here, with or without the Worker's pair.
+ const seatPairs283={co_gm:'office_19',office_19:'co_gm',treasurer:'office_86',office_86:'treasurer'},seatKeys283=catalogue199.OFFICE_APPOINTMENTS.map(row=>row.key),seatWrong283=[];
+ for(const stored of seatKeys283){
+  browserState199.settings={appointed:{[stored]:'Recorded holder'},noVote:[]};
+  for(const key of seatKeys283){
+   const expected=sd199.isAppointed(browserState199.settings,key)||seatPairs283[key]===stored,holder=browserHelper199.appointedTo(key),source=browserHelper199.appointmentSourceKey199(key);
+   if(holder!==(expected?'Recorded holder':'')||source!==(expected&&key!==stored?stored:key))seatWrong283.push(stored+'>'+key+'='+JSON.stringify([holder,source]));
+  }
+ }
+ check('h3 a record under any one of the 139 catalogue keys fills exactly the keys the Worker fills plus its one pair partner, and names the stored key as source',seatKeys283.length===139&&seatWrong283.length===0,seatWrong283.slice(0,8).join(' '));
+ const seat283=(appointed,key)=>{browserState199.settings={appointed,noVote:[]};return [browserHelper199.appointedTo(key),browserHelper199.appointmentSourceKey199(key)];};
+ check('h3 a Co-Guild Master record under either key fills both keys and keeps the stored key as source',JSON.stringify(['co_gm','office_19'].flatMap(key=>[seat283({office_19:'Hand record'},key),seat283({co_gm:'Co-GM record'},key)]))==='[["Hand record","office_19"],["Co-GM record","co_gm"],["Hand record","office_19"],["Co-GM record","co_gm"]]');
+ check('h3 a Treasurer record under either key fills both keys and keeps the stored key as source',JSON.stringify(['treasurer','office_86'].flatMap(key=>[seat283({office_86:'Exchequer record'},key),seat283({treasurer:'Treasurer record'},key)]))==='[["Exchequer record","office_86"],["Treasurer record","treasurer"],["Exchequer record","office_86"],["Treasurer record","treasurer"]]');
+ check('h3 with records under both keys of a pair, each key reads its own record first',JSON.stringify(['co_gm','office_19','treasurer','office_86'].map(key=>seat283({co_gm:'Co-GM record',office_19:'Hand record',treasurer:'Treasurer record',office_86:'Exchequer record'},key)))==='[["Co-GM record","co_gm"],["Hand record","office_19"],["Treasurer record","treasurer"],["Exchequer record","office_86"]]');
+ check('h3 an account pointer under office_19 stays the opaque label on co_gm',JSON.stringify(seat283({office_19:'<@300000000000000004>'},'co_gm'))==='["Appointed member","office_19"]');
+ check('h3 no third pair: the High Council rank, the historical Treasurer rank key, the High Council office and the Vice Guild Master share no seat with co_gm, office_19, treasurer or office_86',['rank_high_council','rank_treasurer','office_45','office_92'].every(stored=>['co_gm','office_19','treasurer','office_86'].every(key=>JSON.stringify(seat283({[stored]:'Other record'},key))===JSON.stringify(['',key])&&JSON.stringify(seat283({[key]:'Pair record'},stored))===JSON.stringify(['',stored]))));
+ // Unit h3, lead's decision after the review: displayHolder follows the same two pairs, so that it and appointedTo call
+ // the same seats filled.
+ const holderWrong283=[];
+ for(const stored of seatKeys283){
+  browserState199.settings={appointed:{[stored]:'Recorded holder'},noVote:[]};
+  for(const key of seatKeys283){const expected=sd199.isAppointed(browserState199.settings,key)||seatPairs283[key]===stored;if(!!browserHelper199.displayHolder(key)!==expected||!!browserHelper199.appointedTo(key)!==expected)holderWrong283.push(stored+'>'+key+'='+JSON.stringify([browserHelper199.displayHolder(key),browserHelper199.appointedTo(key)]));}
+ }
+ check('h3 for a record under any one of the 139 catalogue keys, displayHolder and appointedTo call the same seats filled: those the Worker fills plus the one pair partner',seatKeys283.length===139&&holderWrong283.length===0,holderWrong283.slice(0,8).join(' '));
+ check('h3 displayHolder shows a Co-Guild Master or Treasurer record under either key of its pair on both keys',JSON.stringify([['co_gm','office_19'],['treasurer','office_86']].flatMap(pair=>pair.map(stored=>{browserState199.settings={appointed:{[stored]:'Pair record'},noVote:[]};return pair.map(key=>browserHelper199.displayHolder(key));})))==='[["Pair record","Pair record"],["Pair record","Pair record"],["Pair record","Pair record"],["Pair record","Pair record"]]');
+ // Lead's decision after the second review: with both keys of a pair recorded with different holders, each key reads its
+ // own record first, in displayHolder and in appointedTo.
+ check('h3 with both keys of a pair recorded with different holders, displayHolder and appointedTo read the exact key first: co_gm and office_19, treasurer and office_86, in both directions',JSON.stringify([[{co_gm:'Co-GM record',office_19:'Hand record'},['co_gm','office_19']],[{treasurer:'Treasurer record',office_86:'Exchequer record'},['treasurer','office_86']]].flatMap(([appointed,keys])=>keys.map(key=>{browserState199.settings={appointed,noVote:[]};return [key,browserHelper199.displayHolder(key),browserHelper199.appointedTo(key)];})))==='[["co_gm","Co-GM record","Co-GM record"],["office_19","Hand record","Hand record"],["treasurer","Treasurer record","Treasurer record"],["office_86","Exchequer record","Exchequer record"]]');
+ browserState199.settings={appointed:{},noVote:[]};
  const stateBefore199=JSON.stringify(stored199(officerId199));
  for(const [label,patch,field]of [['unknown',{applicationTrack:'unknown'},'applicationTrack'],['mismatch',{applicationTrack:'high_council'},'targetOffice'],['boolean',{targetOffice:false},'targetOffice'],['oversize',{targetOffice:'x'.repeat(81)},'targetOffice'],['different first-choice',{position:'moderator'},'targetOffice']]){const payload={...officerBody199,...patch},parsed=api199.validateApplication(payload,officerId199),r=await request199('PUT','/api/application',payload,officerId199);check(label+' historical parser refusal and current reserved admission leave stored application byte-equivalent',parsed?.error==='invalid'&&parsed.field===field&&r.response.status===403&&r.body?.error==='reserved_seat'&&JSON.stringify(stored199(officerId199))===stateBefore199,r.response.status,r.body?.field);}
  for(const [track,position]of [['member','raider'],['raider','member'],['artisan','officer'],['patron','office_03']]){const value=api199.validateApplication({...baseline,position,character:'Track One',applicationTrack:track,targetOffice:null,board:true},OTHER,{});check(track+' intent cannot disguise a different primary-position track',value?.field==='position');}

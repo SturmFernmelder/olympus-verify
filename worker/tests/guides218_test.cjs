@@ -69,7 +69,8 @@ async function university(parts, options = {}) {
   context.window = context;
   for (const file of ['validate.js', 'university.js']) vm.runInNewContext(fs.readFileSync(path.join(uni, file), 'utf8'), context, { filename: file, timeout: 2000 });
   const box = doc.createElement('main'), instance = context.OlympusUniversity.mount(box, { parts, talentRevision: talents.revision, ...options });
-  for (let i = 0; i < 50 && text(box).includes('Opening Olympus University'); i++) await settle();
+  // Unit h1 guidesname (owner, 15 Nov 2026): the loading line is "Opening the guides…" again, as before 58b96f8.
+  for (let i = 0; i < 50 && text(box).includes('Opening the guides'); i++) await settle();
   return { box, fetches, instance };
 }
 
@@ -144,10 +145,11 @@ async function university(parts, options = {}) {
     && DATA.professions.every(p => hubLinks.includes('#/guides/profession/' + p.key)) && ['attunements', 'buffs', 'changes'].every(t => hubLinks.includes('#/guides/tools/' + t)));
   // CL2-205 (our 58b96f8): the publisher library moved from #/guides to #/guides/library.
   check('the hub keeps the calculator, addons, publisher library, game updates and member guide one click away', ['#/talents', '#/addons', '#/guides/library', '#/updates', '#/guide/member'].every(h => hubLinks.includes(h)));
-  // CL2-052 (our 58b96f8): the hub's one H1 is "Olympus University" and its scope note comes from university/index.json.
+  // CL2-052 (our 58b96f8): the hub has one H1, and its scope note comes from university/index.json. Unit h1 guidesname (owner,
+  // 15 Nov 2026): the H1 is "Class & profession guides" again, as before 58b96f8.
   const hubIndex = JSON.parse(fs.readFileSync(path.join(stat, 'university/index.json'), 'utf8')), hubScopeNote = hubIndex.scopeNote;
-  check('the hub has one Olympus University heading and states the scope note once',
-    hub.box.tags('h1').map(text).join('|') === 'Olympus University' && text(hub.box).split(hubScopeNote.slice(0, 60)).length === 2);
+  check('the hub has one Class & profession guides heading and states the scope note once',
+    hub.box.tags('h1').map(text).join('|') === 'Class & profession guides' && text(hub.box).split(hubScopeNote.slice(0, 60)).length === 2);
   const classLandingLinks = hubLinks.filter(h => /^#\/guides\/class\/[a-z]+$/.test(h));
   const professionHeadings = hub.box.tags('h3').map(text).filter(t => ['Primary crafting', 'Gathering', 'Secondary'].includes(t));
   check('the hub alphabetizes classes and groups professions by the kind of training',
@@ -358,7 +360,9 @@ async function university(parts, options = {}) {
   m = await university(['class', cls.id, 'nope']);
   check('an unknown spec says the class has no spec by that name', text(m.box).includes(cls.name + ' has no spec by that name.'));
   m = await university(['class', 'nope']);
-  check('an unknown class says there is no such guide', text(m.box).includes('There is no such class guide in Olympus University.'));
+  // Unit h1 guidesname (owner, 15 Nov 2026; the lead's decision in its finishing round): the sentence does not name the
+  // section, as the guides pages before 58b96f8 did not ("There is no such guide.").
+  check('an unknown class says there is no such guide', text(m.box).includes('There is no such class guide.'));
 
   // 7. Grades: U renders "Unavailable", never a number.
   // Our 58b96f8, 1fe1725: a grade-U fact renders "Unavailable" in place of a value, with the grade legend (university.js:155, :161-165).
@@ -599,6 +603,19 @@ async function university(parts, options = {}) {
     && text(m.box).includes('affected participants’ consent'));
   m = await mounted({ view: 'tool', tool: 'nope', talentRevision: talents.revision });
   check('an unknown tool says so', text(m.box).includes('There is no such tool.'));
+  // Unit h1 guidesname (owner, 15 Nov 2026: "Instead of university rename it back to its old name that it had for the guides."):
+  // the tool pages name the section as GUIDES_TITLE did before 58b96f8, "Class & profession guides": the breadcrumb root, the
+  // hub link of the Related list and the way back from an unknown tool.
+  const toolNames = [];
+  for (const tool of ['attunements', 'buffs', 'raid-structure', 'changes']) {
+    const t = await mounted({ view: 'tool', tool, talentRevision: talents.revision });
+    const root = t.box.all(e => e.getAttribute('aria-label') === 'Breadcrumb').map(n => n.tags('a')[0]);
+    const hubLinks = t.box.all(e => e.getAttribute('aria-label') === 'Related').flatMap(n => n.tags('a')).filter(a => a.getAttribute('href') === '#/guides');
+    toolNames.push([...root.map(a => [text(a), a.getAttribute('href')]), ...hubLinks.map(text)]);
+  }
+  const toolBack = m.box.tags('a').filter(a => a.getAttribute('href') === '#/guides').map(text);
+  check('the tool pages name the section Class & profession guides in the breadcrumb, the Related list and the way back',
+    JSON.stringify(toolNames) === JSON.stringify(Array(4).fill([['Class & profession guides', '#/guides'], 'Class & profession guides'])) && JSON.stringify(toolBack) === '["Back to Class & profession guides"]');
 
   // 9. External links, failure, revision mismatch and teardown.
   // Our 58b96f8: the class course renders its source links with external() (university.js:136), only for allow-listed https hosts.
@@ -631,7 +648,7 @@ async function university(parts, options = {}) {
   check('a source title starting with its publisher renders that publisher once and keeps its topic',
     !!uniPrefixed && text(uniPrefixed) === prefixed.publisher + ' — ' + prefixed.label.slice(prefixed.publisher.length + 2));
   // CL2-052, CL2-057 (our 58b96f8): the class, spec and profession pages are University courses (university.js), and the
-  // course and tool breadcrumbs start at "Olympus University". Site fault f1 (15 Nov 2026): a course credits the Talents
+  // course and tool breadcrumbs start at the hub ("Class & profession guides" again since unit h1 guidesname). Site fault f1 (15 Nov 2026): a course credits the Talents
   // Forever data once exactly when it cites a Talents Forever source or shows a talent build; the changes tool keeps its credit.
   // f1 review round: also when an overview point, praxis step or common mistake of the page (default track 101) rests on a fact
   // citing a Talents Forever source; that text shows no citation, so it is read from the University data files.
@@ -675,7 +692,7 @@ async function university(parts, options = {}) {
     assert.ok(box.tags('a').filter(a => /^https:/.test(a.getAttribute('href') || ''))
       .every(a => a.getAttribute('target') === '_blank' && a.getAttribute('rel') === 'noopener noreferrer'), JSON.stringify(opts));
     const breadcrumbs = box.all(e => e.getAttribute('aria-label') === 'Breadcrumb')[0];
-    assert.equal(text(breadcrumbs.tags('a')[0]), 'Olympus University');
+    assert.equal(text(breadcrumbs.tags('a')[0]), 'Class & profession guides');
   }
   check('all guide pages use distinct names for different citations, safe source links, relevant credits and consistent breadcrumbs', guideViews.length === 52);
   let calls = 0; const failing = page(async () => { calls++; return { ok: false, status: 503, json: async () => ({}) }; });

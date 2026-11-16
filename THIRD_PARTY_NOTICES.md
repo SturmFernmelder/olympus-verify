@@ -134,6 +134,8 @@ Addon and guide catalogs link to named publishers and authors. Public feed title
 
 The .169 paragraph above describes the original data-only import. Build .170 separately includes Blizzard World of Warcraft talent icons and tree backgrounds distributed at Talents Forever's public /assets/icons/ and /assets/bg/ paths. The exact per-file source URLs and hashes are in worker/public/static/talents/art-provenance.json. World of Warcraft artwork remains copyright Blizzard Entertainment; the Talents Forever data license and this repository's code license do not license that art or grant publisher endorsement. The renderer/layout code is original Olympus code. No Talents Forever executable scripts, styles, branding or advertising were copied.
 
+17 talent icons, the PNG files under worker/public/static/wow/talents/, are not distributed by Talents Forever: they are Blizzard World of Warcraft artwork extracted by Codex Root from the installed game client (build 1.60.1.70938) and converted to PNG. Their client paths, file data IDs and hashes are in the clientExtractions record of worker/public/static/talents/art-provenance.json and in worker/public/static/wow/asset-provenance.json. The same applies to them: World of Warcraft artwork remains copyright Blizzard Entertainment; the Talents Forever data license and this repository's code license do not license that art or grant publisher endorsement.
+
 
 ### Original Dark Portal login-render candidate (.171)
 

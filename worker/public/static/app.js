@@ -150,7 +150,7 @@
     const assignments = S.settings?.appointed || {};
     const read = k => Object.prototype.hasOwnProperty.call(assignments, k) ? assignments[k] : "";
     const parent = applicationParent199(key), keys = applicationSeatKeys199(key);
-    const value = read(key) || (parent && parent.key !== key ? read(parent.key) : "") || (keys.length && !keys.includes(key) && keys.every(k => read(k)) ? (keys.length === 1 ? read(keys[0]) : "All related seats filled") : "") || (key === "treasurer" ? read("office_86") : key === "office_86" ? read("treasurer") : "");
+    const value = read(key) || (parent && parent.key !== key ? read(parent.key) : "") || (keys.length && !keys.includes(key) && keys.every(k => read(k)) ? (keys.length === 1 ? read(keys[0]) : "All related seats filled") : "") || (key === "treasurer" ? read("office_86") : key === "office_86" ? read("treasurer") : key === "co_gm" ? read("office_19") : key === "office_19" ? read("co_gm") : "");
     if (!value) return "";
     if (!S.signedIn || S.denied || !communityReader()) return "Filled; identity unavailable";
     if (appointmentPointer(value)) return "Appointed member";
@@ -700,7 +700,7 @@
   const appointedTo = (key) => {
     const a = S.settings?.appointed || {}, read = k => Object.prototype.hasOwnProperty.call(a, k) ? a[k] : "";
     const parent = applicationParent199(key), keys = applicationSeatKeys199(key);
-    const value = read(key) || (parent && parent.key !== key ? read(parent.key) : "") || (keys.length && !keys.includes(key) && keys.every(k => read(k)) ? (keys.length === 1 ? read(keys[0]) : "All related seats filled") : "") || (key === "treasurer" ? read("office_86") : key === "office_86" ? read("treasurer") : "");
+    const value = read(key) || (parent && parent.key !== key ? read(parent.key) : "") || (keys.length && !keys.includes(key) && keys.every(k => read(k)) ? (keys.length === 1 ? read(keys[0]) : "All related seats filled") : "") || (key === "treasurer" ? read("office_86") : key === "office_86" ? read("treasurer") : key === "co_gm" ? read("office_19") : key === "office_19" ? read("co_gm") : "");
     return appointmentPointer(value) ? "Appointed member" : value;
   };
   const appointmentLabel = (holder) => holder === "Appointed member" ? "Filled by appointment" : `Appointed: ${holder}`;
@@ -715,6 +715,8 @@
     if (children.length === 1 && has(children[0])) return children[0];
     if (key === "office_86" && has("treasurer")) return "treasurer";
     if (key === "treasurer" && has("office_86")) return "office_86";
+    if (key === "office_19" && has("co_gm")) return "co_gm";
+    if (key === "co_gm" && has("office_19")) return "office_19";
     return key;
   }
   const appointmentLabelNode = (key, holder = appointedTo(key), bare = false, sentence = false) => h("span", { "data-appointment-label": appointmentSourceKey199(key), "data-appointment-bare": bare ? "true" : "false", "data-appointment-sentence": sentence ? "true" : "false", text: appointmentLabelText(holder, bare, sentence) });
@@ -1749,7 +1751,7 @@
       if (can("applicantWrite") && (anyCommunity() || can("armyRead"))) {
         add(nav, group("Community", visibleCommunitySections().map(({ href, label }) => [href, label])));
       }
-      const resources = [["#/guides", "Olympus University"], ["#/guide/member", "Member guide"], ["#/guide/officer", "Officer guide"], ["#/talents", "Talent calculator"], ["#/addons", "Addons"], ["#/guides/library", "Publisher library"], ["#/updates", "Game updates"]];
+      const resources = [["#/guides", "Class & profession guides"], ["#/guide/member", "Member guide"], ["#/guide/officer", "Officer guide"], ["#/talents", "Talent calculator"], ["#/addons", "Addons"], ["#/guides/library", "Publisher library"], ["#/updates", "Game updates"]];
       if (S.qrVerification && S.qrVerification.enabled === true) resources.push(["/static/qr-phase1.html", "Verify in game"]);
       add(nav, group("Resources", resources));
     }
@@ -1860,7 +1862,7 @@
       return `Community · ${event || communitySection(sub || "")?.label || "Not here"}`;
     }
     if (head === "talents") { const cls = M().classes.find(c => c.key === dec(sub || "warrior")); return cls ? `${cls.label} talents` : "Talents"; }
-    if (head === "resources") return "Olympus University";
+    if (head === "resources") return "Class & profession guides";
     if (head === "guides") return guideTitle218(sub, detail);
     if (head === "vote") { const ballot = M().ballots.find(b => b.key === dec(sub || "")); return ballot ? `${ballot.label} · Vote` : "Vote"; }
     if (head === "roles" && sub) { const role = M().positions.find(p => p.key === dec(sub)); if (role) return `${role.label} · Roles`; }
@@ -2169,12 +2171,12 @@
     if (!live()) instance.destroy();
   };
   ROUTES.addons = resourcesView("addons");
-  // Evergreen Stage 2 (12 Nov 2026, CL2-205): #/guides is Olympus University (university/university.js). The publisher library
+  // Evergreen Stage 2 (12 Nov 2026, CL2-205): #/guides is the Class & profession guides hub (university/university.js). The publisher library
   // moved to #/guides/library, #/resources stays an alias of the hub, the tools keep their .218 renderer, and the .218 class,
   // spec and profession links (#/guides/class/<c>[/<spec>], #/guides/profession/<p>) open the matching course.
   ROUTES.guides = (main, parts) => parts.length === 1 && parts[0] === "library" ? resourcesView("guides")(main)
     : parts[0] === "tools" ? guidesView218(main, parts) : universityView(main, parts);
-  ROUTES.resources = (main, parts) => parts.length ? add(main, frame("Olympus University", null, h("p", { text: "There is no such page." }), h("a", { class: "btn", href: "#/guides", text: "Olympus University" }))) : universityView(main, []);
+  ROUTES.resources = (main, parts) => parts.length ? add(main, frame("Class & profession guides", null, h("p", { text: "There is no such page." }), h("a", { class: "btn", href: "#/guides", text: "Class & profession guides" }))) : universityView(main, []);
   ROUTES.updates = resourcesView("updates");
   // .218 Olympus guides and tools (guides218.js renders them). "Attach to my application" only carries a build into the open
   // application form for the applicant to check and save; it never saves, never ticks a consent and never changes board sharing.
@@ -2189,8 +2191,8 @@
   // The five Alliance races the guides name (university/index.json); a race without a written guide says so on its page.
   const GUIDE_RACES218 = { dwarf: "Dwarf", gnome: "Gnome", human: "Human", "night-elf": "Night Elf", skyborne: "Skyborne" };
   function guideTitle218(kind, key) {
-    const k = dec(key || ""), hub = "Olympus University";
-    if (!kind) return hub;
+    const k = dec(key || ""), hub = "Guides";
+    if (!kind) return "Class & profession guides";
     if (kind === "library") return "Publisher library";
     if (kind === "class") { const cls = M().classes.find(c => c.key === k); return cls ? `${cls.label} guide · ${hub}` : hub; }
     if (kind === "race" && own(GUIDE_RACES218, k)) return `${GUIDE_RACES218[k]} guide · ${hub}`;
@@ -2210,7 +2212,7 @@
   function guidesView218(main, parts) {
     const [kind, first] = parts.map(dec);
     const view = kind === "tools" && first && parts.length === 2 ? "tool" : null;
-    if (!view) { add(main, frame("Olympus University", null, h("p", { text: "There is no such tool." }), h("a", { class: "btn", href: "#/guides", text: "Olympus University" }))); return; }
+    if (!view) { add(main, frame("Guides", null, h("p", { text: "There is no such tool." }), h("a", { class: "btn", href: "#/guides", text: "Class & profession guides" }))); return; }
     return memberTool(main, "OlympusGuides", "/static/guides218.js", "/static/guides218.css", {
       view, tool: first, talentRevision: M().talentSnapshotRevision,
     });
@@ -4272,6 +4274,21 @@
             : [closed ? noticeBox("warn", "icon-warning", h("p", { text: "Voting is closed right now. Your votes are kept as they are." })) : null, boardBox]),
       holder || quiet ? null : writeIns(ballot, closed));
     const anyQuiet = meta.ballots.some((b) => noVoteFor(b.key));
+    // Owner's question of 15 Nov 2026: the vote page lists every current High Council portfolio with its holder. A portfolio
+    // is a High Council catalogue record whose label is its own Council portfolio and that is not a display alias (co_gm and
+    // treasurer reach theirs through appointedTo); the holder is the website appointment record only, never a rank or a
+    // Discord role.
+    const councilHolders = () => {
+      const directory = roleDirectory203(), order = directory ? councilFamilyOrder228(directory) : null;
+      const seats = offices199().filter((row) => row.tier === "high_council" && !row.aliasOf && row.label === row.councilSeat);
+      if (order) seats.sort((a, b) => (order.get(directory.keyToFamily[a.key]) ?? order.size) - (order.get(directory.keyToFamily[b.key]) ?? order.size));
+      return seats.length ? frame("High Council portfolios", null, h("dl", { class: "kv council-holders" }, seats.map((row) => {
+        const who = appointedTo(row.key);
+        // The Roles catalogue's guard (officeAssignmentPanel): a malformed or ID-like old value is never shown.
+        const shown = typeof who === "string" && who.length <= 40 && !/[\u0000-\u001f\u007f<>]/.test(who) && !/^[0-9]{17,20}$/.test(who.trim()) ? who : "Name withheld";
+        return [h("dt", { text: row.label }), h("dd", { "data-council-holder": row.key }, who ? appointmentLabelNode(row.key, shown, false, true) : h("span", { class: "muted", text: "No website appointment recorded." }))];
+      }))) : null;
+    };
     if (shell) shell.content.replaceWith(content);
     else add(main, [
       h("section", { class: "frame" },
@@ -4285,6 +4302,7 @@
         summaryStatus,
         noticeBox("ok", "icon-shield", h("p", null, h("strong", { text: "Your votes are private. " }), "Nobody sees how anyone voted or how many votes anyone has, except the guild's leadership. Every voter sees the applicants in a different order, so nobody is first for everyone."))),
       h("div", { class: "board-layout" }, roleList, content),
+      councilHolders(),
       writsPanel199("vote"),
     ]);
     boardShells.set(main, { settingsKey, roleList, rolePick, summaryStatus, content, actor, actorRevision });

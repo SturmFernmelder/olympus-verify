@@ -144,7 +144,7 @@
     const icon = (name, alt = "") => el("img", { src: "/static/wow/" + name + ".png", alt, width: 32, height: 32, class: "uni-icon", loading: "lazy" });
     const shell = el("div", { class: "uni" });
     container.appendChild(shell);
-    shell.appendChild(el("p", { role: "status", class: "muted", text: "Opening Olympus University…" }));
+    shell.appendChild(el("p", { role: "status", class: "muted", text: "Opening the guides…" }));
     const route = parseRoute(Array.isArray(options.parts) ? options.parts : []);
 
     let index = null;
@@ -239,7 +239,7 @@
         + chapters(written) + (written === 1 ? " is" : " are") + " written." + (waiting ? " " + chapters(waiting) + (waiting === 1 ? " is" : " are") + " not available yet"
         + (waiting301 ? ", " + waiting301 + " of them in the 301 tracks" : "") + ", and each says what it is waiting for." : "");
       const classes = ordered("class"), races = ordered("race"), exams = examCount(all);
-      return [header("Olympus University", null, "Courses for every class, spec, race and profession in World of Warcraft: Forever, in 101, 201 and 301 tracks. Each written chapter pairs Theory with Praxis, and most end with a quiz."),
+      return [header("Class & profession guides", null, "Courses for every class, spec, race and profession in World of Warcraft: Forever, in 101, 201 and 301 tracks. Each written chapter pairs Theory with Praxis, and most end with a quiz."),
         // INT-UNI-2 (12 Nov 2026): the hub states the schedule as dated facts: the launch is past, the raid unlock is next.
         index.schedule ? el("p", { class: "small uni-hub-schedule", text: index.schedule }) : null,
         el("p", { class: "small uni-hub-status", text: status }),
@@ -285,7 +285,7 @@
           return row(spec ? spec.name + " " + entry.name : entry.kind === "class" ? "Class course" : entry.name + " course", list);
         });
       };
-      return [crumbs(["#/guides", "Olympus University"], [null, "Mastery exams"]),
+      return [crumbs(["#/guides", "Class & profession guides"], [null, "Mastery exams"]),
         header("Mastery exams", null, "Every exam draws up to " + EXAM_SIZE + " questions from its course and track, in a fixed order for each attempt, and grades them when you submit. 101 is Foundations, 201 Intermediate and 301 Advanced."),
         section("Class exams", el("p", { class: "small muted", text: "A class exam draws on the class course and all three specs; a spec exam on that spec and the class course." }),
           ordered("class").map(c => block(c, scopeRows(c)))),
@@ -450,7 +450,7 @@
       if (route.chapter && !owner.tracks[route.tier].chapters.some(c => c.id === route.chapter)) return notFound("chapter", "The " + TRACK_NAMES[route.tier] + " track of the " + title + " course has no chapter by that name.", [base + "/" + route.tier, title + " " + TRACK_NAMES[route.tier]]);
       for (const id of owner.overview.facts) used.add(ctx.facts.get(id).grade);
       for (const p of owner.overview.points) noteTalentData(ctx, p.facts || []);
-      const frag = [], trail = [["#/guides", "Olympus University"]];
+      const frag = [], trail = [["#/guides", "Class & profession guides"]];
       if (spec) trail.push([guideHref(entry), g.name], [null, spec.name]); else trail.push([null, g.name]);
       frag.push(crumbs(...trail), header(entry.kind === "profession" || entry.kind === "race" ? g.name + " guide" : title, iconFor(entry), owner.overview.lead));
       if (g.status === "migrated") frag.push(el("p", { class: "uni-notice", text: "This course was carried over from the earlier guide pages and is still being written: some chapters are short, and quizzes come later." }));
@@ -473,7 +473,7 @@
       if (kind === "spec" && !spec) return notFound("exam");
       const scopeKey = kind + ":" + id, examKey = scopeKey + ":" + route.tier, pool = examPool(ctx, scopeKey, route.tier);
       const name = (spec ? spec.name + " " : "") + g.name, back = guideHref(entry, spec && spec.id) + "/" + route.tier;
-      const frag = [crumbs(["#/guides", "Olympus University"], ["#/guides/exams", "Mastery exams"], [guideHref(entry), g.name], ...(spec ? [[guideHref(entry, spec.id), spec.name]] : []), [null, TRACK_NAMES[route.tier] + " exam"]),
+      const frag = [crumbs(["#/guides", "Class & profession guides"], ["#/guides/exams", "Mastery exams"], [guideHref(entry), g.name], ...(spec ? [[guideHref(entry, spec.id), spec.name]] : []), [null, TRACK_NAMES[route.tier] + " exam"]),
         header(name + " · " + TRACK_NAMES[route.tier] + " exam", iconFor(entry), null)];
       if (!pool.length) { frag.push(section("No exam yet", el("p", { text: "This track's chapters have no questions yet." }), link(back, "Back to the course", "btn"))); return frag; }
       const attempt = store.attempt(examKey), picked = R.order(pool, q => q.id, attempt).slice(0, EXAM_SIZE);
@@ -500,16 +500,16 @@
 
     // INT-UNI-1 / CL2-105 (12 Nov 2026): every address that names nothing gets one H1 ending in "not found", a status
     // sentence and a way back to the hub (and to the nearest page that does exist, when there is one).
-    const MISSING = { guide: ["Guide", "There is no such guide in Olympus University."], class: ["Class guide", "There is no such class guide in Olympus University."],
-      race: ["Race guide", "There is no such race guide in Olympus University."], profession: ["Profession guide", "There is no such profession guide in Olympus University."],
+    const MISSING = { guide: ["Guide", "There is no such guide."], class: ["Class guide", "There is no such class guide."],
+      race: ["Race guide", "There is no such race guide."], profession: ["Profession guide", "There is no such profession guide."],
       spec: ["Spec", "There is no such spec."], track: ["Track", "Every course has three tracks: 101 Foundations, 201 Intermediate and 301 Advanced."],
-      chapter: ["Chapter", "There is no such chapter."], exam: ["Exam", "There is no such exam."], page: ["Page", "There is no such page in Olympus University."] };
+      chapter: ["Chapter", "There is no such chapter."], exam: ["Exam", "There is no such exam."], page: ["Page", "There is no such page."] };
     const notFound = (what, sentence, back) => {
       const [noun, fallback] = MISSING[what] || MISSING.page, title = noun + " not found";
       if (!back && what === "exam") back = ["#/guides/exams", "Browse every exam"];
-      return [crumbs(["#/guides", "Olympus University"], [null, title]),
+      return [crumbs(["#/guides", "Class & profession guides"], [null, title]),
         el("header", { class: "uni-head" }, el("div", null, el("h1", { text: title }), el("p", { role: "status", text: sentence || fallback }))),
-        el("div", { class: "btn-row" }, back ? link(back[0], back[1], "btn") : null, link("#/guides", "Back to Olympus University", "btn"))];
+        el("div", { class: "btn-row" }, back ? link(back[0], back[1], "btn") : null, link("#/guides", "Back to Class & profession guides", "btn"))];
     };
 
     async function render() {
@@ -525,8 +525,8 @@
         const entry = index.guides.find(g => g.kind === kind && (g.id === id || (route.view === "exam" && route.scope.startsWith("spec-") && id.startsWith(g.id + "-"))));
         if (!entry) { shell.replaceChildren(...notFound(route.view === "exam" ? "exam" : kind)); return; }
         if (entry.status === "planned") {
-          shell.replaceChildren(crumbs(["#/guides", "Olympus University"], [null, entry.name]), header(entry.name + " guide", null, null),
-            section("Not written yet", el("p", { text: "The " + entry.name + " guide has not been written yet. It will be built only from reviewed facts the site holds." }), link("#/guides", "Back to Olympus University", "btn")));
+          shell.replaceChildren(crumbs(["#/guides", "Class & profession guides"], [null, entry.name]), header(entry.name + " guide", null, null),
+            section("Not written yet", el("p", { text: "The " + entry.name + " guide has not been written yet. It will be built only from reviewed facts the site holds." }), link("#/guides", "Back to Class & profession guides", "btn")));
           return;
         }
         const ctx = { ...(await loadGuide(entry, options.talentRevision)), used: new Set(), focus: null, talentData: false };
@@ -535,7 +535,7 @@
         if (ctx.focus) { ctx.focus.focus(); if (ctx.focus.scrollIntoView) ctx.focus.scrollIntoView({ block: "start" }); }
       } catch (error) {
         if (!alive) return;
-        shell.replaceChildren(el("p", { role: "alert", text: error && error.message === "invalid" ? "This guide did not pass its checks, so it is not shown. Try again later." : "Olympus University could not be loaded. Try again in a moment." }));
+        shell.replaceChildren(el("p", { role: "alert", text: error && error.message === "invalid" ? "This guide did not pass its checks, so it is not shown. Try again later." : "The guides could not be loaded. Try again in a moment." }));
       }
     }
     render();
