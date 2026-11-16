@@ -22,7 +22,7 @@ const RECEIPT_DEADLINE="CASE WHEN json_valid(details) THEN CASE WHEN json_type(d
 /** One fixed page of expired receipts/closed replay markers, independent of new uploads.
  * Marker expiry is logical at the original deadline; physical purge is bounded. Root must charge its measured
  * Native cost in the existing schedule before wiring a quiet cron call. */
-export const RECEIPT242_PURGE_SQL=`DELETE FROM audit WHERE id IN(SELECT id FROM audit WHERE (action='treasury.receipt242' AND COALESCE((${RECEIPT_DEADLINE}),ts+2592000)<=CAST(strftime('%s','now') AS INTEGER)) OR (action IN('verify.forward285_intent','verify.forward285_refused') AND COALESCE(CASE WHEN json_valid(details) THEN CASE WHEN json_type(details,'$.payload.observedAt')='integer' AND json_type(details,'$.payload.expiresAt')='integer' AND json_extract(details,'$.payload.expiresAt')=json_extract(details,'$.payload.observedAt')+2592000 AND json_extract(details,'$.payload.observedAt')>0 AND json_extract(details,'$.payload.observedAt')<=ts+5 THEN json_extract(details,'$.payload.expiresAt') END END,ts+2592000)<CAST(strftime('%s','now') AS INTEGER)) OR ((${erasedReceiptMarkerSql280('audit')}) AND ts<=CAST(strftime('%s','now') AS INTEGER)) ORDER BY id LIMIT 100)`;
+export const RECEIPT242_PURGE_SQL=`DELETE FROM audit WHERE id IN(SELECT id FROM audit WHERE (action='treasury.receipt242' AND COALESCE((${RECEIPT_DEADLINE}),ts+2592000)<=CAST(strftime('%s','now') AS INTEGER)) OR (action IN('verify.forward285_intent','verify.forward285_refused','verify.forward285_wait') AND COALESCE(CASE WHEN json_valid(details) THEN CASE WHEN json_type(details,'$.payload.observedAt')='integer' AND json_type(details,'$.payload.expiresAt')='integer' AND json_extract(details,'$.payload.expiresAt')=json_extract(details,'$.payload.observedAt')+2592000 AND json_extract(details,'$.payload.observedAt')>0 AND json_extract(details,'$.payload.observedAt')<=ts+5 THEN json_extract(details,'$.payload.expiresAt') END END,ts+2592000)<CAST(strftime('%s','now') AS INTEGER)) OR ((${erasedReceiptMarkerSql280('audit')}) AND ts<=CAST(strftime('%s','now') AS INTEGER)) ORDER BY id LIMIT 100)`;
 export async function purgeReceipt242(env:Env):Promise<{deleted:number;limit:100}>{
  const result=await env.DB.prepare(RECEIPT242_PURGE_SQL).run();
  const deleted=result.meta.changes;if(!result.success||!Number.isSafeInteger(deleted)||deleted<0||deleted>100)throw Error('receipt_retention_unknown');
@@ -87,7 +87,8 @@ export async function postIntake242(env:Env,body:{entries?:unknown},origin?:Orig
      if(outcome.kind==='linked')acknowledgements.push({...base,status:'done',outcome:'member'});
      else if(outcome.kind==='policy_held')policyHolds.push({id,outcome:'intake_policy_held'});
      else if(outcome.kind==='known_no_effect'){
-      if(outcome.reason&&retryable.has(outcome.reason))deferred.push({...base,outcome:'membership_source_pending',originalNoEffect:true});
+      if(outcome.heldIds.includes(id))policyHolds.push({id,outcome:'intake_policy_held'});
+      else if(outcome.reason&&retryable.has(outcome.reason))deferred.push({...base,outcome:'membership_source_pending',originalNoEffect:true});
       else acknowledgements.push({...base,status:'rejected',outcome:outcome.reason??'late_intake_held'});
      }
      // An uncertain selected write has no ACK and no no-effect receipt.
@@ -103,7 +104,8 @@ export async function postIntake242(env:Env,body:{entries?:unknown},origin?:Orig
  // Unreadable historical deadlines stay hidden; arrival+30 days remains their deletion-only fallback bound.
  // The deny-only original-key read replaces this opportunistic write on mixed/legacy proof calls.
  // The existing normal/cron purge retains the same closed family and deadlines.
- if(!originalProofLedgerRead)await purgeReceipt242(env);
+ const ordinaryNativeProof=rows.some(value=>ordinaryIntakeShape280(value)&&value.type==='verify'&&captureNativeMembershipProof(value.nativeMembership)!==null);
+ if(!originalProofLedgerRead&&!ordinaryNativeProof)await purgeReceipt242(env);
  for(const value of rows){
   if(!value||typeof value!=='object'||Array.isArray(value))continue;
   const e=value as Record<string,unknown>,id=typeof e.id==='string'?e.id:'';

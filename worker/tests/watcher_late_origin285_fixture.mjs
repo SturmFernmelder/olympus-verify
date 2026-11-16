@@ -1,6 +1,6 @@
 // Actual local Workerd Request/Headers/body primitives and original D1 wrapper.
 // This isolates origin custody; it does not qualify an identity or execute SQL.
-import {captureOriginalWatcherIntake285,originalWatcherIntake285,canonicalIntakeBodySHA285,INTAKE_CAPABILITY285} from '../src/watcher-late-origin285.ts';
+import {captureOriginalWatcherIntake285,originalWatcherIntake285,canonicalIntakeBodySHA285,INTAKE_CAPABILITY285,takeLegacyWatcherIntakeBody285} from '../src/watcher-late-origin285.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
 import {NATIVE_SCOPE232,NATIVE_GUILD232} from '../src/native-rank-reconciliation232.ts';
 import {postIntake242} from '../src/intake242.ts';
@@ -19,6 +19,7 @@ export default {async fetch(input,bindings){
  if(mode==='capability-type')body.transportCapability=true;
  if(mode==='capability-extra')body.unapproved=true;
  let raw=JSON.stringify(body);
+ if(mode==='fallback-fractional')raw=JSON.stringify({...body,entries:[...body.entries,{id:'fractional-only',type:'verify',observedAt:0.5}]});
  let url='https://verify.example/ingest/intake242?keyVersion=launch-membership-v1',method='POST';
  if(mode==='wrong-auth')headers.Authorization='Bearer '+ 'x'.repeat(40);
  if(mode==='wrong-content')headers['Content-Type']='text/plain';
@@ -44,7 +45,9 @@ export default {async fetch(input,bindings){
   if(mode==='prototype-stream')Object.setPrototypeOf(env,{});
  };
  const stream=mode.endsWith('-stream')?new ReadableStream({pull(controller){pulls++;const bytes=ENC.encode(raw),half=Math.floor(bytes.length/2);if(pulls===1)controller.enqueue(bytes.slice(0,half));else{mutate();controller.enqueue(bytes.slice(half));controller.close();}}}):null;
- request=new Request(url,{method,headers,...(method==='GET'?{}:{body:mode==='invalid-utf8'?new Uint8Array([0xc3,0x28]):stream??raw})});
+ let legacyRaw=raw,wire=mode==='invalid-utf8'?new Uint8Array([0xc3,0x28]):stream??raw;
+ if(mode==='fallback-invalid-utf8'){const prefix=ENC.encode(raw.slice(0,-1)+',"unused":"'),suffix=ENC.encode('"}');wire=new Uint8Array(prefix.length+2+suffix.length);wire.set(prefix);wire.set([0xc3,0x28],prefix.length);wire.set(suffix,prefix.length+2);legacyRaw=new TextDecoder().decode(wire);}
+ request=new Request(url,{method,headers,...(method==='GET'?{}:{body:wire})});
  let invoked=false;
  if(mode==='request-own')Object.defineProperty(request,'text',{value(){invoked=true;throw Error('caller text must never run');}});
  if(mode==='headers-own')Object.defineProperty(request.headers,'get',{value(){invoked=true;throw Error('caller get must never run');}});
@@ -56,7 +59,7 @@ export default {async fetch(input,bindings){
  let cap=null,second=null,concurrent=[];
  if(mode==='concurrent')concurrent=await Promise.all([captureOriginalWatcherIntake285(request,env),captureOriginalWatcherIntake285(request,env)]),cap=concurrent.find(Boolean)??null;
  else {const pending=mode==='forged-raw-arguments'?captureOriginalWatcherIntake285(request,env,'{"entries":[{"id":"forged"}]}',{entries:[{id:'forged'}]}):mode==='capability-forged-arguments'?captureOriginalWatcherIntake285(request,env,JSON.stringify({...body,transportCapability:INTAKE_CAPABILITY285}),{...body,transportCapability:INTAKE_CAPABILITY285}):captureOriginalWatcherIntake285(request,env);if(mode==='capability-caller-mutation')body.transportCapability=INTAKE_CAPABILITY285;if(mode==='capability-authorized-copy')body.transportCapability='changed-after-original-stream';if(mode.endsWith('-crypto'))mutate();if(mode==='competing-reader')await request.text().catch(()=>{});cap=await pending;}
- if(!cap)return Response.json({captured:false,invoked,pulls,concurrent:concurrent.map(Boolean)});
+ if(!cap){const copied=takeLegacyWatcherIntakeBody285(new Request(url,{method:'POST',headers,body:raw})),fallback=takeLegacyWatcherIntakeBody285(request),again=takeLegacyWatcherIntakeBody285(request);let cannotMint=false;try{originalWatcherIntake285(fallback);}catch{cannotMint=true;}return Response.json({captured:false,invoked,pulls,concurrent:concurrent.map(Boolean),fallbackExact:!!fallback&&JSON.stringify(fallback.body)===JSON.stringify(JSON.parse(legacyRaw)),fallbackRows:fallback?.body?.entries?.length??null,fallbackUsed:request.bodyUsed,copiedUnavailable:copied===null,oneShot:again===null,cannotMint});}
  const facts=originalWatcherIntake285(cap),before=facts.entries[0]?.character;
  if(mode==='post-env-copy'||mode==='post-entries-copy'){try{await postIntake242(mode==='post-env-copy'?{...env}:env,{entries:mode==='post-entries-copy'?[...facts.entries]:facts.entries},cap);return Response.json({refused:false});}catch{return Response.json({refused:true});}}
  if(mode.startsWith('retained-')){if(mode==='retained-header')request.headers.set('Authorization','Bearer changed');if(mode==='retained-config')env.WATCHER_TOKEN='changed';if(mode==='retained-inherited')proto.BLOCKING_ROLE_IDS='800000000000000001';try{facts.check();return Response.json({captured:true,retainedRefused:false});}catch{return Response.json({captured:true,retainedRefused:true});}}
@@ -67,5 +70,5 @@ export default {async fetch(input,bindings){
  try{facts.entries[0].character='forged';}catch{mutationRejected=true;}
  if(mode==='one-use'){facts.spend();try{facts.spend();}catch{secondSpendRejected=true;}}
  if(mode==='valid')second=await captureOriginalWatcherIntake285(request,env);
- return Response.json({captured:true,invoked,pulls,concurrent:concurrent.map(Boolean),bodyUsed:request.bodyUsed,actualBody:JSON.stringify({entries:facts.entries,...(facts.supportsForward285?{transportCapability:INTAKE_CAPABILITY285}:{})})===raw,actualWireBody:JSON.parse(raw),supportsForward285:facts.supportsForward285,capabilityCopyRejected,capabilityMutationRejected,envMatched:facts.env===env,deepFrozen:Object.isFrozen(facts.entries)&&Object.isFrozen(facts.entries[0])&&Object.isFrozen(facts.entries[0].nativeMembership),copiedRejected,mutationRejected,unchanged:facts.entries[0].character===before,secondRejected:second===null,secondSpendRejected,expiresIn:facts.expiresAt-at,bodyDigest:facts.bodyDigest});
+ return Response.json({captured:true,invoked,pulls,concurrent:concurrent.map(Boolean),legacyCopyUnavailable:takeLegacyWatcherIntakeBody285(request)===null,bodyUsed:request.bodyUsed,actualBody:JSON.stringify({entries:facts.entries,...(facts.supportsForward285?{transportCapability:INTAKE_CAPABILITY285}:{})})===raw,actualWireBody:JSON.parse(raw),supportsForward285:facts.supportsForward285,capabilityCopyRejected,capabilityMutationRejected,envMatched:facts.env===env,deepFrozen:Object.isFrozen(facts.entries)&&Object.isFrozen(facts.entries[0])&&Object.isFrozen(facts.entries[0].nativeMembership),copiedRejected,mutationRejected,unchanged:facts.entries[0].character===before,secondRejected:second===null,secondSpendRejected,expiresIn:facts.expiresAt-at,bodyDigest:facts.bodyDigest});
 }};

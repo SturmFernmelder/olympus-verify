@@ -674,6 +674,7 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
   if (path.startsWith("/ingest/") || path.startsWith("/queue")) {
     if (!(await watcherAuthorized(env, request))) return new Response("unauthorized", { status: 401 });
     if (!schemaReady) return json({ error: "database schema not ready; retry shortly" }, 503);
+    let legacyIntakeBody285:Readonly<{body:unknown}>|null=null;
     // The original versioned intake request is read by its native origin
     // issuer. A caller-supplied parsed body cannot mint future-proof authority.
     if(request.method==='POST'&&path==='/ingest/intake242'&&query.size===1&&query.get('keyVersion')==='launch-membership-v1'){
@@ -681,9 +682,10 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
       if(launch.mode==='members-only'&&launch.scope&&launch.current()){
         const native=launchVerificationEnv(env,launch),originModule=await import('./watcher-late-origin285');
         const origin=await originModule.captureOriginalWatcherIntake285(request,native);
-        if(!origin)return json({error:'intake_original_request_held'},400);
-        const facts=originModule.originalWatcherIntake285(origin);facts.check();
-        return postIntake242(native,{entries:facts.entries},origin);
+        if(origin){const facts=originModule.originalWatcherIntake285(origin);facts.check();return postIntake242(native,{entries:facts.entries},origin);}
+        // Optional historical-proof authority failing must not reject valid
+        // ordinary rows. Retain only parsed native data, never an origin.
+        legacyIntakeBody285=originModule.takeLegacyWatcherIntakeBody285(request);
       }
     }
     // Older sources reject every keyVersion before queue/ingest effects. The exact
@@ -692,7 +694,8 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
     let body: any = null; // each handler validates its own body, exactly as before .66
     if (request.method === "POST") {
       // .210: a body that is not a JSON object is a final 400; it was a 500, which the watcher retries forever.
-      try {
+      if(legacyIntakeBody285)body=legacyIntakeBody285.body;
+      else try {
         const raw = await readInteractionBody(request, MAX_WATCHER_POST_BYTES);
         if (raw === null) return json({ error: "body_too_large", message: "The request body exceeds 1 MiB." }, 413);
         body = JSON.parse(raw);

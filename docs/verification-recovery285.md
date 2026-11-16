@@ -108,6 +108,11 @@ Original compensation may undo only a newly dispatched grant. 429 remains on
 the existing cooldown path, not this attended 403/404 route. A lost append or
 writer result stays uncertain and is not automatically repeated.
 
+The genuine registered POST action also carries a denial-only private marker.
+If its original retry permit is missing, copied or already cleaned up, both
+writer boundaries hold before ordinary planning. No environment boolean or
+matching database can substitute for that permit.
+
 ## Stored whisper claims
 
 `tools/prepare-late-verification285.py` reads the retained verification intake
@@ -160,6 +165,16 @@ mint this provenance. The fixed signed-observation birth boundary is
 `1794844114` (16 November 2026, 15:48:34 UTC), never renewed by the Watcher.
 All 577 previously inventoried originals precede it and remain attended.
 
+This optional issuer cannot reject an otherwise valid ordinary intake batch.
+Before-read origin failure uses the ordinary parser. After-read canonical or
+strict-decoding failure retains one-shot ordinary-parsed data keyed privately
+to that exact Request, then uses the unchanged authenticated per-row handlers
+without an origin. Those data cannot mint historical-forward authority. The
+strict forward issuer still rejects unsupported or invalid representations.
+An accepted bot host with a different origin can therefore retain ordinary
+behavior; the website host still requires its own authentication and is not a
+Watcher alias. Normal authenticated startup health remains a rollout check.
+
 One whole raw same-code group is considered for a historical claim per
 invocation. Qualified conflicting signed senders hold the submitted group;
 favorable rows are never selected from that conflict. If mail, bridge,
@@ -168,14 +183,31 @@ legacy-valid ordinary peers still pass through their unchanged verifier now.
 The exact skipped late rows remain nonterminal holds rather than being
 acknowledged as terminal failures on behalf of unprocessed peers.
 
+This historical path serves first links only. Any fresh ordinary verify peer
+keeps its existing verifier; no late-path decision includes its proof key.
+Duplicate or unusable IDs use the whole ordinary loop rather than an ID-based
+partial split. The age boundary matches the ordinary inclusive ten-minute
+window. Existing-link refreshes, alts and re-links still require a new valid
+code and Sync within ten minutes of that whisper.
+
 The original code must have been valid for that same request when each
 whisper was sent. The original request interval, cutoff, thirty-day signed
 observation age and fresh current roster rules still apply. A fully qualifying
 first upload can be older than one hour. The one-hour bound applies only to
-repeated waiting after a failed current-source check: after that window the
+repeated waiting after a failed current-source check, starting at the first
+recorded server attempt for each signed proof: after that window the
 observation requires attended review instead of deferring peers every sixty
 seconds for thirty days. The existing under-ten-minute live verifier remains
 unchanged.
+
+An immutable signed observational `verify.forward285_wait` record preserves
+that first server timestamp per proof key, original request and generation.
+Restoring client IDs or changing group membership cannot renew it. Wait rows
+confer no identity, role, deny or ACK authority. Only a confirmed intent or
+refusal can deny a retained key. New source-WAITs get no terminal ACK; expired
+waits affect only their own keys. These records share original-observation
+plus thirty-day expiry, privacy attribution, export and erasure handling.
+No wait record is invented without a uniquely resolved active subject.
 
 Before any automatic neutral mutation, the server appends and confirms an
 original intent in the existing audit log. Its opaque proof keys are derived
@@ -202,7 +234,7 @@ observation time; it contains no raw code, proof MAC, character name or GUID. Ex
 privacy export and erasure references apply. Retention ends at the signed
 observation plus thirty days, with deletion only strictly after that deadline.
 The bounded existing normal/cron purge remains independent of new uploads;
-mixed proof calls skip only its opportunistic write to preserve their request
+proof-bearing calls, including ordinary fallback, skip only its opportunistic write to preserve their request
 budget. An uncertain intent/refusal append or neutral result gets no ACK,
 no no-effect receipt and no automatic retry or wake.
 

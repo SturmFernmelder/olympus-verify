@@ -13,6 +13,13 @@ export const LATE_FORWARD_SINCE285=1794844114; // Actual16Nov2026 15:48:34UTC de
 export type OriginalWatcherIntake285=Readonly<{kind:'original_watcher_intake285'}>;
 export type WatcherIntakeFacts285=Readonly<{env:Env;entries:readonly Readonly<Record<string,unknown>>[];bodyDigest:string;expiresAt:number;supportsForward285:boolean;check:()=>void;spend:()=>void}>;
 const origins=new WeakMap<OriginalWatcherIntake285,WatcherIntakeFacts285>(),requests=new WeakSet<Request>();
+// Parsed native bytes are data only. If the optional forward issuer cannot
+// attest them, the existing intake may still validate each row independently.
+// This receipt never mints an origin or substitutes for legacy authentication.
+const legacyBodies285=new WeakMap<Request,Readonly<{body:unknown}>>();
+export function takeLegacyWatcherIntakeBody285(request:Request):Readonly<{body:unknown}>|null{
+ const body=legacyBodies285.get(request)??null;legacyBodies285.delete(request);return body;
+}
 const encoder=new TextEncoder(),encode=encoder.encode.bind(encoder),subtle=crypto.subtle,digest=subtle.digest.bind(subtle),parse=JSON.parse.bind(JSON),stringify=JSON.stringify.bind(JSON);
 const VOLATILE=new Set(['status','acknowledgedAt','outcome','attempts','serverReceipt']);
 const held=():never=>{throw Error('original_watcher_intake_held');};
@@ -66,16 +73,21 @@ export async function captureOriginalWatcherIntake285(request:Request,env:Env):P
    for(;;){const packet=await readOriginalNativeBodyPacket(reader);check();if(packet.done)break;
     if(!packet.value)return held();bytes+=packet.value.byteLength;if(bytes>1048576){await cancelOriginalNativeBodyReader(reader);return null;}chunks.push(packet.value);}
    bodyComplete=true;check();const joined=new Uint8Array(bytes);let at=0;for(const part of chunks){joined.set(part,at);at+=part.byteLength;}
+   // The optional issuer is stricter than the existing ordinary decoder.
+   // Preserve ordinary replacement decoding as data before fatal validation;
+   // invalid UTF-8 can never acquire historical-forward authority.
+   try{legacyBodies285.set(request,Object.freeze({body:parse(new TextDecoder().decode(joined))}));}catch{}
    raw=new TextDecoder('utf-8',{fatal:true,ignoreBOM:false}).decode(joined);
   }finally{try{releaseOriginalNativeBodyReader(reader);}catch{}}
+  const data=parse(raw);
   if(!uniqueJsonKeys(raw))return null;
-  const data=parse(raw),hasCapability=!!data&&typeof data==='object'&&Object.hasOwn(data,'transportCapability'),object=snapshotDataFields(data,hasCapability?['entries','transportCapability']:['entries'],'watcher_intake_body285');
+  const hasCapability=!!data&&typeof data==='object'&&Object.hasOwn(data,'transportCapability'),object=snapshotDataFields(data,hasCapability?['entries','transportCapability']:['entries'],'watcher_intake_body285');
   if(hasCapability&&object.transportCapability!==INTAKE_CAPABILITY285)return null;const supportsForward285=hasCapability;
   const entries=Array.isArray(object.entries)?object.entries:object.entries&&typeof object.entries==='object'?Object.values(object.entries):null;
   if(!entries||entries.length>25||entries.some(e=>!e||typeof e!=='object'||Array.isArray(e)))return null;
   const bodyDigest=await hash(canonical(data)),copied=freeze(entries) as WatcherIntakeFacts285['entries'];check();
   const origin=Object.freeze({kind:'original_watcher_intake285' as const}),spend=()=>{check();if(spent)held();spent=true;};
-  origins.set(origin,Object.freeze({env,entries:copied,bodyDigest,expiresAt,supportsForward285,check,spend}));return origin;
+  origins.set(origin,Object.freeze({env,entries:copied,bodyDigest,expiresAt,supportsForward285,check,spend}));legacyBodies285.delete(request);return origin;
  }catch{return null;}
 }
 export function originalWatcherIntake285(origin:OriginalWatcherIntake285):WatcherIntakeFacts285{const facts=origins.get(origin);if(!facts)return held();facts.check();return facts;}

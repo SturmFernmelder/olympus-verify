@@ -2218,6 +2218,7 @@ async function settleRoutineTarget232(env:Env,cap:RoutineMembership232,venue:Run
   if(b.limit-b.attempts<6)return result('held','role_request_budget');
   const key=role+':'+desired,used=native232Calls.get(cap)??new Set<string>();if(used.has(key))return result('held','native232_original_turn_spent');used.add(key);native232Calls.set(cap,used);
   const retry285=canonical233&&desired===1?attendedPutRefusalRetry285(env,{subject:f.subject,generation:f.subjectGeneration,role,snapshotId:f.snapshotId,snapshotAt:f.snapshotExportedAt,guid:f.primary?.guid??null,rank:f.primary?.index??null,rankName:f.primary?.rank??null},cap):null;
+  if(I.routineMembership232RequiresPutRetry285(env,cap)&&!retry285)return result('held','canonical285_attended_retry_permit_required');
    const manualEntitlement=canonical233&&desired===1&&canonicalTarget?.roleId===role&&nativeTarget?.roleId!==role;if(retry285&&manualEntitlement)return result('held','canonical285_attended_retry_requires_ordinary_grant');
    id=retry285?reserveAttendedPutRefusalRetryIntent285(env,retry285):randomGeneration();
   const entitlementId=manualEntitlement?randomGeneration():null,digest=entitlementId??await sha256(f.policyRaw+'|'+f.subject+'|'+f.subjectGeneration+'|'+f.snapshotId+'|'+role+'|'+desired+(canonical233?'|'+canonical.raw:''));check();
@@ -2460,6 +2461,7 @@ export async function reconcileCanonicalRanks233(env:Env,cap:RoutineMembership23
   const wanted=f.cause==='eligible'&&f.primary&&!restriction?highestCanonicalRank233(c.policy,{index:f.primary.index,name:f.primary.rank},extra)?.roleId:null;
   if(!I.routineMembership232AttendedRoleMatches(env,cap,wanted??null))return done('held','attended_role_preview_changed');
   const retry285=attendedPutRefusalRetry285(env,{subject:f.subject,generation:f.subjectGeneration,role:wanted??'',snapshotId:f.snapshotId,snapshotAt:f.snapshotExportedAt,guid:f.primary?.guid??null,rank:f.primary?.index??null,rankName:f.primary?.rank??null},cap);
+  if(I.routineMembership232RequiresPutRetry285(env,cap)&&!retry285)return done('held','canonical285_attended_retry_permit_required');
    const adopted285=!retry285&&I.routineMembership232MayHaveRoleBaseline285(cap)?await captureRoleGrantBaseline285(env,f.subject,f.subjectGeneration):null;
   I.assertRoutineMembership232(env,cap);assertRuntimeVenue230(env,venue);
   if(!c.current()||!old.current()||!entitlements.current())return done('held','canonical233_configuration_changed');

@@ -124,7 +124,7 @@ for _,reason in ipairs({'native-roster-changed-or-expired','selection-admission-
  held.tick();local current=held.q.Current();local _,details=e.OlympusVerifyRosterModel.Promotions({{name='Candidate',guid=A,rank='Initiate',rankIndex=9,status='verified'}},held.q,e.NOW)
  local d=details.byGuid[A];local b=held.buttons()[2].promote;local before=held.syncs
  check(reason..' selected cause is visible ahead of old discovery supersession',d and d.reason==current.selection.reason and d.label~='Superseded (last loaded)')
- b:Click();local refresh=reason=='native-roster-changed-or-expired'or reason=='selection-admission-expired'
+ b:Click();local refresh=reason=='native-roster-changed-or-expired'or reason=='selection-admission-expired'or reason=='native-rank-scheme-unconfirmed'
  check(reason..' only refreshable read failure can create a new Check',refresh and b:GetText()=='Check'and held.syncs==before+1 and e.OlympusVerifyDB.launchControl.id~=oldControl.id or not refresh and not b:IsEnabled()and held.syncs==before)
  check(reason..' retains old selected result and signed control and no effects',same(data,selectedImage)and same(oldControl,oldImage)and held.clicks==0 and held.direct==0)
 end

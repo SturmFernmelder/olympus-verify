@@ -80,6 +80,8 @@ const siteRoleActions283=new WeakMap<D1Database,SiteRoleActionAuthority283>();
 // original identity private so two real captures can be compared without
 // equating SQL, account, selection or database values.
 const siteRoleActionOrigins285=new WeakMap<SiteRoleActionAuthority283,SiteRoleActionAuthority283>();
+// Denial-only: an attended retry action cannot fall back to an ordinary writer.
+const putRetryRequiredActions285=new WeakSet<SiteRoleActionAuthority283>();
 type OriginalAuthorityProjection=Readonly<{logical:readonly AuthorityPlan[];records:readonly object[];check:()=>void}>;
 type OriginalAuthorityBatchLineage=Readonly<{kind:'ordinary'|'counted';parent:object;guardCount:number;check:()=>void}>;
 const originalAuthorityProjectors=new WeakMap<D1Database,(plan:D1PreparedStatement[])=>OriginalAuthorityProjection>();
@@ -193,6 +195,15 @@ export function sameOriginalSiteRoleAction285(left:SiteRoleActionAuthority283|nu
  if(!left||!right)return false;
  const a=siteRoleActionOrigins285.get(left),b=siteRoleActionOrigins285.get(right);
  if(!a||!b)return false;left.current();right.current();return a===b;
+}
+/** These markers only require a separately issued retry permit. They confer no
+ * grant/SQL authority, retain no strong action reference, and survive facade
+ * recreation or the end of the original handler. Copied DTOs are never read. */
+export function requireOriginalPutRetryPermit285(action:SiteRoleActionAuthority283):void{
+ const original=siteRoleActionOrigins285.get(action);if(!original)return authorityHeld();action.current();putRetryRequiredActions285.add(original);action.current();
+}
+export function originalSiteRoleActionRequiresPutRetry285(action:SiteRoleActionAuthority283|null|undefined):boolean{
+ if(!action)return false;const original=siteRoleActionOrigins285.get(action);if(!original)return false;action.current();return putRetryRequiredActions285.has(original);
 }
 /** Original subject/G or explicit absence is copied, with the existing active-state contract. */
 export function privacyBoundSubjectEnv(env:Env,subject:string,capture:PrivacySubject|null):Env{

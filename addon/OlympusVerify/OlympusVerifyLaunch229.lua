@@ -326,7 +326,10 @@ local SELECT_HOLDS={
 -- never resumes discovery, clears an attempt, or changes the old result/dates.
 local SELECT_REFRESH={['native-roster-receipt-required']=true,['native-roster-changed-or-expired']=true,
   ['selection-admission-expired']=true,['scan-expired']=true,['operator-stopped']=true,['superseded']=true,
-  ['rate-limit-retries-exhausted']=true,['rate-limit-exceeds-scan']=true,['selected-target-unavailable']=true}
+  ['rate-limit-retries-exhausted']=true,['rate-limit-exceeds-scan']=true,['selected-target-unavailable']=true,
+  ['native-rank-scheme-unconfirmed']=true,['selection-source-not-current']=true,['native-snapshot-unavailable']=true,
+  ['promotion-actor-unconfirmed']=true,['entitlement-expired']=true,['native-snapshot-changed']=true,
+  ['launch-page-verification-changed']=true,['selection-read-expired']=true,['launch-read-window-exhausted']=true}
 local function SelectedCurrent(identity, now, control)
   local data=OlympusLaunchSelected
   local targets,batch,encoded=ValidSelect(control,identity,now)

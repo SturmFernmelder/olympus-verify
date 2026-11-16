@@ -71,7 +71,46 @@ def main() -> int:
     rendered = launch.render_selected(reader.record, clock)
     assert rendered is not None and 'pageCursor' not in rendered and 'nextCursor' not in rendered
     assert reader.record['observedAt'] == at and reader.record['snapshotAt'] == page['snapshotAt']
+    # Source-held transport variants use the genuine Worker envelope and the
+    # actual Watcher closed-reason validator/serializer. The reason choices are
+    # synthetic faults; they are not claims that the real Worker emitted each.
+    refresh_codes = ('native-rank-scheme-unconfirmed', 'selection-source-not-current',
+                     'native-snapshot-unavailable', 'promotion-actor-unconfirmed',
+                     'entitlement-expired', 'native-snapshot-changed',
+                     'launch-page-verification-changed', 'selection-read-expired',
+                     'launch-read-window-exhausted')
+    permanent_codes = ('directive-rank-policy-held', 'flagship-native-scope-unconfirmed',
+                       'native-secret-unconfigured', 'native-identity-ambiguous')
+    held_cases = []
+    for code in refresh_codes + permanent_codes + ('PRIVATE_CANARY',):
+        stopped = launch.SelectedRead(lambda: clock)
+        stopped.request(control, accepted, roster, clock)
+        failure = copy.deepcopy(reply)
+        failure['coveredGuids'] = []
+        failure['page']['expiresAt'] = min(failure['page']['expiresAt'], failure['page']['fetchedAt']+60)
+        failure['page'].update(status='held', promotions=[], invites=[], riskBuffer=[], held=[], heldReasons=[code])
+        stopped.step(lambda *_args, **_kwargs: (True, failure), clock)
+        expected_code = 'source-held' if code == 'PRIVATE_CANARY' else code
+        assert stopped.record['stoppedReason'] == expected_code and not stopped.running, (code, stopped.record['stoppedReason'])
+        encoded = launch.render_selected(stopped.record, clock)
+        assert encoded is not None
+        held_cases.append(dict(code=expected_code, refreshable=code in refresh_codes, rendered=encoded))
+    for code in ('source-unknown', 'source-refused', 'rate-limited-wait', 'pending'):
+        stopped = launch.SelectedRead(lambda: clock)
+        stopped.request(control, accepted, roster, clock)
+        if code == 'source-unknown':
+            def unknown(*_args, **_kwargs):
+                raise OSError('synthetic unknown selected read')
+            stopped.step(unknown, clock)
+        elif code == 'source-refused':
+            stopped.step(lambda *_args, **_kwargs: (False, dict(httpStatus=403)), clock)
+        elif code == 'rate-limited-wait':
+            stopped.step(lambda *_args, **_kwargs: (False, dict(httpStatus=429, retryAfterSeconds=5)), clock)
+        encoded = launch.render_selected(stopped.record, clock)
+        assert encoded is not None
+        held_cases.append(dict(code=code, refreshable=False, rendered=encoded))
     lua = runtime.LuaRuntime(unpack_returned_tuples=True)
+    lua.globals().PIPELINE_HOLDS = lua.eval(launch._lua(held_cases))
     lua.globals().PIPELINE_NATIVE = lua.eval(launch._lua(roster))
     lua.globals().PIPELINE_CONTROL = lua.eval(launch._lua(control))
     discovery = copy.deepcopy(selected['discovery'])
@@ -145,6 +184,35 @@ assert(next(e.OlympusVerifyDB.launchPromotionAttempts or{})==nil and effects==0,
 -- Denial-only fixture: an unresolved current native command still wins over the ready plan.
 local unknown={original='synthetic unresolved native command'};e.OlympusLaunch229.pending[target]=unknown;tick()
 assert(button():GetText()=='Held'and not button():IsEnabled()and e.OlympusLaunch229.pending[target]==unknown and effects==0)
+e.OlympusLaunch229.pending[target]=nil
+for _,case in ipairs(PIPELINE_HOLDS)do
+ e.OlympusVerifyDB.launchControl=copy(control)
+ setfenv(assert(loadstring(case.rendered)),e)()
+ emit('GUILD_ROSTER_UPDATE');frame:GetScript('OnEvent')(frame,'GUILD_ROSTER_UPDATE');tick()
+ local selectedImage=copy(e.OlympusLaunchSelected)
+ local previousControl=e.OlympusVerifyDB.launchControl;local controlImage=copy(previousControl)
+ local history=copy(e.OlympusVerifyDB.launchPromotionAttempts);local beforeSync=syncs
+ local view=e.OlympusLaunch229.Current()
+ assert(view and view.selection and view.selection.code==case.code,case.code..' must survive the Watcher to addon boundary')
+ assert((view.selection.refreshable==true)==case.refreshable,case.code..' closed refreshability mismatch')
+ assert(not view.selection.reason:find('PRIVATE_CANARY',1,true),'unknown raw source text must stay private')
+ if case.refreshable then
+  assert(button():GetText()=='Check'and button():IsEnabled(),case.code..' must offer actual enabled Guild Check')
+  -- The same read hold cannot bypass an unresolved native command.
+  e.OlympusLaunch229.pending[target]=unknown;tick();button():Click()
+  assert(not button():IsEnabled()and syncs==beforeSync and e.OlympusVerifyDB.launchControl==previousControl and e.OlympusLaunch229.pending[target]==unknown,case.code..' cannot clear or repeat unresolved native custody')
+  e.OlympusLaunch229.pending[target]=nil;tick();button():Click()
+  local nextControl=e.OlympusVerifyDB.launchControl
+  assert(syncs==beforeSync+1 and nextControl~=previousControl and nextControl.id~=previousControl.id and nextControl.version==4 and nextControl.action=='select-directive'and #nextControl.targetGuids==1 and nextControl.targetGuids[1]==target and nextControl.confirmations=='[]',case.code..' must create exactly one separate signed read')
+  local message=table.concat({'launch-selected-read','4','select-directive',nextControl.id,tostring(nextControl.observedAt),nextControl.scopeHash,nextControl.guid,target,nextControl.confirmations},'|')
+  assert(nextControl.mac==e.OlympusHmac.hmacSha256hex(PIPELINE_SECRET,message):sub(1,32),case.code..' must use the original Check factory MAC')
+ else
+  assert(not button():IsEnabled(),case.code..' must remain disabled')
+  button():Click()
+  assert(syncs==beforeSync and e.OlympusVerifyDB.launchControl==previousControl,case.code..' cannot replace a permanent or still-running read')
+ end
+ assert(same(previousControl,controlImage)and same(e.OlympusLaunchSelected,selectedImage)and same(e.OlympusVerifyDB.launchPromotionAttempts,history)and effects==0,case.code..' cannot renew old evidence, edit history or send a native action')
+end
 return true
 ''')
     finally:
@@ -160,11 +228,12 @@ return true
         sourceInputsBefore=before, sourceInputsAfter=after, stable=True,
         sourceObservedAt=at, sourceLoadedAt=clock,
         activePolicyVersion=selected['activePolicyVersion'], target=(9, 8),
-        watcherGETAttempts=len(calls), nativeActions=0, providerActions=0,
+        watcherGETAttempts=len(calls), stoppedReadCases=len(held_cases), refreshableReadCases=len(refresh_codes),
+        preservedUnresolvedNativeCases=len(refresh_codes), nativeActions=0, providerActions=0,
         lupa=lupa.__version__, luaJIT=runtime.LUA_VERSION,
         scope='Actual local Workerd artifact, actual Watcher validation/rendering, actual Lua Guild controls; synthetic native APIs only. No installed-client acceptance.'
     ), indent=2)+'\n', encoding='utf-8')
-    print('v1 selected pipeline: actual Worker -> Watcher -> Guild Promote ready; immutable history and unknown-command hold preserved; native actions=0')
+    print('v1 selected pipeline: actual Worker -> Watcher -> Guild Promote ready; 18 stopped/pending cases, 9 separate Check actions and 9 unresolved-native holds; native actions=0')
     return 0
 
 if __name__ == '__main__':

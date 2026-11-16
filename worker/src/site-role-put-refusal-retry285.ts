@@ -11,7 +11,7 @@ import {apiJson,b64u,isSiteAdmin,originalUserSession,PAGE_VERSION,sameOrigin,typ
 import {admittedReadAs,FENCE_REFUSED,type CommunitySubject} from './community-context';
 import {rest,DiscordError} from './discord';
 import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
-import {captureSiteRoleActionAuthority283,privacyBoundSiteRoleActionEnv,privacyProviderCustodyDatabase,privacyGenerationExpressionFenceSql,type SiteRoleActionAuthority283} from './privacy-serving-authority';
+import {captureSiteRoleActionAuthority283,requireOriginalPutRetryPermit285,privacyBoundSiteRoleActionEnv,privacyProviderCustodyDatabase,privacyGenerationExpressionFenceSql,type SiteRoleActionAuthority283} from './privacy-serving-authority';
 import {captureRoutineMembership232,closeRoutineMembership232,routineMembership232Facts,routineMembership232Predicate,assertRoutineMembership232,routineMembership232SiteRoleActionMatches285,type RoutineMembership232} from './routine-membership-authority232';
 import {captureCanonicalRankConfig233,captureCanonicalEntitlements233,highestCanonicalRank233,CANONICAL_GUILD233,CANONICAL_MANAGED_ROLE_IDS233} from './canonical-ranks233';
 import {canonicalRankWitnessMatches280} from './canonical-native-authority280';
@@ -98,7 +98,7 @@ export async function handleSitePutRefusalRetry285(request:Request,env:Env,admin
   let selected:{subject:string;snapshotId:number;snapshotAt:number;expectedRole:string;expiresAt:number};
   if(preview)selected={subject,snapshotId:preview.snapshotId,snapshotAt:preview.snapshotAt,expectedRole:preview.expectedRole,expiresAt:preview.expiresAt};
   else{cap=await captureRoutineMembership232(env,subject);check();if(!cap)return held();f=routineMembership232Facts(cap);const firstExpected=wanted();selected={subject,snapshotId:f.snapshotId,snapshotAt:f.snapshotExportedAt,expectedRole:firstExpected,expiresAt:Math.min(f.deadline,user.e,now()+SECONDS)};closeRoutineMembership232(cap);cap=null;}
-  const actionEnv=privacyBoundSiteRoleActionEnv(env,user,selected);action=captureSiteRoleActionAuthority283(actionEnv);if(!action?.selection)return held();cap=await captureRoutineMembership232(actionEnv,subject);check();if(!cap)return held();f=routineMembership232Facts(cap);const expected=wanted();
+  const actionEnv=privacyBoundSiteRoleActionEnv(env,user,selected);action=captureSiteRoleActionAuthority283(actionEnv);if(!action?.selection)return held();if(posting)requireOriginalPutRetryPermit285(action);cap=await captureRoutineMembership232(actionEnv,subject);check();if(!cap)return held();f=routineMembership232Facts(cap);const expected=wanted();
   const scope:PutRefusalRetryScope285=Object.freeze({subject,generation:f.subjectGeneration,role:expected,snapshotId:f.snapshotId,snapshotAt:f.snapshotExportedAt,guid:f.primary?.guid??null,rank:f.primary?.index??null,rankName:f.primary?.rank??null});
   if(json(action.selection)!==json({...selected,expectedRole:expected})||selected.snapshotId!==f.snapshotId||selected.snapshotAt!==f.snapshotExportedAt)return held();
   const stateRows=await read([env.DB.prepare('SELECT (SELECT generation FROM privacy_subjects WHERE subject_id=?1) AS generation,(SELECT revision FROM privacy_subjects WHERE subject_id=?1) AS revision,('+targetCurrent('?1','?2')+') AS current,(SELECT COALESCE(MAX(id),0)+1 FROM audit) AS nextAuditId').bind(subject,f.subjectGeneration)]),state=stateRows[0]?.results[0] as {generation:string|null;revision:number|null;current:number;nextAuditId:number}|undefined;

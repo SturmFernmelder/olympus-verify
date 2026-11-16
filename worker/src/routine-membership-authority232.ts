@@ -5,7 +5,7 @@ import {NEUTRAL_IDENTITY_PURPOSE280} from './consumed-identity280';
 import type { Env } from './env';
 import { intVar } from './env';
 import { linksNotBefore } from './db';
-import { privacyProviderCustodyDatabase,privacyGenerationFenceSql,captureSiteRoleActionAuthority283,sameOriginalSiteRoleAction285,type SiteRoleActionAuthority283 } from './privacy-serving-authority';
+import { privacyProviderCustodyDatabase,privacyGenerationFenceSql,captureSiteRoleActionAuthority283,sameOriginalSiteRoleAction285,originalSiteRoleActionRequiresPutRetry285,type SiteRoleActionAuthority283 } from './privacy-serving-authority';
 import { captureLaunchVerification } from './launch-verification227';
 import { captureNativeRankConfig232,historicalNativeRankPolicy232,NATIVE_RANK_NAMES232,NATIVE_SCOPE232,NATIVE_GUILD232,SHARED_MEMBER232 } from './native-rank-reconciliation232';
 import {captureCanonicalRankConfig233} from './canonical-ranks233';
@@ -273,6 +273,11 @@ export function routineMembership232AttendedRoleMatches(env:Env,cap:RoutineMembe
  * no SQL, callback, new capability or dispatch authority to the caller. */
 export function routineMembership232SiteRoleActionMatches285(env:Env,cap:RoutineMembership232,action:SiteRoleActionAuthority283):boolean{
  assertRoutineMembership232(env,cap);return sameOriginalSiteRoleAction285(originals.get(cap)!.siteRoleAction,action);
+}
+/** Denial only: no permit may turn this registered attended action into an
+ * ordinary planner. The genuine Native capability and environment stay captive. */
+export function routineMembership232RequiresPutRetry285(env:Env,cap:RoutineMembership232):boolean{
+ assertRoutineMembership232(env,cap);return originalSiteRoleActionRequiresPutRetry285(originals.get(cap)!.siteRoleAction);
 }
 /** Fixed authored JSON comparisons freeze every linked alt and the exact original
  * current Native profile. Deadline, standing and generation are checked in SQL

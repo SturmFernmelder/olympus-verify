@@ -9,8 +9,8 @@
   },
   "archive": {
     "path": "/static/olympus-verify/olympus-verify-0.6.40.zip",
-    "bytes": 783063,
-    "sha256": "f3d43221bc403eec72823457cb70cd9d251c2bdb4b968cdeadcdc2a9865ca9a9"
+    "bytes": 783398,
+    "sha256": "c08b8c1ae8e1398e9e39e67927407b7be8e8fa072e221e04fa2c94475f6ee988"
   },
   "files": [
     {
@@ -80,8 +80,8 @@
     },
     {
       "path": "OlympusVerify/OlympusVerifyLaunch229.lua",
-      "bytes": 108394,
-      "sha256": "6c7a976017177d95bd7d05eabf3aadfa2d233f69c418ea390e170809cbda91d8"
+      "bytes": 108729,
+      "sha256": "9a8b3d4115964375acfdf9fff487b58d86048f7db936bcdd951d2ed0e0e4df1f"
     },
     {
       "path": "OlympusVerify/OlympusVerifyLive242.lua",
