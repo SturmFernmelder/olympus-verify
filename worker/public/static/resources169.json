@@ -1,6 +1,7 @@
 {
   "version": 1,
-  "checkedAt": "2026-11-15T23:42:22Z",
+  "checkedAt": "2026-10-19T00:26:49Z",
+  "addonsCheckedAt": "2026-11-15T23:42:22Z",
   "disclaimer": "A curated selection reviewed on the date shown, not a complete directory or a guarantee of in-game compatibility. Publisher dates and advertised scope are separate from that review; beta routes and game data can change. Links open the original publisher; no guide packages or addon files are redistributed here.",
   "viewNotes": {
     "addons": "This is not every addon. Choose the author's Forever file for your actual client and check its dependencies before installing. The combat log is reported closed to addons on Forever, so features built on it, such as Classic-style threat meters, Spy-style enemy detection and cast-bar or aura triggers, behave differently, and Olympus made no install, FPS or memory measurements.",
