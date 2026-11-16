@@ -270,7 +270,7 @@ Object.defineProperty(Element.prototype, 'value', { ...value184, set(value) {
     kvTop: sheet184.filter(item => /^\.kv( dt| dd)? \{/.test(item.rule || '')).map(item => item.rule),
     lines: [...holderRules184, ...kvTop184].map(rule => css184.split('\n').filter(line => line === rule).length) };
   check('h3 app.css: the two council-holders rules stand exactly as decided, outside every @media block, directly after the later two top-level .kv rules and before the @media (max-width: 480px) block that follows them; no other rule names council-holders; the .kv rules are as on the base',
-    JSON.stringify(cssFacts184) === JSON.stringify({ named: holderRules184.map(rule => [null, rule]), window: [kvTop184[3], kvTop184[4], ...holderRules184], narrowBlock: '@media (max-width: 480px)', narrowKv: kvNarrow184, kvTop: kvTop184, lines: [1, 1, 1, 1, 1, 1, 1, 1, 1] }), JSON.stringify(cssFacts184));
+    JSON.stringify(cssFacts184) === JSON.stringify({ named: holderRules184.map(rule => [null, rule]), window: [kvTop184[3], kvTop184[4], ...holderRules184], narrowBlock: '@media (max-width: 480px)', narrowKv: kvNarrow184, kvTop: kvTop184, lines: [1, 1, 1, 1, 1, 1, 1] }), JSON.stringify(cssFacts184));
   await fixtureRun("DELETE FROM site_settings WHERE key='royalWritsOn'");
   console.log('\n' + ok + '/' + n + ' vote labels184 checks passed'); process.exit(ok === n ? 0 : 1);
 })().catch(error => { console.error(error); process.exit(1); });
