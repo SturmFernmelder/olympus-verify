@@ -61,7 +61,8 @@ How it was read. A survey on 15 November 2026 read every current and candidate e
 filtered to Forever, in a real browser, twice: a first reader, then a checker who re-read each Files tab between
 20:04 and 20:17 UTC. The version and date of each entry are the checker's values, except Scrap: its project page,
 read at 23:39 UTC, already showed a newer Forever release, 12.1.10 of 15 November 2026, and the entry gives that
-release. Wago, WoWInterface, GitHub and two community lists were also looked at. Between 23:38 and 23:42 UTC the project description of 22 addons and the newest
+release. The Guidelime + TUGs entry joins the checker's two values, one for TUGs and one for Guidelime, in one
+version string. Wago, WoWInterface, GitHub and two community lists were also looked at. Between 23:38 and 23:42 UTC the project description of 22 addons and the newest
 Forever file page of Gargul, Layer-Swap and Talents Forever were read again, where the survey had not read them or a
 claim was in doubt; `addonsCheckedAt` (2026-11-15T23:42:22Z) is the time of the last of those reads. The catalogue's
 `checkedAt` keeps its earlier value, 2026-10-19T00:26:49Z: the guide cards, the news sources and the owner directory

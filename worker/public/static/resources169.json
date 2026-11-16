@@ -626,7 +626,7 @@
       "url": "https://www.curseforge.com/wow/addons/layer",
       "sourceKind": "Author project page",
       "limitations": [
-        "Acts for you: hosting is on at every login. It then invites players who request it through the addon, by whisper or from your guild, up to six in any ten minutes, and sets that group's loot to Free for All. When you ask for a swap yourself, hosting switches on for that request and stays on four minutes past a swap that succeeds, then goes back off if it was off. Your request is sent unseen to the players your zone map shows, and after a swap it leaves the host's group a few seconds later (Auto leave can be turned off), or on its own if the move did not work.",
+        "Acts for you: hosting is on at every login. It then invites players who request it through the addon, by whisper or by asking in your guild, no more than six per ten minutes, and sets that group's loot to Free for All. When you ask for a swap yourself, hosting switches on for that request and stays on four minutes past a swap that succeeds, then goes back off if it was off. Your request is sent unseen to the players your zone map shows, and after a swap it leaves the host's group a few seconds later (Auto leave can be turned off), or on its own if the move did not work.",
         "It writes nothing in guild chat by itself; Ask your guild sends only on your click.",
         "It reads your layer from nearby creatures, so it must see an NPC first, and a host must be in your zone to move you."
       ]
