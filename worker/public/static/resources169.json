@@ -1067,7 +1067,7 @@
       "url": "https://www.curseforge.com/wow/addons/gargul",
       "sourceKind": "Author project page",
       "limitations": [
-        "Acts for you: with rules you set, it sends looted items to chosen players, rolls need, greed or pass for you, runs gold auctions (GDKP) and splits the gold, and invites and sorts raid members from a signup; the page does not say that any of this is on by default.",
+        "Acts for you: with rules you set, it sends looted items to chosen players, rolls need, greed or pass for you, and invites and sorts raid members from a signup; it can also announce trades. The page does not say that any of this is on by default.",
         "The author says that for most features only the loot master needs it.",
         "The author's notes for this Forever release say several fixes are untested because master loot of poor and common items is bugged in Forever."
       ]
