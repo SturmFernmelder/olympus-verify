@@ -629,8 +629,9 @@ async function university(parts, options = {}) {
     && [[47, 4], [48, 5], [49, 6], [50, 7], [150, 9]].every(([index, post]) => DATA.sources[index].url === topic + '/' + post));
   const citationFixture = clone(DATA);
   const publisherPrefixed = DATA.sources.findIndex(source => source.label.startsWith(source.publisher + ': '));
-  citationFixture.classes[0].changes[0].sources = [1, 1, 17, 118, 150, 86, publisherPrefixed];
-  const citation = await mounted({ view: 'class', classId: DATA.classes[0].id, talentRevision: talents.revision }, citationFixture);
+  // Class courses now use University; the supported tool still renders this same sourcesLine citation contract.
+  citationFixture.tools.attunements[0].requirement.sources = [1, 1, 17, 118, 150, 86, publisherPrefixed];
+  const citation = await mounted({ view: 'tool', tool: 'attunements', talentRevision: talents.revision }, citationFixture);
   const [baseTopicLink, datedPostLink, playerPostLink, prefixedTitleLink] = sourceLines(citation.box)[0].tags('a');
   check('a citation combines same-topic aliases and keeps every source title and the exact dated post',
     links(sourceLines(citation.box)[0]).join('|') === [topic, topic + '/9', DATA.sources[86].url, DATA.sources[publisherPrefixed].url].join('|')

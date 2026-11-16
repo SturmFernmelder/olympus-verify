@@ -99,10 +99,13 @@ for source in a.receipt:
     if kind is not None:report['statements'].append(measured)
     if settlement:report['allSettlementStatements'].append(measured)
  db.close()
-report['allMeasuredAtLeastTwoMargin']=bool(report['statements']) and all(s['minimum'] is not None and s['minimum']<=98 for s in report['statements'])
+report['requiredCapturedKinds']=['migration-put-ack','migration-delete-ack','migration-reservation-release']
+report['missingRequiredCapturedKinds']=sorted(set(report['requiredCapturedKinds'])-{s['kind'] for s in report['statements']})
+report['allRequiredCapturedKindsPresent']=not report['missingRequiredCapturedKinds']
+report['allMeasuredAtLeastTwoMargin']=bool(report['statements']) and report['allRequiredCapturedKindsPresent'] and all(s['minimum'] is not None and s['minimum']<=98 for s in report['statements'])
 report['allSettlementStatementsCompileAt100']=bool(report['allSettlementStatements']) and all(s['at100']['ok'] for s in report['allSettlementStatements'])
 report['allSettlementStatementsWithinSqlBounds']=bool(report['allSettlementStatements']) and all(s['bytes']<=100000 and s['binds']<=100 for s in report['allSettlementStatements'])
 report['maxSettlementSQLBytes']=max((s['bytes'] for s in report['allSettlementStatements']),default=0)
 report['maxSettlementBindings']=max((s['binds'] for s in report['allSettlementStatements']),default=0)
 report['zeroMargin']=[s for s in report['allSettlementStatements'] if s['minimum']==100]
-Path(a.out).write_text(json.dumps(report,indent=2)+'\n',encoding='utf8');print(json.dumps({'statements':len(report['statements']),'allMargin2':report['allMeasuredAtLeastTwoMargin'],'ranges':[(s['kind'],s['minimum'],s['bytes'],s['binds'])for s in report['statements']],'allSettlementStatements':len(report['allSettlementStatements']),'allSettlementStatementsCompileAt100':report['allSettlementStatementsCompileAt100'],'allSettlementStatementsWithinSqlBounds':report['allSettlementStatementsWithinSqlBounds'],'maxSettlementSQLBytes':report['maxSettlementSQLBytes'],'maxSettlementBindings':report['maxSettlementBindings'],'zeroMargin':[(s['kind'],s['sha256'],s['minimum'])for s in report['zeroMargin']]}))
+Path(a.out).write_text(json.dumps(report,indent=2)+'\n',encoding='utf8');print(json.dumps({'statements':len(report['statements']),'allMargin2':report['allMeasuredAtLeastTwoMargin'],'allRequiredCapturedKindsPresent':report['allRequiredCapturedKindsPresent'],'missingRequiredCapturedKinds':report['missingRequiredCapturedKinds'],'ranges':[(s['kind'],s['minimum'],s['bytes'],s['binds'])for s in report['statements']],'allSettlementStatements':len(report['allSettlementStatements']),'allSettlementStatementsCompileAt100':report['allSettlementStatementsCompileAt100'],'allSettlementStatementsWithinSqlBounds':report['allSettlementStatementsWithinSqlBounds'],'maxSettlementSQLBytes':report['maxSettlementSQLBytes'],'maxSettlementBindings':report['maxSettlementBindings'],'zeroMargin':[(s['kind'],s['sha256'],s['minimum'])for s in report['zeroMargin']]}))
