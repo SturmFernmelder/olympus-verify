@@ -1084,7 +1084,7 @@
       "url": "https://www.curseforge.com/wow/addons/talents-forever",
       "sourceKind": "Author project page",
       "limitations": [
-        "Acts for you: if you choose, it applies a planned build or places your talent points for you as you level; the author says every feature has an off switch.",
+        "Acts for you: if you choose, it applies a planned build or places your talent points for you as you level; the page does not say whether that is on by default, and the author says every feature has an off switch.",
         "Popular builds refresh from the author's site every day.",
         "The author says it was built with AI assistance by one person, with talent data from the game files checked in game.",
         "Release 0.38.25 removed a Game talents button that could make action bars vanish in combat; /reload restores a missing bar."
