@@ -164,6 +164,14 @@ Object.defineProperty(Element.prototype, 'value', { ...value184, set(value) {
   check('h3 a recorded holder text of 17 to 20 digits shows "Name withheld" in the panel; one of 16 digits shows as recorded', holderRow184(guarded184.page, ['office_97', 'office_99']) === JSON.stringify([[withheld184, 'office_97'], ['Appointed: 1234567890123456.', 'office_99']]), holderRow184(guarded184.page, ['office_97', 'office_99']));
   check('h3 with those records every other portfolio shows the fallback, and the office_58 and office_59 ballot rows keep the recorded text', rows184(guarded184.page) === expected184({ office_58: [withheld184, 'office_58'], office_98: ['Appointed: ' + 'B'.repeat(40) + '.', 'office_98'], office_59: [withheld184, 'office_59'], office_96: [withheld184, 'office_96'], office_97: [withheld184, 'office_97'], office_99: ['Appointed: 1234567890123456.', 'office_99'] })
     && option184(guarded184.page, 'office_58')?.textContent === label184(guarded184.page, 'office_58') + ' (appointed)' && guarded184.page.app.querySelector('.role-item[href="#/vote/office_58"] .n')?.getAttribute('title') === 'Appointed: ' + odd184.office_58 && guarded184.page.app.querySelector('.role-item[href="#/vote/office_59"] .n')?.getAttribute('title') === 'Appointed: ' + odd184.office_59, rows184(guarded184.page));
+  // The guard's boundaries (lead's decision after the second review): 17 and 20 digits are withheld, 21 digits are shown;
+  // U+007F is a control character; ">" alone and "<" alone are brackets. 16 digits, 40 and 41 characters are above.
+  const edge184 = { office_14: '12345678901234567', office_100: '12345678901234567890', office_101: '123456789012345678901', office_102: 'Del\u007fhere', office_103: 'Holder>b', office_96: 'Holder<b' };
+  const guardedEdge184 = await openHolders184({}, '#/vote/officer', { boot: boot => { boot.settings.appointed = { ...edge184 }; } });
+  check('h3 a recorded holder text of exactly 17 or exactly 20 digits shows "Name withheld" in the panel; one of 21 digits shows as recorded', holderRow184(guardedEdge184.page, ['office_14', 'office_100', 'office_101']) === JSON.stringify([[withheld184, 'office_14'], [withheld184, 'office_100'], ['Appointed: 123456789012345678901.', 'office_101']]), holderRow184(guardedEdge184.page, ['office_14', 'office_100', 'office_101']));
+  check('h3 a recorded holder text holding U+007F shows "Name withheld" in the panel', holderRow184(guardedEdge184.page, ['office_102']) === JSON.stringify([[withheld184, 'office_102']]), holderRow184(guardedEdge184.page, ['office_102']));
+  check('h3 a recorded holder text holding only ">" or only "<" beside letters shows "Name withheld" in the panel, and every other portfolio the fallback', holderRow184(guardedEdge184.page, ['office_103', 'office_96']) === JSON.stringify([[withheld184, 'office_103'], [withheld184, 'office_96']])
+    && rows184(guardedEdge184.page) === expected184({ office_14: [withheld184, 'office_14'], office_100: [withheld184, 'office_100'], office_101: ['Appointed: 123456789012345678901.', 'office_101'], office_102: [withheld184, 'office_102'], office_103: [withheld184, 'office_103'], office_96: [withheld184, 'office_96'] }), rows184(guardedEdge184.page));
 
   // The panel belongs to the board's shell, which the route rebuilds when settings.appointed changes (settingsKey). Here the
   // mounted page learns of a new record from the Worker's refusal of the office_14 board as appointed.
@@ -210,6 +218,11 @@ Object.defineProperty(Element.prototype, 'value', { ...value184, set(value) {
   // The ballot rows each map closes: the seeded and typed records are as before; office_19 alone now closes co_gm (the pair).
   const maps184 = [['seeded', { co_gm: 'Example Co-GM', treasurer: 'Example Treasurer' }, { co_gm: 'Example Co-GM', treasurer: 'Example Treasurer' }], ['empty', {}, {}],
     ['typed', { office_101: 'Recorded Justiciar', office_86: 'Exchequer record', office_96: '<@' + OTHER + '>' }, { treasurer: 'Exchequer record' }], ['office_19-only', { office_19: 'Recorded Hand' }, { co_gm: 'Recorded Hand' }]];
+  // Lead's decision after a browser look: the panel's list alone carries the class council-holders, which app.css gives two
+  // equal columns. Read for every page the panel checks above open and for the eight pages below.
+  const holderClass184 = (name, page) => { const list = (page.app.querySelector('main')?.children || []).find(portfolioPanel184)?.children[1], named = page.document.body.querySelectorAll('[class]').filter(el => el.getAttribute('class').split(/\s+/).includes('council-holders'));
+    return [name, list?.tagName || null, list ? list.getAttribute('class') : null, named.length === 1 && named[0] === list]; };
+  const classed184 = [['seeded', seeded184], ['office_19 record', hand184], ['both co_gm and office_19', both184], ['ranks', ranks184], ['projected', projected184], ['guarded', guarded184], ['guard boundaries', guardedEdge184], ['rebuilt', kept184]].map(([name, opened]) => holderClass184(name, opened.page));
   for (const writs184 of [false, true]) {
     if (writs184) await fixtureRun("INSERT INTO site_settings(key,value,updated_at) VALUES('royalWritsOn','1',?) ON CONFLICT(key) DO UPDATE SET value='1'", now);
     const placed184 = [];
@@ -222,9 +235,42 @@ Object.defineProperty(Element.prototype, 'value', { ...value184, set(value) {
         restActual184(page) === restExpected184(page, ballots184, writs184) && (!writs184 || (page.boot.meta.royalWrits || []).length > 0), restActual184(page));
       const kids = page.app.querySelector('main')?.children || [];
       placed184.push(kids.length === (writs184 ? 4 : 3) && kids[0].querySelector('.plaque')?.textContent === 'Leadership applications board' && kids[1].classList.contains('board-layout') && portfolioPanel184(kids[2]) && (!writs184 || kids[3].classList.contains('royal-writs199')));
+      classed184.push(holderClass184(name184 + ', Royal Writs ' + (writs184 ? 'on' : 'off'), page));
     }
     check(writs184 ? 'h3 with Royal Writs on, the portfolio panel stands after the board layout and before the Royal Writs panel, for all four maps' : 'h3 with Royal Writs off, main holds the board introduction, the board layout and the portfolio panel in this order, for all four maps', placed184.length === 4 && placed184.every(Boolean), JSON.stringify(placed184));
   }
+  const appText184 = fs.readFileSync(path.join(root, 'public', 'static', 'app.js'), 'utf8');
+  check('h3 the portfolio panel\'s list has exactly the class "kv council-holders" on all 16 pages, no other element of those pages carries council-holders, and app.js names it once', classed184.length === 16 && classed184.every(([, tag, cls, alone]) => tag === 'DL' && cls === 'kv council-holders' && alone) && appText184.split('council-holders').length === 2, JSON.stringify(classed184));
+  // The two app.css rules of that list, read as text. The splitter drops comments and splits the sheet into rules and
+  // blocks (an @-rule whose body holds braces); a rule is kept as "<selector> { <declarations> }".
+  const css184 = fs.readFileSync(path.join(root, 'public', 'static', 'app.css'), 'utf8');
+  const split184 = text => {
+    const items = [];
+    for (let at = 0; ;) {
+      const open = text.indexOf('{', at);
+      if (open < 0) { if (text.slice(at).trim()) throw Error('app.css: text after the last rule'); return items; }
+      let close = open, depth = 0;
+      for (; close < text.length; close++) { if (text[close] === '{') depth++; else if (text[close] === '}' && --depth === 0) break; }
+      if (close >= text.length) throw Error('app.css: unbalanced braces');
+      const head = text.slice(at, open).trim(), body = text.slice(open + 1, close);
+      items.push(body.includes('{') ? { block: head, items: split184(body) } : { rule: head + ' { ' + body.trim() + ' }' });
+      at = close + 1;
+    }
+  };
+  const sheet184 = split184(css184.replace(/\/\*[\s\S]*?\*\//g, ''));
+  const deep184 = items => items.flatMap(item => item.block ? deep184(item.items).map(rule => [item.block, rule]) : [[null, item.rule]]);
+  const holderRules184 = ['.kv.council-holders { grid-template-columns: repeat(auto-fit, minmax(max(260px, calc((100% - 16px) / 2)), 1fr)); }', '.kv.council-holders dd { margin-bottom: 8px; }'];
+  const kvTop184 = ['.kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; }', '.kv dt { color: var(--gold); }', '.kv dd { margin: 0; overflow-wrap: anywhere; }', '.kv { grid-template-columns: minmax(0, max-content) minmax(0, 1fr); }', '.kv dt { overflow-wrap: anywhere; }'];
+  const kvNarrow184 = ['.kv { grid-template-columns: minmax(0, 1fr); }', '.kv dt { margin-top: 6px; }'];
+  const at184 = sheet184.findIndex(item => item.rule === kvTop184[3]), next184 = sheet184[at184 + 4];
+  const cssFacts184 = {
+    named: deep184(sheet184).filter(([, rule]) => rule.includes('council-holders')),
+    window: sheet184.slice(at184, at184 + 4).map(item => item.rule || '@' + item.block),
+    narrowBlock: next184 && next184.block, narrowKv: next184 && next184.items ? next184.items.filter(item => /^\.kv[ {]/.test(item.rule || '')).map(item => item.rule) : null,
+    kvTop: sheet184.filter(item => /^\.kv( dt| dd)? \{/.test(item.rule || '')).map(item => item.rule),
+    lines: [...holderRules184, ...kvTop184].map(rule => css184.split('\n').filter(line => line === rule).length) };
+  check('h3 app.css: the two council-holders rules stand exactly as decided, outside every @media block, directly after the later two top-level .kv rules and before the @media (max-width: 480px) block that follows them; no other rule names council-holders; the .kv rules are as on the base',
+    JSON.stringify(cssFacts184) === JSON.stringify({ named: holderRules184.map(rule => [null, rule]), window: [kvTop184[3], kvTop184[4], ...holderRules184], narrowBlock: '@media (max-width: 480px)', narrowKv: kvNarrow184, kvTop: kvTop184, lines: [1, 1, 1, 1, 1, 1, 1, 1, 1] }), JSON.stringify(cssFacts184));
   await fixtureRun("DELETE FROM site_settings WHERE key='royalWritsOn'");
   console.log('\n' + ok + '/' + n + ' vote labels184 checks passed'); process.exit(ok === n ? 0 : 1);
 })().catch(error => { console.error(error); process.exit(1); });
