@@ -79,6 +79,11 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".287", date: "2026-11-16", lines: [
+      "The staff role comparison keeps completed results when Discord asks it to wait. Resume continues the same check after the confirmed wait; uncertain results stay on hold.",
+    ],
+  },
+  {
     build: ".285", date: "2026-11-16", lines: [
       "The officers' addon (Verify 0.6.40, Watcher 0.6.41) can now run a fresh Check for verified Initiates. Promotion to Member still needs a current recommendation and a separate officer click in game. Old attempts stay recorded.",
       "The staff page compares Discord roles with current guild links and shows why checks are on hold. An old role change with an unknown result can receive a separate starting point without being replayed. After that decision, new grants need their own checks and existing rank-role removals stay manual for that account. Bans, erased accounts and undoing the bot's own new grant still follow their existing rules.",
