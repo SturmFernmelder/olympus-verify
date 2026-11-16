@@ -115,12 +115,20 @@ function renderer(fetcher) {
   // what they do by themselves; Spy stays watched.
   const listedH7 = id => catalog.addons.find(a => a.id === id);
   const actsH7 = a => !!a && Array.isArray(a.limitations) && typeof a.limitations[0] === 'string' && a.limitations[0].startsWith('Acts for you: ');
-  check('h7 gargul, layerswap and talents-forever are listed and their first limitation begins "Acts for you: "; spy is watched and not listed', ['gargul', 'layerswap', 'talents-forever'].every(id => actsH7(listedH7(id))) && catalog.addonWatchlist.some(w => w.id === 'spy') && !listedH7('spy'));
+  // h7 review round: the Spy (Forever) port shares the one spy watch row (decision 2), so no listed entry is Spy under any id.
+  check('h7 gargul, layerswap and talents-forever are listed and their first limitation begins "Acts for you: "; spy is watched and neither it nor its Forever port is listed', ['gargul', 'layerswap', 'talents-forever'].every(id => actsH7(listedH7(id))) && catalog.addonWatchlist.some(w => w.id === 'spy') && !listedH7('spy') && !catalog.addons.some(a => /^spy(-|$)/.test(a.id) || /^Spy\b/.test(a.name)));
+  // h7 review round, decision 2 and lead addition (d): the spy row ends with the sentence decision 2 asks for, and no addon or
+  // watch text states a guild rule or policy.
+  const guildRuleH7 = /guild (rule|policy)|not allowed|forbidden|banned/i;
+  check('h7 the spy watch row ends with the decision-2 sentence and no addon or watch text states a guild rule', catalog.addonWatchlist.find(w => w.id === 'spy').note.endsWith(' The guild has not decided whether an enemy-detection addon belongs in this list.') && catalog.addons.every(a => [a.name, a.rationale, a.status, ...a.limitations].every(t => !guildRuleH7.test(t))) && catalog.addonWatchlist.every(w => !guildRuleH7.test(w.name) && !guildRuleH7.test(w.note)));
+  // h7 review round, decision 4: the categories of this review in order of first appearance; exactly one is new.
+  const categoriesH7 = ['Questing', 'Conveniences', 'Maps', 'Economy', 'Bags', 'Combat', 'Raid frames', 'Cooldowns', 'Encounters', 'Leveling routes', 'Guild tools', 'Forever discoveries', 'Interface and action bars'];
+  check('h7 the addons use exactly the thirteen categories of this review, in this order', [...new Set(catalog.addons.map(a => a.category))].join('|') === categoriesH7.join('|'));
   // CL2-071 (our 1d3d046, e30a85e): Olympus Guild now names no version at all, not even the unverified 1.5.7 floor;
   // it links its project page only.
   // h7 (review of 15 Nov 2026): a publisher date is any real calendar date; the October-only rule of .218 is replaced by the
   // review window below.
-  const realDateH7 = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && new Date(s + 'T00:00:00Z').toISOString().slice(0, 10) === s;
+  const realDateH7 = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s + 'T00:00:00Z')) && new Date(s + 'T00:00:00Z').toISOString().slice(0, 10) === s;
   check('every addon carries publisher identity, rationale, advertised client/release and limits', catalog.addons.every(a => a.id && a.name && a.category && a.rationale && a.status && (a.id === 'olympus-guild' ? !a.minimumVersion && !a.version && !a.releasedAt : a.version && realDateH7(a.releasedAt) && a.gameBuild.includes('Forever')) && a.sourceKind && a.limitations.length && new URL(a.url).protocol === 'https:'));
   // h7: the rule of docs/resource-sources169.md: an entry stays listed until its newest Forever release is more than 90 days old.
   const reviewDayH7 = realDateH7(String(catalog.checkedAt).slice(0, 10)) && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(catalog.checkedAt) ? String(catalog.checkedAt).slice(0, 10) : null;
@@ -210,6 +218,7 @@ function renderer(fetcher) {
   select.value = 'Interface and action bars'; select.fire('change');
   const interfaceH7 = walk(holder).filter(x => x.tagName === 'ARTICLE').map(x => textOf(x));
   check('h7 the new category "Interface and action bars" is offered and shows exactly Bartender4, Dominos, EllesmereUI, Titan Panel and ConsolePort', walk(select).some(x => x.tagName === 'OPTION' && x.value === 'Interface and action bars') && interfaceH7.length === 5 && ['Bartender4', 'Dominos', 'EllesmereUI', 'Titan Panel', 'ConsolePort'].every((name, i) => walk(holder).filter(x => x.tagName === 'ARTICLE')[i].children.some(y => y.tagName === 'H2' && textOf(y).trim() === name)) && addonCount215.textContent === `5 of ${totalH7} curated entries.` && r.calls.length === 1);
+  check('h7 the category filter offers All categories and exactly the thirteen categories of this review, in this order', walk(select).filter(x => x.tagName === 'OPTION').map(x => x.value).join('|') === ['all', ...categoriesH7].join('|'));
   select.value = 'Forever discoveries'; select.fire('change');
   check('.218 search and category filters keep the same browse link and closed watchlist outside the single curated count', walk(holder).includes(browse218[0]) && walk(holder).includes(watchDetails218[0]) && !watchDetails218[0].open && walk(holder).filter(x => x.role === 'status').length === 1 && r.calls.length === 1);
   // h7: TradeSkillMaster is listed since the review of 15 Nov 2026; BattlegroundTargets Classic is a watched name no card mentions.
