@@ -848,8 +848,8 @@ table.data select, table.data input { max-width: 180px; }
 .table-wrap { max-width: 100%; }
 .kv { grid-template-columns: minmax(0, max-content) minmax(0, 1fr); }
 .kv dt { overflow-wrap: anywhere; }
-/* The vote page's High Council panel has long portfolio titles: two equal columns while each has at least 260px, otherwise one; the 16px is the column gap of the .kv rule at line 614. */
-.kv.council-holders { grid-template-columns: repeat(auto-fit, minmax(max(260px, calc((100% - 16px) / 2)), 1fr)); }
+/* The vote page's High Council panel has long portfolio titles: two equal columns while each has at least 260px, otherwise one, never wider than the list itself; the 16px is the column gap of the .kv rule at line 614, and the 1px keeps two columns fitting whichever way a browser rounds the half. */
+.kv.council-holders { grid-template-columns: repeat(auto-fit, minmax(min(100%, max(260px, calc((100% - 16px) / 2 - 1px))), 1fr)); }
 .kv.council-holders dd { margin-bottom: 8px; }
 @media (max-width: 480px) {
   .plaque { flex-direction: column; align-items: flex-start; }

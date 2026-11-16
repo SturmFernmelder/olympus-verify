@@ -259,7 +259,7 @@ Object.defineProperty(Element.prototype, 'value', { ...value184, set(value) {
   };
   const sheet184 = split184(css184.replace(/\/\*[\s\S]*?\*\//g, ''));
   const deep184 = (items, outer = null) => items.flatMap(item => item.block ? deep184(item.items, outer ? outer + ' ' + item.block : item.block) : [[outer, item.rule]]);
-  const holderRules184 = ['.kv.council-holders { grid-template-columns: repeat(auto-fit, minmax(max(260px, calc((100% - 16px) / 2)), 1fr)); }', '.kv.council-holders dd { margin-bottom: 8px; }'];
+  const holderRules184 = ['.kv.council-holders { grid-template-columns: repeat(auto-fit, minmax(min(100%, max(260px, calc((100% - 16px) / 2 - 1px))), 1fr)); }', '.kv.council-holders dd { margin-bottom: 8px; }'];
   const kvTop184 = ['.kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; }', '.kv dt { color: var(--gold); }', '.kv dd { margin: 0; overflow-wrap: anywhere; }', '.kv { grid-template-columns: minmax(0, max-content) minmax(0, 1fr); }', '.kv dt { overflow-wrap: anywhere; }'];
   const kvNarrow184 = ['.kv { grid-template-columns: minmax(0, 1fr); }', '.kv dt { margin-top: 6px; }'];
   const at184 = sheet184.findIndex(item => item.rule === kvTop184[3]), next184 = sheet184[at184 + 4];
