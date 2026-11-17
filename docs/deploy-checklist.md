@@ -8865,3 +8865,9 @@ Attribution correction and final-review record: the earlier local migration19 an
 - Same-GUID existing-character reproof and the narrowly bounded pre-launch historical-left exclusion are qualified separately. Historical character fields and role-operation receipts remain original; no missing proof, guessed GUID or provider acknowledgement is fabricated.
 - Member-facing status distinguishes pre-launch link records from the current access result and explains how to verify a different live character after beta.
 - Worker-only release: addon 0.6.43 and Watcher 0.6.41 remain unchanged. Required source review, bounded Workerd/D1 qualification, every offline Lua suite, complete Watcher tests, current-head Linux CI, fresh verified D1 backup and exact archived bundle acceptance precede Root rollout. Production and named-case outcomes are recorded separately in the shared log and QA report; this candidate note claims no live recovery.
+
+## Build .296 — Stored character-link history labels (candidate, 17 November 2026)
+
+- Live acceptance of .295 found that the admin Lookup still described a retained beta `member` link as “in the guild.” The lookup presents saved link records, which do not establish current native membership, current Discord access or promotion readiness.
+- Lookup-only display labels identify stored history and preserve its recorded dates and data. Current authority, identity proof admission, rank policy and all receipt writers remain unchanged. The BUILD changes with the served script so existing browser caches receive the correction.
+- The reviewed .295 source, its successful rollout, the two earlier ordinary fresh-whisper acceptances, the consumed First Adam recovery-count refusal and the maintenance-blocked live checks remain separately preserved. .296 does not claim a new verification, role grant or promotion. Worker-only; addon 0.6.43 and Watcher 0.6.41 unchanged.
