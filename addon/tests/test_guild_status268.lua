@@ -119,7 +119,7 @@ do
 end
 -- Real Guild column, model and hardware dispatcher. Native rows/buttons are
 -- synthetic; no installed data, native UI or provider is touched.
-local function guildUI(size,discoveryOnly)
+local function guildUI(size,discoveryOnly,initialHistory)
   local f=fixture(size or 3);local e=f.e
   for _,row in ipairs(e.ROSTER) do row.rank,row.rankIndex="Initiate",9 end
   local q=f.install(2,0)
@@ -164,6 +164,7 @@ local function guildUI(size,discoveryOnly)
     return f.publish({ack=1,control=e.OlympusVerifyDB.launchControl,snapshotId=3,context=string.rep("e",32),intentId=p.id,
       origin={snapshotId=p.originSnapshotId,snapshotAt=p.originSnapshotAt,context=p.originContext,issued=p.issuedAt,expires=p.expiresAt}})
   end
+  if initialHistory then initialHistory(f) end -- Saved history exists before launch captures its storage owner.
   setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLaunch229.lua")),e)("OlympusVerify")
   setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyRosterModel.lua")),e)("OlympusVerify")
   f.launch=e.OlympusLaunch229
@@ -462,6 +463,90 @@ do
   check("a fake Member8 recheck display without owned continuation cannot request a read",
     b.promote:GetText()=="Member" and not b.promote:IsEnabled() and f.launch.PromotionStatus(id,current,8)=="clear" and f.promotions==0 and f.syncs==0)
 end
+do
+  local function copy(value)
+    if type(value)~="table" then return value end
+    local result={};for k,v in pairs(value) do result[k]=copy(v) end;return result
+  end
+  local function same(a,b)
+    if type(a)~=type(b) then return false end
+    if type(a)~="table" then return a==b end
+    for k,v in pairs(a) do if not same(v,b[k]) then return false end end
+    for k in pairs(b) do if a[k]==nil then return false end end
+    return true
+  end
+  for _,profileIndex in ipairs({1,2}) do
+    for _,kind in ipairs({"expired-confirmed","unknown","blocked","save-hold","custody-conflict","no-projection"}) do
+      local f=guildUI(nil,true,function(f)
+        if kind~="expired-confirmed" and kind~="save-hold" then
+          f.e.OlympusVerifyDB.launchPromotionAttempts={[f.e.ROSTER[1].guid]={state="unknown",target=profileIndex==2 and 6 or 5,original="retained-veteran"}}
+        end
+      end);local e=f.e;local b=f.buttons()[1];local id=e.ROSTER[1].guid
+      local c=e.OlympusVerifyNativeRankConstants.profiles[profileIndex];local veteranSlot=profileIndex==2 and 6 or 5
+      for i,name in ipairs(c.names) do f.names[i]=name end
+      local data,page=D.publish(e,{guild=f.guild,realm=f.realm,actor=f.actor,scopeHash=f.scope,
+        observedAt=f.now,fetchedAt=f.now,snapshotAt=f.now,snapshotId=2,ttl=60,total=#e.ROSTER,
+        specs={{guid=id,name=e.ROSTER[1].name,start=9,final=5}}})
+      page.rankProfile,page.rankSchemeDigest,page.rankNames=c.profile,c.digest,{unpack(c.names)}
+      local plan=page.promotions[1];plan.targetSlot=veteranSlot
+      plan.intent.rankProfile,plan.intent.rankSchemeDigest,plan.intent.finalSlot=c.profile,c.digest,veteranSlot
+      f.rosterEvent();f.tick()
+      if kind=="expired-confirmed" then
+        b.promote:Click();f.now=f.now+1;f.rosterEvent();f.tick()
+        local original=e.OlympusVerifyDB.launchPromotionAttempts[id]
+        check("fixture has an actual confirmed incomplete Knight step before manual Veteran "..c.profile,
+          f.promotions==1 and original.state=="confirmed" and not original.completed and #original.steps==1)
+        f.now=original.intentExpiresAt
+      elseif kind=="save-hold" then assert(f.launch.HoldPromotionHistoryReview(id)) end
+      if kind=="blocked" then f.launch.promotionBlocked=true end
+      if kind=="custody-conflict" then e.OlympusVerifyDB.launchPromotionCustodyConflict=false end
+      if kind=="no-projection" then e.OlympusLaunchQueue=nil;e.OlympusLaunchSelected=nil end
+      e.ROSTER[1].rankIndex=veteranSlot;f.rosterEvent()
+      local db=e.OlympusVerifyDB;local ledger,holds=db.launchPromotionAttempts,db.launchPromotionSaveHolds
+      local originalLedger,originalHolds=copy(ledger),copy(holds);local conflict=db.launchPromotionCustodyConflict
+      local control=db.launchControl;local sent=f.promotions
+      f.tick();b.promote:GetScript("OnEnter")(b.promote)
+      check("exact current Veteran is disabled rather than Held "..c.profile.." "..kind,
+        b.promote:GetText()=="Veteran" and not b.promote:IsEnabled() and b.promote.mode==nil
+        and table.concat(f.tooltipLines,"\n"):find("current native rank is Veteran",1,true)
+        and table.concat(f.tooltipLines,"\n"):find("does not confirm an earlier attempt",1,true))
+      f.forceClick(b.promote)
+      check("forced Veteran click leaves every history field and action unchanged "..c.profile.." "..kind,
+        db.launchPromotionAttempts==ledger and same(ledger,originalLedger)
+        and db.launchPromotionSaveHolds==holds and same(holds,originalHolds) and db.launchPromotionCustodyConflict==conflict
+        and db.launchControl==control and f.promotions==sent and f.syncs==0 and f.restrictedCalls==0
+        and not b.promote:GetAttribute("type1") and not b.promote:GetAttribute("macrotext1"))
+      check("Veteran display does not settle launch history "..c.profile.." "..kind,
+        f.launch.AttemptHeld(id,f.launch.Current(),veteranSlot)==true)
+    end
+    local f=guildUI(nil,true);local e=f.e;local b=f.buttons()[1];local id=e.ROSTER[1].guid
+    local c=e.OlympusVerifyNativeRankConstants.profiles[profileIndex];local veteranSlot=profileIndex==2 and 6 or 5
+    for i,name in ipairs(c.names) do f.names[i]=name end
+    e.ROSTER[1].rankIndex=veteranSlot;e.ROSTER[1].rankLabel="Knight";f.rosterEvent();f.tick()
+    check("conflicting native Veteran slot label cannot receive Veteran display "..c.profile,
+      b.promote:GetText()~="Veteran" and not b.promote:IsEnabled() and f.promotions==0)
+    e.ROSTER[1].rankLabel=nil;f.names[2]="Unreviewed Rank";f.rosterEvent();f.tick()
+    check("unknown complete native table cannot inherit Veteran display "..c.profile,
+      b.promote:GetText()~="Veteran" and f.promotions==0)
+    for i,name in ipairs(c.names) do f.names[i]=name end
+    local otherGuid=e.ROSTER[2].guid
+    e.ROSTER[2].guid=id;f.rosterEvent();f.tick();f.forceClick(b.promote)
+    check("duplicate native GUID cannot claim attained Veteran "..c.profile,
+      b.promote:GetText()~="Veteran" and not b.promote:IsEnabled() and f.promotions==0 and f.syncs==0)
+    e.ROSTER[2].guid=otherGuid;f.nativeRows[1].member.guid=nil;f.rosterEvent();f.tick()
+    check("a native row missing its exact GUID cannot claim attained Veteran "..c.profile,
+      b.promote:GetText()~="Veteran" and not b.promote:IsEnabled() and f.promotions==0 and f.syncs==0)
+    f.nativeRows[1].member.guid=id
+    e.OlympusVerifyRosterModel.Promotions=function()
+      return {[id]=true},{byGuid={[id]={state="ready",reason="Synthetic stale ready model"}}}
+    end
+    f.rosterEvent();f.tick();f.forceClick(b.promote)
+    check("current exact Veteran defeats a forged ready display and forced click "..c.profile,
+      b.promote:GetText()=="Veteran" and not b.promote:IsEnabled() and b.promote.mode==nil
+      and f.promotions==0 and f.syncs==0 and not b.promote:GetAttribute("type1") and not b.promote:GetAttribute("macrotext1"))
+  end
+end
+
 do
   local f=guildUI(1000,true);local e=f.e;local steward=e.OlympusVerifyNativeRankConstants.profiles[2]
   for i,name in ipairs(steward.names) do f.names[i]=name end

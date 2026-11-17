@@ -383,6 +383,8 @@ local function PromotionInput(name,guid,result)
   return {guid=member and member.guid,rankIndex=member and member.rankIndex,rank=member and member.rankName,status=result.status,
     nativeMember=member and nativeRankScheme and member.rankIndex==nativeRankScheme.member
       and member.rankName==nativeRankScheme.names[nativeRankScheme.member+1] or false,
+    nativeVeteran=member and nativeRankScheme and member.rankIndex==nativeRankScheme.veteran
+      and member.rankName==nativeRankScheme.names[nativeRankScheme.veteran+1] or false,
     verification=result,historicalLinked=result.historicalLinked}
 end
 local function PromotionState(rows)
@@ -402,6 +404,9 @@ local function CheckCustodyClear(launch,id,current,nativeSlot)
 end
 local function PromotionControl(input,result,ready,detail,bound,current)
   local launch=OlympusLaunch229
+  -- A current exact native Veteran is already at the highest supported target.
+  -- This factual display neither settles history nor admits another command.
+  if input.nativeVeteran then return "Veteran",false,nil end
   if ready and bound then return "Promote",true,"promote" end
   if input.nativeMember then
     if bound and detail and detail.state=="recheck" and type(launch.Select)=="function" and type(launch.PromotionStatus)=="function" then
@@ -434,7 +439,7 @@ local function PromotionTooltip(button)
   elseif button.mode=="promote" then
     GameTooltip:AddLine("One click requests one native rank step. Another step needs a new click and observed native confirmation; unknown attempts stay held.",0.8,0.8,0.7,true)
   else
-    GameTooltip:AddLine(button:GetText()=="Member" and "The current native rank is Member. This rank observation does not confirm an earlier attempt. Any history or source issue above remains recorded; no repeat is enabled."
+    GameTooltip:AddLine((button:GetText()=="Member" or button:GetText()=="Veteran") and "The current native rank is "..button:GetText()..". This rank observation does not confirm an earlier attempt. Any history or source issue above remains recorded; no repeat is enabled."
       or button:GetText()=="Checking" and "This check is still waiting for the Watcher. Wait for the Watcher, then click Sync & reload to load the result. The addon cannot see whether the Watcher is running."
       or button:GetText()=="Held" and "The reason above says what is blocking promotion. If an earlier attempt is still unresolved, review its history and the member's current rank in the game's guild window. This view cannot clear or repeat that attempt. For other holds, follow the step named above."
       or "No promotion is enabled. Complete normal verification first, or inspect the current native rank and source reason.",0.8,0.8,0.7,true)
