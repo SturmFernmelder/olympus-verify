@@ -79,6 +79,11 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".291", date: "2026-11-17", lines: [
+      "Staff can distinguish where a guarded role read stopped without exposing account or request details. Existing role-operation history stays preserved.",
+    ],
+  },
+  {
     build: ".290", date: "2026-11-17", lines: [
       "Staff can identify the failed step of a held-role review without recording account details or response bodies. A failed review keeps the role change on hold.",
     ],

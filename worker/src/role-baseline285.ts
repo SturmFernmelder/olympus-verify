@@ -10,7 +10,11 @@ import {rest,DiscordError} from './discord';
 import {apiJson,b64u,isSiteAdmin,siteAdmins,originalUserSession,PAGE_VERSION,sameOrigin,type SiteUser} from './site-core';
 import {admittedReadAs,FENCE_REFUSED,type CommunitySubject} from './community-context';
 import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
-import {privacyProviderCustodyDatabase,privacyBoundSiteRoleActionEnv,privacyGenerationExpressionFenceSql,privacyAccountIncarnation,PRIVACY_YEAR} from './privacy-serving-authority';
+import {privacyProviderCustodyDatabase,privacyBoundSiteRoleActionEnv,privacyGenerationExpressionFenceSql,privacyAccountIncarnation,PRIVACY_YEAR,PrivacySiteRequestHeld} from './privacy-serving-authority';
+import {PrivacyWriteAdmissionHeld} from './privacy-write-admission';
+import {OriginalSchemaPlanHeld} from './privacy-schema-source-plan';
+import {RecoveryFloorHeld} from './privacy-recovery-held';
+import {ADMISSION_REASONS,heldCause,isHeldCause} from './log';
 import {captureRoutineMembership232,closeRoutineMembership232,routineMembership232Facts,routineMembership232Predicate,assertRoutineMembership232,type RoutineMembership232} from './routine-membership-authority232';
 import {captureCanonicalRankConfig233,captureCanonicalEntitlements233,CANONICAL_MANAGED_ROLE_IDS233,CANONICAL_PROFILE233,CANONICAL_GUILD233,highestCanonicalRank233} from './canonical-ranks233';
 import {NATIVE_RANK_PROFILE232,NATIVE_RANK_NAMES232,SHARED_MEMBER232,NATIVE_STAFF232,historicalNativeRankPolicy232} from './native-rank-reconciliation232';
@@ -113,12 +117,22 @@ function eligible(old:Old,subject:string,g:string|null,at:number):boolean{
  if(ordinary){const policy=historicalNativeRankPolicy232();return old.purpose==='launch_routine_membership232'?old.role_id===SHARED_MEMBER232:old.purpose==='staff_roster_rank'?Object.values(NATIVE_STAFF232).some(id=>id===old.role_id):policy.ranks.some(r=>r.roleId===old.role_id);}
  return true;
 }
-async function readState(db:D1Database,config:Config,subject:string,native?:Readonly<{sql:string;values:readonly Scalar[]}>):Promise<State>{
- config.check();const raw=await db.prepare(READ+(native?' WHERE ('+native.sql+')':'')).bind(subject,config.guild,FAMILY_JSON,json(config.actorIds),...(native?native.values:[])).first();config.check();if(!raw)return held();
+type BaselineReadStep285='config-before'|'prepare'|'bind'|'first'|'config-after'|'own-fields'|'old-json'|'old-rows'|'old-tuple'|'findings-json'|'findings-rows'|'finding-fields';
+async function readState(db:D1Database,config:Config,subject:string,native?:Readonly<{sql:string;values:readonly Scalar[]}>,progress?:(step:BaselineReadStep285)=>void):Promise<State>{
+ progress?.('config-before');config.check();
+ progress?.('prepare');const statement=db.prepare(READ+(native?' WHERE ('+native.sql+')':''));
+ progress?.('bind');const bound=statement.bind(subject,config.guild,FAMILY_JSON,json(config.actorIds),...(native?native.values:[]));
+ progress?.('first');const raw=await bound.first();
+ progress?.('config-after');config.check();if(!raw)return held();
+ progress?.('own-fields');
  const r=snapshotDataFields(raw,['at','generation','revision','targetCurrent','oldCount','activeClaims','oldJSON','findingsJSON','nextAuditId'],'baseline_read');
  if(!integer(r.at,1)||!generation(r.generation)||r.revision!==null&&!integer(r.revision)||r.targetCurrent!==0&&r.targetCurrent!==1||!integer(r.oldCount)||!integer(r.activeClaims)||typeof r.oldJSON!=='string'||typeof r.findingsJSON!=='string'||!integer(r.nextAuditId,1))return held();
- const old=snapshotDataArray(parse(r.oldJSON),2,'baseline_old_rows').map(oldFromTuple);
- const findings=snapshotDataArray(parse(r.findingsJSON),FINDING_PAGE,'baseline_findings').map(input=>{
+ progress?.('old-json');const oldInput=parse(r.oldJSON);
+ progress?.('old-rows');const oldRows=snapshotDataArray(oldInput,2,'baseline_old_rows');
+ const old=oldRows.map(input=>{progress?.('old-tuple');return oldFromTuple(input);});
+ progress?.('findings-json');const findingInput=parse(r.findingsJSON);
+ progress?.('findings-rows');const findings=snapshotDataArray(findingInput,FINDING_PAGE,'baseline_findings').map(input=>{
+  progress?.('finding-fields');
   const a=snapshotDataFields(input,['id','ts','actor','subject','details','actorCurrent'],'baseline_finding');
   if(!integer(a.id,1)||!integer(a.ts,1)||!validId(a.actor)||a.subject!==subject||typeof a.details!=='string'||encode(a.details).length>24000||a.actorCurrent!==0&&a.actorCurrent!==1)return held();return Object.freeze(a) as AuditRow;
  });
@@ -181,9 +195,33 @@ function expectedRole(config:Config,cap:RoutineMembership232):string{
 }
 const summary=(cap:RoleGrantBaseline285)=>({adopted:true,roleChangesSent:0,manualRemovals:true,...roleGrantBaselineFacts285(cap)});
 type BaselineStage285='request'|'preview-open'|'actor-admission'|'source-capture'|'action-context'|'action-admission'|'action-source-capture'|'state-read'|'finding-read'|'old-tuple-digest'|'discord-read'|'post-discord-admission'|'native-read'|'preview-seal'|'preview-final-read'|'confirmation-read'|'finding-digests'|'finding-signature'|'finding-append'|'post-append-admission';
+const SCHEMA_DIAGNOSTIC_CAUSES285=Object.freeze(['direct_method_accessor','direct_method_drift','direct_method_missing','direct_port','direct_statement','original_bind_accessor','original_bind_limit','original_bind','original_binds','original_named_parameter','original_parameter_count','original_parameter_limit','original_sql_comment','original_sql_nul','original_sql_quote','original_sql','physical_parameter_accessor','physical_parameter_buffer','physical_parameter_bytes','physical_parameter_drift','physical_parameter_limit','physical_parameter_plan_mismatch','physical_parameter_value','physical_parameters','physical_source_bind_drift','physical_sql_limit','physical_sql_plan_mismatch','physical_statement_accessor','physical_statement_drift','physical_statement','source_profile_limit'] as const);
+const STATE_DIAGNOSTIC_CAUSES285=Object.freeze(['baseline_read','baseline_old_rows','baseline_old_tuple','baseline_findings','baseline_finding'] as const);
+/** Only fixed source-owned classifications leave the catch. Arbitrary message
+ * text, accessors and foreign exception metadata are never copied or invoked. */
+function baselineFailureDiagnostic285(error:unknown){
+ const ownData=(input:unknown,key:string)=>{if(!input||typeof input!=='object')return null;const descriptor=Object.getOwnPropertyDescriptor(input,key);return descriptor&&Object.hasOwn(descriptor,'value')?descriptor.value:null;};
+ const rawMessage=ownData(error,'message'),message=typeof rawMessage==='string'?rawMessage.slice(0,2048):null;
+ const classify=<T extends readonly string[]>(family:'write-admission'|'schema-plan'|'state-data',prefix:string,allowed:T)=>{
+  for(let i=0;i<allowed.length;i++){const cause=allowed[i]!;if(message===prefix+cause)return {failure:family,cause};}
+  return {failure:family};
+ };
+ if(error instanceof PrivacyWriteAdmissionHeld)return classify('write-admission','privacy_write_admission_held:',ADMISSION_REASONS);
+ if(error instanceof OriginalSchemaPlanHeld)return classify('schema-plan','original_schema_plan_held:',SCHEMA_DIAGNOSTIC_CAUSES285);
+ if(error instanceof PrivacySiteRequestHeld)return {failure:'site-admission'};
+ if(error instanceof RecoveryFloorHeld)return {failure:'serving-floor'};
+ for(let i=0;i<STATE_DIAGNOSTIC_CAUSES285.length;i++)if(message===STATE_DIAGNOSTIC_CAUSES285[i])return classify('state-data','',STATE_DIAGNOSTIC_CAUSES285);
+ const rawCause=ownData(ownData(error,'cause'),'message'),causeMessage=typeof rawCause==='string'?rawCause.slice(0,2048):null;
+ if(message?.startsWith('D1_')||causeMessage?.startsWith('D1_')){
+  const cause=heldCause(Object.freeze({message,cause:Object.freeze({message:causeMessage})}));
+  return {failure:'d1-provider',...(isHeldCause(cause)?{cause}:{})};
+ }
+ return {};
+}
 export async function handleSiteRoleBaseline285(request:Request,env:Env,admin:SiteUser,body:Record<string,unknown>={}):Promise<Response>{
  let cap:RoutineMembership232|null=null,appendStarted=false;
  let stage:BaselineStage285='request';
+ let readStep:BaselineReadStep285|null=null;const readProgress=(step:BaselineReadStep285)=>{readStep=step;};
  try{
   if(!['GET','POST'].includes(request.method))throw new Held('method_not_allowed',405);
   const original=originalUserSession(admin),config=captureConfig(env);if(!isSiteAdmin(env,original.u))throw new Held('baseline_unavailable',403);
@@ -213,7 +251,7 @@ export async function handleSiteRoleBaseline285(request:Request,env:Env,admin:Si
   const read=async()=>{check();const result=await admittedReadAs(actionEnv,actor,'applicantWrite',[]);check();if(result===FENCE_REFUSED)return held();};
   stage='action-admission';await read();stage='action-source-capture';cap=await captureRoutineMembership232(actionEnv,subject);check();if(!cap)return held();
   const f=routineMembership232Facts(cap),wanted=expectedRole(config,cap),db=privacyProviderCustodyDatabase(actionEnv);
-  stage='state-read';let state=await readState(db,config,subject);check();
+  stage='state-read';let state=await readState(db,config,subject,undefined,readProgress);readStep=null;check();
   if(state.targetCurrent!==1||state.generation!==f.subjectGeneration)return held();
   stage='finding-read';const existing=await fromState(actionEnv,config,db,state,subject,f.subjectGeneration);check();
   const alreadyAdopted=existing&&(!preview||originals.get(existing)!.payload.nonce===preview.nonce);
@@ -223,18 +261,18 @@ export async function handleSiteRoleBaseline285(request:Request,env:Env,admin:Si
   stage='discord-read';const observedRoles=await memberRoles(actionEnv,subject);check();stage='post-discord-admission';await read();assertRoutineMembership232(actionEnv,cap);
   if(observedRoles.some(r=>config.blockingRoles.includes(r)))return held();
   stage='native-read';const nativeRead=routineMembership232Predicate(actionEnv,cap,5,true);
-  const afterProvider=await readState(db,config,subject,nativeRead);check();assertRoutineMembership232(actionEnv,cap);
+  const afterProvider=await readState(db,config,subject,nativeRead,readProgress);readStep=null;check();assertRoutineMembership232(actionEnv,cap);
   if(afterProvider.targetCurrent!==1||afterProvider.generation!==state.generation||afterProvider.revision!==state.revision||afterProvider.oldCount!==1||afterProvider.old.length!==1||afterProvider.activeClaims!==0||json(tuple(afterProvider.old[0]!))!==json(tuple(old)))return held();state=afterProvider;
   if(alreadyAdopted){const original=originals.get(existing!)!;if(!state.findings.some(a=>a.id===original.audit.id&&a.details===original.audit.details&&a.actorCurrent===1))return held();return apiJson({...summary(existing!),alreadyAdopted:true});}
   if(!posting){
    const at=now(),p=Object.freeze({nonce:nonce(),subject,generation:state.generation,revision:state.revision,oldTupleDigest:oldDigest,observedRoles,snapshotId:f.snapshotId,snapshotAt:f.snapshotExportedAt,expectedRole:wanted,issuedAt:at,expiresAt:Math.min(at+PREVIEW_SECONDS,f.deadline,original.e)}) satisfies Preview;
    stage='preview-seal';const previewToken=await seal(config,binding,p);check();assertRoutineMembership232(actionEnv,cap);
-   stage='preview-final-read';const final=await readState(db,config,subject,nativeRead);check();assertRoutineMembership232(actionEnv,cap);
+   stage='preview-final-read';const final=await readState(db,config,subject,nativeRead,readProgress);readStep=null;check();assertRoutineMembership232(actionEnv,cap);
    if(final.targetCurrent!==1||final.generation!==state.generation||final.revision!==state.revision||final.oldCount!==1||final.old.length!==1||final.activeClaims!==0||json(tuple(final.old[0]!))!==json(tuple(old))||p.expiresAt<=now())return held();
    return apiJson({previewToken,expiresAt:p.expiresAt,roleChangesSent:0,observedRoles,receipt:{id:old.id,roleId:old.role_id,desired:old.desired,createdAt:old.created_at},expectedRole:wanted,snapshotId:f.snapshotId,snapshotAt:f.snapshotExportedAt,manualRemovals:true,historicalUnknown:true,meaning:'A new grant-only starting point. This cannot determine or cancel the old request; existing roles stay manual.'});
   }
   if(json(observedRoles)!==json(preview!.observedRoles))throw new Held('baseline_preview_changed');
-  stage='confirmation-read';state=await readState(db,config,subject);check();assertRoutineMembership232(actionEnv,cap);
+  stage='confirmation-read';state=await readState(db,config,subject,undefined,readProgress);readStep=null;check();assertRoutineMembership232(actionEnv,cap);
   if(state.targetCurrent!==1||state.generation!==preview!.generation||state.revision!==preview!.revision||state.oldCount!==1||state.old.length!==1||state.activeClaims!==0||json(tuple(state.old[0]!))!==json(tuple(old))||!eligible(old,subject,state.generation,state.at)||preview!.expiresAt<=now())throw new Held('baseline_preview_changed');
   stage='finding-digests';const payload=Object.freeze({receiptId:state.nextAuditId,nonce:preview!.nonce,subject,generation:state.generation,actor:original.u,actorGeneration:original.g,actorSessionVersion:original.v,actorAccountIncarnation:original.n,guildId:config.guild,policyDigest:await hash(config.canonical.raw!),entitlementsDigest:await subjectEntitlementsDigest(config,subject,state.generation),oldId:String(old.id),oldTupleDigest:oldDigest,observedRoles:observedRoles.filter(r=>FAMILY.includes(r)),snapshotId:f.snapshotId,snapshotAt:f.snapshotExportedAt,expectedRole:wanted,adoptedAt:state.at,expiresAt:state.at+PRIVACY_YEAR,grantOnly:true,manualExistingRoles:true,historicalUnknown:true}) satisfies Payload;
   stage='finding-signature';const signature=hex(await sign('HMAC',await signingKey(config.secret),encode(json(payload)))),refs=[...new Set([original.u,subject])],details=json({version:1,kind:PURPOSE,payload,signature,_privacySubjectIds:refs});
@@ -255,7 +293,7 @@ export async function handleSiteRoleBaseline285(request:Request,env:Env,admin:Si
   const responseStatus=status===429?429:status===400?400:status===403?403:status===405?405:status===409?409:503;
   // Private diagnostics contain only source-owned phases and bounded status
   // metadata. No exception/body is logged; sink failures preserve recovery.
-  if(responseStatus===503)try{console.warn('role.baseline285_unavailable',e instanceof DiscordError?{stage,kind:'provider',...(Number.isSafeInteger(status)&&status>=100&&status<=599?{providerStatus:status}:{})}:{stage,kind:'unexpected'});}catch{/* Preserve the original response. */}
+  if(responseStatus===503)try{console.warn('role.baseline285_unavailable',e instanceof DiscordError?{stage,kind:'provider',...(Number.isSafeInteger(status)&&status>=100&&status<=599?{providerStatus:status}:{}),...(readStep?{readStep}:{})}:{stage,kind:'unexpected',...(readStep?{readStep}:{}),...baselineFailureDiagnostic285(e)});}catch{/* Preserve the original response. */}
   return apiJson({error:appendStarted?'baseline_record_outcome_unconfirmed':e instanceof Held?e.code:'baseline_unavailable',roleChangesSent:0,...(appendStarted?{recordOutcome:'unconfirmed',recovery:'Read this account again; no role change or automatic record retry occurred.'}:{})},responseStatus);
  }finally{if(cap)closeRoutineMembership232(cap);}
 }
