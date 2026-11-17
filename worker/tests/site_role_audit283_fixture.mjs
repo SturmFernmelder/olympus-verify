@@ -18,7 +18,7 @@ import {reconcileRoleBatch242} from '../src/role-reconcile242.ts';
 import {attendedPutRefusalRetry285,handleSitePutRefusalRetry285} from '../src/site-role-put-refusal-retry285.ts';
 import {handleSiteRoleBaseline285,captureRoleGrantBaseline285,roleGrantBaselineFacts285,roleGrantBaselinePredicate285} from '../src/role-baseline285.ts';
 const ADMIN='800000000000000001',SECOND_ADMIN='800000000000000002',BASE=800000000000001000n,EPOCH='a'.repeat(32),BIRTH='b'.repeat(32),SECOND_BIRTH='c'.repeat(32),SECRET='synthetic-role-audit-cookie',ROLE=CANONICAL_RANKS233[9].roleId;
-let config,rawDB,physical=0,wires=[],ready=false,savedExport=null,savedAlt=null,retryFenceRace285=null,retryAlignQueue286=false,retryAlignment286=null;const effects=new Map();
+let config,rawDB,physical=0,wires=[],ready=false,savedExport=null,savedAlt=null,retryFenceRace285=null,retryAlignQueue286=false,retryAlignment286=null,prefixFinalDelay=false,prefixFinalObserved=null;const effects=new Map();
 const baselineCaps=new Map(),baselineOld=new Map(),baselineActorBirth=new Map(),baselineCookies=new Map();let baselineAppendRace=null,baselineReadRace=null,baselineGrantRace=null,baselineGrantRaceObserved=null,baselineAdmins=[];
 const method=(o,k)=>{for(let p=o;p;p=Object.getPrototypeOf(p)){const d=Object.getOwnPropertyDescriptor(p,k);if(d)return d.value;}throw Error('fixture method missing');};
 const h=n=>n.toString(16).padStart(32,'0');
@@ -74,6 +74,7 @@ async function setup(db,layout='canonical',adminId=ADMIN,lateFinal=null){
    const race=baselineGrantRace;baselineGrantRace=null;baselineGrantRaceObserved={slot:race.slot,phase:'before_real_final_put_fence',at:Math.floor(Date.now()/1000)};await baselineMutation285({slot:race.slot,kind:'new-unknown'});
   }
   const response=await Reflect.apply(send,fetcher,[input,init]),responseText=await response.clone().text();wires.push({request:packets,status:response.status,response:responseText});
+  if(prefixFinalDelay&&originalPackets.some(p=>p.sql?.startsWith('SELECT COUNT(DISTINCT c.discord_id) AS subjects'))){prefixFinalDelay=false;prefixFinalObserved={executedAt:Math.floor(Date.now()/1000),returnedAt:null};await new Promise(resolve=>setTimeout(resolve,6100));prefixFinalObserved.returnedAt=Math.floor(Date.now()/1000);}
   if(baselineReadRace&&originalPackets.some(p=>p.sql?.includes(' AS oldCount')&&p.sql?.includes(' AS findingsJSON')&&p.params?.[0]===baselineSubject285(baselineReadRace.slot))){
    // Keep the real admitted response. Change the older adopter after its READ
    // was executed, before HMAC verification/final page admission; no response,
@@ -360,10 +361,10 @@ export default {async fetch(request,bindings){
   // Attended synthetic changes are made by the existing admitted writer, never
   // through the module under test. No historical row is reset.
   if(body.kind==='session')await config.DB.prepare('UPDATE site_users SET session_version=session_version+1 WHERE discord_id=?1').bind(ADMIN).run();
-  if(body.kind==='denied')await config.DB.prepare('UPDATE site_users SET denied=1 WHERE discord_id=?1').bind(ADMIN).run();
+  if(body.kind==='denied')await config.DB.prepare('UPDATE site_users SET denied=1 WHERE discord_id=?1').bind(body.actor??ADMIN).run();
   if(body.kind==='left')await config.DB.prepare('UPDATE site_users SET in_server=0 WHERE discord_id=?1').bind(ADMIN).run();
   if(body.kind==='banned')await config.DB.prepare('UPDATE members SET banned=1 WHERE discord_id=?1').bind(ADMIN).run();
-  if(body.kind==='restore')await config.DB.batch([config.DB.prepare('UPDATE site_users SET denied=0,in_server=1 WHERE discord_id=?1').bind(ADMIN),config.DB.prepare('UPDATE members SET banned=0 WHERE discord_id=?1').bind(ADMIN)]);
+  if(body.kind==='restore')await config.DB.batch([config.DB.prepare('UPDATE site_users SET denied=0,in_server=1 WHERE discord_id=?1').bind(body.actor??ADMIN),config.DB.prepare('UPDATE members SET banned=0 WHERE discord_id=?1').bind(body.actor??ADMIN)]);
   if(body.kind==='history'){
    const t=Math.floor(Date.now()/1000),rows=[];
    for(let i=0;i<105;i++)rows.push(config.DB.prepare("INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,attempts,created_at,expires_at)VALUES(?1,?2,'canonical_routine233',?3,?4,1,'held','synthetic_expired_unattempted',0,?5,?6)").bind(h(5000+i),String(BASE),NATIVE_GUILD232,ROLE,t-500+i,t-300+i));
@@ -377,6 +378,10 @@ export default {async fetch(request,bindings){
   if(body.kind==='privacy'){
    const t=Math.floor(Date.now()/1000);await config.DB.prepare("INSERT INTO privacy_subjects(subject_id,generation,state,revision,created_at,updated_at)VALUES(?1,?2,'retiring',0,?3,?3)").bind(String(BASE),'e'.repeat(32),t).run();
   }
+  if(body.kind==='retired'){
+   const t=Math.floor(Date.now()/1000);await config.DB.prepare("INSERT INTO privacy_subjects(subject_id,generation,state,revision,created_at,updated_at,erased_at,retain_until)VALUES(?1,?2,'retired',1,?3,?3,?3,?4)").bind(String(BASE),'e'.repeat(32),t,t+31622400).run();
+  }
+  if(body.kind==='privacy-restore')await config.DB.prepare('DELETE FROM privacy_subjects WHERE subject_id=?1').bind(String(BASE)).run();
   if(body.kind==='stale')await config.DB.prepare("UPDATE roster_snapshots SET exported_at=CAST(strftime('%s','now')AS INTEGER)-601 WHERE id=1").run();
   if(body.kind==='source-change'){savedExport=(await config.DB.prepare('SELECT exported_at FROM roster_snapshots WHERE id=1').first()).exported_at;await config.DB.prepare('UPDATE roster_snapshots SET exported_at=exported_at-1 WHERE id=1').run();}
   if(body.kind==='source-restore'&&savedExport!==null){await config.DB.prepare('UPDATE roster_snapshots SET exported_at=?1 WHERE id=1').bind(savedExport).run();savedExport=null;}
@@ -500,12 +505,19 @@ export default {async fetch(request,bindings){
    return Response.json({facts,copied,wrongEnv,wrongPath,changed:originalDiscordGetPacing(error,env,p)});
   }
  }
- if(path==='/inspect-audit-cursor'){
+ if(path==='/inspect-audit-cursor'||path==='/rewrite-audit-cursor'){
   const spec=await request.json(),req=new Request('https://guild.example/api/admin/role-audit',{headers:{Cookie:spec.cookie}}),user=await currentUser(config,req),s=originalUserSession(user);
   const binding=JSON.stringify(['private-role-audit283-v1',config.GUILD_ID,s.u,s.v,s.e,s.g,s.n,config.CANONICAL_RANKS233,null])+'|cursor|active|'+(spec.scope||'native');
-  const key=await crypto.subtle.importKey('raw',await crypto.subtle.digest('SHA-256',new TextEncoder().encode('private-role-audit283-v1\0'+SECRET)),{name:'AES-GCM'},false,['decrypt']);
+  const key=await crypto.subtle.importKey('raw',await crypto.subtle.digest('SHA-256',new TextEncoder().encode('private-role-audit283-v1\0'+SECRET)),{name:'AES-GCM'},false,['encrypt','decrypt']);
   const bytes=value=>Uint8Array.from(atob(value.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-value.length%4)%4)),c=>c.charCodeAt(0)),parts=spec.token.split('.');
-  return Response.json(JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:bytes(parts[1]),additionalData:new TextEncoder().encode(binding)},key,bytes(parts[2])))));
+  const value=JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:bytes(parts[1]),additionalData:new TextEncoder().encode(binding)},key,bytes(parts[2]))));
+  if(path==='/inspect-audit-cursor')return Response.json(value);
+  const t=Math.floor(Date.now()/1000);
+  if(spec.kind==='expired'){value.issuedAt=t-120;value.expiresAt=t;}
+  if(spec.kind==='near-deadline'){value.issuedAt=t-1;value.expiresAt=t+5;}
+  if(spec.kind==='unknown-field')value.cachedMembers=[{id:String(BASE),username:'must-not-be-a-cache'}];
+  const iv=crypto.getRandomValues(new Uint8Array(12)),token='1.'+b64u(iv)+'.'+b64u(new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:new TextEncoder().encode(binding)},key,new TextEncoder().encode(JSON.stringify(value)))));
+  return Response.json({token,issuedAt:value.issuedAt,expiresAt:value.expiresAt});
  }
  if(path==='/rewrite-preview'){
   const spec=await request.json(),req=new Request('https://guild.example/api/admin/role-audit',{headers:{Cookie:spec.cookie}}),user=await currentUser(config,req),s=originalUserSession(user);
@@ -526,6 +538,7 @@ export default {async fetch(request,bindings){
  }
  if(path==='/run'||path==='/full-route'||path==='/put285/direct-route'){
   const spec=await request.json(),before=physical,start=wires.length,env={...config,DISCORD_BOT_TOKEN:'role-audit-'+(spec.mode||'normal')};
+  if(spec.mode==='pacing-window-final-deadline'){prefixFinalDelay=true;prefixFinalObserved=null;}
   if(spec.activeV1)env.CANONICAL_RANKS233=JSON.stringify({version:1,enabled:true,profile:CANONICAL_PROFILE233,guildId:NATIVE_GUILD232,ranks:CANONICAL_RANKS233.map(r=>({...r,permissions:'0'}))});
   const query=[spec.cursor?'cursor='+encodeURIComponent(spec.cursor):'',spec.policyPreview?'policyPreview='+encodeURIComponent(spec.policyPreview):'',spec.subjectQuery?'subject='+encodeURIComponent(spec.subjectQuery):'',spec.scopeQuery?'scope='+encodeURIComponent(spec.scopeQuery):''].filter(Boolean).join('&');
   const req=new Request('https://guild.example/api/admin/'+(spec.putRetry?'role-put-refusal-retry':'role-audit')+(query?'?'+query:''),{method:spec.method||'GET',headers:{Cookie:Object.hasOwn(spec,'cookie')?spec.cookie:await cookie(),Origin:'https://guild.example','X-Olympus':'2',...(spec.putRetry&&spec.method==='POST'?{'Content-Type':'application/json'}:{})},...(spec.putRetry&&spec.method==='POST'?{body:JSON.stringify(spec.body)}:{})});
@@ -533,7 +546,7 @@ export default {async fetch(request,bindings){
   try{if(path==='/full-route')response=await worker.fetch(req,{...env,DB:rawDB},{waitUntil(){},passThroughOnException(){}});else{const user=await currentUser(env,req);if(!user)response=Response.json({error:'signed_out'},{status:401});else response=path==='/put285/direct-route'?await handleSitePutRefusalRetry285(req,privacyBoundSiteEnv(env,originalUserSession(user)),user,spec.body||{}):await handleSiteRoleAudit283(req,privacyBoundSiteEnv(env,originalUserSession(user)),user,spec.body||{});}}
   catch(e){error=String(e?.stack||e);response=Response.json({error:'fixture_failed'},{status:500});}
   const result=await response.json();
-  return Response.json({status:response.status,result,error,retryAfter:response.headers.get('Retry-After'),statements:physical-before,wires:wires.slice(start),actualLocalWorkerdD1:true});
+  return Response.json({status:response.status,result,error,retryAfter:response.headers.get('Retry-After'),statements:physical-before,wires:wires.slice(start),actualLocalWorkerdD1:true,...(spec.mode==='pacing-window-final-deadline'?{prefixFinalObserved}:{})});
  }
  return new Response(null,{status:404});
 }};

@@ -114,6 +114,48 @@ const freshPage=(changes={})=>({...page,rows:[{...row,previewToken:'fresh-per-ro
  tick(2000);await button(pacingRoot,'Resume scan').click();
  check('explicit post-wait resume completes the remaining page while preserving prior observations and uncertain receipt wording',scanReads===4&&pacingPosts===1&&pacingRoot.textContent.includes('2 pages')&&pacingRoot.textContent.includes('2 unique visible candidates')&&pacingRoot.textContent.includes('original-delivery-unknown')&&pacingRoot.textContent.includes('Discord traversal finished'));
  pacingView.destroy();
+ const prefixObservedAt=Math.floor(Date.now()/1000)-30;
+ const prefixReply=(seconds=2)=>{
+  const wait=pacingData(seconds),token='signed-completed-prefix-'+seconds;
+  return {...page,comparisonScope:'native',generatedAt:prefixObservedAt+30,
+   rows:[{...row,discordObservedAt:prefixObservedAt},{...row,id:'900000000000000004',username:'prefix-second',displayName:'Prefix second',repairable:false,discordObservedAt:prefixObservedAt+1}],
+   nextCursor:token,automaticRetry:false,resumeCursor:token,readPacing:wait.readPacing,
+   coverage:{...page.coverage,complete:false,completedPrefix:true,gap:'discord_rate_limited',readNotBefore:wait.readPacing.notBefore,providerRowsProcessed:2,providerRequests:4,observedOnly:0,nativeLinkedCandidateSubjects:4}};
+ };
+ for(const seconds of [2,0]){
+  const prefixRoot=new Node('main'),prefixCalls=[];let prefixReads=0,prefixPosts=0;
+  const prefixView=context.window.mountRoleAudit283(prefixRoot,{api:async(method,url)=>{
+   prefixCalls.push({method,url});
+   if(method==='POST'){prefixPosts++;throw Error('A completed read prefix has no role authority');}
+   if(url.includes('?subject='))return {...freshPage({discordObservedAt:prefixObservedAt+20}),generatedAt:prefixObservedAt+30};
+   prefixReads++;
+   return prefixReads===1?prefixReply(seconds):{...page,comparisonScope:'native',rows:[{...row,id:'900000000000000005',username:'remaining-first',displayName:'Remaining first',repairable:false},{...row,id:'900000000000000006',username:'remaining-second',displayName:'Remaining second',repairable:false}],coverage:{...page.coverage,providerRowsProcessed:2,providerRequests:2,observedOnly:0,nativeLinkedCandidateSubjects:4}};
+  }});
+  await button(prefixRoot,'Compare current roster').click();
+  check('completed-prefix200 with '+seconds+'second wait retains only reported progress and requires explicit Resume',prefixReads===1&&prefixPosts===0&&prefixRoot.textContent.includes('1 pages')&&prefixRoot.textContent.includes('2 linked-account candidates processed')&&prefixRoot.textContent.includes('4 Discord read requests')&&prefixRoot.textContent.includes('2 unique visible candidates')&&button(prefixRoot,'Resume scan').disabled===(seconds>0));
+  check('completed-prefix observation has no cached confirmation authority with '+seconds+'second wait',!button(prefixRoot,'Confirm Olympus Member reconciliation (up to 2 planned changes)')&&prefixPosts===0);
+  check('completed-prefix cards use each actual Discord read time instead of later disclosure with '+seconds+'second wait',prefixRoot.textContent.includes(new Date(prefixObservedAt*1000).toLocaleString())&&prefixRoot.textContent.includes(new Date((prefixObservedAt+1)*1000).toLocaleString()));
+  await button(prefixRoot,'Export observed rows').click();const prefixCSV=await downloaded.text();
+  check('completed-prefix CSV preserves original per-row read timestamps with '+seconds+'second wait',prefixCSV.includes(new Date(prefixObservedAt*1000).toISOString())&&prefixCSV.includes(new Date((prefixObservedAt+1)*1000).toISOString())&&!prefixCSV.includes(new Date((prefixObservedAt+30)*1000).toISOString()));
+  if(seconds){await button(prefixRoot,'Resume scan').click();await button(prefixRoot,'Start fresh').click();check('completed-prefix wait blocks all early continuation and restart',prefixReads===1&&button(prefixRoot,'Resume scan').disabled&&button(prefixRoot,'Start fresh').disabled);tick(seconds*1000);}
+  check('completed-prefix countdown including zero wait never performs hidden reads',prefixReads===1&&prefixPosts===0&&!button(prefixRoot,'Resume scan').disabled);
+  await button(prefixRoot,'Resume scan').click();
+  check('completed-prefix Resume uses its exact cursor and appends observations without double-counting with '+seconds+'second wait',prefixReads===2&&prefixPosts===0&&prefixCalls.filter(c=>!c.url.includes('?subject=')).at(-1).url.includes('cursor=signed-completed-prefix-'+seconds)&&prefixRoot.textContent.includes('2 pages')&&prefixRoot.textContent.includes('4 linked-account candidates processed')&&prefixRoot.textContent.includes('6 Discord read requests')&&prefixRoot.textContent.includes('4 unique visible candidates')&&prefixRoot.textContent.includes('Discord traversal finished'));
+  if(seconds){await button(prefixRoot,'Review reconciliation to Olympus Member').click();check('separate current-account Review displays its actual Discord read time and alone enables confirmation',prefixCalls.filter(c=>c.url.includes('?subject=')).length===1&&prefixPosts===0&&prefixRoot.textContent.includes(new Date((prefixObservedAt+20)*1000).toLocaleString())&&!!button(prefixRoot,'Confirm Olympus Member reconciliation (up to 2 planned changes)'));}
+  prefixView.destroy();
+ }
+ for(const kind of ['missing-prefix-flag','different-resume-cursor','inconsistent-wait','missing-pacing-metadata','missing-next-cursor']){
+  const malformedPrefixRoot=new Node('main');let malformedPrefixReads=0;const data=prefixReply();
+  if(kind==='missing-prefix-flag')delete data.coverage.completedPrefix;
+  if(kind==='different-resume-cursor')data.resumeCursor='different-signed-prefix';
+  if(kind==='inconsistent-wait')data.readPacing.retryAfterSeconds++;
+  if(kind==='missing-pacing-metadata')delete data.readPacing;
+  if(kind==='missing-next-cursor')data.nextCursor=null;
+  const malformedPrefixView=context.window.mountRoleAudit283(malformedPrefixRoot,{api:async()=>{malformedPrefixReads++;if(malformedPrefixReads>1)throw Error('Malformed prefix must not be continued');return data;}});
+  await button(malformedPrefixRoot,'Compare current roster').click();
+  check('malformed completed prefix '+kind+' stops without an automatic continuation or confirmation',malformedPrefixReads===1&&malformedPrefixRoot.textContent.includes('Coverage stopped:')&&!button(malformedPrefixRoot,'Confirm Olympus Member reconciliation (up to 2 planned changes)'));
+  malformedPrefixView.destroy();
+ }
  const unknownWaitRoot=new Node('main');let unknownWaitReads=0;
  context.window.mountRoleAudit283(unknownWaitRoot,{api:async()=>{unknownWaitReads++;throw {status:429,retryAfterSeconds:60,data:{coverage:{gap:'discord_rate_limited'}}};}});
  await button(unknownWaitRoot,'Compare current roster').click();tick(61000);

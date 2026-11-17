@@ -2,6 +2,38 @@
 
 > Current qualification policy: the owner permanently retired full-suite marathons, historical static-source projection pins and throwaway operator control loops on 10 November 2026. [Release qualification](release-qualification.md) supersedes all older testing instructions below. Dated evidence remains history; runtime/privacy/identity and deployment authority are preserved.
 
+## Build .289 — keep partial Discord reads (candidate, 17 November 2026)
+
+A genuine Workerd/D1 counterexample reproduced a first-page restart cycle:
+the first account pair was read successfully, a later pair returned Discord429,
+and the prior reader discarded the completed pair. This explains a possible
+restart mechanism; the observed live429 responses do not identify which pair
+failed and do not establish that mechanism as their historical cause.
+
+A known, resumable429 may now finish the contiguous resolved prefix as a small
+page. Its cursor advances only past those positions, keeps the original source,
+traversal deadline and provider wait, and contains no cached Discord member data.
+A concurrent success after a failed position is discarded rather than used to
+skip it.404 and privacy-held positions remain counts only. Mixed unknown or403
+failures, expired views and source/actor/privacy changes keep their existing holds.
+Final current guards still precede disclosure. Actual per-account read times are
+shown; page completion does not renew them or authorize a repair.
+
+The updated page renders the prefix and requires explicit Resume, even when the
+wait has already elapsed. An older cached page may make one existing continuation
+request; an unelapsed signed wait refuses it before Discord I/O. It cannot bypass
+the wait or authorize a write. Current clients pause directly. Existing writer,
+preview, original-receipt and manual-role authority remain unchanged. Addon0.6.41
+and Watcher0.6.41 are unchanged; no client reinstall or reload is needed for this
+backend/page correction. The bridge, Link, Treasury and Steward-v3 gates remain held.
+
+Require exact-head local qualification, actual hosted CI and independent Codex
+review under the owner's current explicit waiver of the Claude gate. Root alone
+performs fresh backup/restore, expected-head merge, shipping CI, exact preserved-
+variable deploy and separate live public/serving/cron/RT16 readbacks. A completed
+comparison remains timestamped non-atomic evidence; do not declare convergence
+or repair an uncertain original operation from a scan count.
+
 ## Build .288 — match native name signatures (candidate, 17 November 2026)
 
 A preserved live whisper's MAC matched Unicode-lowercased character bytes,
