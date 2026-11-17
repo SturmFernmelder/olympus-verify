@@ -1,16 +1,16 @@
 {
   "schema": "olympus-verify-public-download-v1",
   "addon": "OlympusVerify",
-  "version": "0.6.41",
+  "version": "0.6.42",
   "generator": {
     "path": "scripts/build-verify-addon.cjs",
     "bytes": 5695,
     "sha256": "f3ec81ae41cdbd9aad8ab22731bd1a21293580a8e6f2277a42d982b5d0d89c5b"
   },
   "archive": {
-    "path": "/static/olympus-verify/olympus-verify-0.6.41.zip",
-    "bytes": 783494,
-    "sha256": "3b7849b60b60f292364743c280b6438eb51b6a12b3620c74a3f3cceeaf431714"
+    "path": "/static/olympus-verify/olympus-verify-0.6.42.zip",
+    "bytes": 784546,
+    "sha256": "25d15380d8a6d52ddb80264431898dd7f4cdb3b2276e5ba4d52f425f335ae215"
   },
   "files": [
     {
@@ -36,12 +36,12 @@
     {
       "path": "OlympusVerify/OlympusVerify.lua",
       "bytes": 233837,
-      "sha256": "94a7697dbccded880cf9c05c778bc293f2748c7300d8bfa8a8d1ef88f3de03a4"
+      "sha256": "2694df44ecb0f0f716a4113f15442998ede611b5aef3157478e4db20726409e0"
     },
     {
       "path": "OlympusVerify/OlympusVerify.toc",
       "bytes": 972,
-      "sha256": "406bbd8819e665dbbe853e9727d680a8038733b030bcd6df176ecf0e267dcb3f"
+      "sha256": "eaf75eb93e4263294e805defbf10bad720a9fcbfbe93f5fb7098ccff1a0d80ef"
     },
     {
       "path": "OlympusVerify/OlympusVerifyNativeRankConstants.lua",
@@ -75,8 +75,8 @@
     },
     {
       "path": "OlympusVerify/OlympusVerifyGuild.lua",
-      "bytes": 42850,
-      "sha256": "ae855459901f9aff2458b7af06290d9c9dd1edacdee559d1a44baa30a9028376"
+      "bytes": 43174,
+      "sha256": "8d64fe65d8bd6fda1caffed8fa44bb7a883d1273942a58e1d0e4644c8951ef20"
     },
     {
       "path": "OlympusVerify/OlympusVerifyLaunch229.lua",
@@ -110,8 +110,8 @@
     },
     {
       "path": "OlympusVerify/OlympusVerifyRosterModel.lua",
-      "bytes": 25614,
-      "sha256": "5f1f0302f4f9b66dbb729f406f0284125a22fe5a85de601b12112dfa66a00372"
+      "bytes": 26342,
+      "sha256": "88e18a39330dc5322d6d0d053c4b761500c724d104ce014296730502971586ca"
     },
     {
       "path": "OlympusVerify/OlympusVerifyTreasury.lua",

@@ -403,7 +403,13 @@ end
 local function PromotionControl(input,result,ready,detail,bound,current)
   local launch=OlympusLaunch229
   if ready and bound then return "Promote",true,"promote" end
-  if input.nativeMember then return "Member",false,nil end -- Exact observed scheme; attempt history remains separate.
+  if input.nativeMember then
+    if bound and detail and detail.state=="recheck" and type(launch.Select)=="function" and type(launch.PromotionStatus)=="function" then
+      local ok,status=pcall(launch.PromotionStatus,input.guid,current,input.rankIndex)
+      if ok and status=="recheck" then return "Check next",true,"check" end
+    end
+    return "Member",false,nil -- Exact observed scheme; unresolved history never enables a repeat.
+  end
   if not bound then return "Unavailable",false,nil end
   if detail and detail.state=="recheck" and type(launch.Select)=="function" then return "Check next",true,"check" end
   if detail and detail.label=="Target rank observed (history retained)" then return "Observed",false,nil end

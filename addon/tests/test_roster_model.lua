@@ -217,6 +217,56 @@ do
   check("Steward Veteran6 is outside that profile's supported promotion source ranks",not ready[f.rows[4].guid] and d.byGuid[f.rows[4].guid].state=="wrong_rank" and f.effects==0)
 end
 do
+  for _,profileIndex in ipairs({1,2}) do
+    for _,kind in ipairs({"unknown-receipt","missing-receipt-hold"}) do
+      local f=fixture(true);local id=f.rows[1].guid
+      local c=f.e.OlympusVerifyNativeRankConstants.profiles[profileIndex]
+      local memberSlot=profileIndex==2 and 8 or 7
+      f.sp.rankProfile,f.sp.rankSchemeDigest,f.sp.rankNames=c.profile,c.digest,{unpack(c.names)}
+      f.selRow.targetSlot=memberSlot
+      f.selRow.intent.rankProfile,f.selRow.intent.rankSchemeDigest,f.selRow.intent.finalSlot=c.profile,c.digest,memberSlot
+      local old={state="unknown",target=memberSlot,original="retained"}
+      local hold={version=1,origin="operator-history-hold",reason="staff-review-missing-receipt",guid=id,
+        commandAttempted=false,historicalOutcomeSettled=false}
+      if kind=="unknown-receipt" then f.e.OlympusVerifyDB.launchPromotionAttempts={[id]=old}
+      else f.e.OlympusVerifyDB.launchPromotionSaveHolds={[id]=hold} end
+      local ready,d=f.read()
+      check("Initiate stays held before a separately observed native promotion "..c.profile.." "..kind,
+        not ready[id] and d.byGuid[id].state=="pending" and d.byGuid[id].label=="Prior attempt pending")
+      f.rows[1].rankIndex,f.rows[1].rank=memberSlot,"Member"
+      ready,d=f.read()
+      check("current Member display retains unresolved history without another promotion "..c.profile.." "..kind,
+        not ready[id] and d.byGuid[id].state=="held" and d.byGuid[id].label=="Member (history retained)"
+        and d.byGuid[id].reason:find("has not been cleared or treated as completed",1,true) and f.q.PromotionStatus(id,f.q.Current(),memberSlot)=="pending")
+      check("Member display preserves the exact original history objects and never acts "..c.profile.." "..kind,
+        (kind=="unknown-receipt" and f.e.OlympusVerifyDB.launchPromotionAttempts[id]==old and old.state=="unknown" and old.original=="retained"
+          or kind=="missing-receipt-hold" and f.e.OlympusVerifyDB.launchPromotionSaveHolds[id]==hold
+            and hold.commandAttempted==false and hold.historicalOutcomeSettled==false
+            and (f.e.OlympusVerifyDB.launchPromotionAttempts==nil or f.e.OlympusVerifyDB.launchPromotionAttempts[id]==nil))
+        and f.effects==0 and f.nativeReads==0)
+      f.rows[1].rank="Knight"
+      ready,d=f.read()
+      check("conflicting native Member slot label never claims Member or enables action "..c.profile.." "..kind,
+        not ready[id] and d.byGuid[id].state=="pending" and d.byGuid[id].label~="Member (history retained)" and f.effects==0)
+    end
+  end
+  local f=fixture(true);local id=f.rows[1].guid;local c=f.e.OlympusVerifyNativeRankConstants.profiles[2]
+  f.sp.rankProfile,f.sp.rankSchemeDigest,f.sp.rankNames=c.profile,c.digest,{unpack(c.names)}
+  f.selRow.targetSlot=6;f.selRow.targetName="Veteran";f.selRow.reason="knight-veteran"
+  f.selRow.intent.rankProfile,f.selRow.intent.rankSchemeDigest,f.selRow.intent.finalSlot=c.profile,c.digest,6
+  f.rows[1].rankIndex,f.rows[1].rank=7,"Alt"
+  local old={state="unknown",target=6,original="unfinished-knight"};f.e.OlympusVerifyDB.launchPromotionAttempts={[id]=old}
+  local ready,d=f.read()
+  check("unfinished promotion at native Alt remains pending and cannot be presented as Member",
+    not ready[id] and d.byGuid[id].state=="pending" and d.byGuid[id].label=="Prior attempt pending"
+    and f.e.OlympusVerifyDB.launchPromotionAttempts[id]==old and old.state=="unknown" and f.effects==0)
+  f=fixture(true);id=f.rows[1].guid;f.rows[1].rankIndex,f.rows[1].rank=7,"Member";f.q.promotionBlocked=true
+  ready,d=f.read()
+  check("current Member history label still explains the client API block without clearing it",
+    not ready[id] and d.byGuid[id].state=="held" and d.byGuid[id].label=="Member (history retained)"
+    and d.byGuid[id].reason:find("client reported a blocked promotion API",1,true) and f.q.promotionBlocked==true and f.effects==0)
+end
+do
   local f = fixture(true)
   for index = #f.rows + 1, 1000 do
     f.rows[index] = { name = "Synthetic " .. index, guid = string.format("Player-1-%08X", index + 10000), rankIndex = 7, status = "verified" }

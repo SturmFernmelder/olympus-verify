@@ -389,6 +389,80 @@ do
   check("an unrecognised complete native table cannot inherit a Member display target",b.promote:GetText()~="Member" and f.promotions==0)
 end
 do
+  local function stewardKnight()
+    local f=guildUI(nil,true);local e=f.e;local c=e.OlympusVerifyNativeRankConstants.profiles[2]
+    for i,name in ipairs(c.names) do f.names[i]=name end
+    f.publishKnight=function(o)
+      o=o or {}
+      local data,page=D.publish(e,{guild=f.guild,realm=f.realm,actor=f.actor,scopeHash=f.scope,control=o.control,
+        observedAt=f.now,fetchedAt=f.now,snapshotAt=f.now,snapshotId=o.snapshotId or 2,ttl=60,total=#e.ROSTER,
+        context=o.context,specs={{guid=e.ROSTER[1].guid,name=e.ROSTER[1].name,start=9,final=5,
+          ack=o.ack,origin=o.origin,intentId=o.intentId}}})
+      page.rankProfile,page.rankSchemeDigest,page.rankNames=c.profile,c.digest,{unpack(c.names)}
+      local row=page.promotions[1];row.targetSlot=6
+      row.intent.rankProfile,row.intent.rankSchemeDigest,row.intent.finalSlot=c.profile,c.digest,6
+      f.sel,f.sp=data,page
+      if not o.ack then f.intent=row.intent end
+      return data,page
+    end
+    f.publishKnight();f.rosterEvent();f.tick()
+    return f
+  end
+  local f=stewardKnight();local e=f.e;local id=e.ROSTER[1].guid;local b=f.buttons()[1]
+  check("a signed Steward Knight plan starts with the exact Initiate9 native Guild Promote",b.promote:GetText()=="Promote" and b.promote:IsEnabled())
+  b.promote:Click();f.now=f.now+1;f.rosterEvent();f.tick()
+  local original=e.OlympusVerifyDB.launchPromotionAttempts[id]
+  check("the owned Knight9-to-Member8 step is confirmed but its Veteran6 target remains unfinished",
+    f.promotions==1 and e.ROSTER[1].rankIndex==8 and original.state=="confirmed" and not original.completed
+    and original.observedSlot==8 and original.target==6 and #original.steps==1 and f.launch.PromotionStatus(id,f.launch.Current(),8)=="recheck")
+  check("an owned Knight continuation at native Member8 offers Check next rather than the disabled Member fallback",
+    b.promote:GetText()=="Check next" and b.promote:IsEnabled() and b.promote.mode=="check")
+  local bound=b.promote.bound;b.promote.bound=false;f.tick();f.forceClick(b.promote)
+  check("an unbound Member8 continuation cannot submit a recheck",b.promote:GetText()=="Member" and not b.promote:IsEnabled() and f.syncs==0 and f.promotions==1)
+  b.promote.bound=bound;local select=f.launch.Select;f.launch.Select=nil;f.tick();f.forceClick(b.promote)
+  check("a Member8 continuation without the shared Select API stays disabled",b.promote:GetText()=="Member" and not b.promote:IsEnabled() and f.syncs==0 and f.promotions==1)
+  f.launch.Select=select;f.tick();b.promote:Click()
+  local control=e.OlympusVerifyDB.launchControl
+  check("Member8 Check next submits only the exact signed read and preserves its original unfinished attempt",
+    control.version==4 and control.action=="select-directive" and #control.targetGuids==1 and control.targetGuids[1]==id
+    and f.syncs==1 and f.promotions==1 and e.OlympusVerifyDB.launchPromotionAttempts[id]==original
+    and original.state=="confirmed" and not original.completed and #original.steps==1
+    and not b.promote:GetAttribute("type1") and not b.promote:GetAttribute("macrotext1"))
+  local intent=f.intent;f.now=f.now+1
+  f.publishKnight({ack=1,control=control,snapshotId=3,context=string.rep("e",32),intentId=intent.id,
+    origin={snapshotId=intent.originSnapshotId,snapshotAt=intent.originSnapshotAt,context=intent.originContext,issued=intent.issuedAt,expires=intent.expiresAt}})
+  f.rosterEvent();f.tick()
+  check("the newly acknowledged Knight step still reaches Promote before the Member fallback",
+    b.promote:GetText()=="Promote" and b.promote:IsEnabled() and b.promote.mode=="promote"
+    and f.launch.PromotionStatus(id,f.launch.Current(),8)=="continue" and f.promotions==1)
+  f.launch.promotionBlocked=true;f.tick();f.forceClick(b.promote)
+  check("blocked Member8 history is never a Check next or a repeat promotion",b.promote:GetText()=="Member" and not b.promote:IsEnabled()
+    and f.launch.promotionBlocked==true and f.syncs==1 and f.promotions==1 and e.OlympusVerifyDB.launchPromotionAttempts[id]==original)
+  f.launch.promotionBlocked=nil;f.now=original.intentExpiresAt;f.rosterEvent();f.tick();f.forceClick(b.promote)
+  check("expired unfinished Member8 history stays disabled with its original clocks and receipt",
+    b.promote:GetText()=="Member" and not b.promote:IsEnabled() and f.syncs==1 and f.promotions==1
+    and e.OlympusVerifyDB.launchPromotionAttempts[id]==original and not original.completed and #original.steps==1)
+  for _,kind in ipairs({"unknown","missing-receipt"}) do
+    f=stewardKnight();e=f.e;id=e.ROSTER[1].guid;b=f.buttons()[1];e.ROSTER[1].rankIndex=8;f.rosterEvent()
+    local retained={state="unknown",target=6}
+    if kind=="unknown" then e.OlympusVerifyDB.launchPromotionAttempts={[id]=retained}
+    else retained=assert(f.launch.HoldPromotionHistoryReview(id)) end
+    f.tick();f.forceClick(b.promote)
+    check("native Member8 "..kind.." history remains disabled without relabeling or clearing it",
+      b.promote:GetText()=="Member" and not b.promote:IsEnabled() and b.promote.mode==nil and f.promotions==0 and f.syncs==0
+      and (kind=="unknown" and e.OlympusVerifyDB.launchPromotionAttempts[id]==retained and retained.state=="unknown"
+        or kind=="missing-receipt" and e.OlympusVerifyDB.launchPromotionSaveHolds[id]==retained
+          and retained.commandAttempted==false and retained.historicalOutcomeSettled==false
+          and (e.OlympusVerifyDB.launchPromotionAttempts==nil or e.OlympusVerifyDB.launchPromotionAttempts[id]==nil)))
+  end
+  f=stewardKnight();e=f.e;id=e.ROSTER[1].guid;b=f.buttons()[1];e.ROSTER[1].rankIndex=8;f.rosterEvent()
+  local current=f.launch.Current()
+  e.OlympusVerifyRosterModel.Promotions=function()return {},{current=current,byGuid={[id]={state="recheck",reason="Synthetic fake recheck"}}}end
+  f.tick();f.forceClick(b.promote)
+  check("a fake Member8 recheck display without owned continuation cannot request a read",
+    b.promote:GetText()=="Member" and not b.promote:IsEnabled() and f.launch.PromotionStatus(id,current,8)=="clear" and f.promotions==0 and f.syncs==0)
+end
+do
   local f=guildUI(1000,true);local e=f.e;local steward=e.OlympusVerifyNativeRankConstants.profiles[2]
   for i,name in ipairs(steward.names) do f.names[i]=name end
   for _,row in ipairs(e.ROSTER) do row.rankIndex=7 end

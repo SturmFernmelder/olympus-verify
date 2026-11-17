@@ -20,6 +20,11 @@ says what runs today and where it still falls short of the directive's wording.
    found in .291. The other bounded targets still compile a test entry importing
    `src/index.ts`; this is not full production-bundle coverage of every target.
    Root separately runs this case against the final archived rollout bundle.
+   The same archived module is also exercised by the selected v1 Knight suite
+   through the actual bearer-authenticated `/queue/launch-operations` route:
+   reviewed fresh starts, owned step continuations and bounded refusal cases.
+   Its unchanged module bytes are a separate ESM input, not recompiled by the
+   source fixture. Other qualification targets remain source-built as above.
 3. **Genuine Workerd/D1 behavior:** bounded tests of the actual current Worker and
    genuine local D1. Assert observable admission, persistence, refusal and role
    behavior. Mock external Discord HTTP only; do not replace D1 with an imitation

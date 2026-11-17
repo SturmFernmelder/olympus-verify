@@ -133,6 +133,7 @@ jobs:
         run: |
           bash ../scripts/deploy-commit.sh HEAD --dry-run --outdir "$RUNNER_TEMP/baseline-release"
           node tests/role_baseline285_workerd_test.cjs --release-bundle "$RUNNER_TEMP/baseline-release/index.js"
+          node tests/directive_rank280_workerd_test.cjs --selection --steward --v1 --release-bundle "$RUNNER_TEMP/baseline-release/index.js" --out "$RUNNER_TEMP/v1-knight293"
           node tests/role_put_refusal285_workerd_test.cjs --out "$RUNNER_TEMP/put-refusal285"
           node tests/site_role_put_refusal_retry285_workerd_test.cjs --out "$RUNNER_TEMP/attended-put285"
           node tests/role_delete_refusal280_workerd_test.cjs --only transition-put-refusal403,transition-put-refusal404,transition-put-refusal429,transition-put-unknown500 --out "$RUNNER_TEMP/put-writer285"
