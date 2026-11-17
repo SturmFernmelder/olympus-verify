@@ -2,6 +2,21 @@
 
 > Current qualification policy: the owner permanently retired full-suite marathons, historical static-source projection pins and throwaway operator control loops on 10 November 2026. [Release qualification](release-qualification.md) supersedes all older testing instructions below. Dated evidence remains history; runtime/privacy/identity and deployment authority are preserved.
 
+## Build .290 — diagnose held-role reviews (candidate, 17 November 2026)
+
+Two actual administrator baseline GET previews returned HTTP503 with zero role
+changes after an accepted fresh roster and current account read. The existing
+75-case genuine baseline suite, the actual public v1 policy through both the
+direct handler and full Worker route, and the live base SELECT did not reproduce
+the failure. This candidate adds a private warning for a final503 with a finite
+phase/category and a bounded typed provider HTTP status when available. It
+records no exception message, account, role, receipt, configuration or response
+body. The normal refusal/status behavior and
+all original admissions, receipt history, action clocks and role writes remain
+unchanged. This is diagnostic qualification, not a claim that the live503 or
+role convergence is fixed. Exact-head qualification and a fresh captured live
+preview remain required under the existing owner solo authorization.
+
 ## Build .289 — keep partial Discord reads (candidate, 17 November 2026)
 
 A genuine Workerd/D1 counterexample reproduced a first-page restart cycle:

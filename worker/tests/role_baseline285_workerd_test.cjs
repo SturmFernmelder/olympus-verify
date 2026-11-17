@@ -19,7 +19,8 @@ const whole=setTimeout(()=>{console.error('baseline285 genuine test deadline');p
   const member=/^\/guilds\/236932545793490944\/members\/([0-9]+)$/.exec(p);
   if(member&&request.method==='GET'){
    const subject=member[1],slot=Number(BigInt(subject)-BASE);if(!roles.has(subject))roles.set(subject,new Set([setup.initiate,EXTERNAL]));
-   if(mode==='provider-503'||mode==='provider-429')return Response.json({message:'synthetic provider refusal'}, {status:mode==='provider-429'?429:503,headers:{'retry-after':'0'}});
+   const providerRefusal=/^provider-(401|403|429|503)$/.exec(mode);if(providerRefusal)return Response.json({message:'synthetic-private-provider-refusal '+subject}, {status:Number(providerRefusal[1]),headers:{'retry-after':'0'}});
+   if(mode==='invalid-json')return new Response('{"synthetic-private-member":"'+subject+'",',{headers:{'Content-Type':'application/json'}});
    if(mode==='privacy-race'&&!mutated.has(subject+mode)){mutated.add(subject+mode);await mutate(slot,'privacy');}
    if(mode==='actor-race'&&!mutated.has(subject+mode)){mutated.add(subject+mode);await mutate(slot,'actor-denied');}
    if(mode==='adopter-race'&&!mutated.has(subject+mode)){mutated.add(subject+mode);await mutate(slot,'actor-denied');}
@@ -33,6 +34,24 @@ const whole=setTimeout(()=>{console.error('baseline285 genuine test deadline');p
   if(change&&['PUT','DELETE'].includes(request.method)){assert.ok(setup.ranks.some(r=>r.roleId===change[2]));const held=roles.get(change[1])||new Set([setup.initiate,EXTERNAL]);if(request.method==='PUT')held.add(change[2]);else held.delete(change[2]);roles.set(change[1],held);return new Response(null,{status:204});}
   throw Error('Unexpected provider request '+request.method+' '+p);
  }}));await mf.ready;setup=await call('/baseline285/setup');
+ for(const [slot,phase,expectedGETs]of [[60,'state-read',0],[61,'native-read',1]]){
+  const old=await state(slot),beforeHTTP=http.length,beforeEffects=mutations().length,r=await run(slot,{diagnosticFault:phase,captureWarnings:true}),after=await state(slot);
+  check('unexpected awaited '+phase+' failure logs only its finite phase and preserves response/history',r.status===503&&same(r.result,{error:'baseline_unavailable',roleChangesSent:0})&&same(r.warnings,[['role.baseline285_unavailable',{stage:phase,kind:'unexpected'}]])&&same(old.current,after.current)&&after.audits.length===0&&mutations().length===beforeEffects&&http.slice(beforeHTTP).length===expectedGETs&&http.slice(beforeHTTP).every(h=>h.method==='GET')&&r.statements<100,{status:r.status,result:r.result,warnings:r.warnings,statements:r.statements,providerRequests:http.slice(beforeHTTP)});
+ }
+ const parseOld=await state(62),parseHTTP=http.length,parseEffects=mutations().length,parseFailure=await run(62,{mode:'invalid-json',captureWarnings:true}),parseAfter=await state(62);
+ check('a genuine provider JSON parse failure logs no body or account detail and issues no retry',parseFailure.status===503&&same(parseFailure.result,{error:'baseline_unavailable',roleChangesSent:0})&&same(parseFailure.warnings,[['role.baseline285_unavailable',{stage:'discord-read',kind:'unexpected'}]])&&same(parseOld.current,parseAfter.current)&&parseAfter.audits.length===0&&mutations().length===parseEffects&&http.length===parseHTTP+1&&http.at(-1).method==='GET',{status:parseFailure.status,warnings:parseFailure.warnings,providerRequests:http.slice(parseHTTP)});
+ const sinkOld=await state(63),sinkHTTP=http.length,sinkEffects=mutations().length,sinkFailure=await run(63,{diagnosticFault:'native-read',captureWarnings:true,warningThrows:true}),sinkAfter=await state(63);
+ check('a failed private warning sink cannot replace the original held recovery response',sinkFailure.status===503&&same(sinkFailure.result,{error:'baseline_unavailable',roleChangesSent:0})&&same(sinkFailure.warnings,[['role.baseline285_unavailable',{stage:'native-read',kind:'unexpected'}]])&&same(sinkOld.current,sinkAfter.current)&&sinkAfter.audits.length===0&&mutations().length===sinkEffects&&http.length===sinkHTTP+1,{status:sinkFailure.status,result:sinkFailure.result,warnings:sinkFailure.warnings});
+ const quietEffects=mutations().length,quietNormal=await run(64,{captureWarnings:true}),quietHold=await run(65,{blocking:EXTERNAL,captureWarnings:true}),quiet429=await run(66,{mode:'provider-429',captureWarnings:true}),quiet403=await run(69,{mode:'provider-403',captureWarnings:true}),quiet400=await run(70,{method:'POST',confirm:false,captureWarnings:true});
+ check('successful preview, expected400/409 holds and typed Discord403/429 remain silent with no role effect',quietNormal.status===200&&typeof quietNormal.result.previewToken==='string'&&quietHold.status===409&&quiet429.status===429&&quiet403.status===403&&quiet400.status===400&&[quietNormal,quietHold,quiet429,quiet403,quiet400].every(r=>same(r.warnings,[]))&&mutations().length===quietEffects,{statuses:[quietNormal.status,quietHold.status,quiet429.status,quiet403.status,quiet400.status],warnings:[quietNormal.warnings,quietHold.warnings,quiet429.warnings,quiet403.warnings,quiet400.warnings]});
+ for(const [slot,status]of [[67,503],[71,401]]){
+  const old=await state(slot),beforeHTTP=http.length,beforeEffects=mutations().length,r=await run(slot,{mode:'provider-'+status,captureWarnings:true}),after=await state(slot);
+  check('typed Discord'+status+' records only bounded private status metadata on its original single GET',r.status===503&&same(r.result,{error:'baseline_unavailable',roleChangesSent:0})&&same(r.warnings,[['role.baseline285_unavailable',{stage:'discord-read',kind:'provider',providerStatus:status}]])&&same(old.current,after.current)&&after.audits.length===0&&mutations().length===beforeEffects&&http.length===beforeHTTP+1&&http.at(-1).method==='GET',{status:r.status,result:r.result,warnings:r.warnings,providerRequests:http.slice(beforeHTTP)});
+ }
+ const bounded=[];for(const status of [99,100,599,600]){
+  const beforeHTTP=http.length,r=await run(68,{diagnosticFault:'state-read',diagnosticProviderStatus:status,captureWarnings:true});bounded.push({status,result:r.result,warnings:r.warnings,providerRequests:http.length-beforeHTTP});
+ }
+ check('synthetic typed status metadata is included only for safe integer HTTP100 through599',bounded.every(r=>same(r.result,{error:'baseline_unavailable',roleChangesSent:0})&&same(r.warnings,[['role.baseline285_unavailable',{stage:'state-read',kind:'provider',...(r.status>=100&&r.status<=599?{providerStatus:r.status}:{})}]])&&r.providerRequests===0)&&(await state(68)).audits.length===0,bounded);
  const before=await call('/run',{cookie:setup.cookie,subjectQuery:setup.subject});
  check('historical attempted operation blocks a new repair before adoption',before.status===200&&before.result.rows?.[0]?.unknown===1&&!before.result.rows[0].repairable&&before.result.rows[0].previewToken===null,before.result.rows?.[0]);
  const adopted=[];
