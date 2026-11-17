@@ -2,6 +2,27 @@
 
 > Current qualification policy: the owner permanently retired full-suite marathons, historical static-source projection pins and throwaway operator control loops on 10 November 2026. [Release qualification](release-qualification.md) supersedes all older testing instructions below. Dated evidence remains history; runtime/privacy/identity and deployment authority are preserved.
 
+## Build .293 — review held native promotions (candidate, 17 November 2026)
+
+Qualify the existing Knight-to-Veteran rule through the attended selected reader
+under the serving v1 policy and exact reviewed Steward native ladder. Fresh
+starts are limited to mapped Initiate or Member slots; the intermediate Alt slot
+requires an owned continuation of the same sealed intent. Each rank step keeps
+the original expiry and needs a separate click and newer complete roster. Unknown
+history, missing confirmations, changed identity or entitlement, unsupported
+tables and stale sources remain held. This is a native selected-reader change;
+it does not activate the proposed canonical policy or broaden Discord writers.
+
+Verify 0.6.42 labels an actually observed Member with unresolved promotion
+history as "Member (history retained)". This is a held display state, not a
+receipt repair or permission to repeat a command. Missing-receipt operator holds
+use the existing attended native Guild-window review path; original records and
+uncertainty remain preserved. Qualification and actual live observations are
+recorded separately in the append-only shared log.
+The Guild tab also exposes the existing next-check path at Member only for a
+bound, actually owned continuation. Unknown, missing, expired, blocked or unbound
+history cannot use that control; a fresh ready promotion still takes precedence.
+
 ## Build .292 — fix bundled role reviews (candidate, 17 November 2026)
 
 The exact qualified .291 production bundle reproduces the actual baseline

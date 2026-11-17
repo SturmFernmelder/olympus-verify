@@ -188,14 +188,15 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
   const rankPolicy=captureCanonicalRankConfig233(env);
   const batch=selection&&'targetGuids' in selection?selection:null,single=selection&&!('targetGuids' in selection)?selection:null;
   if(launch.mode!=='members-only'||!launch.scope||!launch.current()||canonicalOlympusGuildName(launch.scope.guild)!==FLAGSHIP_GUILD_NAME)return held229(at,'flagship-native-scope-unconfirmed');
-  // The serving v1 policy already maps these exact native tuples to Initiate
-  // and Member. Its one-step selected reader is deliberately narrower than a
-  // Directive policy: reviewed Steward source only, no continuation/Veteran or
-  // other native ranks, and no discovery/legacy selected-route activation.
-  const originalMemberSelection=!!directive&&!!batch&&directive.confirmations.length===0
+  // The serving v1 endpoints agree with the reviewed Steward native table.
+  // Only this attended selected reader may use them: new plans start at its
+  // mapped Initiate/Member tuples; Alt is reachable only by an owned Knight
+  // continuation. Discovery and the Discord rank writers keep their policy.
+  const originalMemberSelection=!!directive&&!!batch
     &&currentOriginalCanonicalPolicy233(rankPolicy.policy)&&rankPolicy.current()
     &&canonicalNativeRole233(rankPolicy.policy,9,'Initiate')?.key==='initiate'
-    &&canonicalNativeRole233(rankPolicy.policy,8,'Member')?.key==='member';
+    &&canonicalNativeRole233(rankPolicy.policy,8,'Member')?.key==='member'
+    &&canonicalNativeRole233(rankPolicy.policy,6,'Veteran')?.key==='veteran';
   if(!currentDirectiveCanonicalPolicy233(rankPolicy.policy)&&!originalMemberSelection||!rankPolicy.current())return held229(at,'directive-rank-policy-held');
   const scheme=originalMemberSelection?nativeRankSchemeByProfile(STEWARD_NATIVE_PROFILE,STEWARD_RANK_DIGEST)!
     :nativeRankSchemeForCanonical(rankPolicy.policy!.profile)!;
@@ -218,7 +219,11 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
     ||requested.includes(directive.actorGuid)))return held229(at,'promotion-actor-unconfirmed');
   const matches=requested.map(guid=>rows.flatMap((row,index)=>row.guid===guid?[index]:[]));
   if(selection&&matches.some(indices=>indices.length!==1))return held229(at,'selected-target-unavailable');
-  if(originalMemberSelection&&matches.some(indices=>rows[indices[0]!]!.currentSlot!==9||rows[indices[0]!]!.rank!=='Initiate'))return held229(at,'directive-rank-policy-held');
+  if(originalMemberSelection&&matches.some(indices=>{
+    const row=rows[indices[0]!]!;
+    return row.currentSlot!==9&&row.currentSlot!==8
+      &&!(row.currentSlot===7&&directive!.confirmations.some(value=>value.guid===row.guid));
+  }))return held229(at,'directive-rank-policy-held');
   const selectedIndices=matches.map(indices=>indices[0]!);
   const legacy=captured?.version===1||captured?.version===2||!roleSecret272;
   const scopeHash=(await digest229('native-scope|1|'+launch.scope.guild+'|'+launch.scope.realm)).slice(0,16),nativeDigest=await digest229(JSON.stringify(nativeRows272(rows)));
@@ -310,10 +315,13 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
   const project=selection?projectSelectedPromotions274:projectLaunchOperations229;
   const dto=project({snapshotId:first.snapshotId,snapshotAt:first.snapshotAt,memberCount:first.memberCount,guild:launch.scope.guild,realm:launch.scope.realm,scopeHash,nativeRankTable},rows,states,now(),expiresAt);
   if(originalMemberSelection){
-    // Unknown Discord replies remain unknown. A Knight's Veteran proposal is
-    // still outside v1's selected subset, never downgraded into a Member intent.
-    for(const row of dto.promotions)if(row.currentSlot!==9||row.targetSlot!==8||row.reason!=='verified-initiate')dto.held.push({guid:row.guid,name:row.name,reason:'directive-rank-policy-held'});
-    dto.promotions.splice(0,dto.promotions.length,...dto.promotions.filter(row=>row.currentSlot===9&&row.targetSlot===8&&row.reason==='verified-initiate'));
+    // Unknown replies stay unknown, and Knights never fall back to Member.
+    // Intermediate Alt proposals are rebuilt only from a verified old intent
+    // below, never issued as fresh plans by this endpoint agreement.
+    const allowed=(row:typeof dto.promotions[number])=>row.currentSlot===9&&row.targetSlot===8&&row.reason==='verified-initiate'
+      ||(row.currentSlot===9||row.currentSlot===8)&&row.targetSlot===6&&row.reason==='knight-veteran';
+    for(const row of dto.promotions)if(!allowed(row))dto.held.push({guid:row.guid,name:row.name,reason:'directive-rank-policy-held'});
+    dto.promotions.splice(0,dto.promotions.length,...dto.promotions.filter(allowed));
   }
   dto.scan={id:scanId,startedAt:issuedAt,expiresAt:scanExpiresAt};
   const pageGuids=new Set(page.map(row=>row.guid));
@@ -338,7 +346,10 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
       let recommendation=dto.promotions.find(value=>value.guid===guid),intent:PromotionIntent|null=null;
       if(confirmation){
         const original=await readPromotionIntent(confirmation.token,directive.secret,now());
-        if(original && continuationAdmitted(original,{actorGuid:directive.actorGuid,guid:row.guid,name:row.name,
+        if(original && (!originalMemberSelection||original.reason==='knight-veteran'
+          &&(original.startSlot===9||original.startSlot===8)&&original.finalSlot===6
+          &&original.rankProfile===scheme.profile&&original.rankSchemeDigest===scheme.digest)
+          &&continuationAdmitted(original,{actorGuid:directive.actorGuid,guid:row.guid,name:row.name,
           subjectDigest:identities.get(guid)??'',snapshotId:first.snapshotId,snapshotAt:first.snapshotAt,slot:row.currentSlot!,
           rankProfile:scheme.profile,rankSchemeDigest:scheme.digest,knight:states.get(guid)??'unknown',
           confirmedFrom:confirmation.from,confirmedTo:confirmation.to,confirmedAt:confirmation.observedAt},now())){
@@ -358,12 +369,15 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
         intended.push({...recommendation,intent,intentToken:await sealPromotionIntent(intent,directive.secret,now())});
         dto.expiresAt=Math.min(dto.expiresAt,intent.expiresAt);
       }else if(confirmation){
-        dto.held=dto.held.filter(value=>value.guid!==guid);
-        dto.held.push({guid:row.guid,name:row.name,reason:'same-intent-continuation-held'});
+        if(!originalMemberSelection||!dto.held.some(value=>value.guid===guid&&value.reason!=='directive-rank-policy-held')){
+          dto.held=dto.held.filter(value=>value.guid!==guid||originalMemberSelection&&value.reason!=='directive-rank-policy-held');
+          dto.held.push({guid:row.guid,name:row.name,reason:'same-intent-continuation-held'});
+        }
       }
     }
     dto.promotions.splice(0,dto.promotions.length,...intended);
-    dto.held.splice(0,dto.held.length,...dto.held.filter(value=>!intended.some(row=>row.guid===value.guid)));
+    dto.held.splice(0,dto.held.length,...dto.held.filter(value=>!intended.some(row=>row.guid===value.guid)
+      ||originalMemberSelection&&value.reason!=='directive-rank-policy-held'));
   }
   dto.entitlements={offset,pageSize:LAUNCH_ROLE_PAGE229,scanned:page.length,total:rows.length,unscanned:Math.max(0,rows.length-offset-page.length),retryAfterSeconds};
   if(rateLimited)dto.heldReasons.push('discord-rate-limited');if(roleUnavailable||!configuration)dto.heldReasons.push('discord-entitlement-unavailable');

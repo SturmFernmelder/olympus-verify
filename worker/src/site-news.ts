@@ -79,6 +79,13 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".293", date: "2026-11-17", lines: [
+      "Eligible Knights can be reviewed for Veteran through separate current rank checks and one attended click per step. Existing uncertain history remains preserved.",
+      "Verify 0.6.42 shows an observed Member rank clearly when earlier promotion history still needs review, without clearing that history or enabling another command.",
+      "The Guild tab offers the next rank check after a Knight reaches Member, while incomplete or unknown promotion history stays protected.",
+    ],
+  },
+  {
     build: ".292", date: "2026-11-17", lines: [
       "Corrected a startup issue that could prevent staff from reviewing old role operations. Reviews preserve the original records; any new grant still needs its own current confirmation.",
     ],

@@ -226,6 +226,11 @@ function M.Promotions(list, launchAPI, now)
     elseif seen[id] ~= 1 then info = detail("duplicate_guid", "Duplicate native GUID", "This GUID occurs more than once in the native list; no promotion is ready.")
     elseif not whole(row.rankIndex, 0, 9) then info = detail("unavailable", "Native rank unavailable", "The current native rank slot is unreadable; promotion readiness is unknown.")
     elseif attemptStatus=="settled" or attemptStatus=="confirmed" then info=detail("wrong_rank","Target rank observed (history retained)","A complete native roster previously confirmed this original target. Its command history is retained; this historical fact never enables a repeat.")
+    elseif rankScheme and row.rankIndex==rankScheme.member and readable(row.rank) and row.rank=="Member"
+      and (attemptStatus=="pending" or attemptStatus=="blocked" or current and launchAPI.pending[id]~=nil) then
+      info=detail("held","Member (history retained)",attemptStatus=="blocked"
+        and "The native roster currently lists this character as Member. The client reported a blocked promotion API; its block and original history remain in place. No addon promotion is ready from this view."
+        or "The native roster currently lists this character as Member. Earlier promotion history remains held or unconfirmed; it has not been cleared or treated as completed. No addon promotion is ready from this view.")
     elseif rankScheme and not whole(row.rankIndex,rankScheme.veteran+1,rankScheme.initiate) then info = detail("wrong_rank", "Native rank needs no supported promotion", "This source profile only supports promotion from native slots below its Veteran target through Initiate; no supported target is above this current rank.")
     elseif not current then info = detail("unavailable", "Promotion source unavailable", unavailable)
     elseif attemptStatus=="blocked" then info=detail("held","Client promotion action blocked","The client reported a blocked promotion API. Original attempt history is retained; this view cannot clear the block or send a fallback.")
