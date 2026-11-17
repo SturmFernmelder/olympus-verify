@@ -36,7 +36,7 @@ const freshPage=(changes={})=>({...page,rows:[{...row,previewToken:'fresh-per-ro
  const filter=select(root,'Filter role audit status');filter.value='unknown';await filter.fire('change');
  check('status filtering is functional',root.textContent.includes('1 matching rows')&&root.textContent.includes('Zulu'));
  filter.value='all';await filter.fire('change');
- const search=find(root,n=>n.tag==='input');search.value=id;await search.fire('input');
+ const search=find(root,n=>n.tag==='input'&&n.type==='search');search.value=id;await search.fire('input');
  check('search finds exact private candidate ID',root.textContent.includes('1 matching rows')&&root.textContent.includes(row.displayName));
  await button(root,'Export observed rows').click();const csv=await downloaded.text();
  check('malicious-display CSV cells are literal across leading LF/whitespace/fullwidth formula prefixes',csv.includes('"\'\n ＝HYPERLINK(')&&csv.includes('"\' \t=2+2"'));
@@ -178,5 +178,84 @@ const freshPage=(changes={})=>({...page,rows:[{...row,previewToken:'fresh-per-ro
  check('destroy cancels wait display without late UI repopulation or a new request',disposedReads===1&&disposedRoot.children.length===0&&timers.size===0);
  let finish;const deadRoot=new Node('main'),instance=context.window.mountRoleAudit283(deadRoot,{api:async()=>new Promise(done=>finish=done)}),deadRequest=button(deadRoot,'Compare current roster').click();await Promise.resolve();instance.destroy();finish(page);await deadRequest;
  check('destroy discards a late private page instead of repopulating a departed view',deadRoot.children.length===0);
+ {
+  const inputFor=root=>find(root,n=>n.tag==='input'&&n['aria-label']==='Discord account ID for one-account read');
+  const chosenId='900000000000000009',chosenReply=(account=chosenId,changes={})=>freshPage({id:account,username:'chosen-user',displayName:'Chosen identity',previewToken:'initial-chosen-token',...changes});
+  const directRoot=new Node('main'),directCalls=[];let directReads=0;
+  const directView=context.window.mountRoleAudit283(directRoot,{api:async(method,url,body)=>{directCalls.push({method,url,body});if(method==='POST')return {result:{requests:0,results:[{subject:chosenId,state:'held',reason:'current_source_changed'}]}};directReads++;return chosenReply(chosenId,{previewToken:directReads===1?'initial-chosen-token':'review-only-token'});}});
+  check('one-account controls mount without an initial request',!!inputFor(directRoot)&&!!button(directRoot,'Read one account')&&directCalls.length===0);
+  if(inputFor(directRoot)){
+   inputFor(directRoot).value=chosenId;await button(directRoot,'Read one account').click();
+   check('direct account read uses only the exact existing subject endpoint and does not auto-review or confirm',directCalls.length===1&&directCalls[0].method==='GET'&&directCalls[0].url==='/api/admin/role-audit?subject='+chosenId&&directRoot.textContent.includes('Chosen identity')&&directRoot.textContent.includes('Single-account observation')&&!button(directRoot,'Confirm Olympus Member reconciliation (up to 2 planned changes)'));
+   await button(directRoot,'Review reconciliation to Olympus Member').click();await button(directRoot,'Confirm Olympus Member reconciliation (up to 2 planned changes)').click();
+   check('direct observation still requires separate current Review and Confirm and posts only the second token',directCalls.length===3&&directCalls[1].method==='GET'&&directCalls[2].method==='POST'&&directCalls[2].body.subject===chosenId&&directCalls[2].body.previewToken==='review-only-token'&&!JSON.stringify(directCalls[2]).includes('initial-chosen-token'));
+   directView.destroy();
+   const invalidRoot=new Node('main'),invalidCalls=[];
+   const invalidView=context.window.mountRoleAudit283(invalidRoot,{api:async(method,url)=>{invalidCalls.push({method,url});return chosenReply(new URL(url,'https://fixture.invalid').searchParams.get('subject'));}});
+   for(const value of ['', ' '+chosenId, chosenId+' ', '0900000000000000001', '1e18', '1234567890123456', '123456789012345678901', '18446744073709551616', '９００００００００００００００００１', chosenId+'?cursor=x']){
+    inputFor(invalidRoot).value=value;await button(invalidRoot,'Read one account').click();
+    check('invalid exact snowflake is refused without I/O '+JSON.stringify(value),invalidCalls.length===0&&invalidRoot.textContent.includes('No read was sent'));
+   }
+   inputFor(invalidRoot).value='18446744073709551615';await button(invalidRoot,'Read one account').click();
+   check('maximum uint64 snowflake remains an exact string without numeric rounding',invalidCalls.length===1&&invalidCalls[0].url.endsWith('subject=18446744073709551615')&&invalidRoot.textContent.includes('18446744073709551615'));invalidView.destroy();
+   for(const kind of ['wrong-id','two-rows','cursor','wrong-scope','not-complete','whole-complete','bad-arrays']){
+    const badRoot=new Node('main');let calls=0;const reply=chosenReply();
+    if(kind==='wrong-id')reply.rows[0].id=id;if(kind==='two-rows')reply.rows.push({...reply.rows[0]});if(kind==='cursor')reply.nextCursor='foreign-cursor';if(kind==='wrong-scope')reply.coverage.scope='one_linked_account_page';if(kind==='not-complete')reply.coverage.singleMemberReadComplete=false;if(kind==='whole-complete')reply.coverage.complete=true;if(kind==='bad-arrays')reply.rows[0].characters=null;
+    const view=context.window.mountRoleAudit283(badRoot,{api:async()=>{calls++;return reply;}});inputFor(badRoot).value=chosenId;await button(badRoot,'Read one account').click();
+    check('unconfirmed single-account '+kind+' cannot populate identity or a confirmation',calls===1&&badRoot.textContent.includes('One-account read unavailable')&&!badRoot.textContent.includes('Chosen identity')&&!button(badRoot,'Confirm Olympus Member reconciliation (up to 2 planned changes)'));view.destroy();
+   }
+   for(const kind of ['zero','history','privacy','pending','bot']){
+    const unavailableRoot=new Node('main'),reply=chosenReply();
+    if(kind==='zero')reply.rows=[];if(kind==='history')reply.rows[0].historyWithheld=true;if(kind==='privacy')reply.rows[0].cause='privacy_held';if(kind==='pending')reply.rows[0].pending=true;if(kind==='bot')reply.rows[0].bot=true;
+    const view=context.window.mountRoleAudit283(unavailableRoot,{api:async()=>reply});inputFor(unavailableRoot).value=chosenId;await button(unavailableRoot,'Read one account').click();
+    check('unavailable chosen '+kind+' is counts-only without cached identity or reason disclosure',unavailableRoot.textContent.includes('No reason is disclosed')&&!unavailableRoot.textContent.includes('Chosen identity')&&!unavailableRoot.textContent.includes('Why held')&&button(unavailableRoot,'Export observed rows').disabled);view.destroy();
+   }
+   for(const changedSource of [false,true]){
+    const savedRoot=new Node('main'),calls=[];let resolvePage,scanCount=0;
+    const view=context.window.mountRoleAudit283(savedRoot,{api:async(method,url)=>{calls.push({method,url});if(url.includes('?subject='))return {...chosenReply(),source:{id:2}};scanCount++;return scanCount===1?new Promise(done=>resolvePage=done):{...page,source:{id:changedSource?2:1},rows:[],coverage:{...page.coverage,providerRowsProcessed:0}};}});
+    const reading=button(savedRoot,'Compare current roster').click();await Promise.resolve();await button(savedRoot,'Pause').click();resolvePage({...page,rows:[row],nextCursor:'saved-original-cursor',coverage:{...page.coverage,complete:false,providerRowsProcessed:1}});await reading;
+    const searchInput=find(savedRoot,n=>n.tag==='input'&&n.type==='search');searchInput.value='does-not-match';await searchInput.fire('input');
+    inputFor(savedRoot).value=chosenId;await button(savedRoot,'Read one account').click();
+    check('chosen view is independent of saved scan filters and source '+changedSource,savedRoot.textContent.includes('Chosen identity')&&savedRoot.textContent.includes('retains 1 completed page')&&searchInput.disabled);
+    await button(savedRoot,'Export observed rows').click();const selectedCSV=await downloaded.text();
+    check('chosen CSV contains only that observation and does not merge scan identities '+changedSource,selectedCSV.includes(chosenId)&&!selectedCSV.includes(id));
+    await button(savedRoot,'Return to scan observations').click();searchInput.value='';await searchInput.fire('input');
+    check('return restores saved rows and filters without a request '+changedSource,calls.length===2&&savedRoot.textContent.includes(row.displayName)&&!savedRoot.textContent.includes('Chosen identity')&&savedRoot.textContent.includes('1 pages')&&!searchInput.disabled);
+    await button(savedRoot,'Resume scan').click();
+    check('selected source never renews original traversal cursor or source '+changedSource,calls.length===3&&calls[2].url.includes('cursor=saved-original-cursor')&&(changedSource?savedRoot.textContent.includes('native roster changed during this traversal'):savedRoot.textContent.includes('Discord traversal finished')));view.destroy();
+   }
+   for(const kind of ['zero','limited-private','review-zero','review-limited-private']){
+    const evictedRoot=new Node('main'),unrelated={...row,id:'900000000000000008',username:'unrelated',displayName:'Unrelated identity'},calls=[];
+    let chosenReads=0;const view=context.window.mountRoleAudit283(evictedRoot,{api:async(method,url)=>{calls.push({method,url});if(!url.includes('?subject='))return {...page,rows:[row,unrelated]};chosenReads++;return kind.startsWith('review-')&&chosenReads===1?chosenReply(id):{...chosenReply(id),rows:kind.endsWith('zero')?[]:[{id,historyWithheld:true}]};}});
+    await button(evictedRoot,'Compare current roster').click();inputFor(evictedRoot).value=id;await button(evictedRoot,'Read one account').click();if(kind.startsWith('review-'))await button(evictedRoot,'Review reconciliation to Olympus Member').click();await button(evictedRoot,'Return to scan observations').click();
+    check('fresh unavailable '+kind+' evicts only requested cached scan identity',calls.length===(kind.startsWith('review-')?3:2)&&!evictedRoot.textContent.includes(row.displayName)&&!evictedRoot.textContent.includes(id)&&evictedRoot.textContent.includes('Unrelated identity')&&evictedRoot.textContent.includes('1 pages'));
+    await button(evictedRoot,'Export observed rows').click();const evictedCSV=await downloaded.text();
+    check('fresh unavailable '+kind+' cannot restore target identity through saved-scan CSV',!evictedCSV.includes(id)&&evictedCSV.includes(unrelated.id));view.destroy();
+   }
+   const tokenRoot=new Node('main');let phase=0,posts=0;
+   const tokenView=context.window.mountRoleAudit283(tokenRoot,{api:async(method)=>{if(method==='POST'){posts++;return {};}phase++;if(phase===3)throw {status:429,data:{...pacingData(),resumeCursor:'foreign-selected-cursor'}};return chosenReply(chosenId,{previewToken:phase===1?'discarded-initial':'fresh-reviewed'});}});
+   inputFor(tokenRoot).value=chosenId;await button(tokenRoot,'Read one account').click();await button(tokenRoot,'Review reconciliation to Olympus Member').click();const detachedConfirm=button(tokenRoot,'Confirm Olympus Member reconciliation (up to 2 planned changes)');
+   await button(tokenRoot,'Read one account').click();await detachedConfirm.click();
+   check('failed new selected read revokes old confirmation and never treats its foreign cursor as traversal pacing',phase===3&&posts===0&&!tokenRoot.textContent.includes('Chosen identity')&&!button(tokenRoot,'Confirm Olympus Member reconciliation (up to 2 planned changes)')&&!button(tokenRoot,'Read one account').disabled);tokenView.destroy();
+   const planChosenRoot=new Node('main'),planChosenCalls=[];
+   const planChosenView=context.window.mountRoleAudit283(planChosenRoot,{api:async(method,url)=>{planChosenCalls.push({method,url});return chosenReply(chosenId,{activationRequired:true,repairable:false});}});
+   const planSelect=select(planChosenRoot,'Role audit policy view');planSelect.value='steward-v3';await planSelect.fire('change');inputFor(planChosenRoot).value=chosenId;await button(planChosenRoot,'Read one account').click();
+   check('single-account inactive-policy read retains planning URL and exposes no action authority',planChosenCalls.length===1&&planChosenCalls[0].method==='GET'&&planChosenCalls[0].url.endsWith('&policyPreview=steward-v3')&&planChosenRoot.textContent.includes('Active-policy expected rank')&&!button(planChosenRoot,'Review reconciliation to Olympus Member'));planChosenView.destroy();
+   const waitingRoot=new Node('main'),waitCalls=[];let scans=0;
+   const waitingView=context.window.mountRoleAudit283(waitingRoot,{api:async(method,url)=>{waitCalls.push({method,url});if(url.includes('?subject='))return chosenReply();scans++;return scans===1?prefixReply(2):{...page,rows:[],coverage:{...page.coverage,providerRowsProcessed:0}};}});
+   await button(waitingRoot,'Compare current roster').click();inputFor(waitingRoot).value=chosenId;await button(waitingRoot,'Read one account').click();
+   check('chosen read cannot bypass the saved traversal original observed wait',waitCalls.length===1&&button(waitingRoot,'Read one account').disabled);tick(2000);
+   check('ending saved wait enables deliberate chosen read without issuing it',waitCalls.length===1&&!button(waitingRoot,'Read one account').disabled);
+   await button(waitingRoot,'Read one account').click();await button(waitingRoot,'Return to scan observations').click();await button(waitingRoot,'Resume scan').click();
+   check('chosen read does not replace the original signed prefix cursor',waitCalls.length===3&&waitCalls[2].url.includes('cursor=signed-completed-prefix-2')&&scans===2);waitingView.destroy();
+   const changingRoot=new Node('main');let deliver,changingCalls=0;
+   const changingView=context.window.mountRoleAudit283(changingRoot,{api:async()=>{changingCalls++;return new Promise(done=>deliver=done);}});inputFor(changingRoot).value=chosenId;
+   const inFlight=button(changingRoot,'Read one account').click();await Promise.resolve();await button(changingRoot,'Read one account').click();inputFor(changingRoot).value=id;deliver(chosenReply());await inFlight;
+   check('busy duplicate read and changed input cannot adopt a late different selection',changingCalls===1&&!changingRoot.textContent.includes('Chosen identity')&&changingRoot.textContent.includes('account selection changed'));changingView.destroy();
+   const chosenDeadRoot=new Node('main');let lateChosen;
+   const chosenDeadView=context.window.mountRoleAudit283(chosenDeadRoot,{api:async()=>new Promise(done=>lateChosen=done)});inputFor(chosenDeadRoot).value=chosenId;const chosenPending=button(chosenDeadRoot,'Read one account').click();await Promise.resolve();chosenDeadView.destroy();lateChosen(chosenReply());await chosenPending;
+   check('destroy drops a late single-account observation without UI repopulation',chosenDeadRoot.children.length===0);
+  }
+ }
  assert.ok(cases.every(c=>c.pass),JSON.stringify(cases));console.log(JSON.stringify({ok:true,checks:cases.length,scope:'DOM module behavior; no browser or mobile acceptance'}));
 })().catch(error=>{console.error(error.stack);process.exitCode=1;});
