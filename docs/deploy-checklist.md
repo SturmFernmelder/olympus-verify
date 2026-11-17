@@ -2,6 +2,19 @@
 
 > Current qualification policy: the owner permanently retired full-suite marathons, historical static-source projection pins and throwaway operator control loops on 10 November 2026. [Release qualification](release-qualification.md) supersedes all older testing instructions below. Dated evidence remains history; runtime/privacy/identity and deployment authority are preserved.
 
+## Build .291 — trace guarded role reads (candidate, 17 November 2026)
+
+An actual .290 baseline GET on the qualified deployed bundle returned503 with
+the finite diagnostic `state-read` / `unexpected` and zero role changes. The
+exact base SQL, actual administrator filter and inert parser passed separately;
+those reads do not exercise the request's custody, admission or post-await
+witnesses. This successor narrows private diagnostics within that read and
+uses closed error classifications. It does not claim a live repair, change
+refusal responses, relax authority or alter original uncertain receipts.
+Freeze and review the actual final delta, qualify the exact candidate, and
+capture a new live preview before attributing a cause. Root retains the owner's
+explicit solo rollout authorization; no Claude signature is asserted.
+
 ## Build .290 — diagnose held-role reviews (candidate, 17 November 2026)
 
 Two actual administrator baseline GET previews returned HTTP503 with zero role

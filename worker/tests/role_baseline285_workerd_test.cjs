@@ -36,12 +36,12 @@ const whole=setTimeout(()=>{console.error('baseline285 genuine test deadline');p
  }}));await mf.ready;setup=await call('/baseline285/setup');
  for(const [slot,phase,expectedGETs]of [[60,'state-read',0],[61,'native-read',1]]){
   const old=await state(slot),beforeHTTP=http.length,beforeEffects=mutations().length,r=await run(slot,{diagnosticFault:phase,captureWarnings:true}),after=await state(slot);
-  check('unexpected awaited '+phase+' failure logs only its finite phase and preserves response/history',r.status===503&&same(r.result,{error:'baseline_unavailable',roleChangesSent:0})&&same(r.warnings,[['role.baseline285_unavailable',{stage:phase,kind:'unexpected'}]])&&same(old.current,after.current)&&after.audits.length===0&&mutations().length===beforeEffects&&http.slice(beforeHTTP).length===expectedGETs&&http.slice(beforeHTTP).every(h=>h.method==='GET')&&r.statements<100,{status:r.status,result:r.result,warnings:r.warnings,statements:r.statements,providerRequests:http.slice(beforeHTTP)});
+  check('unexpected awaited '+phase+' failure logs only its finite phase and preserves response/history',r.status===503&&same(r.result,{error:'baseline_unavailable',roleChangesSent:0})&&same(r.warnings,[['role.baseline285_unavailable',{stage:phase,kind:'unexpected',readStep:'first'}]])&&same(old.current,after.current)&&after.audits.length===0&&mutations().length===beforeEffects&&http.slice(beforeHTTP).length===expectedGETs&&http.slice(beforeHTTP).every(h=>h.method==='GET')&&r.statements<100,{status:r.status,result:r.result,warnings:r.warnings,statements:r.statements,providerRequests:http.slice(beforeHTTP)});
  }
  const parseOld=await state(62),parseHTTP=http.length,parseEffects=mutations().length,parseFailure=await run(62,{mode:'invalid-json',captureWarnings:true}),parseAfter=await state(62);
  check('a genuine provider JSON parse failure logs no body or account detail and issues no retry',parseFailure.status===503&&same(parseFailure.result,{error:'baseline_unavailable',roleChangesSent:0})&&same(parseFailure.warnings,[['role.baseline285_unavailable',{stage:'discord-read',kind:'unexpected'}]])&&same(parseOld.current,parseAfter.current)&&parseAfter.audits.length===0&&mutations().length===parseEffects&&http.length===parseHTTP+1&&http.at(-1).method==='GET',{status:parseFailure.status,warnings:parseFailure.warnings,providerRequests:http.slice(parseHTTP)});
  const sinkOld=await state(63),sinkHTTP=http.length,sinkEffects=mutations().length,sinkFailure=await run(63,{diagnosticFault:'native-read',captureWarnings:true,warningThrows:true}),sinkAfter=await state(63);
- check('a failed private warning sink cannot replace the original held recovery response',sinkFailure.status===503&&same(sinkFailure.result,{error:'baseline_unavailable',roleChangesSent:0})&&same(sinkFailure.warnings,[['role.baseline285_unavailable',{stage:'native-read',kind:'unexpected'}]])&&same(sinkOld.current,sinkAfter.current)&&sinkAfter.audits.length===0&&mutations().length===sinkEffects&&http.length===sinkHTTP+1,{status:sinkFailure.status,result:sinkFailure.result,warnings:sinkFailure.warnings});
+ check('a failed private warning sink cannot replace the original held recovery response',sinkFailure.status===503&&same(sinkFailure.result,{error:'baseline_unavailable',roleChangesSent:0})&&same(sinkFailure.warnings,[['role.baseline285_unavailable',{stage:'native-read',kind:'unexpected',readStep:'first'}]])&&same(sinkOld.current,sinkAfter.current)&&sinkAfter.audits.length===0&&mutations().length===sinkEffects&&http.length===sinkHTTP+1,{status:sinkFailure.status,result:sinkFailure.result,warnings:sinkFailure.warnings});
  const quietEffects=mutations().length,quietNormal=await run(64,{captureWarnings:true}),quietHold=await run(65,{blocking:EXTERNAL,captureWarnings:true}),quiet429=await run(66,{mode:'provider-429',captureWarnings:true}),quiet403=await run(69,{mode:'provider-403',captureWarnings:true}),quiet400=await run(70,{method:'POST',confirm:false,captureWarnings:true});
  check('successful preview, expected400/409 holds and typed Discord403/429 remain silent with no role effect',quietNormal.status===200&&typeof quietNormal.result.previewToken==='string'&&quietHold.status===409&&quiet429.status===429&&quiet403.status===403&&quiet400.status===400&&[quietNormal,quietHold,quiet429,quiet403,quiet400].every(r=>same(r.warnings,[]))&&mutations().length===quietEffects,{statuses:[quietNormal.status,quietHold.status,quiet429.status,quiet403.status,quiet400.status],warnings:[quietNormal.warnings,quietHold.warnings,quiet429.warnings,quiet403.warnings,quiet400.warnings]});
  for(const [slot,status]of [[67,503],[71,401]]){
@@ -51,7 +51,26 @@ const whole=setTimeout(()=>{console.error('baseline285 genuine test deadline');p
  const bounded=[];for(const status of [99,100,599,600]){
   const beforeHTTP=http.length,r=await run(68,{diagnosticFault:'state-read',diagnosticProviderStatus:status,captureWarnings:true});bounded.push({status,result:r.result,warnings:r.warnings,providerRequests:http.length-beforeHTTP});
  }
- check('synthetic typed status metadata is included only for safe integer HTTP100 through599',bounded.every(r=>same(r.result,{error:'baseline_unavailable',roleChangesSent:0})&&same(r.warnings,[['role.baseline285_unavailable',{stage:'state-read',kind:'provider',...(r.status>=100&&r.status<=599?{providerStatus:r.status}:{})}]])&&r.providerRequests===0)&&(await state(68)).audits.length===0,bounded);
+ check('synthetic typed status metadata is included only for safe integer HTTP100 through599',bounded.every(r=>same(r.result,{error:'baseline_unavailable',roleChangesSent:0})&&same(r.warnings,[['role.baseline285_unavailable',{stage:'state-read',kind:'provider',...(r.status>=100&&r.status<=599?{providerStatus:r.status}:{}),readStep:'first'}]])&&r.providerRequests===0)&&(await state(68)).audits.length===0,bounded);
+ const classificationCases=[
+  ['write-admission','read_epoch_unconfirmed',{failure:'write-admission',cause:'read_epoch_unconfirmed'}],
+  ['write-admission','synthetic-private-unlisted-cause',{failure:'write-admission'}],
+  ['schema-plan','original_parameter_count',{failure:'schema-plan',cause:'original_parameter_count'}],
+  ['schema-plan','synthetic-private-unlisted-cause',{failure:'schema-plan'}],
+  ['site-admission',null,{failure:'site-admission'}],['serving-floor',null,{failure:'serving-floor'}],
+  ['shape',null,{failure:'state-data',cause:'baseline_read'}],
+  ['d1','malformed JSON: SQLITE_ERROR synthetic-private-table',{failure:'d1-provider',cause:'sql_json_refused'}],
+  ['d1','D1 DB is overloaded. synthetic-private-account',{failure:'d1-provider',cause:'storage_overloaded'}],
+  ['d1','no such table: synthetic-private-table',{failure:'d1-provider',cause:'d1_other'}],
+ ];
+ for(const [kind,cause,expected]of classificationCases){
+  const old=await state(72),beforeHTTP=http.length,beforeEffects=mutations().length,r=await run(72,{diagnosticFault:'state-read',diagnosticErrorKind:kind,diagnosticErrorCause:cause,captureWarnings:true}),after=await state(72);
+  check('read diagnostics expose only closed classification '+kind+'/'+(expected.cause||'unlisted'),r.status===503&&same(r.result,{error:'baseline_unavailable',roleChangesSent:0})&&same(r.warnings,[['role.baseline285_unavailable',{stage:'state-read',kind:'unexpected',readStep:'first',...expected}]])&&same(old.current,after.current)&&after.audits.length===0&&mutations().length===beforeEffects&&http.length===beforeHTTP&&r.statements<100,{status:r.status,warnings:r.warnings,statements:r.statements});
+ }
+ for(const kind of ['message-getter','cause-getter','cause-message-getter']){
+  const getterBefore=http.length,getter=await run(73,{diagnosticFault:'state-read',diagnosticErrorKind:kind,captureWarnings:true});
+  check('diagnostic classification never invokes '+kind,getter.status===503&&getter.diagnosticGetterCalls===0&&same(getter.result,{error:'baseline_unavailable',roleChangesSent:0})&&same(getter.warnings,[['role.baseline285_unavailable',{stage:'state-read',kind:'unexpected',readStep:'first'}]])&&http.length===getterBefore&&(await state(73)).audits.length===0,{status:getter.status,warnings:getter.warnings,getterCalls:getter.diagnosticGetterCalls});
+ }
  const before=await call('/run',{cookie:setup.cookie,subjectQuery:setup.subject});
  check('historical attempted operation blocks a new repair before adoption',before.status===200&&before.result.rows?.[0]?.unknown===1&&!before.result.rows[0].repairable&&before.result.rows[0].previewToken===null,before.result.rows?.[0]);
  const adopted=[];
