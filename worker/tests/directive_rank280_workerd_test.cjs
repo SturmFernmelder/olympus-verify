@@ -6,7 +6,8 @@ const root=path.join(__dirname,'..'),argv=process.argv.slice(2),arg=k=>argv[argv
 const releasePath=argv.includes('--release-bundle')?path.resolve(arg('--release-bundle')):null,releaseBytes=releasePath?fs.readFileSync(releasePath):null;
 if(!argv.includes('--out'))throw Error('Pass --out <evidence-directory>');const evidence=path.resolve(arg('--out')),out=path.join(evidence,phase+'-'+crypto.randomUUID()),runtime=fs.mkdtempSync(path.join(os.tmpdir(),'olv-rank280-'));fs.mkdirSync(out,{recursive:true});
 const H=b=>crypto.createHash('sha256').update(b).digest('hex'),seedPath=path.join(out,'seed.json'),files=['src/canonical-ranks233.ts','src/directive-native-authority.ts','src/routine-membership-authority232.ts','src/roster-verification275.ts','src/role-settlements.ts','src/full-release-roles.ts','src/full-release-pass.ts','src/beta-reset-retention.ts','tests/directive_rank280_workerd_fixture.mjs','tests/directive_selection280_workerd_fixture.mjs','tests/directive_rank280_workerd_test.cjs'];
-const pins=()=>Object.fromEntries(files.map(p=>[p,H(fs.readFileSync(path.join(root,p)))])),before=pins();
+const pins=()=>({...Object.fromEntries(files.map(p=>[p,H(fs.readFileSync(path.join(root,p)))])),...(releasePath?{releaseArtifact:H(fs.readFileSync(releasePath))}:{})}),before=pins();
+if(releasePath&&before.releaseArtifact!==H(releaseBytes))throw Error('Supplied release bytes changed before qualification');
 const entitlementChildKinds=['entitlement-never-sent','entitlement-unknown-child','entitlement-blocker'];
 const launchBeforePath=argv.includes('--before-launch')?path.resolve(arg('--before-launch')):null,launchBefore=launchBeforePath?fs.readFileSync(launchBeforePath,'utf8'):null;
 (async()=>{
