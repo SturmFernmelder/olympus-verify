@@ -267,6 +267,39 @@ do
     and d.byGuid[id].reason:find("client reported a blocked promotion API",1,true) and f.q.promotionBlocked==true and f.effects==0)
 end
 do
+  for _,profileIndex in ipairs({1,2}) do
+    for _,kind in ipairs({"unknown-receipt","missing-receipt-hold","blocked","custody-conflict"}) do
+      local f=fixture(true);local id=f.rows[1].guid;local c=f.e.OlympusVerifyNativeRankConstants.profiles[profileIndex]
+      local veteranSlot=profileIndex==2 and 6 or 5
+      f.sp.rankProfile,f.sp.rankSchemeDigest,f.sp.rankNames=c.profile,c.digest,{unpack(c.names)}
+      f.selRow.targetSlot,f.selRow.targetName,f.selRow.reason=veteranSlot,"Veteran","knight-veteran"
+      f.selRow.intent.rankProfile,f.selRow.intent.rankSchemeDigest,f.selRow.intent.finalSlot=c.profile,c.digest,veteranSlot
+      f.selRow.intent.reason="knight-veteran"
+      local old={state="unknown",target=veteranSlot,original="retained-veteran"}
+      local hold={version=1,origin="operator-history-hold",reason="staff-review-missing-receipt",guid=id,
+        commandAttempted=false,historicalOutcomeSettled=false}
+      if kind=="missing-receipt-hold" then f.e.OlympusVerifyDB.launchPromotionSaveHolds={[id]=hold}
+      else f.e.OlympusVerifyDB.launchPromotionAttempts={[id]=old} end
+      if kind=="blocked" then f.q.promotionBlocked=true end
+      if kind=="custody-conflict" then f.e.OlympusVerifyDB.launchPromotionCustodyConflict=false end
+      f.rows[1].rankIndex,f.rows[1].rank=veteranSlot,"Veteran"
+      local ready,d=f.read()
+      check("exact current Veteran is factual while original history stays held "..c.profile.." "..kind,
+        not ready[id] and d.byGuid[id].state=="held" and d.byGuid[id].label=="Veteran (history retained)"
+        and f.q.AttemptHeld(id,f.q.Current(),veteranSlot)==true)
+      check("Veteran display preserves history and grants no action "..c.profile.." "..kind,
+        (kind=="missing-receipt-hold" and f.e.OlympusVerifyDB.launchPromotionSaveHolds[id]==hold
+          and hold.commandAttempted==false and hold.historicalOutcomeSettled==false
+          or kind~="missing-receipt-hold" and f.e.OlympusVerifyDB.launchPromotionAttempts[id]==old
+            and old.state=="unknown" and old.original=="retained-veteran") and f.effects==0 and f.nativeReads==0)
+      f.rows[1].rank="Knight";ready,d=f.read()
+      check("conflicting Veteran slot label cannot claim attained Veteran "..c.profile.." "..kind,
+        not ready[id] and d.byGuid[id].label~="Veteran (history retained)" and f.effects==0)
+    end
+  end
+end
+
+do
   local f = fixture(true)
   for index = #f.rows + 1, 1000 do
     f.rows[index] = { name = "Synthetic " .. index, guid = string.format("Player-1-%08X", index + 10000), rankIndex = 7, status = "verified" }

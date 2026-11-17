@@ -2,6 +2,17 @@
 
 > Current qualification policy: the owner permanently retired full-suite marathons, historical static-source projection pins and throwaway operator control loops on 10 November 2026. [Release qualification](release-qualification.md) supersedes all older testing instructions below. Dated evidence remains history; runtime/privacy/identity and deployment authority are preserved.
 
+## Build .294 — show attained native Veteran rank (candidate, 17 November 2026)
+
+The attended .293 checks confirmed Andolf as Member and Pact as Veteran in the
+native roster and actual Discord reads. Pact's expired original one-step receipt
+remains incomplete; the later native rank steps are separate attended actions.
+Verify 0.6.43 displays an exactly observed Veteran rank as a disabled Veteran
+control instead of Held. Retained attempt history remains visible in the detail
+text. This display cannot settle history, refresh an intent, enable a repeat or
+change a promotion guard. Current-source qualification and live observations
+remain separately attributed in the append-only shared log.
+
 ## Build .293 — review held native promotions (candidate, 17 November 2026)
 
 Qualify the existing Knight-to-Veteran rule through the attended selected reader
