@@ -234,48 +234,68 @@ export async function handleSiteRoleAudit283(request:Request,env:Env,admin:SiteU
     readPacing:{version:1,kind:floorOnly?'original-discord-get429-floor':retained?'retained-discord-get429':'original-discord-get429',serverNow:t,notBefore,retryAfterSeconds:remaining,resumeAvailable,traversalExpiresAt:cursor.expiresAt,observations}},status===403?403:status===429?429:503,{'Retry-After':String(remaining)});
   };
   if(focused&&typeof cursor.readNotBefore==='number'&&cursor.readNotBefore>now())return readPause(cursor.readNotBefore,[],true);
-  let page:{members:ProviderMember[];complete:boolean},last=cursor.after as string,processedCount=0,observedOnly=0,providerRowsFetched:number|null=null,providerRequests=0,unavailableLinked=0,preWithheld=0;
+  const discordObservedAt=new Map<string,number>();
+  let prefixObservations:readonly OriginalDiscordGetPacing[]=[];
+  let page:{members:ProviderMember[];complete:boolean},last=cursor.after as string,processedCount=0,observedOnly=0,providerRowsFetched:number|null=null,providerRequests=0,unavailableLinked=0,preWithheld=0,prefixNotBefore:number|null=null;
   if(focused){
    const selectedRead=await read([env.DB.prepare(focusedSubjects285(scope==='native')).bind(cursor.after,ROLE_AUDIT_FOCUSED_PAGE285+1,snapshot!.id)]);
    const ids=(selectedRead[0]!.results as {id:string}[]).map(r=>r.id);
    if(ids.length>ROLE_AUDIT_FOCUSED_PAGE285+1||ids.some((id,i)=>!validId(id)||id<=String(cursor.after)||i>0&&id<=ids[i-1]!))throw new Held('focused_scope_unconfirmed',503);
    const selected=ids.slice(0,ROLE_AUDIT_FOCUSED_PAGE285),members:ProviderMember[]=[];
-   processedCount=selected.length;last=selected.at(-1)??last;
+   type ReadMember={member:ProviderMember|null;kind:'member'|'unavailable'|'withheld';observedAt:number};
+   const accept=(result:PromiseFulfilledResult<ReadMember>,id:string)=>{
+    processedCount++;last=id;
+    if(result.value.kind==='withheld')preWithheld++;
+    else if(result.value.kind==='unavailable')unavailableLinked++;
+    else if(result.value.member){members.push(result.value.member);discordObservedAt.set(id,result.value.observedAt);}
+   };
    // Bounded pairs, read-only. A failure ends the page; another pair is never
    // launched after a refused/rate-limited response. No provider mutation occurs.
    for(let start=0;start<selected.length;start+=2){
     const pacing=new Map<unknown,OriginalDiscordGetPacing>();
-    const pair=await Promise.allSettled(selected.slice(start,start+2).map(async id=>{
+    const pair=await Promise.allSettled(selected.slice(start,start+2).map(async(id):Promise<ReadMember>=>{
      const target=(await targetsRead([id]))[0];check();
      if(!target)throw new Held('target_read_unconfirmed',503);
-     if(target.privacyHeld||target.privacyState!==null&&target.privacyState!=='active'){preWithheld++;return null;}
+     if(target.privacyHeld||target.privacyState!==null&&target.privacyState!=='active')return {member:null,kind:'withheld',observedAt:now()};
      let raw:unknown;providerRequests++;
      const path=`/guilds/${env.GUILD_ID}/members/${id}`;
      try{raw=await rest<unknown>(env,'GET',path,undefined,1);}
-     catch(error){if(error instanceof DiscordError&&error.status===404){unavailableLinked++;return null;}const facts=originalDiscordGetPacing(error,env,path);if(facts)pacing.set(error,facts);throw error;}
+     catch(error){if(error instanceof DiscordError&&error.status===404)return {member:null,kind:'unavailable',observedAt:now()};const facts=originalDiscordGetPacing(error,env,path);if(facts)pacing.set(error,facts);throw error;}
      // The next pair's target read and the common post-provider target batch
      // recheck current actor/target admission before more reads or any release.
      // No role decision or private row is released from this intermediate list.
      check();const member=providerPage([raw],'0').members[0]!;
-     if(member.id!==id)throw new Held('discord_reply_unconfirmed',503);return member;
+     if(member.id!==id)throw new Held('discord_reply_unconfirmed',503);return {member,kind:'member',observedAt:now()};
     }));
     // Settle both already-started reads: the second original 429 may require a
-    // longer wait. Never launch the next pair or classify a partial page.
+    // longer wait. A completed contiguous prefix can become its own small
+    // page, never an encrypted cache or permission to skip a failed account.
     const failures=pair.filter((p):p is PromiseRejectedResult=>p.status==='rejected');
     if(failures.length){
      const other=failures.find(p=>!(p.reason instanceof DiscordError)||p.reason.status!==429||!pacing.has(p.reason));
      const observed=failures.flatMap(p=>pacing.has(p.reason)?[pacing.get(p.reason)!]:[]);
-     if(observed.length)return readPause(Math.max(...observed.map(p=>p.notBefore)),observed,false,other?{reason:other.reason}:undefined);
+     if(observed.length){
+      const notBefore=Math.max(...observed.map(p=>p.notBefore));
+      if(!other&&Math.max(notBefore,now())<(cursor.expiresAt as number)){
+       // A success after the first failed ID is not a contiguous prefix. It is
+       // discarded and read again later; 404/private positions remain counts
+       // only. Final current-target/privacy/source guards still own disclosure.
+       for(let i=0;i<pair.length&&pair[i]!.status==='fulfilled';i++)accept(pair[i] as PromiseFulfilledResult<ReadMember>,selected[start+i]!);
+       if(processedCount>0){prefixNotBefore=notBefore;prefixObservations=observed;break;}
+      }
+      return readPause(notBefore,observed,false,other?{reason:other.reason}:undefined);
+     }
      throw failures[0]!.reason;
     }
-    members.push(...pair.flatMap(p=>p.status==='fulfilled'&&p.value!==null?[p.value]:[]));
+    for(let i=0;i<pair.length;i++)accept(pair[i] as PromiseFulfilledResult<ReadMember>,selected[start+i]!);
    }
-   page={members,complete:ids.length<=ROLE_AUDIT_FOCUSED_PAGE285};
+   page={members,complete:prefixNotBefore===null&&ids.length<=ROLE_AUDIT_FOCUSED_PAGE285};
   }else{
    let raw:unknown;providerRequests++;
    try{raw=await rest<unknown>(env,'GET',singleSubject?`/guilds/${env.GUILD_ID}/members/${singleSubject}`:`/guilds/${env.GUILD_ID}/members?limit=${PROVIDER_PAGE}&after=${cursor.after}`,undefined,1);}
    catch(error){if(singleSubject&&error instanceof DiscordError&&error.status===404)raw=null;else throw error;}check();await read([]);
-   const sourcePage=providerPage(singleSubject?(raw===null?[]:[raw]):raw,cursor.after as string);providerRowsFetched=sourcePage.scanned;
+   const observedAt=now(),sourcePage=providerPage(singleSubject?(raw===null?[]:[raw]):raw,cursor.after as string);providerRowsFetched=sourcePage.scanned;
+   for(const member of sourcePage.members)discordObservedAt.set(member.id,observedAt);
    if(singleSubject&&raw!==null&&sourcePage.members[0]?.id!==singleSubject)throw new Held('discord_reply_unconfirmed',503);
    const candidateRead=await read([env.DB.prepare(`SELECT wanted.value AS id FROM json_each(?1) wanted WHERE EXISTS(SELECT 1 FROM characters c WHERE c.discord_id=wanted.value AND c.status NOT IN('unbound','denied'))`).bind(JSON.stringify(sourcePage.members.map(m=>m.id)))]);
    const linked=new Set((candidateRead[0]!.results as {id:string}[]).map(r=>r.id));
@@ -311,7 +331,7 @@ export async function handleSiteRoleAudit283(request:Request,env:Env,admin:SiteU
    const previewIssuedAt=singleSubject&&classification.repairable?now():null;
    const previewExpiresAt=previewIssuedAt===null?null:Math.min(previewIssuedAt+PREVIEW_SECONDS,original.e,projection.deadline??0);
    const preview=previewIssuedAt!==null?await seal(env.COOKIE_SECRET,binding+'|preview',{subject:member.id,issuedAt:previewIssuedAt,expiresAt:previewExpiresAt!,snapshot:snapshot!.id,snapshotAt:snapshot!.exported_at,expected:projection.expected!,factsDigest:await digest(target),observedRoles:[...classification.actual].sort(),baselineFindingId:baseline285?.receiptId??null} satisfies Preview):null;check();
-   rows.push({id:member.id,username:member.username,displayName:member.displayName,discordJoinedAt:member.joinedAt,discordJoinProvenance:'Discord joined_at; not native guild join time',
+   rows.push({id:member.id,username:member.username,displayName:member.displayName,discordObservedAt:discordObservedAt.get(member.id),discordJoinedAt:member.joinedAt,discordJoinProvenance:'Discord joined_at; not native guild join time',
     bot:false,pending:false,...classification,...projection,activationRequired:planning,maxPlannedEffects:2,
     baselineGrantOnly:!!baseline285,baselineFindingId:baseline285?.receiptId??null,blockingUnknown:baseline285?0:classification.unknown,activeUnattempted:target.activeUnattempted,
     characters:JSON.parse(target.characters),historyWithheld:false,historyTruncated,
@@ -319,19 +339,23 @@ export async function handleSiteRoleAudit283(request:Request,env:Env,admin:SiteU
     firstObservedProvenance:'Legacy name-only roster observation; not current character/GUID episode, native guild join time or a grace clock',previewToken:preview,previewIssuedAt,previewExpiresAt,
     confirmReserveSeconds:CONFIRM_RESERVE_SECONDS,confirmBy:previewExpiresAt===null?null:previewExpiresAt-CONFIRM_RESERVE_SECONDS});
   }
-  const nextCursor=singleSubject||page.complete?null:await seal(env.COOKIE_SECRET,cursorBinding,{issuedAt:cursor.issuedAt as number,expiresAt:cursor.expiresAt as number,after:last,page:(cursor.page as number)+1,...(focused?{snapshotId:cursor.snapshotId,snapshotAt:cursor.snapshotAt}:{})} satisfies Cursor);check();
+  const nextCursor=singleSubject||page.complete?null:await seal(env.COOKIE_SECRET,cursorBinding,{issuedAt:cursor.issuedAt as number,expiresAt:cursor.expiresAt as number,after:last,page:(cursor.page as number)+1,...(focused?{snapshotId:cursor.snapshotId,snapshotAt:cursor.snapshotAt}:{}),...(prefixNotBefore===null?{}:{readNotBefore:prefixNotBefore})} satisfies Cursor);check();
   const final=await read([env.DB.prepare(targetsSQL284()).bind(JSON.stringify(page.members.map(m=>m.id)),env.GUILD_ID,JSON.stringify(ROLE_BASELINE_FAMILY_IDS285),baselineActors285),env.DB.prepare(SNAPSHOT),env.DB.prepare(DENOMINATOR)]);check();
   const finalTargets=final[0]!.results as Facts[],finalSnapshot=final[1]?.results[0] as Snapshot|undefined;
   if(JSON.stringify(finalSnapshot??null)!==JSON.stringify(snapshot??null))throw new Held('roster_changed_during_page');
   if(JSON.stringify(finalTargets)!==JSON.stringify(targets))throw new Held('target_changed_during_page');
+  clock(cursor,CURSOR_SECONDS);
   if(singleSubject&&rows.length===0)return apiJson({rows:[],counts:{subjects:0,unavailable:1},nextCursor:null,automaticApply:false,
    coverage:{scope:'single_discord_member_read',complete:false,singleMemberReadComplete:true,atomicSnapshot:false,convergenceConfirmed:false}});
   const counts={subjects:rows.length,missing:rows.filter(r=>r.missing.length).length,extraOwned:rows.filter(r=>r.extraOwned.length).length,extraUnowned:rows.filter(r=>r.extraUnowned.length).length,
    review:rows.filter(r=>r.review).length,unknown:rows.filter(r=>r.unknown>0).length,historyWithheld:withheld.privacy,withheldCandidates:withheld.privacy+withheld.membershipScreening+withheld.bots,sourceHeld:rows.filter(r=>r.sourceHeld).length,repairable:rows.filter(r=>r.repairable).length};
   const returnedCounts=singleSubject?{subjects:counts.subjects,missing:counts.missing,extraOwned:counts.extraOwned,extraUnowned:counts.extraUnowned,review:counts.review,unknown:counts.unknown,sourceHeld:counts.sourceHeld,repairable:counts.repairable,unavailable:0}:counts;
-  return apiJson({guildId:env.GUILD_ID,generatedAt:now(),source:snapshot??null,managedRoles:canonical.policy.ranks,rows,counts:returnedCounts,...(singleSubject?{}:{withheld}),nextCursor,comparisonScope:scope,
+  const generatedAt=now();
+  if(prefixNotBefore!==null&&Math.max(prefixNotBefore,generatedAt)>=(cursor.expiresAt as number))throw new Held('preview_expired');
+  return apiJson({guildId:env.GUILD_ID,generatedAt,source:snapshot??null,managedRoles:canonical.policy.ranks,rows,counts:returnedCounts,...(singleSubject?{}:{withheld}),nextCursor,comparisonScope:scope,
+   ...(prefixNotBefore===null?{}:{automaticRetry:false,resumeCursor:nextCursor,readPacing:{version:1,kind:'original-discord-get429',serverNow:generatedAt,notBefore:prefixNotBefore,retryAfterSeconds:Math.max(0,prefixNotBefore-generatedAt),resumeAvailable:true,traversalExpiresAt:cursor.expiresAt,observations:prefixObservations}}),
    view:planning?'steward-v3':'active',activationRequired:planning,activePolicy:{version:canonical.policy.version,profile:canonical.policy.profile},proposedPolicy:proposed?{version:proposed.version,profile:proposed.profile}:null,
-   coverage:{scope:singleSubject?'single_discord_member_read':focused?'one_linked_account_page':'one_discord_inventory_page',complete:singleSubject?false:page.complete,singleMemberReadComplete:!!singleSubject,atomicSnapshot:false,providerRowsFetched:singleSubject?null:providerRowsFetched,providerRowsProcessed:singleSubject?null:processedCount,providerRequests,linkedUnavailable:unavailableLinked,observedOnly:singleSubject?null:observedOnly,returned:rows.length,traversalExpiresAt:singleSubject?null:cursor.expiresAt,
+   coverage:{scope:singleSubject?'single_discord_member_read':focused?'one_linked_account_page':'one_discord_inventory_page',complete:singleSubject?false:page.complete,singleMemberReadComplete:!!singleSubject,atomicSnapshot:false,providerRowsFetched:singleSubject?null:providerRowsFetched,providerRowsProcessed:singleSubject?null:processedCount,providerRequests,linkedUnavailable:unavailableLinked,observedOnly:singleSubject?null:observedOnly,returned:rows.length,traversalExpiresAt:singleSubject?null:cursor.expiresAt,completedPrefix:prefixNotBefore!==null,...(prefixNotBefore===null?{}:{gap:'discord_rate_limited',readNotBefore:prefixNotBefore}),
     nativeLinkedCandidateSubjects:singleSubject?null:(final[2]?.results[0] as {subjects:number}|undefined)?.subjects??null,nativeLinkedAccountsAbsentFromDiscord:focused?'selected_accounts_individually_read_no_removal_inferred':'not_individually_checked',convergenceConfirmed:false,
     note:focused?'Only the selected linked-account scope was compared. Roster names and Verify button presses alone prove no Discord identity. Unavailable linked accounts are counts only; no absence, erasure or removal is inferred. Use the optional whole-server inventory to inspect unlinked role holders. Other roles and appointments are preserved.':'Includes unlinked role holders present in Discord. The separate native-linked candidate count is not an overlap or absence proof. Absent accounts were not individually checked; no removal is inferred. Other Discord roles and website appointments are preserved.'},
    custodyMeaning:'Extra-owned means an acknowledged grant receipt was found. Only the existing writer can authorize its removal.',automaticApply:false});

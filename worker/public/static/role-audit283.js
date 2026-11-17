@@ -84,7 +84,7 @@ window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
       const signature = item => JSON.stringify([item.expected, item.snapshotId, item.nativeCharacter, item.nativeRank, [...item.actual].sort(), [...item.missing].sort(), [...item.extraOwned].sort(), [...item.extraUnowned].sort(), !!item.baselineGrantOnly, item.baselineFindingId ?? null]);
       const changed = signature(fresh) !== signature(row);
       const ready = !changed && fresh.repairable && !fresh.sourceHeld && !fresh.activationRequired && (!fresh.extraUnowned.length || fresh.baselineGrantOnly === true) && fresh.maxPlannedEffects === 2 && !!fresh.previewToken && Number.isSafeInteger(fresh.previewExpiresAt) && Number.isSafeInteger(fresh.confirmBy) && fresh.confirmReserveSeconds >= 112 && fresh.confirmBy <= fresh.previewExpiresAt - 112 && fresh.confirmBy > Math.floor(Date.now() / 1000);
-      rows.set(row.id, {...fresh, observedAt: data.generatedAt, reviewed: ready, previewToken: ready ? fresh.previewToken : null});
+      rows.set(row.id, {...fresh, observedAt: Number.isSafeInteger(fresh.discordObservedAt) ? fresh.discordObservedAt : data.generatedAt, reviewed: ready, previewToken: ready ? fresh.previewToken : null});
       status.textContent = ready ? 'Fresh account preview loaded. Review the updated facts and consequences, then use the separate Confirm button.' : changed ? 'The account or native source changed. Updated facts are shown; review this row again before confirming. No repair was sent.' : fresh.repairable && fresh.previewToken ? 'This preview has insufficient confirmation reserve. Review again for a new read; a fresh native export or session may be needed. No repair was sent.' : 'The current account/source is held or needs no repair. No confirmation or repair was sent.';
     } catch (error) {
       if (!destroyed) status.textContent = `Fresh preview unavailable: ${error?.data?.error || error?.message || 'read unavailable'}. No repair was sent and no automatic retry occurred.`;
@@ -272,10 +272,14 @@ window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
         // Defense against cached/old responses: excluded identity rows never
         // enter the display cache or CSV, even if a stale API supplied one.
         let rejected = 0;
-        for (const row of data.rows) { if (row.historyWithheld || row.cause === 'privacy_held' || row.pending || row.bot) { rejected++; continue; } rows.set(row.id, {...row, observedAt: data.generatedAt, reviewed: false, previewToken: null}); }
+        for (const row of data.rows) { if (row.historyWithheld || row.cause === 'privacy_held' || row.pending || row.bot) { rejected++; continue; } rows.set(row.id, {...row, observedAt: Number.isSafeInteger(row.discordObservedAt) ? row.discordObservedAt : data.generatedAt, reviewed: false, previewToken: null}); }
         withheld += (data.counts?.withheldCandidates || 0) + rejected;
         pages++; processed += data.coverage.providerRowsProcessed || 0; providerRequests += data.coverage.providerRequests || 0; linkedUnavailable += data.coverage.linkedUnavailable || 0; observedOnly += data.coverage.observedOnly || 0;
         cursor = data.nextCursor; finished = data.coverage.complete === true && !cursor; render();
+        if (data.coverage.completedPrefix === true || data.readPacing !== undefined) {
+          if (data.coverage.completedPrefix !== true || finished || !cursor || cursor !== data.resumeCursor || !retainReadPause({status: 429, data})) throw new Error('Completed-prefix wait was not confirmed');
+          paused = true; finished = !readPause.resumeAvailable; break;
+        }
         if (finished) { status.textContent = 'Discord traversal finished. These are timestamped observations, not proof that every mismatch is resolved. Repairs require a fresh current preview.'; break; }
         if (!cursor) throw new Error('Continuation coverage was not confirmed');
       }

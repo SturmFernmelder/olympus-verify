@@ -6,12 +6,12 @@ const root=path.join(__dirname,'..'),out=fs.mkdtempSync(path.join(os.tmpdir(),'o
 const driver={path:__filename,sha256Before:hash(fs.readFileSync(__filename))},compiledInputs=new Map();
 let source=null,inputs=[],compiledInputsComplete=false;
 const custody=()=>{const finalDriver={...driver,sha256After:hash(fs.readFileSync(driver.path))},finalInputs=(compiledInputsComplete?inputs:[...compiledInputs].map(([path,sha256])=>({path,sha256,sha256AfterBundle:null}))).map(p=>({...p,sha256After:hash(fs.readFileSync(p.path))}));finalDriver.stable=finalDriver.sha256Before===finalDriver.sha256After;for(const p of finalInputs)p.stable=p.sha256===p.sha256AfterBundle&&p.sha256===p.sha256After;return {driver:finalDriver,inputs:finalInputs,compiledInputsComplete,stable:compiledInputsComplete&&finalDriver.stable&&finalInputs.every(p=>p.stable)};};
-const argv=process.argv.slice(2),only=argv.length===2&&argv[0]==='--only'&&['final-d1-expired','final-d1-delete-expired','read-pacing'].includes(argv[1])?argv[1]:null;
-if(argv.length&&!only)throw Error('Supported isolated cases: --only final-d1-expired, final-d1-delete-expired or read-pacing');
-let mf,fixture,http=[],cases=[],setup;const BASE=800000000000001000n,effectKinds=only?only==='read-pacing'?[]:[only]:['baseline','before-denied','after-denied','before-export','wrong-role','preview-expired','preview-control','preview-reserve','serving-v1'],effectRoles=new Map(),effectMutated=new Set(),effectWaits=new Map();
+const argv=process.argv.slice(2),only=argv.length===2&&argv[0]==='--only'&&['final-d1-expired','final-d1-delete-expired','read-pacing','read-prefix'].includes(argv[1])?argv[1]:null;
+if(argv.length&&!only)throw Error('Supported isolated cases: --only final-d1-expired, final-d1-delete-expired, read-pacing or read-prefix');
+let mf,fixture,http=[],cases=[],setup,prefixWindowReads=0;const BASE=800000000000001000n,effectKinds=only?only.startsWith('read-')?[]:[only]:['baseline','before-denied','after-denied','before-export','wrong-role','preview-expired','preview-control','preview-reserve','serving-v1'],effectRoles=new Map(),effectMutated=new Set(),effectWaits=new Map();
 const check=(name,pass,detail)=>{cases.push({name,pass:!!pass,detail});console.log((pass?'PASS ':'FAIL ')+name+(pass?'':' '+JSON.stringify(detail?.diagnostic??detail).slice(0,1800)));if(!pass)throw Error('First failing audit check: '+name);};
 const run=async spec=>{const r=await mf.dispatchFetch('http://fixture.invalid/run',{method:'POST',body:JSON.stringify({cookie:setup?.cookie,...spec})});assert.equal(r.status,200);return r.json();};
-const mutate=async kind=>{const r=await mf.dispatchFetch('http://fixture.invalid/mutate',{method:'POST',body:JSON.stringify({kind})});assert.equal(r.status,200,await r.text());};
+const mutate=async(kind,extra={})=>{const r=await mf.dispatchFetch('http://fixture.invalid/mutate',{method:'POST',body:JSON.stringify({kind,...extra})});assert.equal(r.status,200,await r.text());};
 const whole=setTimeout(()=>{console.error('role-audit283 whole-command deadline');process.exitCode=1;mf?.dispose();},180000);
 (async()=>{try{
  const built=await build({entryPoints:[path.join(__dirname,'site_role_audit283_fixture.mjs')],absWorkingDir:root,bundle:true,write:false,format:'esm',platform:'browser',target:'es2022',external:['node:async_hooks'],tsconfig:path.join(root,'tsconfig.json'),metafile:true,logLevel:'silent',plugins:[{name:'actual-source-byte-custody',setup(builder){builder.onLoad({filter:/\.(?:[cm]?js|tsx?|json)$/},args=>{if(args.namespace!=='file')return;const contents=fs.readFileSync(args.path),sha256=hash(contents),prior=compiledInputs.get(args.path);if(prior&&prior!==sha256)throw Error('Compiled input changed during bundling: '+args.path);compiledInputs.set(args.path,sha256);const ext=path.extname(args.path);return {contents,loader:ext==='.ts'?'ts':ext==='.tsx'?'tsx':ext==='.json'?'json':'js'};});}}]});
@@ -47,6 +47,19 @@ const whole=setTimeout(()=>{console.error('role-audit283 whole-command deadline'
   assert.equal(request.method,'GET','audit cannot directly mutate provider');assert.match(u.pathname,/\/guilds\/236932545793490944\/members(?:\/[0-9]+)?$/);
   if(mode?.startsWith('pacing-')){
    const suffix=mode.slice(7);
+   if(suffix.startsWith('window')){
+    const index=prefixWindowReads++,id=u.pathname.split('/').at(-1),member=()=>Response.json({user:{id,username:'synthetic_'+String(BigInt(id)-BASE)},roles:[],pending:false});
+    if(suffix==='window-deadline'&&index===0)await new Promise(resolve=>setTimeout(resolve,6100));
+    if(suffix==='window-one'&&id===String(BASE)||suffix==='window-reverse'&&id===String(BASE+1n))return member();
+    if(suffix==='window-late404'&&id===String(BASE+3n)||suffix==='window-404'&&id===String(BASE))return Response.json({message:'Unknown Member'},{status:404});
+    if(!['window-one','window-reverse'].includes(suffix)&&index<2)return member();
+    if(index===2&&suffix==='window-privacy')await mutate('privacy');
+    if(index===2&&suffix==='window-retired')await mutate('retired');
+    if(index===2&&suffix==='window-source')await mutate('source-change');
+    if(index===2&&suffix==='window-admission')await mutate('denied',{actor:'800000000000000002'});
+    if(index===3&&suffix==='window-mixed')return Response.json({message:'Unavailable'},{status:503});
+    return Response.json({message:'Limited',retry_after:0.1,global:false},{status:429,headers:{'Retry-After':'0.1','X-RateLimit-Scope':'user'}});
+   }
    if(suffix==='pair'){
     const second=BigInt(u.pathname.split('/').at(-1))%2n===1n;
     if(second)await new Promise(resolve=>setTimeout(resolve,75));
@@ -88,6 +101,52 @@ const whole=setTimeout(()=>{console.error('role-audit283 whole-command deadline'
   while(pages.at(-1).result.nextCursor){assert.ok(pages.length<16,'Bounded fixture traversal cannot loop indefinitely');pages.push(await run({...spec,cursor:pages.at(-1).result.nextCursor}));}
   return {pages,rows:pages.flatMap(p=>p.result.rows||[])};
  };
+ if(!only||only==='read-prefix'){
+  const before=http.length,read=spec=>run({cookie:setup.secondCookie,scopeQuery:'native',...spec}),windowRead=spec=>{prefixWindowReads=0;return read({mode:'pacing-window',...spec});};
+  const inspect=async(token,kind)=>{const r=await mf.dispatchFetch('http://fixture.invalid/'+(kind?'rewrite-audit-cursor':'inspect-audit-cursor'),{method:'POST',body:JSON.stringify({cookie:setup.secondCookie,token,...(kind?{kind}:{})})});assert.equal(r.status,200);return r.json();};
+  const wait=async p=>new Promise(resolve=>setTimeout(resolve,Math.max(0,p.notBefore*1000-Date.now())+25));
+  const first=await windowRead({});
+  check('a genuine later-pair429 publishes the completed contiguous prefix instead of restarting the first pair',first.status===200&&first.result.rows?.length===2&&first.result.coverage?.providerRowsProcessed===2&&first.result.nextCursor&&first.result.coverage.complete===false,{status:first.status,result:first.result,traffic:http.slice(before)});
+  const born=await inspect(first.result.nextCursor),p=first.result.readPacing;
+  check('prefix exposes original429 timing and counts every startedGET without counting uncompleted candidates',first.result.coverage.completedPrefix&&first.result.coverage.providerRequests===4&&p.kind==='original-discord-get429'&&p.observations.length===2&&p.observations.every(o=>o.retryAfterHeaderSeconds===0.1&&o.retryAfterBodySeconds===0.1&&o.global===false&&o.rateScope==='user')&&first.result.resumeCursor===first.result.nextCursor,p);
+  check('prefix cursor contains no cached identity or roles and stays within its original bounded encrypted shape',first.result.nextCursor.length<4096&&Object.keys(born).sort().join(',')==='after,expiresAt,issuedAt,page,readNotBefore,snapshotAt,snapshotId'&&born.after===String(BASE+1n)&&born.page===1,born);
+  check('read-only prefix has actual per-member observation times and no repair authority',first.result.rows.every(r=>Number.isSafeInteger(r.discordObservedAt)&&r.discordObservedAt>=born.issuedAt&&r.discordObservedAt<=first.result.generatedAt&&r.previewToken===null),first.result.rows.map(r=>({id:r.id,at:r.discordObservedAt,preview:r.previewToken})));
+  const earlyBefore=http.length,early=await read({cursor:first.result.nextCursor});
+  check('early prefix resume enforces original notBefore before any providerGET and discloses no cached rows',early.status===429&&early.result.readPacing.kind==='retained-discord-get429'&&!early.result.rows&&http.length===earlyBefore,early.result);
+  const invalidBefore=http.length;
+  for(const token of [first.result.nextCursor+'x','x'.repeat(4097)]){const invalid=await read({cursor:token});check('tampered or oversized prefix cursor is refused before provider I/O',invalid.status===400&&invalid.result.error==='invalid_token'&&http.length===invalidBefore,invalid.result);}
+  const injected=await inspect(first.result.nextCursor,'unknown-field'),injectedRead=await read({cursor:injected.token});
+  check('even authenticated synthetic cursor cannot add cached members or unrecognized progress fields',injectedRead.status===400&&injectedRead.result.error==='invalid_cursor'&&http.length===invalidBefore,injectedRead.result);
+  await wait(p);
+  const pages=[first];
+  while(pages.length<3){const previous=pages.at(-1),r=await windowRead({cursor:previous.result.nextCursor});check('each explicit resume advances past completed IDs and retains the same original source and deadline',r.status===200&&r.result.rows.length===2&&r.result.rows[0].id===String(BASE+BigInt(pages.length*2))&&r.result.coverage.providerRowsProcessed===2,r.result.coverage);const current=await inspect(r.result.nextCursor);check('prefix continuation never renews issue time expiry or pinned native export',current.issuedAt===born.issuedAt&&current.expiresAt===born.expiresAt&&current.snapshotId===born.snapshotId&&current.snapshotAt===born.snapshotAt&&current.after===r.result.rows.at(-1).id,current);pages.push(r);await wait(r.result.readPacing);}
+  check('three limited windows cover six original accounts exactly once instead of repeatedly reading the first pair',new Set(pages.flatMap(x=>x.result.rows.map(r=>r.id))).size===6&&http.slice(before).filter(x=>BigInt(x.path.split('/').at(-1))<BASE+2n).length===2,{traffic:http.slice(before)});
+  const one=await windowRead({mode:'pacing-window-one'}),oneCursor=await inspect(one.result.nextCursor);
+  check('first200 then second429 publishes exactly one contiguous position',one.status===200&&one.result.rows.length===1&&one.result.coverage.providerRowsProcessed===1&&one.result.coverage.providerRequests===2&&oneCursor.after===String(BASE),one.result.coverage);
+  const reverse=await windowRead({mode:'pacing-window-reverse'}),reverseCursor=await inspect(reverse.result.resumeCursor);
+  check('first429 then second200 cannot skip the failed account or publish the later success',reverse.status===429&&!reverse.result.rows&&reverseCursor.after==='0'&&reverseCursor.page===0,reverse.result);
+  const missing=await windowRead({mode:'pacing-window-404'});
+  check('404 is only an unavailable prefix position and never a character absence or removal decision',missing.status===200&&missing.result.rows.length===1&&missing.result.coverage.providerRowsProcessed===2&&missing.result.coverage.linkedUnavailable===1&&missing.result.coverage.convergenceConfirmed===false,missing.result.coverage);
+  const lateMissing=await windowRead({mode:'pacing-window-late404'});
+  check('404 after an earlier failed ID cannot inflate committed-prefix unavailable counts',lateMissing.status===200&&lateMissing.result.coverage.providerRowsProcessed===2&&lateMissing.result.coverage.linkedUnavailable===0&&lateMissing.result.coverage.providerRequests===4,lateMissing.result.coverage);
+  const mixed=await windowRead({mode:'pacing-window-mixed'});
+  check('mixed unknown failure after successes stays held and cannot publish prefix or mint resume authority',mixed.status===503&&!mixed.result.rows&&mixed.result.readPacing.kind==='original-discord-get429-floor'&&mixed.result.readPacing.resumeAvailable===false&&mixed.result.resumeCursor===null,mixed.result);
+  const privacy=await windowRead({mode:'pacing-window-privacy'});
+  check('subject retiring after its provider read is rechecked before any prefix identity disclosure',privacy.status===200&&privacy.result.rows.length===1&&!JSON.stringify(privacy.result.rows).includes(String(BASE))&&privacy.result.withheld.privacy===1&&privacy.result.coverage.providerRowsProcessed===2,privacy.result.coverage);await mutate('privacy-restore');
+  const retired=await windowRead({mode:'pacing-window-retired'});
+  check('retired erasure tombstone appearing after its provider read withholds the original identity from prefix rows',retired.status===200&&retired.result.rows.length===1&&!JSON.stringify(retired.result.rows).includes(String(BASE))&&retired.result.withheld.privacy===1&&retired.result.coverage.providerRowsProcessed===2,retired.result.coverage);await mutate('privacy-restore');
+  const sourceChange=await windowRead({mode:'pacing-window-source'});
+  check('native source changed during a later pair refuses all prefix disclosure',sourceChange.status===409&&sourceChange.result.error==='roster_changed_during_page'&&!sourceChange.result.rows,sourceChange.result);await mutate('source-restore');
+  const admission=await windowRead({mode:'pacing-window-admission'});
+  check('revoked original administrator cannot receive previously read prefix rows',admission.status===403&&!admission.result.rows,admission.result);await mutate('restore',{actor:'800000000000000002'});
+  const expiredToken=await inspect(first.result.nextCursor,'expired'),expiredBefore=http.length,expired=await read({cursor:expiredToken.token});
+  check('expired prefix cannot renew or dispatch another provider read',expired.status===409&&expired.result.error==='preview_expired'&&http.length===expiredBefore,expired.result);
+  const normal=await read({}),short=await inspect(normal.result.nextCursor,'near-deadline'),deadline=await windowRead({cursor:short.token,mode:'pacing-window-deadline'});
+  check('real provider latency crossing the original deadline cannot disclose an expired prefix or renew a cursor',!deadline.result.rows&&(deadline.status===409&&deadline.result.error==='preview_expired'||deadline.status===429&&deadline.result.readPacing.resumeAvailable===false&&deadline.result.resumeCursor===null),deadline.result);
+  const shortFinal=await inspect(normal.result.nextCursor,'near-deadline'),lateFinal=await windowRead({cursor:shortFinal.token,mode:'pacing-window-final-deadline'});
+  check('unchanged genuine finalD1 response returned after the original deadline cannot release prefix rows',lateFinal.status===409&&lateFinal.result.error==='preview_expired'&&!lateFinal.result.rows&&lateFinal.prefixFinalObserved?.executedAt<shortFinal.expiresAt&&lateFinal.prefixFinalObserved.returnedAt>=shortFinal.expiresAt,{response:lateFinal.result,timing:lateFinal.prefixFinalObserved,originalExpiry:shortFinal.expiresAt});
+  check('all prefix progress traffic remains original DiscordGET only',http.slice(before).every(x=>x.method==='GET'),{requests:http.length-before});
+ }
  if(!only||only==='read-pacing'){
   const pacingStart=http.length;
   const pacingRun=spec=>run({cookie:setup.secondCookie,...spec});
