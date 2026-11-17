@@ -2,6 +2,25 @@
 
 > Current qualification policy: the owner permanently retired full-suite marathons, historical static-source projection pins and throwaway operator control loops on 10 November 2026. [Release qualification](release-qualification.md) supersedes all older testing instructions below. Dated evidence remains history; runtime/privacy/identity and deployment authority are preserved.
 
+## Build .292 — fix bundled role reviews (candidate, 17 November 2026)
+
+The exact qualified .291 production bundle reproduces the actual baseline
+503 in the genuine full-route fixture. Its module-initialized READ template
+captures imported PRIVACY_YEAR before the cyclic module initializes it, leaving
+`-undefined` in SQL. The source-built fixture instead emits 31536000 and passes;
+replacing only that fragment makes the captured statements byte-identical.
+Earlier depth, argument-count and standalone-read investigations remain
+negative, separately scoped evidence.
+
+Build the same READ statement at request time, using the same imported constant
+after initialization. Keep every predicate, binding, action clock, authority,
+response and original receipt unchanged. Qualify the final archived production
+bundle itself through the genuine baseline route, alongside the existing
+bounded gates and independent review. A passing source-only fixture is not
+production-bundle acceptance. Live preview/adoption/grant readbacks remain
+separate rollout steps; no historical delivery is reset, replayed or proven by
+this code repair. The owner's explicit solo rollout authorization still applies.
+
 ## Build .291 — trace guarded role reads (candidate, 17 November 2026)
 
 An actual .290 baseline GET on the qualified deployed bundle returned503 with
