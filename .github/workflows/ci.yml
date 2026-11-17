@@ -139,6 +139,7 @@ jobs:
           node tests/role_delete_refusal280_workerd_test.cjs --only transition-put-refusal403,transition-put-refusal404,transition-put-refusal429,transition-put-unknown500 --out "$RUNNER_TEMP/put-writer285"
           node tests/linked_proof_refresh285_workerd_test.cjs --out "$RUNNER_TEMP/fresh-proof285"
           node tests/late_proof285_workerd_test.cjs --out "$RUNNER_TEMP/late-proof285"
+          node tests/routine_legacy_left295_workerd_test.cjs --out "$RUNNER_TEMP/beta-left295"
           node tests/watcher_late_origin285_workerd_test.cjs
           node tests/site_role_audit285_ui_test.cjs
           node tests/late_proof285_ui_test.cjs

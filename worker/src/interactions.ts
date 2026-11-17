@@ -61,7 +61,7 @@ async function originalIdentityHint280(env:Env,subject:string):Promise<boolean>{
  return v.schema==='role-request280-v1'&&Object.hasOwn(v,'generation')&&v.generation===row.generation&&Number.isSafeInteger(v.requestId)&&Number(v.requestId)>0
   &&v.state==='held'&&v.reason==='native232_original_identity_or_source_held';
 }
-const ORIGINAL_IDENTITY_HINT280='Your last check could not confirm the earlier proof that this character is yours, or could not confirm the current guild roster. Ask an officer to refresh the guild data. If access is still held, press **Refresh character proof** in Discord and send the new code from **the same character**. Missing character proofs are not filled in automatically.';
+const ORIGINAL_IDENTITY_HINT280='Your last check could not confirm the earlier proof that this character is yours, or could not confirm the current guild roster. Ask an officer to refresh the guild data. If access is still held, press **Refresh character proof** in Discord and send the new code from **the same character**. Different live character after beta? Choose **Verify another character**; your beta history stays. Missing character proofs are not filled in automatically.';
 const REFRESH_PROOF285='guide:refresh-proof';
 const originalIdentityReply285=(content:string,offer:boolean)=>reply(content,offer?{components:[{type:1,components:[{type:2,style:1,custom_id:REFRESH_PROOF285,label:'Refresh character proof'}]}]}:{});
 const ORIGINAL_IDENTITY_TOOLS_HELD280='This link needs a new request code to prove the character is still yours, but the officers\' addon and Watcher have not yet confirmed support for request codes. Ask an officer to update and sync them, then press **Refresh character proof** in Discord and send the code from this same character. Your link is kept; no new code or role was given.';
@@ -364,9 +364,9 @@ async function issueTicket(env: Env, i: Interaction, lane?: LaneCapture,newChara
 async function cmdStatus(env: Env, i: Interaction,roleDispatch:BetaRoleDispatch=captureBetaRoleDispatch(env)): Promise<Response> {
   const user = userOf(i);
   const member = await getMember(env, user.id);
-  const chars = await env.DB.prepare("SELECT name, status, verified_at, member_since FROM characters WHERE discord_id = ?1 ORDER BY bound_at")
+  const chars = await env.DB.prepare("SELECT name, status, verified_at, member_since, bound_at FROM characters WHERE discord_id = ?1 ORDER BY bound_at")
     .bind(user.id)
-    .all<{ name: string; status: string; verified_at: number | null; member_since: number | null }>();
+    .all<{ name: string; status: string; verified_at: number | null; member_since: number | null; bound_at: number }>();
   const pend = await env.DB.prepare("SELECT name, expires_at FROM pending WHERE discord_id = ?1 AND consumed_at IS NULL AND expires_at > ?2")
     .bind(user.id, now())
     .all<{ name: string; expires_at: number }>();
@@ -447,8 +447,11 @@ async function cmdStatus(env: Env, i: Interaction,roleDispatch:BetaRoleDispatch=
     } else if (q?.last_reason === "guild_full" && (c.status === "queued" || c.status === "verified")) {
       extra = " \u2014 the last invite was refused for lack of space; seats have opened since, so the next invite goes out in queue order";
     }
+    // Record birth is historical metadata, never a claim about today's proof,
+    // owner or access. A fresh proof may retain these original pre-launch clocks.
+    const prelaunch=currentNativeVerification242(env)&&Number.isSafeInteger(c.bound_at)&&c.bound_at>0&&c.bound_at<linksNotBefore(env);
     lines.push(
-      `\u2022 ${c.name}: ${c.status === "left_pending" ? "in the guild (pending a roster re-check)" : c.status}${c.member_since ? ` since <t:${c.member_since}:d>` : ""}${extra}`,
+      `\u2022 ${c.name}: ${prelaunch?'pre-launch link record (retained history; not confirmation of current access)':c.status === "left_pending" ? "in the guild (pending a roster re-check)" : c.status}${c.member_since ? ` since <t:${c.member_since}:d>` : ""}${extra}`,
     );
   }
   for (const p of pend.results) {

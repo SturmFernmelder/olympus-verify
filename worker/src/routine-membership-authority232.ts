@@ -76,8 +76,8 @@ const READ=`SELECT CAST(strftime('%s','now') AS INTEGER) AS at,p.generation,p.st
  FROM roster_snapshots s LEFT JOIN privacy_subjects p ON p.subject_id=?1 WHERE s.id=(SELECT MAX(id) FROM roster_snapshots)`;
 /** Closed canonical-only exclusion, repeated against the original pinned source.
  * No excluded link supplies an anchor, eligible character or departure cause. */
-const INERT_LEGACY=(canonical:string,cutoff:string)=>`(((json_extract(${canonical},'$.enabled')=1 AND c.status='member')
- AND (typeof(c.bound_at)='integer' AND c.bound_at>0 AND c.bound_at<${cutoff}))
+const INERT_LEGACY=(canonical:string,cutoff:string)=>`(((json_extract(${canonical},'$.enabled')=1 AND c.status IN('member','left'))
+ AND ((c.guid IS NOT NULL OR c.status='left') AND typeof(c.bound_at)='integer' AND c.bound_at>0 AND c.bound_at<${cutoff}))
  AND ((typeof(c.verified_at)='integer' AND c.verified_at>=c.bound_at AND c.verified_at<${cutoff})
  AND (c.source IN('whisper','mail') AND json_extract(j.value,'$[6]') IS NULL AND a.id IS NULL))
  AND NOT EXISTS(SELECT 1 FROM roster_members legacy WHERE legacy.snapshot_id=s.id AND (legacy.name_key=c.name_key OR legacy.guid=c.guid)))`;
@@ -178,6 +178,18 @@ async function captureValidatedMembership232(env:Env,subject:string,mode:'writer
    // An unfinished alt is not a verified native identity. Freeze its state for
    // this operation, but it neither outranks nor blocks an already verified main.
    if(status==='verified'||status==='queued')continue;
+   // A prelaunch left row is inert even when its old GUID was never pinned.
+   // Legacy member rows retain their original valid-GUID requirement.
+   // Its exact nullable tuple stays in the graph and every SQL admission. Any
+   // current native name/GUID (including an unknown rank) prevents exclusion.
+   if(canonical.mode==='enabled'&&(status==='member'||status==='left')
+    &&typeof key==='string'&&!!key&&key===key.trim()&&!/[\x00-\x1f\x7f]/.test(key)
+    &&(guid===null&&status==='left'||typeof guid==='string'&&guid===guid.trim()&&GUID.test(guid)&&!seenLinks.has(guid))
+    &&typeof bound==='number'&&Number.isSafeInteger(bound)&&bound>0&&bound<cutoff
+    &&typeof verified==='number'&&Number.isSafeInteger(verified)&&verified>=bound&&verified<cutoff
+    &&(source==='whisper'||source==='mail')&&anchor===null&&!names.has(key)&&(guid===null||!seenNativeGuids.has(guid))){
+    if(guid!==null)seenLinks.add(guid);continue;
+   }
    if(typeof key!=='string'||!key||typeof guid!=='string'||guid!==guid.trim()||!GUID.test(guid)||seenLinks.has(guid)||typeof bound!=='number'||!Number.isSafeInteger(bound)||bound<1||bound>at||typeof verified!=='number'||!Number.isSafeInteger(verified)||verified<bound||verified>at||source!==null&&typeof source!=='string'||!['member','left_pending','left'].includes(String(status)))return reject('link_data_invalid');
    seenLinks.add(guid);
    if(mode==='planning'&&(activeUnknownRankKeys.has(key)||activeUnknownRankGuids.has(guid)))activeRankHeld=true;
@@ -185,10 +197,6 @@ async function captureValidatedMembership232(env:Env,subject:string,mode:'writer
    // an uncertain higher alt must not disappear and lower another alt's rank.
    if(unknownRankKeys.has(key)||unknownRankGuids.has(guid))return reject('native_rank_unmapped');
    const native=byGuid.get(guid);
-   // .234: an absent prelaunch link is inert, not departure/identity/ownership.
-   // Keep its exact row in the captured graph; it may not jam an independently
-   // proved current character. A matching/unknown native name or GUID still holds.
-   if(canonical.mode==='enabled'&&status==='member'&&bound<cutoff&&verified<cutoff&&(source==='whisper'||source==='mail')&&anchor===null&&!native&&!names.has(key))continue;
    // Reverification deliberately preserves a character's original link clocks.
    // Admission is established by the source-owned anchor's post-cutoff birth,
    // required in READ and at every later admission, not by rewriting those clocks.
