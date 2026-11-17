@@ -275,11 +275,12 @@ regexes = [
 ]
 
 [[allowlists]]
-description = "Exact historical public v234 read-protocol identifier in the UI reader fixture"
+description = "Exact historical public v234 read-protocol identifier in the two read-only fixtures"
 targetRules = ["generic-api-key"]
 condition = "AND"
 paths = [
   '''^worker/tests/evergreen1112_ui280_browser\.mjs$''',
+  '''^worker/tests/directive_selection280_workerd_fixture\.mjs$''',
 ]
 regexTarget = "secret"
 regexes = [
