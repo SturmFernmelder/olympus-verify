@@ -6845,7 +6845,7 @@
       out));
     if (q) run();
   }
-  const CHAR_STATUS = { member: "in the guild", verified: "verified, not on the roster yet", queued: "invite queued", left: "left the guild", left_pending: "missing from the last roster", denied: "denied", unbound: "unbound" };
+  const CHAR_STATUS = { member: "member link record", verified: "verification record", queued: "invite-queue record", left: "departure record", left_pending: "missing-roster record", denied: "denial record", unbound: "unbound link record" };
   function accountPanel(a) {
     const n = a.names;
     const s = a.site;
@@ -6870,7 +6870,9 @@
         h("dt", { text: "Discord id" }), h("dd", { text: a.id }),
         h("dt", { text: "Account created" }), h("dd", { text: fmtDay(a.accountCreated) }),
         n.nick ? h("dt", { text: "Nickname in Asmongold's server" }) : null, n.nick ? h("dd", { text: n.nick }) : null,
-        h("dt", { text: "Linked characters" }), h("dd", null, a.characters.length ? h("div", { class: "stack" }, a.characters.map((c) => h("div", null, h("b", { text: c.name }), ` — ${CHAR_STATUS[c.status] || c.status}${c.memberSince ? `, since ${fmtShort(c.memberSince)}` : ""}`))) : "none"),
+        h("dt", { text: "Linked character records" }), h("dd", null,
+          a.characters.length ? h("div", { class: "stack" }, a.characters.map((c) => h("div", null, h("b", { text: c.name }), ` — ${CHAR_STATUS[c.status] || `stored status: ${c.status}`}${c.memberSince ? `; membership date on record: ${fmtShort(c.memberSince)}` : ""}`))) : "none",
+          h("p", { class: "muted small", text: "Retained link history. This lookup does not confirm current guild membership or Discord access." })),
         a.queue.length ? h("dt", { text: "Invite queue" }) : null, a.queue.length ? h("dd", { text: a.queue.map((q) => `${q.name} (${q.status}${q.priority ? ", reserved name" : ""})`).join(", ") }) : null,
         a.openCodes.length ? h("dt", { text: "Open codes" }) : null, a.openCodes.length ? h("dd", { text: a.openCodes.map((p) => p.name || "(any character)").join(", ") }) : null,
         a.member && a.member.battletag ? h("dt", { text: "Battle.net" }) : null, a.member && a.member.battletag ? h("dd", { text: a.member.battletag }) : null,
