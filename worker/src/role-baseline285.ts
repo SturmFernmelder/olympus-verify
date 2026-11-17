@@ -180,8 +180,10 @@ function expectedRole(config:Config,cap:RoutineMembership232):string{
  return highestCanonicalRank233(config.canonical.policy!,{index:f.primary.index,name:f.primary.rank},extra)?.roleId??held();
 }
 const summary=(cap:RoleGrantBaseline285)=>({adopted:true,roleChangesSent:0,manualRemovals:true,...roleGrantBaselineFacts285(cap)});
+type BaselineStage285='request'|'preview-open'|'actor-admission'|'source-capture'|'action-context'|'action-admission'|'action-source-capture'|'state-read'|'finding-read'|'old-tuple-digest'|'discord-read'|'post-discord-admission'|'native-read'|'preview-seal'|'preview-final-read'|'confirmation-read'|'finding-digests'|'finding-signature'|'finding-append'|'post-append-admission';
 export async function handleSiteRoleBaseline285(request:Request,env:Env,admin:SiteUser,body:Record<string,unknown>={}):Promise<Response>{
  let cap:RoutineMembership232|null=null,appendStarted=false;
+ let stage:BaselineStage285='request';
  try{
   if(!['GET','POST'].includes(request.method))throw new Held('method_not_allowed',405);
   const original=originalUserSession(admin),config=captureConfig(env);if(!isSiteAdmin(env,original.u))throw new Held('baseline_unavailable',403);
@@ -192,7 +194,7 @@ export async function handleSiteRoleBaseline285(request:Request,env:Env,admin:Si
   const subject=posting?input!.subject:query.get('subject');if(!validId(subject))throw new Held('baseline_request_invalid',400);
   const limits=consumeRateLimit280('role-baseline285:'+request.method+':'+original.u,posting?5:30,60);if(limits.limited)return apiJson({error:'slow_down',roleChangesSent:0},429,rateLimitHeaders280(limits));
   const binding=json([PURPOSE,config.guild,original.u,original.v,original.e,original.g,original.n,config.canonical.raw,config.entitlements.raw]);
-  const preview=posting?await open(config,binding,input!.previewToken):null;
+  stage='preview-open';const preview=posting?await open(config,binding,input!.previewToken):null;
   if(preview&&preview.subject!==subject)throw new Held('baseline_preview_invalid',400);
   const actor:CommunitySubject=Object.freeze({discordId:original.u,sessionVersion:original.v,expiresAt:original.e,privacyGeneration:original.g,accountIncarnation:original.n,originalSession:original});
   const check=()=>{config.check();if(originalUserSession(admin)!==original||!isSiteAdmin(env,original.u))return held();};check();
@@ -202,40 +204,40 @@ export async function handleSiteRoleBaseline285(request:Request,env:Env,admin:Si
    // The ordinary issuer first determines the real source/expected rank. A
    // selected attended capture then retains the original actor in every final
    // Native predicate. A targetless role-action context never mints a cap.
-   const admitted=await admittedReadAs(env,actor,'applicantWrite',[]);check();if(admitted===FENCE_REFUSED)return held();
-   cap=await captureRoutineMembership232(env,subject);check();if(!cap)return held();const first=routineMembership232Facts(cap);
+   stage='actor-admission';const admitted=await admittedReadAs(env,actor,'applicantWrite',[]);check();if(admitted===FENCE_REFUSED)return held();
+   stage='source-capture';cap=await captureRoutineMembership232(env,subject);check();if(!cap)return held();const first=routineMembership232Facts(cap);
    selection={subject,snapshotId:first.snapshotId,snapshotAt:first.snapshotExportedAt,expectedRole:expectedRole(config,cap),expiresAt:Math.min(first.deadline,original.e)};
    closeRoutineMembership232(cap);cap=null;
   }
-  const actionEnv=privacyBoundSiteRoleActionEnv(env,original,selection);
+  stage='action-context';const actionEnv=privacyBoundSiteRoleActionEnv(env,original,selection);
   const read=async()=>{check();const result=await admittedReadAs(actionEnv,actor,'applicantWrite',[]);check();if(result===FENCE_REFUSED)return held();};
-  await read();cap=await captureRoutineMembership232(actionEnv,subject);check();if(!cap)return held();
+  stage='action-admission';await read();stage='action-source-capture';cap=await captureRoutineMembership232(actionEnv,subject);check();if(!cap)return held();
   const f=routineMembership232Facts(cap),wanted=expectedRole(config,cap),db=privacyProviderCustodyDatabase(actionEnv);
-  let state=await readState(db,config,subject);check();
+  stage='state-read';let state=await readState(db,config,subject);check();
   if(state.targetCurrent!==1||state.generation!==f.subjectGeneration)return held();
-  const existing=await fromState(actionEnv,config,db,state,subject,f.subjectGeneration);check();
+  stage='finding-read';const existing=await fromState(actionEnv,config,db,state,subject,f.subjectGeneration);check();
   const alreadyAdopted=existing&&(!preview||originals.get(existing)!.payload.nonce===preview.nonce);
   if(state.oldCount!==1||state.old.length!==1||state.activeClaims!==0||!eligible(state.old[0]!,subject,f.subjectGeneration,state.at))return held();
-  const old=state.old[0]!,oldDigest=await hash(json(tuple(old)));check();
+  stage='old-tuple-digest';const old=state.old[0]!,oldDigest=await hash(json(tuple(old)));check();
   if(preview&&(preview.expiresAt<=now()||preview.generation!==state.generation||preview.revision!==state.revision||preview.oldTupleDigest!==oldDigest||preview.snapshotId!==f.snapshotId||preview.snapshotAt!==f.snapshotExportedAt||preview.expectedRole!==wanted))throw new Held('baseline_preview_changed');
-  const observedRoles=await memberRoles(actionEnv,subject);check();await read();assertRoutineMembership232(actionEnv,cap);
+  stage='discord-read';const observedRoles=await memberRoles(actionEnv,subject);check();stage='post-discord-admission';await read();assertRoutineMembership232(actionEnv,cap);
   if(observedRoles.some(r=>config.blockingRoles.includes(r)))return held();
-  const nativeRead=routineMembership232Predicate(actionEnv,cap,5,true);
+  stage='native-read';const nativeRead=routineMembership232Predicate(actionEnv,cap,5,true);
   const afterProvider=await readState(db,config,subject,nativeRead);check();assertRoutineMembership232(actionEnv,cap);
   if(afterProvider.targetCurrent!==1||afterProvider.generation!==state.generation||afterProvider.revision!==state.revision||afterProvider.oldCount!==1||afterProvider.old.length!==1||afterProvider.activeClaims!==0||json(tuple(afterProvider.old[0]!))!==json(tuple(old)))return held();state=afterProvider;
   if(alreadyAdopted){const original=originals.get(existing!)!;if(!state.findings.some(a=>a.id===original.audit.id&&a.details===original.audit.details&&a.actorCurrent===1))return held();return apiJson({...summary(existing!),alreadyAdopted:true});}
   if(!posting){
    const at=now(),p=Object.freeze({nonce:nonce(),subject,generation:state.generation,revision:state.revision,oldTupleDigest:oldDigest,observedRoles,snapshotId:f.snapshotId,snapshotAt:f.snapshotExportedAt,expectedRole:wanted,issuedAt:at,expiresAt:Math.min(at+PREVIEW_SECONDS,f.deadline,original.e)}) satisfies Preview;
-   const previewToken=await seal(config,binding,p);check();assertRoutineMembership232(actionEnv,cap);
-   const final=await readState(db,config,subject,nativeRead);check();assertRoutineMembership232(actionEnv,cap);
+   stage='preview-seal';const previewToken=await seal(config,binding,p);check();assertRoutineMembership232(actionEnv,cap);
+   stage='preview-final-read';const final=await readState(db,config,subject,nativeRead);check();assertRoutineMembership232(actionEnv,cap);
    if(final.targetCurrent!==1||final.generation!==state.generation||final.revision!==state.revision||final.oldCount!==1||final.old.length!==1||final.activeClaims!==0||json(tuple(final.old[0]!))!==json(tuple(old))||p.expiresAt<=now())return held();
    return apiJson({previewToken,expiresAt:p.expiresAt,roleChangesSent:0,observedRoles,receipt:{id:old.id,roleId:old.role_id,desired:old.desired,createdAt:old.created_at},expectedRole:wanted,snapshotId:f.snapshotId,snapshotAt:f.snapshotExportedAt,manualRemovals:true,historicalUnknown:true,meaning:'A new grant-only starting point. This cannot determine or cancel the old request; existing roles stay manual.'});
   }
   if(json(observedRoles)!==json(preview!.observedRoles))throw new Held('baseline_preview_changed');
-  state=await readState(db,config,subject);check();assertRoutineMembership232(actionEnv,cap);
+  stage='confirmation-read';state=await readState(db,config,subject);check();assertRoutineMembership232(actionEnv,cap);
   if(state.targetCurrent!==1||state.generation!==preview!.generation||state.revision!==preview!.revision||state.oldCount!==1||state.old.length!==1||state.activeClaims!==0||json(tuple(state.old[0]!))!==json(tuple(old))||!eligible(old,subject,state.generation,state.at)||preview!.expiresAt<=now())throw new Held('baseline_preview_changed');
-  const payload=Object.freeze({receiptId:state.nextAuditId,nonce:preview!.nonce,subject,generation:state.generation,actor:original.u,actorGeneration:original.g,actorSessionVersion:original.v,actorAccountIncarnation:original.n,guildId:config.guild,policyDigest:await hash(config.canonical.raw!),entitlementsDigest:await subjectEntitlementsDigest(config,subject,state.generation),oldId:String(old.id),oldTupleDigest:oldDigest,observedRoles:observedRoles.filter(r=>FAMILY.includes(r)),snapshotId:f.snapshotId,snapshotAt:f.snapshotExportedAt,expectedRole:wanted,adoptedAt:state.at,expiresAt:state.at+PRIVACY_YEAR,grantOnly:true,manualExistingRoles:true,historicalUnknown:true}) satisfies Payload;
-  const signature=hex(await sign('HMAC',await signingKey(config.secret),encode(json(payload)))),refs=[...new Set([original.u,subject])],details=json({version:1,kind:PURPOSE,payload,signature,_privacySubjectIds:refs});
+  stage='finding-digests';const payload=Object.freeze({receiptId:state.nextAuditId,nonce:preview!.nonce,subject,generation:state.generation,actor:original.u,actorGeneration:original.g,actorSessionVersion:original.v,actorAccountIncarnation:original.n,guildId:config.guild,policyDigest:await hash(config.canonical.raw!),entitlementsDigest:await subjectEntitlementsDigest(config,subject,state.generation),oldId:String(old.id),oldTupleDigest:oldDigest,observedRoles:observedRoles.filter(r=>FAMILY.includes(r)),snapshotId:f.snapshotId,snapshotAt:f.snapshotExportedAt,expectedRole:wanted,adoptedAt:state.at,expiresAt:state.at+PRIVACY_YEAR,grantOnly:true,manualExistingRoles:true,historicalUnknown:true}) satisfies Payload;
+  stage='finding-signature';const signature=hex(await sign('HMAC',await signingKey(config.secret),encode(json(payload)))),refs=[...new Set([original.u,subject])],details=json({version:1,kind:PURPOSE,payload,signature,_privacySubjectIds:refs});
   const values:Scalar[]=[payload.receiptId,payload.adoptedAt,original.u,subject,details,json(tuple(old)),FAMILY_JSON,state.generation,preview!.nonce];
   const native=routineMembership232Predicate(actionEnv,cap,values.length+1,true);values.push(...native.values);
   const match=FIELDS.map((k,i)=>`r.${k} IS json_extract(?6,'$[${i}]')`).join(' AND '),family=related('r','?4',"'"+config.guild+"'",'?7');
@@ -245,11 +247,15 @@ export async function handleSiteRoleBaseline285(request:Request,env:Env,admin:Si
    AND (SELECT COUNT(*) FROM role_settlements r WHERE ${family} AND r.attempts=1 AND r.state IN('dispatching','unknown'))=1
    AND NOT EXISTS(SELECT 1 FROM role_settlements r WHERE ${family} AND r.attempts=0 AND r.state IN('pending','dispatching') AND r.expires_at>${DB_NOW})
    AND NOT EXISTS(SELECT 1 FROM audit a WHERE a.action='${ROLE_BASELINE_ACTION285}' AND a.actor=?3 AND a.subject=?4 AND CASE WHEN json_valid(a.details) THEN json_extract(a.details,'$.payload.nonce')=?9 ELSE 0 END) RETURNING id`;
-  check();assertRoutineMembership232(actionEnv,cap);appendStarted=true;const result=await db.prepare(sql).bind(...values).all<{id:number}>();check();
+  stage='finding-append';check();assertRoutineMembership232(actionEnv,cap);appendStarted=true;const result=await db.prepare(sql).bind(...values).all<{id:number}>();check();
   if(result.success!==true||result.meta.changes!==1||result.results.length!==1||result.results[0]!.id!==payload.receiptId)throw new Held('baseline_append_unconfirmed');
-  await read();return apiJson({adopted:true,roleChangesSent:0,receiptId:payload.receiptId,oldId:old.id,expiresAt:payload.expiresAt,grantOnly:true,manualRemovals:true,historicalUnknown:true,automaticGrant:false});
+  stage='post-append-admission';await read();return apiJson({adopted:true,roleChangesSent:0,receiptId:payload.receiptId,oldId:old.id,expiresAt:payload.expiresAt,grantOnly:true,manualRemovals:true,historicalUnknown:true,automaticGrant:false});
  }catch(e){
   const status=e instanceof Held?e.status:e instanceof DiscordError?e.status:503;
-  return apiJson({error:appendStarted?'baseline_record_outcome_unconfirmed':e instanceof Held?e.code:'baseline_unavailable',roleChangesSent:0,...(appendStarted?{recordOutcome:'unconfirmed',recovery:'Read this account again; no role change or automatic record retry occurred.'}:{})},status===429?429:status===400?400:status===403?403:status===405?405:status===409?409:503);
+  const responseStatus=status===429?429:status===400?400:status===403?403:status===405?405:status===409?409:503;
+  // Private diagnostics contain only source-owned phases and bounded status
+  // metadata. No exception/body is logged; sink failures preserve recovery.
+  if(responseStatus===503)try{console.warn('role.baseline285_unavailable',e instanceof DiscordError?{stage,kind:'provider',...(Number.isSafeInteger(status)&&status>=100&&status<=599?{providerStatus:status}:{})}:{stage,kind:'unexpected'});}catch{/* Preserve the original response. */}
+  return apiJson({error:appendStarted?'baseline_record_outcome_unconfirmed':e instanceof Held?e.code:'baseline_unavailable',roleChangesSent:0,...(appendStarted?{recordOutcome:'unconfirmed',recovery:'Read this account again; no role change or automatic record retry occurred.'}:{})},responseStatus);
  }finally{if(cap)closeRoutineMembership232(cap);}
 }

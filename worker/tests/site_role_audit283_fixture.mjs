@@ -19,7 +19,7 @@ import {attendedPutRefusalRetry285,handleSitePutRefusalRetry285} from '../src/si
 import {handleSiteRoleBaseline285,captureRoleGrantBaseline285,roleGrantBaselineFacts285,roleGrantBaselinePredicate285} from '../src/role-baseline285.ts';
 const ADMIN='800000000000000001',SECOND_ADMIN='800000000000000002',BASE=800000000000001000n,EPOCH='a'.repeat(32),BIRTH='b'.repeat(32),SECOND_BIRTH='c'.repeat(32),SECRET='synthetic-role-audit-cookie',ROLE=CANONICAL_RANKS233[9].roleId;
 let config,rawDB,physical=0,wires=[],ready=false,savedExport=null,savedAlt=null,retryFenceRace285=null,retryAlignQueue286=false,retryAlignment286=null,prefixFinalDelay=false,prefixFinalObserved=null;const effects=new Map();
-const baselineCaps=new Map(),baselineOld=new Map(),baselineActorBirth=new Map(),baselineCookies=new Map();let baselineAppendRace=null,baselineReadRace=null,baselineGrantRace=null,baselineGrantRaceObserved=null,baselineAdmins=[];
+const baselineCaps=new Map(),baselineOld=new Map(),baselineActorBirth=new Map(),baselineCookies=new Map();let baselineAppendRace=null,baselineReadRace=null,baselineGrantRace=null,baselineGrantRaceObserved=null,baselineAdmins=[],baselineDiagnosticFault=null;
 const method=(o,k)=>{for(let p=o;p;p=Object.getPrototypeOf(p)){const d=Object.getOwnPropertyDescriptor(p,k);if(d)return d.value;}throw Error('fixture method missing');};
 const h=n=>n.toString(16).padStart(32,'0');
 async function setup(db,layout='canonical',adminId=ADMIN,lateFinal=null){
@@ -67,6 +67,11 @@ async function setup(db,layout='canonical',adminId=ADMIN,lateFinal=null){
  Object.defineProperty(fetcher,'fetch',{configurable:true,value:async function(input,init){
   const packets=JSON.parse(init.body);physical+=Array.isArray(packets)?packets.length:1;
   const originalPackets=Array.isArray(packets)?packets:[packets];
+  if(baselineDiagnosticFault&&originalPackets.some(p=>p.sql?.includes(' AS oldCount')&&p.sql?.includes(' AS findingsJSON')&&p.params?.[0]===baselineDiagnosticFault.subject)&&--baselineDiagnosticFault.remaining===0){
+   // Fail this real awaited local D1 transport before executing its SELECT.
+   // The intentionally private-looking synthetic detail must never be logged.
+   const fault=baselineDiagnosticFault;baselineDiagnosticFault=null;const detail='synthetic-private-baseline-transport '+JSON.stringify({subject:fault.subject,token:'synthetic-private-token',packets:originalPackets});throw fault.providerStatus===null?Error(detail):new DiscordError(fault.providerStatus,detail);
+  }
   if(retryAlignQueue286&&originalPackets.some(p=>p.sql?.includes('INSERT INTO role_settlements')&&p.sql?.includes("'pending'")&&p.params?.[1]===String(BASE)&&p.params?.[3]===ROLE&&p.params?.[9]===1)){retryAlignQueue286=false;const beganAt=Date.now(),delay=1000-beganAt%1000+5;await new Promise(r=>setTimeout(r,delay));retryAlignment286={beganAt,dispatchedAt:Date.now(),delayMilliseconds:delay,scope:'Delay before identical original pending INSERT only; no clock, SQL, values or result changed.'};}
   if(retryFenceRace285&&originalPackets.some(p=>p.sql?.includes(' AS current')&&p.sql?.includes('COUNT(*) FROM role_settlements r JOIN json_each'))){if(--retryFenceRace285.remaining===0){const race=retryFenceRace285;retryFenceRace285=null;await baselineMutation285({slot:race.slot,kind:race.kind});}}
   if(baselineAppendRace&&originalPackets.some(p=>p.sql?.startsWith('INSERT INTO audit(id,ts,actor,action,subject,details)')&&p.sql.includes('role.baseline285_adopted'))){const race=baselineAppendRace;baselineAppendRace=null;await baselineMutation285(race);}
@@ -278,9 +283,12 @@ export default {async fetch(request,bindings){
   const spec=await request.json(),subject=baselineSubject285(spec.slot),before=physical,start=wires.length,env={...config,DISCORD_BOT_TOKEN:'baseline285-'+(spec.mode||'normal'),...(spec.blocking?{BLOCKING_ROLE_IDS:spec.blocking}:{}),...(spec.nonAdmin?{SITE_ADMINS:ADMIN}:{})},method=spec.method||'GET';
   const selectedActor=spec.actor??baselineActor285(spec.slot??2),version=spec.refreshCookie?(await rawDB.prepare('SELECT session_version FROM site_users WHERE discord_id=?1').bind(selectedActor).first()).session_version:1,requestCookie=spec.cookie||(spec.refreshCookie?await cookie(selectedActor,Math.floor(Date.now()/1000)+3600,version):baselineCookies.get(selectedActor)||await cookie(selectedActor)),req=new Request('https://guild.example/api/admin/role-baseline'+(method==='GET'?'?subject='+subject:''),{method,headers:{Cookie:requestCookie,Origin:spec.badOrigin?'https://elsewhere.invalid':'https://guild.example','X-Olympus':'2'}}),user=await currentUser(env,req);
   if(!user)return Response.json({status:401,result:{error:'signed_out'},statements:physical-before});
-  const response=await handleSiteRoleBaseline285(req,privacyBoundSiteEnv(env,originalUserSession(user)),user,method==='POST'?{subject,previewToken:spec.token,confirm:spec.confirm??true}:{});
+  const warnings=[],originalWarning=console.warn;
+  if(spec.captureWarnings)console.warn=(...values)=>{warnings.push(values.map(value=>value instanceof Error?{name:value.name,message:value.message,stack:value.stack}:value));if(spec.warningThrows)throw Error('synthetic warning sink failure');};
+  if(spec.diagnosticFault){if(!['state-read','native-read'].includes(spec.diagnosticFault))throw Error('baseline diagnostic fixture phase');baselineDiagnosticFault={subject,remaining:spec.diagnosticFault==='state-read'?1:2,providerStatus:typeof spec.diagnosticProviderStatus==='number'?spec.diagnosticProviderStatus:null};}
+  let response;try{response=await handleSiteRoleBaseline285(req,privacyBoundSiteEnv(env,originalUserSession(user)),user,method==='POST'?{subject,previewToken:spec.token,confirm:spec.confirm??true}:{});}finally{baselineDiagnosticFault=null;if(spec.captureWarnings)console.warn=originalWarning;}
   const result=await response.json(),queries=wires.slice(start).flatMap(w=>Array.isArray(w.request)?w.request:[w.request]).map(s=>({sqlBytes:new TextEncoder().encode(s.sql||'').length,bindings:s.params?.length??0,kind:s.sql?.startsWith('INSERT INTO audit(id,ts,actor,action,subject,details)')?'baseline_append':'read_or_admission'}));
-  wires.length=0;return Response.json({status:response.status,result,statements:physical-before,queries,actualLocalWorkerdD1:true});
+  wires.length=0;return Response.json({status:response.status,result,statements:physical-before,queries,actualLocalWorkerdD1:true,...(spec.captureWarnings?{warnings}:{})});
  }
  if(path==='/baseline285/cap'){
   const spec=await request.json(),subject=baselineSubject285(spec.slot),env={...config},saved=spec.retained?baselineCaps.get(spec.slot):null;

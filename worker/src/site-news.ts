@@ -79,6 +79,11 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".290", date: "2026-11-17", lines: [
+      "Staff can identify the failed step of a held-role review without recording account details or response bodies. A failed review keeps the role change on hold.",
+    ],
+  },
+  {
     build: ".289", date: "2026-11-17", lines: [
       "The staff role comparison keeps accounts already read when Discord asks it to wait. Resume continues after them; role repairs still require a separate fresh review and confirmation.",
     ],
