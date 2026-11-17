@@ -11,10 +11,15 @@ The owner's 12 November 2026 directive (Pillar 7) sets the gate. Each item below
 says what runs today and where it still falls short of the directive's wording.
 
 1. **TypeScript:** `tsc --noEmit` over the current Worker source.
-2. **Workerd production bundle verification:** not in the gate yet. The bounded
-   stages bundle a test entry that imports `src/index.ts` with esbuild and run it
-   in Workerd with `nodejs_compat` only; they do not build the wrangler production
-   bundle from `wrangler.toml`. That stage is Codex Root's tooling.
+2. **Workerd production bundle verification:** the existing addon recovery step
+   exports the checked-out CI commit through `deploy-commit.sh --dry-run`, then
+   runs the baseline suite with `--release-bundle <index.js>`. The fixture loads
+   those unchanged production module bytes and checks the actual full-route v1
+   preview and deliberate starting-point confirmation, retaining the old receipt
+   and sending no role change. This covers the bundled initialization failure
+   found in .291. The other bounded targets still compile a test entry importing
+   `src/index.ts`; this is not full production-bundle coverage of every target.
+   Root separately runs this case against the final archived rollout bundle.
 3. **Genuine Workerd/D1 behavior:** bounded tests of the actual current Worker and
    genuine local D1. Assert observable admission, persistence, refusal and role
    behavior. Mock external Discord HTTP only; do not replace D1 with an imitation

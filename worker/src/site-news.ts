@@ -79,6 +79,11 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".292", date: "2026-11-17", lines: [
+      "Corrected a startup issue that could prevent staff from reviewing old role operations. Reviews preserve the original records; any new grant still needs its own current confirmation.",
+    ],
+  },
+  {
     build: ".291", date: "2026-11-17", lines: [
       "Staff can distinguish where a guarded role read stopped without exposing account or request details. Existing role-operation history stays preserved.",
     ],

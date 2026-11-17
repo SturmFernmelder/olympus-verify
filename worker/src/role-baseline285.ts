@@ -92,7 +92,9 @@ export function roleBaselineRelevantFindingSql285(alias:string,subject:string,g:
  return `(CASE WHEN json_valid(${alias}.details) THEN json_extract(${alias}.details,'$.payload.subject')=${subject} AND json_extract(${alias}.details,'$.payload.generation') IS ${g} AND json_extract(${alias}.details,'$.payload.oldId') IN(SELECT baseline_old285.id FROM role_settlements baseline_old285 WHERE ${related('baseline_old285',subject,guild,family)} AND baseline_old285.subject_generation IS ${g} AND baseline_old285.attempts=1 AND baseline_old285.state IN('dispatching','unknown')) ELSE 0 END)`;
 }
 const subjectEntitlementsDigest=async(config:Config,subject:string,g:string|null)=>hash(json({kind:'effective-subject-entitlements285-v1',guildId:config.guild,subject,generation:g,entries:config.entitlements.manifest?.entries.filter(e=>e.subject===subject&&e.generation===g).map(e=>e.roleKey)??[]}));
-const READ=`SELECT ${DB_NOW} AS at,p.generation,p.revision,
+// The imported retention constant participates in the serving module cycle.
+// Read it only after entry initialization, retaining the same one-year fence.
+const READ=()=>`SELECT ${DB_NOW} AS at,p.generation,p.revision,
  ${currentTarget('?1','p.generation')} AS targetCurrent,
  (SELECT COUNT(*) FROM role_settlements r WHERE ${related('r','?1','?2','?3')} AND r.attempts=1 AND r.state IN('dispatching','unknown')) AS oldCount,
  (SELECT COUNT(*) FROM role_settlements r WHERE ${related('r','?1','?2','?3')} AND r.attempts=0 AND r.state IN('pending','dispatching') AND r.expires_at>${DB_NOW}) AS activeClaims,
@@ -120,7 +122,7 @@ function eligible(old:Old,subject:string,g:string|null,at:number):boolean{
 type BaselineReadStep285='config-before'|'prepare'|'bind'|'first'|'config-after'|'own-fields'|'old-json'|'old-rows'|'old-tuple'|'findings-json'|'findings-rows'|'finding-fields';
 async function readState(db:D1Database,config:Config,subject:string,native?:Readonly<{sql:string;values:readonly Scalar[]}>,progress?:(step:BaselineReadStep285)=>void):Promise<State>{
  progress?.('config-before');config.check();
- progress?.('prepare');const statement=db.prepare(READ+(native?' WHERE ('+native.sql+')':''));
+ progress?.('prepare');const statement=db.prepare(READ()+(native?' WHERE ('+native.sql+')':''));
  progress?.('bind');const bound=statement.bind(subject,config.guild,FAMILY_JSON,json(config.actorIds),...(native?native.values:[]));
  progress?.('first');const raw=await bound.first();
  progress?.('config-after');config.check();if(!raw)return held();
