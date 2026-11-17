@@ -97,7 +97,7 @@ try{
     check('an unknown entitlement hold survives an invalid continuation instead of being cleared',chain?.unknownKnight?.page?.held?.some(r=>r.reason==='discord-entitlement-unknown')&&noPlan(chain?.unknownKnight));
     check('Knight continuation refuses reused snapshots and wrong exact step',noPlan(chain?.reusedSnapshot)&&noPlan(chain?.wrongStep)&&noPlan(chain?.omittedStep));
     check('Knight continuation refuses forged token or another qualified actor',noPlan(chain?.forgedKnight)&&noPlan(chain?.wrongKnightActor));
-    check('expiry alone refuses a signed Knight continuation while the otherwise identical original succeeds',chain?.expiryControl?.page?.promotions?.[0]?.intent?.id===knight?.intent?.id&&chain.expiryControl.page.promotions[0].intent.acknowledgedSteps===2&&noPlan(chain?.expired));
+    check('expiry alone refuses a signed Knight continuation while the otherwise identical original succeeds',!!knight&&!!chain?.expiryControl?.page?.promotions?.[0]&&chain.expiryControl.page.promotions[0].intent.id===knight.intent.id&&chain.expiryControl.page.promotions[0].intent.acknowledgedSteps===2&&noPlan(chain?.expired));
     check('Knight continuation refuses changed accepted identity facts',noPlan(chain?.changedIdentity));
     check('completed Veteran6 cannot continue or mint another selected plan',noPlan(chain?.completed)&&noPlan(chain?.completedFresh));
     if(releasePath)check('every selected case executes the unchanged supplied artifact default route',x.artifactReads?.length===x.invocations285.filter(v=>!['discovery','generic-held'].includes(v.name)).length&&x.artifactReads.every(v=>v.status===200));

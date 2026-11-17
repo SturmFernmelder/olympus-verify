@@ -20,7 +20,7 @@ export function fixture280(seed){const scheme=NATIVE_RANK_SCHEMES[seed.steward?1
  const readSelected=(name,sourceEnv,requestInput)=>measured(name,async()=>{
   if(!seed.releaseArtifact)return readDirectivePromotions(sourceEnv,requestInput);
   const token='synthetic-selected-release-watcher-token',q=new URLSearchParams({keyVersion:'officer-operations-v234',selectionId:String(requestInput.selectionId),targetGuids:JSON.stringify(requestInput.targetGuids),snapshotId:String(requestInput.snapshotId),snapshotAt:String(requestInput.snapshotAt),actorGuid:requestInput.actorGuid,confirmations:JSON.stringify(requestInput.confirmations)});
-  const response=await worker.fetch(new Request('https://fixture.invalid/queue/launch-operations?'+q,{headers:{Authorization:'Bearer '+token}}),{...sourceEnv,DB:db,WATCHER_TOKEN:token},{waitUntil(){},passThroughOnException(){}});
+  const response=await worker.fetch(new Request(new URL('/queue/launch-operations?'+q,sourceEnv.PUBLIC_BASE_URL),{headers:{Authorization:'Bearer '+token}}),{...sourceEnv,DB:db,WATCHER_TOKEN:token},{waitUntil(){},passThroughOnException(){}});
   artifactReads.push({name,status:response.status});if(response.status!==200)throw Error('Exact selected release route refused '+name+' '+response.status);
   return response.json();
  });
