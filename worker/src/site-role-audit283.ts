@@ -3,7 +3,7 @@
  * existing Native writer; old requests, manual roles and appointments are kept. */
 import type {Env} from './env';
 import {now,audit} from './db';
-import {rest,DiscordError} from './discord';
+import {rest,DiscordError,originalDiscordGetPacing,type OriginalDiscordGetPacing} from './discord';
 import {apiJson,b64u,isSiteAdmin,originalUserSession,PAGE_VERSION,sameOrigin,type SiteUser} from './site-core';
 import {admittedReadAs,FENCE_REFUSED,type CommunitySubject} from './community-context';
 import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
@@ -32,7 +32,7 @@ type Snapshot={id:number;exported_at:number;received_at:number;member_count:numb
 type Facts={id:string;generation:string|null;revision:number|null;privacyState:string|null;privacyHeld:number;characters:string;receipts:string;characterCount:number;receiptCount:number;unknownAttempts:number;expiredUnattempted:number;activeUnattempted:number;baselineFindings:string};
 type Receipt={id:string;role:string;desired:number;state:string;attempts:number;reason:string;created:number;expiry:number;checked:number|null;generation:string|null;parent:string|null;noEffect?:number};
 type Projection={expected:string|null;cause:string;nativeRank:string|null;nativeCharacter:string|null;snapshotId:number|null;deadline:number|null;activeExpected?:string|null;activeCause?:string;holdReason?:string|null};
-type Cursor={after:string;issuedAt:number;expiresAt:number;page:number};
+type Cursor={after:string;issuedAt:number;expiresAt:number;page:number;readNotBefore?:number};
 type Preview={subject:string;issuedAt:number;expiresAt:number;snapshot:number;snapshotAt:number;expected:string;factsDigest:string;observedRoles:string[];baselineFindingId:number|null};
 const MANAGED=new Set(CANONICAL_MANAGED_ROLE_IDS233);
 const ownAck=(r:Receipt)=>r.state==='settled'&&r.attempts===1&&r.desired===1&&
@@ -219,9 +219,21 @@ export async function handleSiteRoleAudit283(request:Request,env:Env,admin:SiteU
   const snapshot=await snapshotRead();check();
   const cursorBinding=binding+'|cursor|'+(planning?'steward-v3':'active')+'|'+scope;
   const cursor=rawCursor?await open(env.COOKIE_SECRET,cursorBinding,rawCursor):{after:'0',issuedAt:now(),expiresAt:Math.min(now()+CURSOR_SECONDS,original.e),page:0,...(focused?{snapshotId:snapshot?.id??null,snapshotAt:snapshot?.exported_at??null}:{})};check();clock(cursor,CURSOR_SECONDS);
-  const cursorKeys=focused?'after,expiresAt,issuedAt,page,snapshotAt,snapshotId':'after,expiresAt,issuedAt,page';
+  const cursorKeys=(focused?['after','expiresAt','issuedAt','page','snapshotAt','snapshotId',...(Object.hasOwn(cursor,'readNotBefore')?['readNotBefore']:[])]:['after','expiresAt','issuedAt','page']).sort().join(',');
   if(Object.keys(cursor).sort().join(',')!==cursorKeys||cursor.after!=='0'&&!validId(cursor.after)||!Number.isSafeInteger(cursor.page)||(cursor.page as number)<0||(cursor.page as number)>100000)throw new Held('invalid_cursor',400);
   if(focused&&(!snapshot||snapshot.id!==cursor.snapshotId||snapshot.exported_at!==cursor.snapshotAt))throw new Held('focused_source_changed');
+  if(Object.hasOwn(cursor,'readNotBefore')&&(!Number.isSafeInteger(cursor.readNotBefore)||(cursor.readNotBefore as number)<(cursor.issuedAt as number)||(cursor.readNotBefore as number)>253402300799))throw new Held('invalid_cursor',400);
+  // A signed pause only restricts this same read. It renews no source, cursor,
+  // session, preview or effect and creates no persistent cooldown or receipt.
+  const readPause=async(notBefore:number,observations:readonly OriginalDiscordGetPacing[],retained=false,otherFailure?:{reason:unknown})=>{
+   await read([]);check();const t=now(),remaining=Math.max(0,notBefore-t),floorOnly=otherFailure!==undefined,resumeAvailable=!floorOnly&&Math.max(notBefore,t)<(cursor.expiresAt as number);
+   const resumeCursor=resumeAvailable?await seal(env.COOKIE_SECRET,cursorBinding,{...cursor,readNotBefore:notBefore}):null;check();
+   const cause=otherFailure?.reason,status=cause instanceof Held?cause.status:cause instanceof DiscordError?cause.status:floorOnly?503:429;
+   const gap=cause instanceof Held?cause.code:status===403?'discord_forbidden_members_intent_or_permissions':status===429?'discord_rate_limited':'provider_or_admission_unavailable';
+   return apiJson({error:cause instanceof Held?cause.code:'role_audit_unavailable',coverage:{complete:false,gap},automaticRetry:false,resumeCursor,
+    readPacing:{version:1,kind:floorOnly?'original-discord-get429-floor':retained?'retained-discord-get429':'original-discord-get429',serverNow:t,notBefore,retryAfterSeconds:remaining,resumeAvailable,traversalExpiresAt:cursor.expiresAt,observations}},status===403?403:status===429?429:503,{'Retry-After':String(remaining)});
+  };
+  if(focused&&typeof cursor.readNotBefore==='number'&&cursor.readNotBefore>now())return readPause(cursor.readNotBefore,[],true);
   let page:{members:ProviderMember[];complete:boolean},last=cursor.after as string,processedCount=0,observedOnly=0,providerRowsFetched:number|null=null,providerRequests=0,unavailableLinked=0,preWithheld=0;
   if(focused){
    const selectedRead=await read([env.DB.prepare(focusedSubjects285(scope==='native')).bind(cursor.after,ROLE_AUDIT_FOCUSED_PAGE285+1,snapshot!.id)]);
@@ -232,20 +244,31 @@ export async function handleSiteRoleAudit283(request:Request,env:Env,admin:SiteU
    // Bounded pairs, read-only. A failure ends the page; another pair is never
    // launched after a refused/rate-limited response. No provider mutation occurs.
    for(let start=0;start<selected.length;start+=2){
-    const pair=await Promise.all(selected.slice(start,start+2).map(async id=>{
+    const pacing=new Map<unknown,OriginalDiscordGetPacing>();
+    const pair=await Promise.allSettled(selected.slice(start,start+2).map(async id=>{
      const target=(await targetsRead([id]))[0];check();
      if(!target)throw new Held('target_read_unconfirmed',503);
      if(target.privacyHeld||target.privacyState!==null&&target.privacyState!=='active'){preWithheld++;return null;}
      let raw:unknown;providerRequests++;
-     try{raw=await rest<unknown>(env,'GET',`/guilds/${env.GUILD_ID}/members/${id}`,undefined,1);}
-     catch(error){if(error instanceof DiscordError&&error.status===404){unavailableLinked++;return null;}throw error;}
+     const path=`/guilds/${env.GUILD_ID}/members/${id}`;
+     try{raw=await rest<unknown>(env,'GET',path,undefined,1);}
+     catch(error){if(error instanceof DiscordError&&error.status===404){unavailableLinked++;return null;}const facts=originalDiscordGetPacing(error,env,path);if(facts)pacing.set(error,facts);throw error;}
      // The next pair's target read and the common post-provider target batch
      // recheck current actor/target admission before more reads or any release.
      // No role decision or private row is released from this intermediate list.
      check();const member=providerPage([raw],'0').members[0]!;
      if(member.id!==id)throw new Held('discord_reply_unconfirmed',503);return member;
     }));
-    members.push(...pair.filter((m):m is ProviderMember=>m!==null));
+    // Settle both already-started reads: the second original 429 may require a
+    // longer wait. Never launch the next pair or classify a partial page.
+    const failures=pair.filter((p):p is PromiseRejectedResult=>p.status==='rejected');
+    if(failures.length){
+     const other=failures.find(p=>!(p.reason instanceof DiscordError)||p.reason.status!==429||!pacing.has(p.reason));
+     const observed=failures.flatMap(p=>pacing.has(p.reason)?[pacing.get(p.reason)!]:[]);
+     if(observed.length)return readPause(Math.max(...observed.map(p=>p.notBefore)),observed,false,other?{reason:other.reason}:undefined);
+     throw failures[0]!.reason;
+    }
+    members.push(...pair.flatMap(p=>p.status==='fulfilled'&&p.value!==null?[p.value]:[]));
    }
    page={members,complete:ids.length<=ROLE_AUDIT_FOCUSED_PAGE285};
   }else{

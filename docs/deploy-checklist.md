@@ -2,6 +2,37 @@
 
 > Current qualification policy: the owner permanently retired full-suite marathons, historical static-source projection pins and throwaway operator control loops on 10 November 2026. [Release qualification](release-qualification.md) supersedes all older testing instructions below. Dated evidence remains history; runtime/privacy/identity and deployment authority are preserved.
 
+## Build .287 — preserve Discord read pacing (candidate, 16 November 2026)
+
+Two live focused comparisons stopped on their first provider429. Preserve original
+bounded GET response timing separately from all PUT/DELETE effect witnesses.
+Settle both already-started reads and retain the longest confirmed minimum wait.
+The signed restriction-only Resume keeps the exact original page boundary,
+source, birth and expiry. Mixed unknown failures permit no Resume; their known
+minimum wait still restricts a fresh read in the current view. Unknown timing
+stays held. Completed results and uncertain outcomes remain visible, and the
+request counter explicitly covers completed pages only. This is focused-scan
+pacing, not a service-wide scheduler, automatic retry, receipt reset or new
+stale-source authority. Manual Resume avoids hidden HTTP repeats and waits that
+outlast original admission clocks; bounded short in-request retry was considered.
+
+The owner separately approved adding exactly four shipped administrator POST
+paths to Cloudflare's existing main-host allowlist. Root applied the reviewed
+four-string correction and verified persisted bytes and four anonymous401 JSON
+signed_out refusals. Authentication, other hosts/methods/rules and Block/Active
+order remain unchanged. The provider-only correction is not a source activation.
+The public checker now preserves all95 earlier cases and adds these four exact,
+empty, credential-free POST refusals (99 total); generic POST probing is refused.
+
+Require final exact-head qualification, hosted CI and actual Root/Claude mutual
+signatures before this separate Worker upload. Fresh backup/full local restore,
+expected-head merge/mainCI, exact preserved-variable bundle,99 public probes and
+original natural callback checks remain Root-owned. No addon/Watcher reinstall
+is required:0.6.40/0.6.41 remain byte-identical. The .286 native acceptance of18
+characters and its two preserved policy/history holds are dated observations,
+not proof of current Discord-role convergence. No old unknown operation is
+replayed and no unrelated Link/live bridge/Steward-v3 policy is enabled.
+
 ## Build .286 — attended grant compensation follow-up (candidate, 16 November 2026)
 
 The .285 source was signed and squash-merged as186dc9c9, with the same tree

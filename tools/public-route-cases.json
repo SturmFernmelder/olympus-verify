@@ -1,6 +1,6 @@
 {
   "schema": "olympus-public-routes-v1",
-  "scope": "Ninety-five anonymous postdeployment behaviors: the existing 90 owner-approved ones, the two member-gated talent archive files added on 12 November 2026, and anonymous refusal at the three administrator-only verification recovery routes. Static source digests are computed from the supplied current commit, not frozen here.",
+  "scope": "Ninety-nine anonymous postdeployment behaviors: all95 earlier cases, plus four exact empty credential-free POSTs that must receive the application signed_out401 refusal at the shipped administrator recovery routes. No authenticated operation or request body is sent. Static source digests come from the supplied current commit.",
   "cases": [
     {
       "method": "GET",
@@ -5017,6 +5017,90 @@
       "method": "GET",
       "url": "https://olympus.roachcouncil.com/api/admin/role-put-refusal-retry",
       "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "url": "https://olympus.roachcouncil.com/api/admin/role-audit",
+      "status": 401,
+      "anonymousAdminRefusal": true,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "url": "https://olympus.roachcouncil.com/api/admin/role-baseline",
+      "status": 401,
+      "anonymousAdminRefusal": true,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "url": "https://olympus.roachcouncil.com/api/admin/role-put-refusal-retry",
+      "status": 401,
+      "anonymousAdminRefusal": true,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "url": "https://olympus.roachcouncil.com/api/admin/late-proof",
+      "status": 401,
+      "anonymousAdminRefusal": true,
       "headers": [
         {
           "name": "content-type",
