@@ -1,0 +1,30 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),cp=require('node:child_process'),crypto=require('node:crypto');
+const {build}=require('esbuild'),{Miniflare,Log,LogLevel,convertV4MiniflareOptions}=require('miniflare');
+const started=Date.now(),root=path.join(__dirname,'..'),args=process.argv.slice(2),oi=args.indexOf('--out');if(oi<0)throw Error('--out required');const out=path.resolve(args[oi+1]);if(fs.existsSync(out))throw Error('fresh --out required');fs.mkdirSync(out,{recursive:true});
+const H=b=>crypto.createHash('sha256').update(b).digest('hex'),driverBefore=H(fs.readFileSync(__filename)),checks=[],check=(name,yes,observed)=>{checks.push({name,pass:!!yes,observed});console.log((yes?'PASS ':'FAIL ')+name);};
+(async()=>{let mf;try{
+ const seedPath=path.join(out,'seed.json'),seeded=cp.spawnSync(process.execPath,[path.join(__dirname,'launch_membership231_seed.cjs'),seedPath],{cwd:root,encoding:'utf8',windowsHide:true,timeout:60000,maxBuffer:4e6});fs.writeFileSync(path.join(out,'seed.log'),(seeded.stdout||'')+(seeded.stderr||''));if(seeded.status!==0)throw Error('Maintained synthetic schema seed failed');
+ const built=await build({stdin:{contents:'import {fixture295} from '+JSON.stringify(path.join(__dirname,'routine_legacy_left295_fixture.mjs'))+';import seed from '+JSON.stringify(seedPath)+';export default fixture295(seed);',resolveDir:root,sourcefile:'routine-legacy-left295-entry.mjs'},absWorkingDir:root,bundle:true,write:false,format:'esm',platform:'browser',target:'es2022',external:['node:async_hooks'],tsconfig:path.join(root,'tsconfig.json'),metafile:true,logLevel:'silent'}),bundle=built.outputFiles[0].text;
+ const pins=Object.keys(built.metafile.inputs).filter(p=>p!=='routine-legacy-left295-entry.mjs').map(p=>({path:path.resolve(root,p),sha256:H(fs.readFileSync(path.resolve(root,p)))}));fs.writeFileSync(path.join(out,'bundle.mjs'),bundle);
+ const all=['valid-guid','null-guid','serving-v1-valid-guid','serving-v1-null-guid','member-null-guid','null-guid-no-current-proof','no-current-proof','no-current-member','inert-only','left-pending','postcutoff-bound','postcutoff-verified','bad-clock','bad-source','bad-guid','empty-guid','bad-key','duplicate-old-guid','native-name','native-guid','unknown-rank-name','unknown-rank-guid','unknown-guid-name','canonical-off','race-status','race-clock','race-native-name','race-native-guid','race-canonical','race-anchor','race-key'],only=args.indexOf('--only'),kinds=only<0?all:args[only+1].split(',');if(kinds.some(k=>!all.includes(k)))throw Error('Unknown fixed case');
+ const results=[];let externalCalls=0;const runtime=fs.mkdtempSync(path.join(os.tmpdir(),'olv-legacy-left295-'));
+ // One real isolated database per case; construction is sequential and bounded.
+ for(const kind of kinds){mf=new Miniflare(convertV4MiniflareOptions({rootPath:runtime,script:bundle,modules:true,name:'routine-legacy-left295-'+kind,compatibilityDate:'2026-09-01',compatibilityFlags:['nodejs_compat'],cf:false,host:'127.0.0.1',port:0,log:new Log(LogLevel.NONE),logRequests:false,telemetry:{enabled:false},unsafeRegisterWorker:false,unsafeLocalExplorer:false,unsafeObservability:false,d1Databases:{DB:'routine-legacy-left295-'+kind},outboundService:async()=>{externalCalls++;throw Error('No external request permitted');}}));await mf.ready;
+  const response=await mf.dispatchFetch('https://fixture.invalid/'+kind,{method:'POST'}),text=await response.text();fs.writeFileSync(path.join(out,kind+'.json'),text);if(response.status!==200)throw Error('Fixture response '+kind+' '+response.status);const r=JSON.parse(text);results.push(r);
+  check(kind+' actual Workerd/D1 issuer on 1000 native rows',r.actualWorkerdD1&&r.rosterRows===1000);
+  if(['valid-guid','null-guid','serving-v1-valid-guid','serving-v1-null-guid'].includes(kind)){
+   check(kind+' only independently anchored current Member qualifies',r.cap&&r.facts?.cause==='eligible'&&r.facts.primary?.guid==='Player-4613-12345678'&&r.facts.primary?.index===8&&r.admitted&&r.integrityAdmitted,{holdReason:r.holdReason,facts:r.facts,error:r.error});
+   check(kind+' original legacy row and all identity receipts unchanged',r.oldRowsAndReceiptsUnchanged);
+  }else if(kind.startsWith('race-')){
+   check(kind+' begins with genuine qualified cap and applied race then final admission holds',r.cap&&r.raceMutationApplied&&!r.admitted&&!r.integrityAdmitted,{cap:r.cap,error:r.error,holdReason:r.holdReason,raceMutationApplied:r.raceMutationApplied});
+   check(kind+' capture and predicate do not rewrite race state/history',JSON.stringify(r.afterRace)===JSON.stringify(r.after));
+  }else{
+   check(kind+' remains held and supplies no new capability',!r.cap&&!r.admitted,{holdReason:r.holdReason});
+   check(kind+' held read leaves legacy row and receipts unchanged',r.oldRowsAndReceiptsUnchanged);
+  }
+  await mf.dispose();mf=null;
+ }
+ check('zero external/provider calls',externalCalls===0);check('all compiled source inputs byte-stable',pins.every(p=>H(fs.readFileSync(p.path))===p.sha256));const driverAfter=H(fs.readFileSync(__filename));check('assertion driver byte-stable',driverBefore===driverAfter);
+ const receipt={schema:'routine-legacy-left295-genuine-v1',atUTC:new Date().toISOString(),elapsedSeconds:(Date.now()-started)/1000,ok:checks.every(c=>c.pass),checks:checks.length,cases:checks,scope:'Synthetic exact-shaped accepted anchors plus genuine routine issuer and final D1 predicates, canonical serving-v1 compatibility and Steward-v3, 1000 native rows; no OAuth/proof signing/provider/action qualification claim.',bundleSHA256:H(bundle),driverBefore,driverAfter,sourceInputs:pins,externalCalls,results};fs.writeFileSync(path.join(out,'RESULT.json'),JSON.stringify(receipt,null,2)+'\n');console.log(JSON.stringify({ok:receipt.ok,checks:receipt.checks,out,elapsedSeconds:receipt.elapsedSeconds}));if(!receipt.ok)process.exitCode=1;
+ }finally{if(mf)await mf.dispose();}})().catch(error=>{fs.writeFileSync(path.join(out,'ERROR.json'),JSON.stringify({error:String(error.stack),fixtureFailure:true},null,2)+'\n');console.error(error.stack);process.exitCode=1;});
