@@ -3,9 +3,15 @@ local passed, failed = 0, 0
 local function check(label, value)
   if value then passed = passed + 1; print("PASS " .. label) else failed = failed + 1; print("FAIL " .. label) end
 end
-local function fixture(legacy)
+local function fixture(legacy, unicodeLower)
   local e = setmetatable({}, { __index = _G }); e._G = e
   setfenv(assert(loadfile("wow_mock.lua")), e)()
+  if unicodeLower then
+    e.string = {}; for key, value in pairs(string) do e.string[key] = value end
+    e.string.lower = function(value)
+      return (string.lower(value):gsub("Ä", "ä"):gsub("É", "é"))
+    end
+  end
   e.NOW = 1793720000
   e.date = function(format, at) return os.date(format, at) end -- native date supports !UTC directly
   e.OlympusVerifyConfig = { secret = "synthetic-per-whisper-only", membershipOnly = not legacy, uiAutoShow = false, checkBeforeInvite = false }
@@ -39,6 +45,23 @@ local function fixture(legacy)
     local out = {}; for _, row in ipairs(e.WHISPERS) do if row.text:find("^Olympus: member ") then out[#out + 1] = row end end; return out
   end
   return f
+end
+
+do
+  local f = fixture(false, true)
+  local h, name, guid, code = f.e.OlympusHmac, "Älpha Tést-Realm", "Player-1-ABCDEF12", "M2XC8F7"
+  check("fixture reproduces a Unicode-aware client string.lower", f.e.string.lower("ÄLPHA TÉST") == "älpha tést")
+  check("identity normalization preserves non-ASCII bytes under Unicode string.lower", h.normalizeCharacter(" \tÄLPHA \n TÉST-Realm \t") == "Älpha tÉst")
+  check("accent case remains a distinct native identity", h.normalizeCharacter("Älpha Tést") ~= h.normalizeCharacter("älpha Tést"))
+  local event = f.whisper(name, guid, code)
+  local proof = event.nativeMembership
+  check("synthetic ticket remains valid independently of the accented name", event.ok == true)
+  check("actual signer keeps the ASCII-only Python HMAC vector under Unicode string.lower", proof and proof.mac == "46d66c6e41e852c72f517d997449cd0d")
+  local legacyName = f.e.string.lower(h.normalizeCharacter(name))
+  local legacyMAC = h.hmacSha256hex(f.e.OlympusVerifyConfig.secret, table.concat({ "membership", "1", legacyName, guid, code, "1", "1793720000", "a32080270acf8d2f" }, "|")):sub(1,32)
+  check("old Unicode-folded signature is reproduced with the synthetic key", legacyMAC == "d2c7794ec6bb25c36947158ac5eb1fae")
+  check("Unicode-folded signature differs from the retained ASCII contract", proof and legacyMAC ~= proof.mac)
+  check("ASCII trim whitespace and realm behavior stays unchanged", h.normalizeCharacter(" \tFRESH  MEMBER-Realm \n") == "fresh member")
 end
 
 do

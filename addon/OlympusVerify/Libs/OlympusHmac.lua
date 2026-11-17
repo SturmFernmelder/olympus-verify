@@ -11,7 +11,7 @@
      Vectors: watcher/tests/vectors.json ]]
 
 local band, bor, bxor, bnot, rshift, lshift = bit.band, bit.bor, bit.bxor, bit.bnot, bit.rshift, bit.lshift
-local byte, char, rep, sub, format, gsub, lower = string.byte, string.char, string.rep, string.sub, string.format, string.gsub, string.lower
+local byte, char, rep, sub, format, gsub = string.byte, string.char, string.rep, string.sub, string.format, string.gsub
 local MOD = 4294967296
 
 local function u32(x) return x % MOD end
@@ -98,7 +98,8 @@ local function normalizeCharacter(name)
   s = gsub(s, "%s+", " ")
   local dash = string.find(s, "-", 2, true)
   if dash then s = sub(s, 1, dash - 1) end
-  return lower(s) -- WoW's Lua runs in the C locale: only A-Z change
+  -- The client may provide Unicode-aware string.lower; identity bytes must follow the shared ASCII-only contract.
+  return (gsub(s, "[A-Z]", function(c) return char(byte(c) + 32) end))
 end
 
 local function digestToCode(digest)

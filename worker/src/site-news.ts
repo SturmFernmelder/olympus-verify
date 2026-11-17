@@ -79,6 +79,11 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".288", date: "2026-11-17", lines: [
+      "Verify 0.6.41 signs accented character names consistently with the server. Existing invalid proofs stay held; a fresh in-game whisper is needed after the officer addon updates.",
+    ],
+  },
+  {
     build: ".287", date: "2026-11-16", lines: [
       "The staff role comparison keeps completed results when Discord asks it to wait. Resume continues the same check after the confirmed wait; uncertain results stay on hold.",
     ],

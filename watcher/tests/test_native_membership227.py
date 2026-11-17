@@ -102,6 +102,27 @@ class NativeMembershipTests(unittest.TestCase):
         proof = dict(version=1, member=True, observedAt=1793720000, scopeHash='a32080270acf8d2f')
         self.assertEqual(membership_mac('synthetic-per-whisper-only', 'Fresh Member-Realm', 'Player-1-ABCDEF12', '8ALCWJ', proof), 'a386604f5049ee4c67b2518c302c1b48')
 
+    def test_accented_native_vector_requires_ascii_only_name_normalization(self):
+        secret, name, guid = 'synthetic-per-whisper-only', '\u00c4lpha T\u00e9st-Realm', 'Player-1-ABCDEF12'
+        observed = 1793720000
+        day = codes.day_bucket(datetime.fromtimestamp(observed, timezone.utc))
+        self.assertEqual(day, '2026-11-03')
+        code = codes.ticket_for(secret, 'M2X', day)
+        self.assertEqual(code, 'M2XC8F7')
+        self.assertEqual(codes.normalize_character(name), '\u00c4lpha t\u00e9st')
+        proof = dict(version=1, member=True, observedAt=observed, scopeHash='a32080270acf8d2f',
+                     mac='46d66c6e41e852c72f517d997449cd0d')
+        self.assertEqual(membership_mac(secret, name, guid, code, proof), proof['mac'])
+        self.assertEqual(validate_membership(secret, name, guid, code, proof, observed), proof)
+        # ASCII case, ordinary whitespace and a realm suffix remain equivalent.
+        equivalent = ' \t\u00c4LPHA   T\u00e9ST-OtherRealm \n'
+        self.assertEqual(validate_membership(secret, equivalent, guid, code, proof, observed), proof)
+        # This is a genuinely signed alternate canonical name, not malformed proof.
+        folded = dict(proof, mac='d2c7794ec6bb25c36947158ac5eb1fae')
+        self.assertEqual(membership_mac(secret, name.lower(), guid, code, proof), folded['mac'])
+        self.assertEqual(validate_membership(secret, name.lower(), guid, code, folded, observed), folded)
+        self.assertIsNone(validate_membership(secret, name, guid, code, folded, observed))
+
     def test_savedvariables_fallback_requires_and_preserves_real_proof(self):
         base = dict(type='whisper', name=NAME, ts=self.at, code=self.code, ok=True, guid=GUID)
         self.w.forward_events([base])
