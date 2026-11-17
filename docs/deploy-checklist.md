@@ -2,6 +2,35 @@
 
 > Current qualification policy: the owner permanently retired full-suite marathons, historical static-source projection pins and throwaway operator control loops on 10 November 2026. [Release qualification](release-qualification.md) supersedes all older testing instructions below. Dated evidence remains history; runtime/privacy/identity and deployment authority are preserved.
 
+## Build .288 — match native name signatures (candidate, 17 November 2026)
+
+A preserved live whisper's MAC matched Unicode-lowercased character bytes,
+whereas the verification contract lowers ASCII A–Z only. The installed addon
+and Watcher signing settings matched in the owner's authorized read-only
+comparison; neither reproduced that MAC under the specified ASCII message.
+The same configured key reproduced it under Unicode lowercasing. No key was
+printed, saved, changed or rotated. Offline Lua/Python/TypeScript agreed under
+the ordinary test locale, so the regression also substitutes a UTF-8-aware
+`string.lower` before loading the actual native signer.
+
+Verify 0.6.41 folds explicit ASCII bytes and preserves every other byte,
+independently of the live client's locale or modified `string.lower`.
+Whitespace and realm-suffix handling are unchanged. Watcher 0.6.41 and the
+server's strict signature rules remain unchanged. Build .288 publishes the
+updated public addon; it adds no configuration, API, schema or role authority.
+The approved policy retains its actual 16 November publication date.
+
+Require final exact-head local qualification, independent Codex peer review,
+hosted CI and Root sign-off under the owner's explicit current waiver of the
+Claude gate. Root alone performs the fresh full D1 restore check, expected-head
+merge, shipping CI, exact preserved-variable deployment and public/cron/RT-16
+readbacks. Install only the changed public addon files, preserve private
+configuration and all originals, then use one normal reload to load the fix.
+A new incoming whisper must establish a new observation; never repair, re-sign,
+reset or replay the old invalid proof. Native promotion still needs fresh
+verified eligibility and a separate officer click. The held bridge, Link,
+Treasury dispatch and Steward-v3 policy remain behind their existing gates.
+
 ## Build .287 — preserve Discord read pacing (candidate, 16 November 2026)
 
 Two live focused comparisons stopped on their first provider429. Preserve original
