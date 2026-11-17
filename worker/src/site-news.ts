@@ -79,6 +79,11 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".297", date: "2026-11-17", lines: [
+      "Staff can read one Discord account directly while keeping a paused scan. A fresh review and separate confirmation are still required before any role change.",
+    ],
+  },
+  {
     build: ".293", date: "2026-11-17", lines: [
       "Eligible Knights can be reviewed for Veteran through separate current rank checks and one attended click per step. Existing uncertain history remains preserved.",
       "Verify 0.6.42 shows an observed Member rank clearly when earlier promotion history still needs review, without clearing that history or enabling another command.",

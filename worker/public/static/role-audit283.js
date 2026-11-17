@@ -2,12 +2,15 @@
  * Reading pages is sequential; repairs are individual deliberate clicks. */
 window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
   let destroyed = false, busy = false, paused = false, cursor = null, finished = false;
-  let refusalFocus = null;
+  let refusalFocus = null, chosenView = false;
   let readPause = null, readPauseDeadline = 0, readPauseTimer = null;
   const readClock = () => typeof performance !== 'undefined' ? performance.now() : Date.now();
   const readWait = () => Math.max(0, Math.ceil((readPauseDeadline - readClock()) / 1000));
   let pages = 0, processed = 0, observedOnly = 0, withheld = 0, unavailableReads = 0, providerRequests = 0, linkedUnavailable = 0, firstSource = null, nativeLinkedCandidates = null;
-  const rows = new Map(), labels = new Map(), outcomes = new Map(), baselinePreviews = new Map(), refusalPreviews = new Map(), refusalSpent = new Set();
+  const rows = new Map(), chosenRows = new Map(), labels = new Map(), outcomes = new Map(), baselinePreviews = new Map(), refusalPreviews = new Map(), refusalSpent = new Set();
+  const displayedRows = () => chosenView ? chosenRows : rows;
+  const currentRow = row => displayedRows().get(row.id) === row;
+  const validAccountId = value => typeof value === 'string' && /^[1-9][0-9]{16,19}$/.test(value) && BigInt(value) <= 18446744073709551615n;
   const el = (tag, text, cls) => {
     const node = document.createElement(tag);
     if (text !== undefined) node.textContent = text;
@@ -32,6 +35,11 @@ window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
   const scan = el('button', scanTitle()), pause = el('button', 'Pause'), restart = el('button', 'Start fresh'), exportButton = el('button', 'Export observed rows');
   pause.disabled = true; exportButton.disabled = true;
   toolbar.append(policy, scope, scan, pause, restart, exportButton); root.append(toolbar);
+  const chosenToolbar = el('div', undefined, 'btn-row'), chosenInput = el('input'), chosenRead = el('button', 'Read one account'), returnToScan = el('button', 'Return to scan observations');
+  chosenInput.type = 'text'; chosenInput.inputMode = 'numeric'; chosenInput.maxLength = 20; chosenInput.placeholder = 'Discord account ID'; chosenInput.setAttribute('aria-label', 'Discord account ID for one-account read');
+  returnToScan.disabled = true;
+  chosenToolbar.append(chosenInput, chosenRead, returnToScan); root.append(chosenToolbar);
+  root.append(el('p', 'Read one Discord account directly without scanning other members. Its observation is separate from the saved scan. Role changes still require a fresh Review and a separate confirmation.', 'muted'));
   const status = el('p', 'No Discord members have been reviewed.', 'muted');
   status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); root.append(status);
   const coverage = el('p', '', 'muted'); root.append(coverage);
@@ -42,7 +50,40 @@ window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
   [['name', 'Discord name A–Z'], ['name-desc', 'Discord name Z–A'], ['native', 'Native rank'], ['issues', 'Issues first']].forEach(([value, text]) => { const option = el('option', text); option.value = value; sort.append(option); });
   const filters = el('div', undefined, 'btn-row'); filters.append(filter, search, sort); root.append(filters);
   const result = el('div'); root.append(result); container.replaceChildren(root);
-  const lockInputs = value => { policy.disabled = value || readWait() > 0; scope.disabled = value || readWait() > 0; filter.disabled = value; search.disabled = value; sort.disabled = value; };
+  const lockInputs = value => { policy.disabled = value || readWait() > 0; scope.disabled = value || readWait() > 0; filter.disabled = value || chosenView; search.disabled = value || chosenView; sort.disabled = value || chosenView; chosenInput.disabled = chosenRead.disabled = value || readWait() > 0; returnToScan.disabled = value || !chosenView; };
+  const discardPreview = id => {
+    for (const store of [rows, chosenRows]) { const row = store.get(id); if (row) { row.previewToken = null; row.reviewed = false; } }
+    baselinePreviews.delete(id); refusalPreviews.delete(id);
+  };
+  const singleRow = (data, id) => {
+    if (!data || !Array.isArray(data.rows) || data.rows.length > 1 || data.nextCursor !== null || data.coverage?.scope !== 'single_discord_member_read' || data.coverage.singleMemberReadComplete !== true || data.coverage.complete !== false || data.coverage.atomicSnapshot !== false) throw new Error('Single-account coverage was not confirmed');
+    const row = data.rows[0];
+    if (row && row.id !== id) throw new Error('Single-account identity was not confirmed');
+    if (!row || row.historyWithheld || row.cause === 'privacy_held' || row.pending || row.bot) return null;
+    if (!['actual', 'missing', 'extraOwned', 'extraUnowned', 'characters'].every(key => Array.isArray(row[key])) || typeof row.username !== 'string' || typeof row.displayName !== 'string') throw new Error('Single-account identity was not confirmed');
+    return row;
+  };
+  async function readChosenAccount() {
+    if (destroyed || busy || readWait() > 0) return;
+    const id = chosenInput.value, chosenPolicy = policy.value;
+    if (!validAccountId(id)) { for (const key of chosenRows.keys()) discardPreview(key); chosenRows.clear(); if (chosenView) render(); status.textContent = 'Enter an exact Discord account ID (17–20 digits, within the Discord ID range). No read was sent.'; return; }
+    paused = true; discardPreview(id); for (const key of chosenRows.keys()) discardPreview(key); chosenRows.clear(); chosenView = true; busy = true; lockInputs(true); scan.disabled = restart.disabled = true; pause.disabled = true; render();
+    status.textContent = 'Reading this account only. The saved scan is paused; no role changes are being sent…';
+    try {
+      const data = await api('GET', '/api/admin/role-audit?subject=' + encodeURIComponent(id) + (chosenPolicy === 'steward-v3' ? '&policyPreview=steward-v3' : ''));
+      if (destroyed) return;
+      if (chosenInput.value !== id || policy.value !== chosenPolicy) { status.textContent = 'The account selection changed. The returned observation was not displayed; read the selected ID again.'; return; }
+      const fresh = singleRow(data, id);
+      if (!fresh) { rows.delete(id); status.textContent = 'This account is unavailable for this comparison. No reason is disclosed; no confirmation or repair was sent.'; return; }
+      for (const item of data.managedRoles || []) labels.set(item.roleId, item.name);
+      chosenRows.set(id, {...fresh, observedAt: Number.isSafeInteger(fresh.discordObservedAt) ? fresh.discordObservedAt : data.generatedAt, reviewed: false, previewToken: null});
+      status.textContent = 'One-account observation loaded. Review this row again before any separate confirmation. The saved scan and its original source and deadline are unchanged.';
+    } catch (error) {
+      if (!destroyed) status.textContent = `One-account read unavailable: ${error?.data?.error || error?.message || 'read unavailable'}. The saved scan is unchanged. No repair or automatic retry was sent.`;
+    } finally {
+      busy = false; if (!destroyed) { lockInputs(false); scan.disabled = finished || readWait() > 0; restart.disabled = readWait() > 0; render(); }
+    }
+  }
   const clearReadPause = () => { if (readPauseTimer !== null) clearTimeout(readPauseTimer); readPauseTimer = null; readPause = null; readPauseDeadline = 0; };
   function paintReadPause() {
     if (destroyed || !readPause) return;
@@ -63,28 +104,29 @@ window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
     return true;
   }
   function summary() {
-    const all = [...rows.values()];
+    const all = [...displayedRows().values()];
+    if (chosenView) { coverage.textContent = `Single-account observation · ${all.length} visible candidate(s). No whole-roster coverage or convergence is claimed. The saved scan retains ${pages} completed page(s) and its original source, cursor and deadline.`; return; }
     const count = test => all.filter(test).length;
     const focused = scope.value !== 'server';
     coverage.textContent = `${policy.value === 'steward-v3' ? 'Inactive v3 planning view: activation requires a separately reviewed rollout; no repair tokens or writes. ' : ''}${pages} pages · ${processed} ${focused ? 'linked-account candidates' : 'Discord accounts'} processed · ${providerRequests} Discord read requests from completed pages (incomplete-page requests are not included) · ${observedOnly} outside the managed / linked comparison (counts only) · ${withheld} privacy-held, erased, screening-pending or bot candidates withheld in traversal (counts only; identity, history and completeness unavailable) · ${unavailableReads} chosen-account reads unavailable (no classification disclosed) · ${linkedUnavailable} linked-account reads unavailable (counts only; no cause disclosed) · ${all.length} unique visible candidates. Missing: ${count(r => r.missing.length)}; extra with grant receipts: ${count(r => r.extraOwned.length)}; extra unowned: ${count(r => r.extraUnowned.length)}; known unknown effects: ${count(r => r.unknown)}; source held: ${count(r => r.sourceHeld)}. Separate native-linked candidate count: ${nativeLinkedCandidates ?? 'unconfirmed'} (not an overlap or absence proof). ${focused ? 'This scope does not check role holders who have no linked character. An unavailable account is not proof that it is gone or a reason to remove roles.' : 'Accounts absent from Discord were not individually checked; no removal is inferred.'} Traversal is not atomic and does not confirm full convergence.`;
   }
   async function review(row, button, message) {
-    if (busy || destroyed || readWait() > 0 || policy.value !== 'active' || row.activationRequired) return;
+    if (busy || destroyed || readWait() > 0 || policy.value !== 'active' || row.activationRequired || !currentRow(row)) return;
+    const targetRows = displayedRows();
     busy = true; lockInputs(true); scan.disabled = true; restart.disabled = true; button.disabled = true;
     row.previewToken = null; row.reviewed = false;
     message.textContent = 'Reading this account again for a fresh, source-bounded preview. No role changes are being sent…';
     try {
       const data = await api('GET', '/api/admin/role-audit?subject=' + encodeURIComponent(row.id));
       if (destroyed) return;
-      if (!Array.isArray(data.rows) || data.rows.length > 1 || data.nextCursor || data.coverage?.scope !== 'single_discord_member_read' || data.coverage.singleMemberReadComplete !== true || data.coverage.atomicSnapshot !== false) throw new Error('Single-account coverage was not confirmed');
+      const fresh = singleRow(data, row.id);
       for (const item of data.managedRoles || []) labels.set(item.roleId, item.name);
-      const fresh = data.rows.find(item => item.id === row.id && !item.historyWithheld && item.cause !== 'privacy_held' && !item.pending && !item.bot);
       refusalPreviews.delete(row.id); refusalSpent.delete(row.id);
-      if (!fresh) { rows.delete(row.id); unavailableReads++; status.textContent = 'This account is unavailable for this comparison. No reason is disclosed; no confirmation or repair was sent.'; return; }
+      if (!fresh) { targetRows.delete(row.id); rows.delete(row.id); if (!chosenView) unavailableReads++; status.textContent = 'This account is unavailable for this comparison. No reason is disclosed; no confirmation or repair was sent.'; return; }
       const signature = item => JSON.stringify([item.expected, item.snapshotId, item.nativeCharacter, item.nativeRank, [...item.actual].sort(), [...item.missing].sort(), [...item.extraOwned].sort(), [...item.extraUnowned].sort(), !!item.baselineGrantOnly, item.baselineFindingId ?? null]);
       const changed = signature(fresh) !== signature(row);
       const ready = !changed && fresh.repairable && !fresh.sourceHeld && !fresh.activationRequired && (!fresh.extraUnowned.length || fresh.baselineGrantOnly === true) && fresh.maxPlannedEffects === 2 && !!fresh.previewToken && Number.isSafeInteger(fresh.previewExpiresAt) && Number.isSafeInteger(fresh.confirmBy) && fresh.confirmReserveSeconds >= 112 && fresh.confirmBy <= fresh.previewExpiresAt - 112 && fresh.confirmBy > Math.floor(Date.now() / 1000);
-      rows.set(row.id, {...fresh, observedAt: Number.isSafeInteger(fresh.discordObservedAt) ? fresh.discordObservedAt : data.generatedAt, reviewed: ready, previewToken: ready ? fresh.previewToken : null});
+      targetRows.set(row.id, {...fresh, observedAt: Number.isSafeInteger(fresh.discordObservedAt) ? fresh.discordObservedAt : data.generatedAt, reviewed: ready, previewToken: ready ? fresh.previewToken : null});
       status.textContent = ready ? 'Fresh account preview loaded. Review the updated facts and consequences, then use the separate Confirm button.' : changed ? 'The account or native source changed. Updated facts are shown; review this row again before confirming. No repair was sent.' : fresh.repairable && fresh.previewToken ? 'This preview has insufficient confirmation reserve. Review again for a new read; a fresh native export or session may be needed. No repair was sent.' : 'The current account/source is held or needs no repair. No confirmation or repair was sent.';
     } catch (error) {
       if (!destroyed) status.textContent = `Fresh preview unavailable: ${error?.data?.error || error?.message || 'read unavailable'}. No repair was sent and no automatic retry occurred.`;
@@ -93,7 +135,7 @@ window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
     }
   }
   async function repair(row, button, message) {
-    if (busy || destroyed || readWait() > 0 || !row.reviewed || !row.previewToken || row.activationRequired || (row.extraUnowned.length && row.baselineGrantOnly !== true) || row.maxPlannedEffects !== 2 || policy.value !== 'active') return;
+    if (busy || destroyed || readWait() > 0 || !currentRow(row) || !row.reviewed || !row.previewToken || row.activationRequired || (row.extraUnowned.length && row.baselineGrantOnly !== true) || row.maxPlannedEffects !== 2 || policy.value !== 'active') return;
     if (!Number.isSafeInteger(row.confirmBy) || row.confirmBy <= Math.floor(Date.now() / 1000)) { row.previewToken = null; row.reviewed = false; status.textContent = 'The original preview no longer has the full confirmation reserve. Review this account again for a new read. No role change was sent by this request.'; render(); return; }
     busy = true; lockInputs(true); scan.disabled = true; restart.disabled = true; button.disabled = true;
     const token = row.previewToken; row.previewToken = null; row.reviewed = false;
@@ -111,7 +153,7 @@ window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
     }
   }
   async function reviewBaseline(row) {
-    if (busy || destroyed || readWait() > 0 || policy.value !== 'active' || row.activationRequired) return;
+    if (busy || destroyed || readWait() > 0 || policy.value !== 'active' || row.activationRequired || !currentRow(row)) return;
     busy = true; lockInputs(true); scan.disabled = true; restart.disabled = true;
     baselinePreviews.delete(row.id); row.previewToken = null; row.reviewed = false;
     outcomes.set(row.id, 'Reading the original operation and today\'s verified roles. No role changes are being sent…'); render();
@@ -134,7 +176,7 @@ window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
   }
   async function adoptBaseline(row) {
     const preview = baselinePreviews.get(row.id);
-    if (busy || destroyed || readWait() > 0 || policy.value !== 'active' || !preview) return;
+    if (busy || destroyed || readWait() > 0 || policy.value !== 'active' || !preview || !currentRow(row)) return;
     baselinePreviews.delete(row.id);
     if (preview.expiresAt <= Math.floor(Date.now() / 1000)) { outcomes.set(row.id, 'The starting-point review expired. Read it again; no decision or role change was sent.'); render(); return; }
     busy = true; lockInputs(true); scan.disabled = true; restart.disabled = true;
@@ -151,7 +193,7 @@ window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
     }
   }
   async function reviewRefusedGrant(row) {
-    if (busy || destroyed || readWait() > 0 || policy.value !== 'active' || row.activationRequired || refusalSpent.has(row.id)) return;
+    if (busy || destroyed || readWait() > 0 || policy.value !== 'active' || row.activationRequired || refusalSpent.has(row.id) || !currentRow(row)) return;
     busy = true; lockInputs(true); scan.disabled = true; restart.disabled = true;
     refusalPreviews.delete(row.id); row.previewToken = null; row.reviewed = false;
     outcomes.set(row.id, 'Reading the refused grant, current roles and bot permissions. No role change is being sent.'); render();
@@ -171,7 +213,7 @@ window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
   }
   async function confirmRefusedGrant(row) {
     const preview = refusalPreviews.get(row.id);
-    if (busy || destroyed || readWait() > 0 || policy.value !== 'active' || !preview || refusalSpent.has(row.id)) return;
+    if (busy || destroyed || readWait() > 0 || policy.value !== 'active' || !preview || refusalSpent.has(row.id) || !currentRow(row)) return;
     refusalPreviews.delete(row.id);
     if (preview.expiresAt <= Math.floor(Date.now() / 1000)) { outcomes.set(row.id, "The refused-grant review expired; nothing was submitted. Press Review refused grant to start again."); render(); return; }
     refusalSpent.add(row.id); busy = true; lockInputs(true); scan.disabled = true; restart.disabled = true;
@@ -192,10 +234,11 @@ window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
     }
   }
   function render() {
-    if (destroyed) return; summary(); exportButton.disabled = !rows.size;
+    if (destroyed) return; summary(); exportButton.disabled = !displayedRows().size; returnToScan.disabled = busy || !chosenView;
     let focusTarget = null;
     const term = search.value.trim().toLocaleLowerCase();
-    let visible = [...rows.values()].filter(row => {
+    let visible = [...displayedRows().values()].filter(row => {
+      if (chosenView) return true;
       if (term && ![row.id, row.username, row.displayName, row.nativeCharacter, ...row.characters.map(c => c.name)].filter(Boolean).join(' ').toLocaleLowerCase().includes(term)) return false;
       return filter.value === 'all' || filter.value === 'mismatch' && (row.missing.length || row.extraOwned.length || row.extraUnowned.length) ||
         filter.value === 'held' && row.sourceHeld || filter.value === 'unknown' && row.unknown || filter.value === 'manual' && (row.extraUnowned.length || row.manualPutHeld) || filter.value === 'ready' && row.repairable;
@@ -256,7 +299,7 @@ window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
     if (!busy) { refusalFocus = null; focusTarget?.focus?.(); }
   }
   async function scanPages() {
-    if (destroyed || busy || finished || readWait() > 0) return; clearReadPause(); paused = false; busy = true; lockInputs(true); scan.disabled = true; restart.disabled = true; pause.disabled = false;
+    if (destroyed || busy || finished || readWait() > 0) return; for (const key of chosenRows.keys()) discardPreview(key); chosenView = false; clearReadPause(); paused = false; busy = true; lockInputs(true); scan.disabled = true; restart.disabled = true; pause.disabled = false;
     try {
       for (let chunk = 0; chunk < 250 && !paused && !destroyed; chunk++) {
         status.textContent = `Reading page ${pages + 1}… No role changes are being sent.`;
@@ -296,7 +339,10 @@ window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
     }
   }
   scan.addEventListener('click', scanPages); pause.addEventListener('click', () => { paused = true; pause.disabled = true; });
-  const reset = () => { if (busy || readWait() > 0) return; clearReadPause(); rows.clear(); labels.clear(); outcomes.clear(); baselinePreviews.clear(); refusalPreviews.clear(); refusalSpent.clear(); cursor = null; pages = processed = observedOnly = withheld = unavailableReads = providerRequests = linkedUnavailable = 0; firstSource = nativeLinkedCandidates = null; finished = false; paused = false; scan.disabled = false; scan.textContent = scanTitle(); status.textContent = 'Ready for a fresh read-only scan.'; render(); };
+  chosenRead.addEventListener('click', readChosenAccount);
+  chosenInput.addEventListener('input', () => { if (busy || !chosenView) return; for (const key of chosenRows.keys()) discardPreview(key); chosenRows.clear(); status.textContent = 'Account selection changed. Read the selected ID for a new observation; no request was sent.'; render(); });
+  returnToScan.addEventListener('click', () => { if (destroyed || busy) return; for (const key of chosenRows.keys()) discardPreview(key); chosenView = false; paused = true; status.textContent = 'Saved scan observations restored. Resume is a separate click and retains the original cursor and deadline.'; render(); lockInputs(false); paintReadPause(); });
+  const reset = () => { if (busy || readWait() > 0) return; clearReadPause(); rows.clear(); chosenRows.clear(); chosenView = false; labels.clear(); outcomes.clear(); baselinePreviews.clear(); refusalPreviews.clear(); refusalSpent.clear(); cursor = null; pages = processed = observedOnly = withheld = unavailableReads = providerRequests = linkedUnavailable = 0; firstSource = nativeLinkedCandidates = null; finished = false; paused = false; scan.disabled = false; scan.textContent = scanTitle(); status.textContent = 'Ready for a fresh read-only scan.'; render(); lockInputs(false); };
   restart.addEventListener('click', reset); policy.addEventListener('change', reset); scope.addEventListener('change', reset);
   filter.addEventListener('change', render); sort.addEventListener('change', render); search.addEventListener('input', render);
   exportButton.addEventListener('click', () => {
@@ -308,9 +354,9 @@ window.mountRoleAudit283 = function mountRoleAudit283(container, {api}) {
       if (/^[\s\p{Cf}\u0000-\u001f\u007f]/u.test(text) || /^[=+\-@\uFF1D\uFF0B\uFF0D\uFF20\uFE66\uFE62\uFE63\uFE6B]/u.test(text) || /^[0-9]{16,}$/.test(text)) text = "'" + text;
       return '"' + text.replace(/"/g, '""') + '"';
     };
-    const values = [...rows.values()].filter(r => !r.historyWithheld && r.cause !== 'privacy_held' && !r.pending && !r.bot).map(r => [r.id, r.username, r.displayName, r.nativeCharacter, r.nativeRank, role(r.expected), r.activationRequired ? role(r.activeExpected) : role(r.expected), !!r.activationRequired, names(r.actual), names(r.missing), names(r.extraOwned), names(r.extraUnowned), r.unknown, r.sourceHeld, new Date(r.observedAt * 1000).toISOString()]);
+    const values = [...displayedRows().values()].filter(r => !r.historyWithheld && r.cause !== 'privacy_held' && !r.pending && !r.bot).map(r => [r.id, r.username, r.displayName, r.nativeCharacter, r.nativeRank, role(r.expected), r.activationRequired ? role(r.activeExpected) : role(r.expected), !!r.activationRequired, names(r.actual), names(r.missing), names(r.extraOwned), names(r.extraUnowned), r.unknown, r.sourceHeld, new Date(r.observedAt * 1000).toISOString()]);
     const url = URL.createObjectURL(new Blob([[fields, ...values].map(row => row.map(safe).join(',')).join('\r\n')], {type: 'text/csv;charset=utf-8'}));
     const link = el('a'); link.href = url; link.download = 'private-discord-role-observations.csv'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 0);
   });
-  return {pause() { paused = true; }, destroy() { destroyed = true; paused = true; clearReadPause(); rows.clear(); outcomes.clear(); baselinePreviews.clear(); refusalPreviews.clear(); refusalSpent.clear(); container.replaceChildren(); }};
+  return {pause() { paused = true; }, destroy() { destroyed = true; paused = true; clearReadPause(); rows.clear(); chosenRows.clear(); outcomes.clear(); baselinePreviews.clear(); refusalPreviews.clear(); refusalSpent.clear(); container.replaceChildren(); }};
 };

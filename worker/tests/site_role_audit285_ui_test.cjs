@@ -32,7 +32,7 @@ const checks=[],check=(name,pass)=>{checks.push({name,pass:!!pass});console.log(
  context.window.mountRoleAudit283(root,{api:async(method,url,body)=>{calls.push({method,url,body});if(method==='GET')return url.includes('?subject=')?fresh():page;return new Promise(resolve=>finish=resolve);}});
  await scan(root).click();await button(root,'Review reconciliation to Olympus Member').click();
  const pending=button(root,'Confirm Olympus Member reconciliation (up to 2 planned changes)').click();await Promise.resolve();
- const filter=select(root,'Filter role audit status'),sort=select(root,'Sort role audit'),search=find(root,n=>n.tag==='input');
+ const filter=select(root,'Filter role audit status'),sort=select(root,'Sort role audit'),search=find(root,n=>n.tag==='input'&&n.type==='search');
  check('pending attended action locks filtering, sorting and searching',filter.disabled&&sort.disabled&&search.disabled);
  finish({result:{requests:0,results:[{subject:id,state:'held',reason:'source_changed'}]}});await pending;
  check('completed action restores an enabled deliberate Review without retaining Confirm',!!button(root,'Review reconciliation to Olympus Member')&&!button(root,'Review reconciliation to Olympus Member').disabled&&!button(root,'Confirm Olympus Member reconciliation (up to 2 planned changes)'));
