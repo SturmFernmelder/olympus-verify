@@ -2,6 +2,7 @@ import worker from '../src/index.ts';
 import {ADMISSION_EXPECTED_JSON,ADMISSION_PROTOCOL,ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON} from '../src/privacy-write-admission-catalogue.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
 import {admitPrimeRoster,recordPrimeBinding} from '../src/prime-realm-binding.ts';
+import {LAUNCH_OPERATIONS_PROTOCOL229,DISCOVERY_OPERATIONS_PROTOCOL235} from '../src/launch-operations229.ts';
 import {captureLaunchVerification,captureNativeMembershipProof,verifyNativeMembershipProof,captureLaunchMembershipSource} from '../src/launch-verification227.ts';
 import {NATIVE_GUILD232,NATIVE_SCOPE232} from '../src/native-rank-reconciliation232.ts';
 import {STEWARD_RANK_NAMES} from '../src/native-rank-schemes.ts';
@@ -30,7 +31,7 @@ async function checkSelected(check,env,writer,snapshot,ctx) {
       writer.DB.prepare(`INSERT INTO characters(name_key,name,discord_id,status,bound_at,verified_at,source,guid)
         VALUES(?1,?2,?3,'member',?4,?4,'whisper',?5)`).bind(row.name.toLowerCase(),row.name,id,at-55,row.guid)]);
   }
-  const query={keyVersion:'officer-operations-v234',selectionId:at+':17',targetGuids:JSON.stringify(targets.map(row=>row.guid)),
+  const query={keyVersion:LAUNCH_OPERATIONS_PROTOCOL229,selectionId:at+':17',targetGuids:JSON.stringify(targets.map(row=>row.guid)),
     actorGuid:members[0].guid,snapshotId:String(snapshot.id),snapshotAt:String(snapshot.exported_at),confirmations:'[]',primeBinding:marker.kind};
   const read=async(params={})=>{
     const q=new URLSearchParams({...query,...params});
@@ -65,7 +66,7 @@ async function checkSelected(check,env,writer,snapshot,ctx) {
   const confirmation=await read({targetGuids:JSON.stringify([members[3].guid]),confirmations:JSON.stringify([{
     guid:members[3].guid,token:page.promotions.find(r=>r.guid===members[3].guid).intentToken,from:9,to:8,observedAt:at}])});
   check('Blank initial check cannot continue officer rank steps',confirmation.status===400,confirmation);
-  const discovery=await read({keyVersion:'officer-operations-v235'});
+  const discovery=await read({keyVersion:DISCOVERY_OPERATIONS_PROTOCOL235});
   check('The marker grants no discovery read',discovery.status===400,discovery);
   const beforeNamed=await writer.DB.prepare('UPDATE roster_snapshots SET exported_at=exported_at+1 WHERE id=?1').bind(snapshot.id).run();
   const noReceipt=await read({snapshotAt:String(snapshot.exported_at+1)});
