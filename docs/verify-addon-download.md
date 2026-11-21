@@ -6,7 +6,7 @@ The unified addon setup page links to `/static/olympus-verify/olympus-verify-0.6
 
 When WoW returns an empty realm, the enrolled PRIME guild master can export a complete roster. Open the guild roster, let it populate including offline members, then run `/olv sync`. The Watcher forwards the observed empty realm and the guild-master evidence. The Worker checks that evidence against the trusted PRIME roster. If the check succeeds, the Watcher downloads the new verification list. WoW imports that file at its next UI load. `/olv roster` reports why a capture was held.
 
-Under a blank realm, **Check selected Initiates** also uses the enrolled Guild Master and the latest acknowledged PRIME roster. Filter the roster to the verified Initiates you want checked. Each resulting promotion requires a separate officer click.
+Under a blank realm, **Check first 20 shown** also uses the enrolled Guild Master and the latest acknowledged PRIME roster. Filter the roster to the verified Initiates you want checked. Each resulting promotion requires a separate officer click.
 
 Verification preserves the character name as WoW supplied it, including accents. Members use **Get my code** in Discord and whisper from their own character. A roster entry alone cannot link a Discord account. A transfer of guild leadership requires a reviewed change to the enrolled identity before the new guild master can use the blank-realm path.
 
