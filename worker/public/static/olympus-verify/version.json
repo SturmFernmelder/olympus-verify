@@ -1,16 +1,16 @@
 {
   "schema": "olympus-verify-public-download-v1",
   "addon": "OlympusVerify",
-  "version": "0.6.43",
+  "version": "0.6.44",
   "generator": {
     "path": "scripts/build-verify-addon.cjs",
     "bytes": 5695,
     "sha256": "f3ec81ae41cdbd9aad8ab22731bd1a21293580a8e6f2277a42d982b5d0d89c5b"
   },
   "archive": {
-    "path": "/static/olympus-verify/olympus-verify-0.6.43.zip",
-    "bytes": 785084,
-    "sha256": "5af67dec4e1cc56de7f8e407726b430dbfa64faec58f25cbf1078b311d794621"
+    "path": "/static/olympus-verify/olympus-verify-0.6.44.zip",
+    "bytes": 792028,
+    "sha256": "157bf9b7cd6493b65d61d9a3747802a5c19479591f86e6e7714534b8dab0ffd5"
   },
   "files": [
     {
@@ -35,13 +35,13 @@
     },
     {
       "path": "OlympusVerify/OlympusVerify.lua",
-      "bytes": 233837,
-      "sha256": "7302b7ed41c712e09bea5a1b38f6f9ad60998cea18cf8e59e735c50a75ca0229"
+      "bytes": 240160,
+      "sha256": "acead8a827be123a2822a6d2639b7abc12dd189dbad515ccd07ee5dd682c81c0"
     },
     {
       "path": "OlympusVerify/OlympusVerify.toc",
       "bytes": 972,
-      "sha256": "1ff2d713c515a36decf4e45ccf79abafa20229a5f356c78e3333b37ce5b03c4a"
+      "sha256": "709ec9626abd68abca7d2c56f047b6113f667ffeb049f4205fccd17843596d5c"
     },
     {
       "path": "OlympusVerify/OlympusVerifyNativeRankConstants.lua",
@@ -75,8 +75,8 @@
     },
     {
       "path": "OlympusVerify/OlympusVerifyGuild.lua",
-      "bytes": 43623,
-      "sha256": "a13cbaa97318cce2b093fc2f567d54e3e3ce35f86ddc12cc1e90370d91c210b3"
+      "bytes": 44033,
+      "sha256": "56b4ef1a5866f1f4e48316369403ba5c60a8cd1c21991cd7ab5a03df2f4367bf"
     },
     {
       "path": "OlympusVerify/OlympusVerifyLaunch229.lua",
@@ -85,8 +85,8 @@
     },
     {
       "path": "OlympusVerify/OlympusVerifyLive242.lua",
-      "bytes": 60962,
-      "sha256": "1e8d0b4cfe7468427ab076f1207b60903dcbc1c6f699e5e5d5acca1d22081002"
+      "bytes": 61173,
+      "sha256": "883a3f101a96d00ece076dd97a2568ca4ee0317c1907a0683d1c1b843ce95ea7"
     },
     {
       "path": "OlympusVerify/OlympusVerifyOfficerInvites233.lua",

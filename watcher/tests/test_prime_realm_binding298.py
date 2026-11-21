@@ -1,0 +1,152 @@
+"""Blank native realm, on-disk officer identity and exact roster receipt custody."""
+import copy
+import hashlib
+import unittest
+from unittest.mock import patch
+
+import test_verification_source_witness280 as sources
+
+watcher = sources.watcher
+
+
+class PrimeRealmBinding298Tests(unittest.TestCase):
+    def setUp(self):
+        self.f = sources.VerificationSourceWitness280Tests()
+        self.addCleanup(self.f.doCleanups)
+        self.f.setUp()
+        self.w = self.f.w
+        self.roster = self.f.db['roster']
+        self.marker = dict(version=1, kind='prime-guild-master', observerGuid=sources.OFFICER_GUID)
+        self.roster.update(nativeRealm='', nativeScopeBinding=self.marker,
+                           nativeRankTable=dict(version=1, names=list(watcher.native_rank_attestation.PROFILES[0]['names'])))
+        pin = hashlib.sha256(('prime-guild-master|1|' + sources.OFFICER_GUID).encode()).hexdigest()
+        for mock in (patch.object(watcher, 'PRIME_GUILD_MASTER_PIN', pin),
+                     patch.object(sources, 'REALM', watcher.PRIME_REALM_LABEL)):
+            mock.start()
+            self.addCleanup(mock.stop)
+
+    def test_actual_file_wire_receipt_whisper_and_operator_holds(self):
+        self.f.write()
+        self.w.check_savedvars()
+        [(method, path, body, retries)] = self.f.calls
+        self.assertEqual((method, path), ('POST', '/ingest/roster'))
+        self.assertEqual(body['nativeRealm'], '')
+        self.assertEqual(body['nativeGuild'], 'OLYMPUS PRIME')
+        self.assertEqual(body['nativeScopeBinding'], self.marker)
+        self.assertEqual(body['nativeRosterTotal'], 2)
+        self.assertEqual(body['nativeRankTable'], self.roster['nativeRankTable'])
+        self.assertTrue(self.w.verification_roster_ready(self.f.body()))
+        self.assertIsNone(watcher.launch_operations229.complete_roster_digest(self.roster))
+        self.assertIsNone(self.w.valid_launch_control(dict(self.f.db, launchControl={'version': 1})))
+        self.assertIsNone(self.w._launch_accepted_roster)
+        with patch.object(watcher.officer_invites233, 'validate', return_value={'nativeInvite': {}}):
+            self.assertFalse(self.w.officer_invite_roster_ready({}))
+        self.w.handle_chat_line(self.f.line())
+        self.assertEqual(len(self.f.verify_paths()), 1)
+
+    def test_binding_does_not_borrow_unmarked_ack_or_same_second_watermark(self):
+        del self.roster['nativeScopeBinding']
+        self.roster['nativeRealm'] = watcher.PRIME_REALM_LABEL
+        self.f.write()
+        self.w.check_savedvars()
+        unmarked = copy.deepcopy(self.w._verification_roster)
+        scope = self.w.state.d['roster_scope_hash']
+        payload = self.w.state.d['roster_payload_hash']
+        self.assertTrue(self.w.verification_roster_ready(self.f.body()))
+        self.assertNotIn('nativeRosterTotal', self.f.calls[0][2])
+        self.assertEqual(self.f.calls[0][2]['nativeRealm'], watcher.PRIME_REALM_LABEL)
+        self.roster['nativeScopeBinding'] = self.marker
+        self.roster['nativeRealm'] = ''
+        self.f.write()
+        self.assertFalse(self.w.verification_roster_ready(self.f.body()))
+        self.w.state.d['sv_mtime'] = 0
+        self.w.check_savedvars()
+        self.assertEqual(len(self.f.calls), 2)
+        self.assertNotEqual(self.w._verification_roster['digest'], unmarked['digest'])
+        self.assertEqual(self.w._verification_roster['scopeHash'], unmarked['scopeHash'])
+        self.assertNotEqual(self.w.state.d['roster_scope_hash'], scope)
+        self.assertNotEqual(self.w.state.d['roster_payload_hash'], payload)
+        del self.roster['nativeScopeBinding']
+        self.roster['nativeRealm'] = watcher.PRIME_REALM_LABEL
+        self.f.write()
+        self.assertFalse(self.w.verification_roster_ready(self.f.body()))
+
+    def test_accented_name_survives_actual_utf8_file_wire_and_membership_proof(self):
+        name = 'Ñò Example'
+        self.f.write()
+        path = self.w.sv_file
+        path.write_text(path.read_text(encoding='utf-8').replace(sources.NAME, name), encoding='utf-8')
+        self.w.check_savedvars()
+        self.assertEqual(self.f.calls[0][2]['members'][1]['name'], name)
+        with patch.object(sources, 'NAME', name):
+            day = sources.codes.day_bucket(sources.datetime.fromtimestamp(self.f.at, sources.timezone.utc))
+            self.f.code = sources.codes.code_for(sources.SECRET, name, day)
+            self.assertTrue(self.w.verification_roster_ready(self.f.body()))
+            self.w.handle_chat_line(self.f.line())
+            [call] = self.f.verify_paths()
+            self.assertEqual(call[2]['character'], name)
+
+    def test_malformed_or_unenrolled_sources_are_held_before_http(self):
+        def duplicate_member(roster):
+            roster['members'][1]['guid'] = 'Player-1-ABCDEF12'
+            roster['members'].append(dict(roster['members'][1], name='Another Member', guid='Player-1-abcdef12'))
+            roster['total'] = len(roster['members'])
+
+        cases = {
+            'case-folded-duplicate-member': duplicate_member,
+            'short-member-guid': lambda r: r['members'][1].update(guid='Player-1-ABCD'),
+            'missing-member-guid': lambda r: r['members'][1].pop('guid'),
+            'non-ascii-guid-realm': lambda r: r['members'][1].update(guid='Player-١-00000002'),
+            'absent-marker-raw-blank': lambda r: (r.pop('nativeScopeBinding'), r.update(nativeRealm='')),
+            'false-marker': lambda r: r.update(nativeScopeBinding=False),
+            'missing-observer': lambda r: r['nativeScopeBinding'].pop('observerGuid'),
+            'extra-marker-field': lambda r: r['nativeScopeBinding'].update(extra=True),
+            'boolean-version': lambda r: r['nativeScopeBinding'].update(version=True),
+            'another-kind': lambda r: r['nativeScopeBinding'].update(kind='guild-master'),
+            'another-observer': lambda r: r['nativeScopeBinding'].update(observerGuid=sources.GUID),
+            'unregistered-master': lambda r: (r['nativeScopeBinding'].update(observerGuid='Player-1-DEADBEEF'),
+                                               r['members'][0].update(guid='Player-1-DEADBEEF')),
+            'other-guild': lambda r: r.update(nativeGuild='Olympus Prime'),
+            'other-realm': lambda r: r.update(nativeRealm='Another Realm'),
+            'invented-native-label': lambda r: r.update(nativeRealm=watcher.PRIME_REALM_LABEL),
+            'missing-native-realm': lambda r: r.pop('nativeRealm'),
+            'absent-master': lambda r: r['members'][0].update(rankIndex=7, rank='Member'),
+            'duplicate-master': lambda r: r['members'][1].update(rankIndex=0, rank='Guild Master'),
+            'duplicate-observer': lambda r: r['members'][1].update(guid=sources.OFFICER_GUID),
+            'wrong-row-rank': lambda r: r['members'][1].update(rank='Veteran'),
+            'missing-ranks': lambda r: r.pop('nativeRankTable'),
+            'unknown-ranks': lambda r: r['nativeRankTable']['names'].__setitem__(3, 'Unknown'),
+            'truncated': lambda r: r.update(total=3),
+            'expired': lambda r: r.update(exportedAt=self.f.at-601),
+            'future': lambda r: r.update(exportedAt=self.f.at+1),
+        }
+        for label, alter in cases.items():
+            with self.subTest(label=label):
+                self.f.db['roster'] = copy.deepcopy(self.roster)
+                alter(self.f.db['roster'])
+                self.f.write()
+                with self.assertRaises(watcher.SavedVariablesSourceUnavailable):
+                    self.w.check_savedvars()
+                self.assertFalse(self.f.calls)
+                self.assertEqual(self.w.state.d['roster_sent'], 0)
+                self.assertIsNone(self.w._verification_roster)
+
+    def test_missing_file_or_other_logged_character_cannot_authorize_post(self):
+        with self.assertRaises(watcher.SavedVariablesSourceUnavailable):
+            self.w.forward_roster(self.roster)
+        self.f.db['lastCharacterGuid'] = sources.GUID
+        self.f.write()
+        with self.assertRaises(watcher.SavedVariablesSourceUnavailable):
+            self.w.check_savedvars()
+        self.assertFalse(self.f.calls)
+
+    def test_unknown_receipt_cannot_establish_witness_or_retry_on_replaced_source(self):
+        self.f.unknown_roster = True
+        self.f.write()
+        self.w.check_savedvars()
+        [item] = self.w.state.d['outbox']
+        self.assertFalse(self.w.verification_roster_ready(self.f.body()))
+        self.f.write(replace=True)
+        self.assertIs(self.w._dispatch_original(item, retries=1), watcher.Delivery.HELD)
+        self.assertEqual(len(self.f.calls), 1)
+        self.assertIs(self.w.state.d['outbox'][0], item)

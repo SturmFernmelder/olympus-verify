@@ -8878,3 +8878,12 @@ Attribution correction and final-review record: the earlier local migration19 an
 - Initial observations discard repair tokens. Existing current-account Review and the separate confirmation still enforce source, identity, privacy, standing, reserve and receipt custody. Unavailable observations disclose no identity classification; inactive-policy reads remain read-only. Account selection, view changes and late responses cannot mix row action authority.
 - Before Root rollout, qualify the current DOM harness, bounded Workerd/D1 endpoint behavior, typecheck, all offline Lua and full Watcher checks, current-head CI, exact archive and a fresh verified D1 backup. After deployment, qualify served UI, one-account read/Review behavior, original natural callback, public probes and RT-16. No named-account role correction is asserted by this source note.
 - Worker-only; addon 0.6.43, Watcher 0.6.41, server endpoint guards, schema, settings and schedules are unchanged. A separately reviewed rollback uses the exact qualified predecessor through the normal Root release gate; never restore production data for this UI change.
+
+
+## 21 November 2026 — .298 PRIME verification with a blank client realm
+
+Ship Verify 0.6.44 and Watcher 0.6.42 with the Worker. Preserve the local officer configuration, the Watcher's delivery journal and generated addon files. The native roster keeps WoW's empty realm on disk and in transit. The Worker checks the previously enrolled guild master and overlap with the latest trusted complete roster before accepting its established PRIME scope. The audit records the actual blank realm on completion.
+
+For acceptance, check a newly exported roster, its completion audit, the Watcher's downloaded display file and the Guild tab after WoW loads that file. Check an accented character using the member's own new verification ticket. When guild leadership changes, verify and review the successor's enrollment. A roster with an unrelated leader remains held.
+
+For rollback, retain the current D1 database and delivery journal. Restore the .297 Worker from its accepted commit, the 0.6.43 public addon files and the 0.6.41 Watcher code. With the realm still blank, those versions will hold new exports until an updated collector is available.

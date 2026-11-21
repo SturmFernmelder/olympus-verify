@@ -361,7 +361,11 @@ function V.CaptureVerification(source, sender, code, senderGuid, membership, loc
     and type(observation.observedAt)=="number" and observation.observedAt>0 and observation or nil
   local key="verify|"..source.."|"..norm(sender).."|"..tostring(code).."|"..tostring(senderGuid)
   if observed then key=key.."|observation|"..observed.id end
-  return V.Queue({type="verify",character=sender,guid=guid(senderGuid),code=code,source=source,
+  local guildName, scopeRealm
+  if source == "whisper" and membership and API.Roster and API.Roster.CurrentScope then
+    guildName, scopeRealm = API.Roster.CurrentScope()
+  end
+  return V.Queue({type="verify",character=sender,guid=guid(senderGuid),code=code,source=source,guild=guildName,realm=scopeRealm,
     nativeMembership=membership,locallyValid=locallyValid==true,guidSource=senderGuid and "native-whisper-event" or "unavailable",
     observationId=observed and observed.id or nil,observedAt=observed and observed.observedAt or time()},key)
 end

@@ -4,6 +4,7 @@ import type { Env } from "./env";
 import { audit, linksNotBefore, now,type PrivacyReference } from "./db";
 import { intVar, officerRankNames, rankCheckExempt, staffChannel, staffRoles } from "./env";
 import { normalizeCharacter } from "./codes";
+import { recordPrimeBinding, type PrimeRosterBinding } from './prime-realm-binding';
 import { explainDiscordError, guildMember, logLine, postMessage, removeRole, setNickname, staffNotice } from "./discord";
 import { grantMemberRole, callBudget, affords, GRANT_CALLS, type CallBudget, type GrantOutcome } from "./roles";
 import type { OriginalConsumedMembership230 } from './ingest';
@@ -496,7 +497,7 @@ async function reportDuplicateNames(env: Env, count: number, dupes: Array<{ key:
  * against ROSTER_INGEST_STATEMENTS (scheduled-budget.ts) before it starts; whatever does not fit stays in the worklist for
  * the next export or the cron.
  */
-export async function ingestRoster(env: Env, exportedAt: number, members: RosterMemberIn[], source: "addon" | "api" | `addon-native-v1:${string}` | `addon-native-v2:${string}`, fresh?: FreshIngest,originalDispatch?:BetaRoleDispatch) {
+export async function ingestRoster(env: Env, exportedAt: number, members: RosterMemberIn[], source: "addon" | "api" | `addon-native-v1:${string}` | `addon-native-v2:${string}`, fresh?: FreshIngest,originalDispatch?:BetaRoleDispatch,binding:PrimeRosterBinding|null=null) {
   const removal = originalDispatch??departureDispatch(env); // Original entry capture survives every facade and await.
   const count = { used: 0 };
   const counted = countStatements(env, count);
@@ -504,11 +505,11 @@ export async function ingestRoster(env: Env, exportedAt: number, members: Roster
   const holder: { calls?: CallBudget } = {};
   let summary: Awaited<ReturnType<typeof ingestRosterInner>>;
   try {
-    summary = await ingestRosterInner(counted, { count, limit: ROSTER_INGEST_STATEMENTS }, exportedAt, members, source, notices, removal, fresh?.cap.configured ? holder : undefined);
+    summary = await ingestRosterInner(counted, { count, limit: ROSTER_INGEST_STATEMENTS }, exportedAt, members, source, notices, removal, fresh?.cap.configured ? holder : undefined,binding);
   } finally {
     await flushNotices(counted, notices);
   }
-  if (fresh?.cap.configured) await deferFreshIngest(env, counted, count, holder, fresh);
+  if (fresh?.cap.configured && !(binding && 'refused' in summary)) await deferFreshIngest(env, counted, count, holder, fresh);
   return summary;
 }
 
@@ -572,7 +573,32 @@ async function seatBase(env: Env, upTo: number, cut: number, maxShrinkPct: numbe
   return base;
 }
 
-async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, members: RosterMemberIn[], source: "addon" | "api" | `addon-native-v1:${string}` | `addon-native-v2:${string}`, notices: NoticeBatch, removal: RemovalDispatch, holder?: { calls?: CallBudget }) {
+// A caller can remain in flight during another named or bound refresh. Recheck both the latest
+// snapshot ID and its export clock at the write, including for unmarked uploads.
+export const REFRESH_ROSTER_SNAPSHOT = `UPDATE roster_snapshots SET exported_at = ?2, received_at = ?3,
+  trusted = CASE
+    WHEN complete IS NULL AND trusted IS NULL THEN (CASE WHEN ?4 = 1 AND ?6 = 1
+           AND NOT EXISTS (SELECT 1 FROM audit WHERE actor = 'watcher' AND action = 'roster.distrusted' AND subject = ?5)
+           AND (SELECT COUNT(*) FROM roster_members WHERE snapshot_id = ?1) = member_count THEN 1 ELSE 0 END)
+    WHEN complete = 0 THEN trusted
+    ELSE MIN(trusted, ?4) END,
+  complete = CASE WHEN (SELECT COUNT(*) FROM roster_members WHERE snapshot_id = ?1) = member_count
+    THEN COALESCE(complete, 1) ELSE 0 END
+  WHERE id = ?1 AND exported_at <= ?2 AND id=(SELECT MAX(id) FROM roster_snapshots)
+  RETURNING complete`;
+
+// The changed-roster write spans several member batches; reserve its ID only while the
+// predecessor that was read still owns the most recent clock and completion status.
+export const START_ROSTER_SNAPSHOT = `INSERT INTO roster_snapshots
+  (exported_at,received_at,source,member_count,content_hash,first_received_at,complete)
+  SELECT ?1,?2,?3,?4,?5,?2,0 WHERE COALESCE((SELECT MAX(id) FROM roster_snapshots),0)=?6
+    AND (?6=0 OR EXISTS(SELECT 1 FROM roster_snapshots WHERE id=?6 AND exported_at=?7 AND source=?8
+      AND complete IS ?9 AND trusted IS ?10))`;
+export const COMPLETE_ROSTER_SNAPSHOT = `UPDATE roster_snapshots SET complete=1,trusted=?2
+  WHERE id=?1 AND id=(SELECT MAX(id) FROM roster_snapshots)
+    AND (SELECT COUNT(*) FROM roster_members WHERE snapshot_id=?1)=member_count`;
+
+async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, members: RosterMemberIn[], source: "addon" | "api" | `addon-native-v1:${string}` | `addon-native-v2:${string}`, notices: NoticeBatch, removal: RemovalDispatch, holder?: { calls?: CallBudget }, binding:PrimeRosterBinding|null=null) {
   // .115 (Codex's review of f975, 3 Oct 2026, 13:15 UTC, finding 2): an export naming one character key twice is refused
   // before anything is read or written: no snapshot, no member rows, no first-seen dates, no link, character or role
   // change. ingest.ts answers 422, which the watcher takes as final (a 4xx is not retried); the next export is judged
@@ -598,8 +624,17 @@ async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, m
   }
   const fullyStored = !!prev && prev.complete === 1 && prev.stored_count === prev.member_count;
   const fingerprint = await rosterFingerprint(members);
+  if(binding && (!prev || prev.exported_at>exportedAt || (!stuck && (prev.id!==binding.previous.id ||
+      prev.exported_at!==binding.previous.exported_at || prev.exported_at===exportedAt && (prev.source!==source||prev.content_hash!==fingerprint)))))
+    return {refused:'native_binding_superseded' as const};
   if (prev && (prev.exported_at > exportedAt || (prev.exported_at === exportedAt && prev.source===source && !stuck && fullyStored
     && (!source.startsWith('addon-native-v2:') || prev.content_hash===fingerprint)))) {
+    if(binding){
+      const observed=await env.DB.prepare(`SELECT 1 AS recorded FROM audit WHERE actor='watcher'
+        AND action='roster.prime_realm_binding' AND subject=?1 AND json_extract(details,'$.exportedAt')=?2 LIMIT 1`)
+        .bind(String(prev.id),exportedAt).first();
+      if(!observed)return {refused:'native_binding_not_recorded' as const};
+    }
     // .115 (finding A): an export older than the stored one, or the same one sent again, still changes no snapshot. But the
     // newest snapshot's effects may be unfinished (its invocation stopped partway, or its slice did not reach every item),
     // and a retry is exactly when the watcher is back: it resumes them rather than answering "older" and leaving them.
@@ -643,6 +678,7 @@ async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, m
   // decision (against the previous row) and still the only thing that decides removals; what the row records for the
   // seat count is stricter, so 1000 -> 850 (distrusted) -> 851 stays distrusted until an officer runs /olympus-admin sync.
   if (unchanged) {
+    if(binding && (!trusted || !fullyStored || prev!.trusted!==1))return {refused:'native_binding_untrusted' as const};
     // ?4 is this run's floor check (the shrink check against an identical row is always 0). A refresh never raises
     // trust; a row still being written by another export (complete 0, inside the grace) is left alone; a pre-.115 row
     // (complete NULL) is judged once, from its own ingest audit, a member count and (review of 3 Oct 2026, ?6) the shrink
@@ -655,20 +691,12 @@ async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, m
       const base = await seatBase(env, prev!.id - 1, cut, maxShrinkPct);
       baseOk = base === null || withinShrink(base, prev!.member_count, maxShrinkPct) ? 1 : 0;
     }
-    const refreshed = await env.DB.prepare(
-      `UPDATE roster_snapshots SET exported_at = ?2, received_at = ?3,
-              trusted = CASE
-                WHEN complete IS NULL AND trusted IS NULL THEN (CASE WHEN ?4 = 1 AND ?6 = 1
-                       AND NOT EXISTS (SELECT 1 FROM audit WHERE actor = 'watcher' AND action = 'roster.distrusted' AND subject = ?5)
-                       AND (SELECT COUNT(*) FROM roster_members WHERE snapshot_id = ?1) = member_count THEN 1 ELSE 0 END)
-                WHEN complete = 0 THEN trusted
-                ELSE MIN(trusted, ?4) END,
-              complete = CASE WHEN (SELECT COUNT(*) FROM roster_members WHERE snapshot_id = ?1) = member_count
-                THEN COALESCE(complete, 1) ELSE 0 END
-         WHERE id = ?1 RETURNING complete`,
-    )
-      .bind(prev!.id, exportedAt, now(), trusted ? 1 : 0, String(prev!.id), baseOk)
-      .first<{ complete: number }>();
+    const refresh = env.DB.prepare(REFRESH_ROSTER_SNAPSHOT)
+      .bind(prev!.id, exportedAt, now(), trusted ? 1 : 0, String(prev!.id), baseOk);
+    const refreshed = binding
+      ? (await env.DB.batch<{complete:number}>([recordPrimeBinding(env,binding,prev!.id,exportedAt,members.length),refresh]))[1].results[0]
+      : await refresh.first<{complete:number}>();
+    if(!refreshed)return {skipped:true,reason:'superseded during refresh'};
     // The count check may have just exposed a pre-.115 row with missing members. Keep the packet retryable so the
     // incomplete snapshot is rebuilt after its write grace; never create a run or apply any effect from that row.
     if (refreshed?.complete !== 1) throw new Error("Roster snapshot is incomplete; retry this export");
@@ -705,13 +733,14 @@ async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, m
       const base = await seatBase(env, prev.id, cut, maxShrinkPct);
       if (base !== null) recordTrusted = withinShrink(base, members.length, maxShrinkPct);
     }
+    if(binding && !recordTrusted)return {refused:'native_binding_untrusted' as const};
     // complete 0 until the last member batch is in, so a half-written snapshot never counts; trusted stays NULL until then.
     const t = now();
-    const ins = await env.DB.prepare(
-      "INSERT INTO roster_snapshots (exported_at, received_at, source, member_count, content_hash, first_received_at, complete) VALUES (?1, ?2, ?3, ?4, ?5, ?2, 0)",
-    )
-      .bind(exportedAt, t, source, members.length, fingerprint)
+    const ins = await env.DB.prepare(START_ROSTER_SNAPSHOT)
+      .bind(exportedAt,t,source,members.length,fingerprint,prev?.id??0,prev?.exported_at??null,prev?.source??null,
+        prev?.complete??null,prev?.trusted??null)
       .run();
+    if(Number(ins.meta.changes)!==1)throw new Error("Roster predecessor changed before storage; retry this export");
     snapId = ins.meta.last_row_id as number;
 
     // Review of 3 Oct 2026 (D1's per-invocation statement limit; CLAUDE.md "The cron's D1 budget"): D1 counts every
@@ -746,10 +775,9 @@ async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, m
     // previous one unless an earlier invocation stopped before deriving its own (its first absences would otherwise never
     // be armed).
     const applied = prev ? prev.applied_snapshot : null;
+    if(binding)chunks[chunks.length-1].push(recordPrimeBinding(env,binding,snapId,exportedAt,members.length));
     chunks[chunks.length - 1].push(
-      env.DB.prepare(
-        "UPDATE roster_snapshots SET complete = 1, trusted = ?2 WHERE id = ?1 AND (SELECT COUNT(*) FROM roster_members WHERE snapshot_id = ?1) = member_count",
-      ).bind(snapId, recordTrusted ? 1 : 0),
+      env.DB.prepare(COMPLETE_ROSTER_SNAPSHOT).bind(snapId, recordTrusted ? 1 : 0),
       env.DB.prepare(
         "INSERT INTO roster_effect_runs (snapshot_id, prev_snapshot_id, removals, created_at) SELECT ?1, ?2, ?3, ?4 WHERE EXISTS (SELECT 1 FROM roster_snapshots WHERE id = ?1 AND complete = 1)",
       ).bind(snapId, applied, trusted ? 1 : 0, t),
@@ -780,9 +808,10 @@ async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, m
       // outbox stops at the first failure to keep the order (watcher.py flush_outbox). So the snapshot goes back out as
       // above, and the export is refused as final: a 422 like duplicate names (ingest.ts), which the watcher does not
       // retry. Fail closed: nothing is applied and the last export still stands. Staff are told, with counts only.
-      const kept = await env.DB.prepare("SELECT COUNT(*) AS n FROM roster_members WHERE snapshot_id = ?1").bind(snapId).first<{ n: number }>();
+      const kept = await env.DB.prepare("SELECT COUNT(*) AS n,(SELECT MAX(id) FROM roster_snapshots) AS latest FROM roster_members WHERE snapshot_id = ?1").bind(snapId).first<{ n: number; latest:number|null }>();
       await env.DB.prepare("DELETE FROM roster_members WHERE snapshot_id = ?1").bind(snapId).run();
       await env.DB.prepare("DELETE FROM roster_snapshots WHERE id = ?1").bind(snapId).run();
+      if(kept?.latest!=null && kept.latest>snapId)return {skipped:true,reason:'superseded during storage'};
       const stored = Number(kept?.n ?? 0);
       if (await auditOnce(env, "roster.ingest_unusable", "stamp", { members: members.length, stored })) {
         await logLine(
