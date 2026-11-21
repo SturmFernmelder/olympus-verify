@@ -2,19 +2,85 @@ import worker from '../src/index.ts';
 import {ADMISSION_EXPECTED_JSON,ADMISSION_PROTOCOL,ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON} from '../src/privacy-write-admission-catalogue.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
 import {admitPrimeRoster,recordPrimeBinding} from '../src/prime-realm-binding.ts';
+import {LAUNCH_OPERATIONS_PROTOCOL229,DISCOVERY_OPERATIONS_PROTOCOL235} from '../src/launch-operations229.ts';
 import {captureLaunchVerification,captureNativeMembershipProof,verifyNativeMembershipProof,captureLaunchMembershipSource} from '../src/launch-verification227.ts';
 import {NATIVE_GUILD232,NATIVE_SCOPE232} from '../src/native-rank-reconciliation232.ts';
 import {STEWARD_RANK_NAMES} from '../src/native-rank-schemes.ts';
+import {CANONICAL_GUILD233,CANONICAL_PROFILE233,CANONICAL_RANKS233} from '../src/canonical-ranks233.ts';
 import {REFRESH_ROSTER_SNAPSHOT,START_ROSTER_SNAPSHOT,COMPLETE_ROSTER_SNAPSHOT} from '../src/roster.ts';
 
 const EPOCH='a'.repeat(32), token='synthetic-roster-only-bearer-for-this-fixture';
 const names=['Fixture Master','Ñò Example','Other Member','Fourth Member','Fifth Member','Sixth Member'];
 const members=names.map((name,i)=>({name,guid:'Player-9999-'+String(i+1).padStart(8,'0'),
-  rankIndex:i?8:0,rank:i?'Member':'Guild Master'}));
+  rankIndex:i>=2&&i<=4?9:i?8:0,rank:i>=2&&i<=4?'Initiate':i?'Member':'Guild Master'}));
 const rankTable={version:1,names:STEWARD_RANK_NAMES};
 const marker={version:1,kind:'prime-guild-master',observerGuid:members[0].guid};
 const scope={version:1,...NATIVE_SCOPE232};
 const endpoint='/ingest/roster?keyVersion=native-roster-v2';
+
+async function checkSelected(check,env,writer,snapshot,ctx) {
+  const selectedEnv={...env,SITE_GUILD_ID:CANONICAL_GUILD233,DISCORD_BOT_TOKEN:'synthetic-blank-selected',
+    CANONICAL_RANKS233:JSON.stringify({version:1,enabled:true,profile:CANONICAL_PROFILE233,guildId:CANONICAL_GUILD233,
+      ranks:CANONICAL_RANKS233.map(row=>({...row,permissions:'0'}))})};
+  const targets=members.slice(2),at=Math.floor(Date.now()/1000);
+  // Two verified Initiates (a Knight and non-Knight), an unverified Initiate,
+  // and a verified Member whose selection became stale. Only the first two qualify.
+  for(const [index,id] of [[2,'800000000000000012'],[3,'800000000000000013'],[5,'800000000000000015']]){
+    const row=members[index];
+    await writer.DB.batch([writer.DB.prepare('INSERT INTO members(discord_id) VALUES(?1)').bind(id),
+      writer.DB.prepare(`INSERT INTO characters(name_key,name,discord_id,status,bound_at,verified_at,source,guid)
+        VALUES(?1,?2,?3,'member',?4,?4,'whisper',?5)`).bind(row.name.toLowerCase(),row.name,id,at-55,row.guid)]);
+  }
+  const query={keyVersion:LAUNCH_OPERATIONS_PROTOCOL229,selectionId:at+':17',targetGuids:JSON.stringify(targets.map(row=>row.guid)),
+    actorGuid:members[0].guid,snapshotId:String(snapshot.id),snapshotAt:String(snapshot.exported_at),confirmations:'[]',primeBinding:marker.kind};
+  const read=async(params={})=>{
+    const q=new URLSearchParams({...query,...params});
+    for(const [k,v] of Object.entries(params))if(v===null)q.delete(k);
+    const response=await worker.fetch(new Request('https://verify.example/queue/launch-operations?'+q,
+      {headers:{Authorization:'Bearer '+token}}),selectedEnv,ctx);
+    return {status:response.status,body:await response.json()};
+  };
+  const before=await writer.DB.prepare('SELECT name_key,guid,status FROM characters ORDER BY name_key').all();
+  const result=await read(),page=result.body.page;
+  check('Attended blank-realm selected read serves both verified Initiates and only their sealed original recommendations',
+    result.status===200&&result.body.coveredGuids.join()===targets.map(row=>row.guid).join()&&page.promotions.length===2&&
+    [[2,'verified-initiate',8],[3,'knight-veteran',6]].every(([i,reason,slot])=>page.promotions.some(r=>r.guid===members[i].guid&&
+      r.reason===reason&&r.currentSlot===9&&r.targetSlot===slot&&r.intent.actorGuid===members[0].guid&&r.intent.acknowledgedSteps===0&&
+      r.intent.originSnapshotId===snapshot.id&&r.intent.originSnapshotAt===snapshot.exported_at&&typeof r.intentToken==='string')),result);
+  check('Mixed selection holds unverified or changed-rank rows independently, with zero invitation, purge or automatic actions',
+    page.held.some(r=>r.guid===members[4].guid&&r.reason==='unverified-initiate')&&
+    page.held.some(r=>r.guid===members[5].guid&&r.reason==='selected-rank-changed')&&
+    !page.actions.automatic&&!page.actions.roleGrants&&!page.actions.removals&&page.actions.requiresNativeRecheck&&
+    !page.invites.length&&!page.riskBuffer.length,page.held);
+  check('Selected read left all character links intact',JSON.stringify((await writer.DB.prepare('SELECT name_key,guid,status FROM characters ORDER BY name_key').all()).results)===JSON.stringify(before.results));
+  const denied=await read({actorGuid:members[1].guid});
+  check('Blank selected read requires enrolled GM',denied.body.page?.heldReasons.includes('promotion-actor-unconfirmed'),denied);
+  const stale=await read({snapshotAt:String(snapshot.exported_at-1)});
+  check('Selected read requires the exact ACK export clock',stale.status===409,stale);
+  const readWithoutMark=await read({primeBinding:null,cursor:page.pageCursor});
+  check('A blank-realm cursor cannot be replayed through the ordinary selection route',readWithoutMark.status===400,readWithoutMark);
+  const narrowed=await read({targetGuids:JSON.stringify([members[2].guid]),cursor:page.pageCursor});
+  check('Changing the selected GUIDs invalidates the signed continuation cursor',narrowed.status===400,narrowed);
+  const continued=await read({cursor:page.pageCursor});
+  check('A fresh retry of the same marked selection returns the matching GUIDs',continued.status===200&&continued.body.page?.promotions.length===2,continued);
+  const confirmation=await read({targetGuids:JSON.stringify([members[3].guid]),confirmations:JSON.stringify([{
+    guid:members[3].guid,token:page.promotions.find(r=>r.guid===members[3].guid).intentToken,from:9,to:8,observedAt:at}])});
+  check('Blank initial check cannot continue officer rank steps',confirmation.status===400,confirmation);
+  const discovery=await read({keyVersion:DISCOVERY_OPERATIONS_PROTOCOL235});
+  check('The marker grants no discovery read',discovery.status===400,discovery);
+  const beforeNamed=await writer.DB.prepare('UPDATE roster_snapshots SET exported_at=exported_at+1 WHERE id=?1').bind(snapshot.id).run();
+  const noReceipt=await read({snapshotAt:String(snapshot.exported_at+1)});
+  check('A later same-ID clock without its own blank-realm receipt cannot authorize a selected read',
+    beforeNamed.meta.changes===1&&noReceipt.body.page?.status==='held'&&!noReceipt.body.page?.promotions.length,noReceipt);
+  await writer.DB.prepare('UPDATE roster_snapshots SET exported_at=?1 WHERE id=?2').bind(snapshot.exported_at,snapshot.id).run();
+  // The provider fixture advances the same snapshot clock while this
+  // request is reading Discord. The second D1 read must consume the receipt again.
+  selectedEnv.DISCORD_BOT_TOKEN='synthetic-advance-roster-during-discord';
+  const raced=await read({targetGuids:JSON.stringify([members[2].guid])});
+  check('Same-ID refresh during the Discord read holds the entire result before any intent is issued',
+    raced.body.page?.heldReasons.includes('native-snapshot-changed')&&!raced.body.page.promotions.length,raced);
+  await writer.DB.prepare('UPDATE roster_snapshots SET exported_at=?1 WHERE id=?2').bind(snapshot.exported_at,snapshot.id).run();
+}
 
 async function install(db,layout) {
   const c=layout==='canonical'?JSON.parse(ADMISSION_EXPECTED_JSON):JSON.parse(ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON).recordedLive.profile;
@@ -34,7 +100,13 @@ export default {async fetch(request,bindings,ctx) {
   const checks=[],db=bindings.DB;
   const check=(name,value,detail)=>{if(!value)throw Error(name+' '+JSON.stringify(detail));checks.push(name);};
   try {
-    const layout=new URL(request.url).pathname==='/recorded-live'?'recorded-live-pre-seal-20261017':'canonical';
+    const path=new URL(request.url).pathname;
+    const layout=path.endsWith('/recorded-live')?'recorded-live-pre-seal-20261017':'canonical';
+    if(path.startsWith('/fixture-advance/')){
+      const writer=createPrivacyWriteAdmissionDatabase(db,'writer',layout,EPOCH);
+      await writer.prepare('UPDATE roster_snapshots SET exported_at=exported_at+1 WHERE id=(SELECT MAX(id) FROM roster_snapshots)').run();
+      return new Response(null,{status:204});
+    }
     await install(db,layout);
     const t=Math.floor(Date.now()/1000);
     const env={DB:db,PUBLIC_BASE_URL:'https://verify.example',SITE_HOST:'guild.example',GUILD_ID:NATIVE_GUILD232,
@@ -125,6 +197,7 @@ export default {async fetch(request,bindings,ctx) {
     const retry=await call(again);
     check('Identical replay preserves clocks and does not duplicate the binding audit',retry.status===200&&
       (await latest()).exported_at===again.exportedAt&&(await audit()).results.length===2,retry);
+    await checkSelected(check,env,writer,current,ctx);
     await reject('Smaller previously trusted guild snapshot cannot be truncated',{...again,exportedAt:t-40,
       members:changed.slice(0,-1),nativeRosterTotal:5},{},422);
     const priorAdmission=await admitPrimeRoster(writer,mode.scope,{...again,exportedAt:t-25});

@@ -113,7 +113,7 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.42"
+WATCHER_VERSION = "0.6.43"
 STRICT_DISPLAY_PROTOCOL = "launch-roster-display-v2"
 STRICT_DISPLAY_PATH = "/queue/unverified?keyVersion=" + STRICT_DISPLAY_PROTOCOL
 STRICT_DISPLAY_MAX_BYTES = 512 * 1024
@@ -181,11 +181,10 @@ def verification_roster_source(roster: Any) -> dict[str, Any] | None:
         if not valid_prime_guild_master_scope(roster, guids):
             return None
         scope_realm = PRIME_REALM_LABEL
-    try:
-        raw = json.dumps({k: v for k, v in roster.items() if k != 'exportedAt'}, sort_keys=True, ensure_ascii=False, allow_nan=False)
-    except (TypeError, ValueError, OverflowError):
+    digest = launch_operations229.roster_content_digest(roster)
+    if digest is None:
         return None
-    return {'digest': hashlib.sha256(raw.encode()).hexdigest(), 'members': members, 'guidCounts': guids,
+    return {'digest': digest, 'members': members, 'guidCounts': guids,
             'scopeHash': hashlib.sha256(('native-scope|1|' + roster['nativeGuild'] + '|' + scope_realm).encode()).hexdigest()[:16]}
 
 
@@ -1986,11 +1985,11 @@ class Watcher:
         if not self.membership_only:
             self.forward_events(db.get("events") or [])
         control = self.valid_launch_control(db)
-        new_scan = (control is not None and control['action'] in ('scan', 'select', 'select-many', 'select-directive')
+        new_scan = (control is not None and control['action'] in ('scan', 'select', 'select-many', 'select-directive', launch_operations229.PRIME_INITIATE_ACTION)
                     and not self.state.was_seen("launch-control:" + control['guid'] + ":" + control['id']))
         slot = db.get('launchControl')
         consumed = getattr(self, '_launch_selected_control', None)
-        preserve_discovery = (control is not None and control.get('version') in (2, 3, 4) or consumed is not None
+        preserve_discovery = (control is not None and control.get('version') in (2, 3, 4, 5) or consumed is not None
                               and isinstance(slot, dict) and type(slot.get('version')) is int
                               and type(slot.get('observedAt')) is int and slot == consumed)
         # Recognizing the already consumed slot after 60s preserves history only;
@@ -2386,9 +2385,17 @@ class Watcher:
         if not isinstance(roster, dict):
             self._control_diagnosis280(control, "native roster unavailable")
             return None
-        if 'nativeScopeBinding' in roster:
-            self._control_diagnosis280(control, "launch controls require an observed realm")
-            return None
+        prime_binding = 'nativeScopeBinding' in roster
+        realm = roster.get("nativeRealm")
+        if prime_binding:
+            if not isinstance(control, dict) or control.get('version') != 5:
+                self._control_diagnosis280(control, "launch controls require an observed realm")
+                return None
+            if (verification_roster_source(roster) is None
+                    or roster['nativeScopeBinding']['observerGuid'] != db.get('lastCharacterGuid')):
+                self._control_diagnosis280(control, "enrolled PRIME Guild Master roster unavailable")
+                return None
+            realm = PRIME_REALM_LABEL
         own = saved_character(db)
         if not own or codes.normalize_character(own) != codes.normalize_character(self.officer):
             self._control_diagnosis280(control, "officer scope not confirmed")
@@ -2397,9 +2404,12 @@ class Watcher:
         if type(exported) is not int or not 0 <= at-exported <= 600:
             self._control_diagnosis280(control, "native roster time invalid or expired")
             return None
-        validator = (launch_operations229.validate_selected_control
-                     if isinstance(control, dict) and control.get('version') in (2, 3, 4) else launch_operations229.validate_control)
-        if not validator(self.secret, control, at, db.get("lastCharacterGuid"), roster.get("nativeGuild"), roster.get("nativeRealm")):
+        args = (self.secret, control, at, db.get("lastCharacterGuid"), roster.get("nativeGuild"), realm)
+        if isinstance(control, dict) and control.get('version') in (2, 3, 4, 5):
+            valid = launch_operations229.validate_selected_control(*args, prime_binding=prime_binding)
+        else:
+            valid = launch_operations229.validate_control(*args)
+        if not valid:
             observed = control.get("observedAt") if type(control) is dict else None
             reason = ("control time invalid or expired" if type(observed) is int and not 0 <= at-observed < 60
                       else "signature, scope or shape not confirmed")
@@ -2422,11 +2432,17 @@ class Watcher:
             self._custody_halted = True
             self._launch_consumed_sv_witness = None
             raise CustodyStopped("launch control reservation custody stopped; inspect storage and restart") from None
-        if control['version'] in (2, 3, 4):
+        if control['version'] in (2, 3, 4, 5):
             if self.launch_scan.phase != 'idle':
                 self.launch_scan._stop('superseded')
             self._launch_selected_control = json.loads(json.dumps(control))
             accepted = self._launch_accepted_roster
+            if control['version'] == 5:
+                # The .298 source can authorize this selected read alone. Keep it out
+                # of _launch_accepted_roster, which is shared with discovery/actions.
+                accepted = self._verification_roster
+                if accepted is not None and not self._verification_source_current280(accepted):
+                    accepted = None
             if accepted is not None and accepted['exportedAt'] != self.state.d['roster_sent']:
                 accepted = None
             self.launch_selected.request(control, accepted, db['roster'], time.time())
@@ -2522,10 +2538,25 @@ class Watcher:
                 return
         if time.time() < getattr(self, '_next_launch_read_at', 0):
             return
+        def current_source():
+            if (self._custody_halted or self._launch_savedvars_witness() != witness
+                    or witness != getattr(self, '_launch_consumed_sv_witness', None)):
+                return False
+            if not selected.prime_binding:
+                return True
+            accepted = self._verification_roster
+            return (accepted is not None and accepted['boundPrimeRealm']
+                    and accepted['snapshot'] == selected.record['snapshotId']
+                    and accepted['digest'] == selected.native_digest
+                    and self.state.d['roster_sent'] == accepted['exportedAt'] == selected.record['snapshotAt']
+                    and 0 <= time.time() - accepted['exportedAt'] < 600)
+
+        if selected.prime_binding and not current_source():
+            selected.hold('native-roster-changed-or-expired')
+            self.write_launch_selected()
+            return
         attempts = selected.record['attempts']
-        changed = selected.step(self.worker.call, time.time(), lambda:
-                                not self._custody_halted and self._launch_savedvars_witness() == witness
-                                and witness == getattr(self, '_launch_consumed_sv_witness', None))
+        changed = selected.step(self.worker.call, time.time(), current_source)
         if selected.record['attempts'] > attempts:
             self._next_launch_read_at = max(getattr(self, '_next_launch_read_at', 0), selected.next_at)
         if changed:

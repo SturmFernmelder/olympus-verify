@@ -8887,3 +8887,9 @@ Ship Verify 0.6.44 and Watcher 0.6.42 with the Worker. Preserve the local office
 For acceptance, check a newly exported roster, its completion audit, the Watcher's downloaded display file and the Guild tab after WoW loads that file. Check an accented character using the member's own new verification ticket. When guild leadership changes, verify and review the successor's enrollment. A roster with an unrelated leader remains held.
 
 For rollback, retain the current D1 database and delivery journal. Restore the .297 Worker from its accepted commit, the 0.6.43 public addon files and the 0.6.41 Watcher code. With the realm still blank, those versions will hold new exports until an updated collector is available.
+
+## 21 November 2026 — .299 selected PRIME Initiates with a blank client realm
+
+Ship Verify 0.6.45, Watcher 0.6.43 and the Worker together. Preserve local officer configuration, generated lists and the Watcher delivery journal. On the enrolled PRIME Guild Master's client, check selected Initiates after a fresh, complete blank-realm roster reaches the Worker. Verify the exact selection and result in the running client after reload. Keep each actual promotion behind an officer click.
+
+For rollback, deploy the accepted .298 commit and restore its public Verify 0.6.44 and Watcher 0.6.42 files. Preserve D1 and pending officer records. The .298 release continues to verify blank-realm PRIME membership and holds promotion checks until WoW reports the realm.

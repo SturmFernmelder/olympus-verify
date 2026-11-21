@@ -24,6 +24,7 @@ SELECTED_PROTOCOL = "promotion-selection-v274"
 SELECTED_LEGACY_PROTOCOL = "promotion-selection-v273"
 SELECTED_BATCH_PROTOCOL = "promotion-selection-v276"
 DIRECTIVE_PROTOCOL = "promotion-selection-directive-v1"
+PRIME_INITIATE_ACTION = "select-prime-initiates"
 _DIRECTIVE_CONTROL_KEYS = {"version", "action", "id", "observedAt", "scopeHash", "guid", "targetGuids", "confirmations", "mac"}
 _SELECTED_CONTROL_KEYS = {"version", "action", "id", "observedAt", "scopeHash", "guid", "targetGuid", "mac"}
 _SELECTED_BATCH_CONTROL_KEYS = (_SELECTED_CONTROL_KEYS - {'targetGuid'}) | {'targetGuids'}
@@ -222,6 +223,18 @@ def control_mac(secret: str, value: dict[str, Any]) -> str:
     return hmac.new(secret.encode(), message.encode(), hashlib.sha256).hexdigest()[:32]
 
 
+def roster_content_digest(roster: Any) -> str | None:
+    """Identify observed bytes independently of whether this roster qualifies for any operation."""
+    if not isinstance(roster, dict):
+        return None
+    try:
+        raw = json.dumps({key: value for key, value in roster.items() if key != 'exportedAt'},
+                         sort_keys=True, ensure_ascii=False, allow_nan=False)
+        return hashlib.sha256(raw.encode()).hexdigest()
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
 def complete_roster_digest(roster: Any) -> str | None:
     """All native fields except the export timestamp; no normalization or restart inference."""
     if (not isinstance(roster, dict) or 'nativeScopeBinding' in roster or not _integer(roster.get('exportedAt'), 1)
@@ -236,11 +249,7 @@ def complete_roster_digest(roster: Any) -> str | None:
                 or not _integer(row.get('level'), 1, 255)):
             return None
         guids.add(row['guid']); names.add(row['name'].lower())
-    try:
-        raw = json.dumps({key: value for key, value in roster.items() if key != 'exportedAt'}, sort_keys=True, ensure_ascii=False, allow_nan=False)
-    except (TypeError, ValueError):
-        return None
-    return hashlib.sha256(raw.encode()).hexdigest()
+    return roster_content_digest(roster)
 
 
 def validate_control(secret: str, value: Any, at: int, guid: Any, guild: Any, realm: Any) -> bool:
@@ -465,8 +474,11 @@ def targets_digest276(value: list[str]) -> str:
 
 
 def selected_control_mac(secret: str, value: dict[str, Any]) -> str:
-    if value.get('version') == 4:
-        message = '|'.join(['launch-selected-read','4','select-directive',value['id'],str(value['observedAt']),value['scopeHash'],value['guid'],','.join(value['targetGuids']),value['confirmations']])
+    if value.get('version') in (4, 5):
+        version = value['version']
+        action = PRIME_INITIATE_ACTION if version == 5 else 'select-directive'
+        message = '|'.join(['launch-selected-read', str(version), action, value['id'], str(value['observedAt']),
+                            value['scopeHash'], value['guid'], ','.join(value['targetGuids']), value['confirmations']])
         return hmac.new(secret.encode(), message.encode(), hashlib.sha256).hexdigest()[:32]
     batch = value.get('version') == 3
     message = '|'.join(['launch-selected-read', '3' if batch else '2', 'select-many' if batch else 'select', value['id'], str(value['observedAt']),
@@ -474,12 +486,13 @@ def selected_control_mac(secret: str, value: dict[str, Any]) -> str:
     return hmac.new(secret.encode(), message.encode(), hashlib.sha256).hexdigest()[:32]
 
 
-def validate_selected_control(secret: str, value: Any, at: int, guid: Any, guild: Any, realm: Any) -> bool:
+def validate_selected_control(secret: str, value: Any, at: int, guid: Any, guild: Any, realm: Any, *, prime_binding: bool = False) -> bool:
     if not isinstance(value, dict):
         return False
     # Old controls remain historical originals; never upgrade them to the new ladder.
-    if (set(value) != _DIRECTIVE_CONTROL_KEYS or type(value.get('version')) is not int or value['version'] != 4
-            or value['action'] != 'select-directive' or not _selected_targets276(value['targetGuids'])
+    if (set(value) != _DIRECTIVE_CONTROL_KEYS or type(value.get('version')) is not int or value['version'] != (5 if prime_binding else 4)
+            or value['action'] != (PRIME_INITIATE_ACTION if prime_binding else 'select-directive')
+            or prime_binding and value['confirmations'] != '[]' or not _selected_targets276(value['targetGuids'])
             or not _text(value['confirmations'],8192) or not value['confirmations'].isascii()
             or not isinstance(value['id'], str) or re.fullmatch(r'[0-9]{9,11}:[0-9]{1,10}', value['id']) is None
             or not _integer(value['observedAt'], 1) or value['id'].split(':')[0] != str(value['observedAt'])
@@ -555,13 +568,15 @@ class SelectedRead:
         self.next_at = 0.0
         self.native_digest: str | None = None
         self.native_guids: set[str] = set()
+        self.prime_binding = False
 
     @property
     def running(self) -> bool:
         return self.record is not None and self.record['running']
 
     def request(self, control: dict[str, Any], accepted: Any, roster: Any, at: float) -> None:
-        batch = control.get('version') == 4
+        self.prime_binding = control.get('version') == 5
+        batch = self.prime_binding or control.get('version') == 4
         self.record = dict(version=2, protocol=DIRECTIVE_PROTOCOL, controlId=control['id'], actorGuid=control['guid'],
                            confirmations=control.get('confirmations'),
                            scopeHash=control['scopeHash'], observedAt=control['observedAt'],
@@ -577,15 +592,17 @@ class SelectedRead:
         self.cursor = None
         self.native_digest = None
         self.native_guids = set()
-        digest = complete_roster_digest(roster)
+        digest = roster_content_digest(roster) if self.prime_binding else complete_roster_digest(roster)
         if (not batch or not isinstance(accepted, dict) or digest is None or accepted.get('digest') != digest
+                or self.prime_binding and accepted.get('boundPrimeRealm') is not True
                 or accepted.get('exportedAt') != roster['exportedAt'] or not _integer(accepted.get('snapshot'), 1)
                 or not 0 <= at-roster['exportedAt'] < 600):
             return
         r = self.record
         r.update(snapshotId=accepted['snapshot'], snapshotAt=accepted['exportedAt'],
                  expiresAt=min(control['observedAt']+600, accepted['exportedAt']+600))
-        self.native_guids = {row['guid'] for row in roster['members']}
+        self.native_guids = {row['guid'] for row in roster['members']
+                             if not self.prime_binding or row.get('rankIndex') == 9 and row.get('rank') == 'Initiate'}
         self.native_digest = digest
         targets = control['targetGuids'] if batch else [control['targetGuid']]
         if any(guid not in self.native_guids for guid in targets):
@@ -616,7 +633,8 @@ class SelectedRead:
     def source_changed(self, roster: Any) -> bool:
         if not self.running:
             return False  # A completed observation keeps its protocol-bound original source and dates.
-        if (complete_roster_digest(roster) != self.native_digest
+        digest = roster_content_digest(roster) if self.prime_binding else complete_roster_digest(roster)
+        if (digest != self.native_digest
                 or roster.get('exportedAt') != self.record['snapshotAt']):
             return self.hold('native-roster-changed-or-expired')
         return False
@@ -645,6 +663,8 @@ class SelectedRead:
             return self.hold('rate-limit-retries-exhausted')
         batch = r['protocol'] == DIRECTIVE_PROTOCOL
         query = dict(selectionId=r['controlId'], snapshotId=r['snapshotId'], snapshotAt=r['snapshotAt'], actorGuid=r['actorGuid'], confirmations=r['confirmations'])
+        if self.prime_binding:
+            query['primeBinding'] = 'prime-guild-master'
         query.update(targetGuids=json.dumps(r['targetGuids'], separators=(',', ':'))) if batch else query.update(targetGuid=r['targetGuid'])
         if self.cursor:
             query['cursor'] = self.cursor
@@ -688,6 +708,7 @@ class SelectedRead:
             return self.hold('source-held')
         observation = {**r, 'protocol': reply['protocol']}
         if (not _selected_page(page, observation, covered, int(self.clock())) or not set(covered) <= self.native_guids
+                or self.prime_binding and any(row['currentSlot'] != 9 for row in page['promotions'])
                 or r['page'] is not None and page['scan']['id'] != r['page']['scan']['id']):
             return self.hold('invalid-selected-page')
         r['page'] = json.loads(json.dumps(page))

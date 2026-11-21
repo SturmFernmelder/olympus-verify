@@ -79,6 +79,11 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".299", date: "2026-11-21", lines: [
+      "The PRIME Guild Master can check selected Initiates against the latest trusted roster when WoW leaves the realm blank. Each promotion still needs a separate officer click.",
+    ],
+  },
+  {
     build: ".298", date: "2026-11-21", lines: [
       "The PRIME guild master can refresh Discord verification when WoW leaves the realm blank. The Watcher checks the complete roster, and the Worker compares it with the last trusted roster.",
     ],

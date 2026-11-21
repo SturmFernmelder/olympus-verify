@@ -31,13 +31,30 @@ function Q.CanonicalGuild(value)
     if value == "olympus " .. numeral:lower() then return "Olympus " .. numeral end
   end
 end
-local function RawIdentity()
+local function RawIdentity(allowBlank)
   if Read(IsInGuild) ~= true or type(GetGuildInfo) ~= "function" then return nil end
   local ok, guild, _, rank = pcall(GetGuildInfo, "player")
   guild = ok and Text(guild) or nil
   local realm, guid = Text(Read(GetRealmName)), Text(Read(UnitGUID, "player"), 40)
-  if not guild or guild ~= guild:match("^%s*(.-)%s*$") or not realm or realm=="" or not guid or not Number(rank,0,9) then return nil end
+  if not guild or guild ~= guild:match("^%s*(.-)%s*$") or not realm or realm=="" and not allowBlank or not guid or not Number(rank,0,9) then return nil end
   return {guild=guild,realm=realm,guid=guid,rank=rank}
+end
+-- The owner approved one read when the native player realm is blank (21 Nov
+-- 2026). Only the core's current-session, complete enrolled-GM capture can
+-- resolve that realm. Discovery, invitations and history still use Identity().
+local readScope=OlympusVerifyAPI and OlympusVerifyAPI.Roster and OlympusVerifyAPI.Roster.CurrentScope
+local function PrimeInitiateIdentity()
+  local raw=RawIdentity(true)
+  if not raw or raw.realm~="" or raw.guild~="OLYMPUS PRIME" or raw.rank~=0 or cfg.membershipOnly~=true
+    or type(readScope)~="function" or not H or type(H.sha256hex)~="function" then return nil end
+  local ok,guild,realm,observer=pcall(readScope)
+  if not ok or guild~=raw.guild or observer~=raw.guid or not Text(realm) or realm=="" then return nil end
+  raw.realm,raw.primeInitiates=realm,true
+  raw.scopeHash=H.sha256hex("native-scope|1|"..guild.."|"..realm):sub(1,16)
+  return raw
+end
+local function BlankRealmReason()
+  return "WoW returned a blank realm. The Initiate check needs a fresh, complete PRIME roster from the enrolled Guild Master. Open the guild roster and let offline members load."
 end
 local function SameIdentity(a,b)
   return a and b and a.guild==b.guild and a.realm==b.realm and a.guid==b.guid
@@ -110,9 +127,9 @@ local function LoadedScan(data, current, control, now)
   report.reason=report.reason.." This reports loaded evidence, not whether the Watcher is alive or currently waiting."
   return report
 end
-local function HistoricalCurrent(data, selectedPage, selectedTTL)
+local function HistoricalCurrent(data, selectedPage, selectedTTL, selectedIdentity)
   local pageTTL = selectedPage and selectedTTL == 600 and 600 or 60
-  local identity, now = Identity(), time()
+  local identity, now = selectedIdentity or Identity(), time()
   local function refuse(code, reason) return nil, "[" .. code .. "] " .. reason, code end
   if cfg.membershipOnly ~= true or not identity then return nil, "Current native Prime identity is unavailable; launch actions held." end
   if Q.scopeChanged then return nil, "Native guild identity changed. Refresh the watcher and reload; launch actions held." end
@@ -215,7 +232,7 @@ local function HistoricalCurrent(data, selectedPage, selectedTTL)
     end
   end
   result.loadedScan=LoadedScan(data,result,control,now)
-  Q.loadedIdentity = identity
+  if not identity.primeInitiates then Q.loadedIdentity = identity end
   return result
 end
 -- A selected read is independent evidence. Discovery bytes and clocks stay intact.
@@ -278,8 +295,15 @@ local function BatchTargets(value, sorted)
   local encoded={};for i,id in ipairs(copy) do encoded[i]='"'..id..'"' end
   return copy,"["..table.concat(encoded,",").."]",table.concat(copy,",")
 end
+local function SelectedMac(control,joined)
+  local message=table.concat({"launch-selected-read",tostring(control.version),control.action,control.id,
+    tostring(control.observedAt),control.scopeHash,control.guid,joined,control.confirmations},"|")
+  return H.hmacSha256hex(cfg.secret,message):sub(1,32)
+end
 local function ValidSelect(control,identity,now)
-  local batch=type(control)=="table" and control.version==4 and control.action=="select-directive"
+  local batch=type(control)=="table" and (identity.primeInitiates
+    and control.version==5 and control.action=="select-prime-initiates" and control.confirmations=="[]"
+    or not identity.primeInitiates and control.version==4 and control.action=="select-directive")
   if not ExactKeys(control,batch and BATCH_CONTROL or SELECT_CONTROL)
     or not batch or not Text(control.confirmations,65536)
     or not Text(control.id,32) or not Number(control.observedAt,1,now+5) or control.id:match("^(%d+):%d+$")~=tostring(control.observedAt)
@@ -289,8 +313,7 @@ local function ValidSelect(control,identity,now)
   if batch then targets,encoded,joined=BatchTargets(control.targetGuids,true)
   elseif Text(control.targetGuid,40) and control.targetGuid:match("^Player%-%d+%-%x+$") then targets,joined={control.targetGuid},control.targetGuid end
   if not targets then return false end
-  local message=table.concat({"launch-selected-read","4","select-directive",control.id,tostring(control.observedAt),control.scopeHash,control.guid,joined,control.confirmations},"|")
-  if control.mac~=H.hmacSha256hex(cfg.secret,message):sub(1,32) then return false end
+  if control.mac~=SelectedMac(control,joined) then return false end
   return targets,batch,encoded
 end
 local SELECT_HOLDS={
@@ -384,13 +407,20 @@ local function SelectedCurrent(identity, now, control)
     or page.nextCursor~=nil or page.pageCursor~=nil then return held end
   -- The owner's longer window applies only to new selected-promotion observations.
   -- Legacy selected results and all discovery actions keep their original 60-second cap.
-  local checked,why,code=HistoricalCurrent({version=3,controlId=control.id,scanComplete=false,pages={page}},true,600)
+  local checked,why,code=HistoricalCurrent({version=3,controlId=control.id,scanComplete=false,pages={page}},true,600,identity)
   if not checked then
     if code=="rank_scheme" then held.reason=why end -- Keep the validated rank-specific cause visible in a held selection.
     return held
   end
   for _,kind in ipairs({"promotions","held","riskBuffer"}) do
     for _,row in ipairs(checked[kind]) do if not covered[row.guid] then return held end end
+  end
+  if identity.primeInitiates then
+    local scheme=OlympusVerifyNativeRanks.Profile(page.rankProfile,page.rankSchemeDigest)
+    for _,row in ipairs(checked.promotions) do
+      if row.guid==identity.guid or row.currentSlot~=scheme.initiate or row.intent.startSlot~=scheme.initiate
+        or row.intent.acknowledgedSteps~=0 then return held end
+    end
   end
   held={targetGuid=targets[1],targetGuids=batch and targets or nil,state="complete",reason=batch
       and ("The explicit "..#targets.."-GUID check is loaded with its original dates. Each promotion requires a separate hardware click and current native checks.")
@@ -401,14 +431,20 @@ end
 function Q.Current()
   local current,why,code=HistoricalCurrent(OlympusLaunchQueue,false)
   local identity,now=Identity(),time()
+  if not identity then
+    identity=PrimeInitiateIdentity()
+    current=nil -- A realm transition during this read cannot carry discovery into the bound scope.
+    if not identity and Read(GetRealmName)=="" then why=BlankRealmReason() end
+  end
   if cfg.membershipOnly~=true or not identity or Q.scopeChanged or Preview() then return current,why,code end
   if Q.identityBaseline and not SameIdentity(Q.identityBaseline,identity) then Q.scopeChanged=true;return nil,"Native identity changed; launch actions held." end
   local control=OlympusVerifyDB and OlympusVerifyDB.launchControl
   local selection=SelectedCurrent(identity,now,control)
-  if not selection then return current,why,code end
+  if not selection and not identity.primeInitiates then return current,why,code end
   if not current then
     current={identity=identity,invites={},promotions={},riskBuffer={},held={},pages={},actionHeld=true,freshness={},scanComplete=false,partial=true,stalePages=0}
   end
+  if not selection then return current end
   current.selection=selection
   local covered=selection.covered or {[selection.targetGuid or ""]=true}
   -- Supersede positive AND negative display rows, even if this result has no recommendation.
@@ -455,7 +491,14 @@ local function NativeRoster(identity)
       online = onlineKnown and online == true, onlineKnown = onlineKnown, index = index }
     names[key] = true
   end
-  local final = Identity()
+  if identity.primeInitiates then
+    if not rows[identity.guid] or rows[identity.guid].slot~=0 then return nil,"The enrolled Guild Master is missing from the current native roster." end
+    for guid,row in pairs(rows) do
+      if row.slot==0 and guid~=identity.guid then return nil,"The current native roster has conflicting Guild Master rows." end
+    end
+  end
+  local final
+  if identity.primeInitiates then final=PrimeInitiateIdentity() else final=Identity() end
   if not final or final.guild ~= identity.guild or final.realm ~= identity.realm or final.guid ~= identity.guid or final.rank~=identity.rank then return nil, "Native identity changed; no action taken." end
   if not ranks.Same(beforeRanks,ranks.Observe()) then return nil,"The native rank table changed during observation; no rank action is ready." end
   return rows,nil,ranks.Scheme(beforeRanks)
@@ -1220,6 +1263,7 @@ function Q.Control(action, offset)
   return true
 end
 function Q.Select(targetGuid)
+  if Read(GetRealmName)=="" then return Q.SelectMany({targetGuid}) end
   local identity=Identity()
   if cfg.membershipOnly~=true or not identity or Q.scopeChanged or Preview() or Read(InCombatLockdown)~=false
     or Q.identityBaseline and not SameIdentity(Q.identityBaseline,identity) or not Text(targetGuid,40)
@@ -1245,19 +1289,24 @@ function Q.Select(targetGuid)
   end
   local value={version=4,action="select-directive",id=tostring(now)..":"..tostring(db.launchSequence),observedAt=now,
     scopeHash=identity.scopeHash,guid=identity.guid,targetGuids={targetGuid},confirmations=confirmations}
-  value.mac=H.hmacSha256hex(cfg.secret,table.concat({"launch-selected-read","4","select-directive",value.id,tostring(now),identity.scopeHash,identity.guid,targetGuid,confirmations},"|")):sub(1,32)
+  value.mac=SelectedMac(value,targetGuid)
   db.launchControl=value
   Say("Selected GUID read requested. This reload saves its fresh native source; sync later to load the dated result. Promotion needs a separate hardware click.")
   OlympusVerifyAPI.Sync();return true
 end
 function Q.SelectMany(targetGuids)
-  local identity=Identity()
-  if cfg.membershipOnly~=true or not identity or Q.scopeChanged or Preview() or Read(InCombatLockdown)~=false
-    or Q.identityBaseline and not SameIdentity(Q.identityBaseline,identity)
-    or not Text(cfg.secret,1024) or #cfg.secret<16 or cfg.secret:find("REPLACE",1,true)
-    or not H or type(H.hmacSha256hex)~="function" or type(H.sha256hex)~="function"
-    or not OlympusVerifyAPI or type(OlympusVerifyAPI.Sync)~="function" then
-    Say("Current native identity, signing or sync is unavailable; Initiate check held.");return false end
+  local identity=Identity() or PrimeInitiateIdentity()
+  if not identity or cfg.membershipOnly~=true then
+    Say(Read(GetRealmName)=="" and BlankRealmReason() or "Current native PRIME guild identity is unavailable. Check your character and guild.");return false end
+  if Q.scopeChanged or Q.identityBaseline and not SameIdentity(Q.identityBaseline,identity) then
+    Say("The native guild or character changed. Reload before checking Initiates.");return false end
+  if Preview() then Say("Close preview before checking native Initiates.");return false end
+  if Read(InCombatLockdown)~=false then Say("Leave combat before checking Initiates.");return false end
+  if not Text(cfg.secret,1024) or #cfg.secret<16 or cfg.secret:find("REPLACE",1,true)
+    or not H or type(H.hmacSha256hex)~="function" or type(H.sha256hex)~="function" then
+    Say("Local officer signing is unavailable. Check the installed officer configuration.");return false end
+  if not OlympusVerifyAPI or type(OlympusVerifyAPI.Sync)~="function" then
+    Say("The officer Sync function is unavailable. Check the addon installation.");return false end
   local targets,_,joined=BatchTargets(targetGuids,false)
   if not targets then Say("Choose between one and twenty unique native Initiate GUIDs; no check requested.");return false end
   local roster,why=NativeRoster(identity)
@@ -1272,9 +1321,9 @@ function Q.SelectMany(targetGuids)
   local ledger=AttemptLedger()
   if not ledger then Say("Prior attempt custody is unavailable; no check requested.");return false end
   for _,id in ipairs(targets) do if ledger[id]~=nil then Say("Select prior attempts individually; batch checks cannot replace their history.");return false end end
-  local control={version=4,action="select-directive",id=tostring(now)..":"..tostring(db.launchSequence),observedAt=now,
+  local control={version=identity.primeInitiates and 5 or 4,action=identity.primeInitiates and "select-prime-initiates" or "select-directive",id=tostring(now)..":"..tostring(db.launchSequence),observedAt=now,
     scopeHash=identity.scopeHash,guid=identity.guid,targetGuids=targets,confirmations="[]"}
-  control.mac=H.hmacSha256hex(cfg.secret,table.concat({"launch-selected-read","4","select-directive",control.id,tostring(now),identity.scopeHash,identity.guid,joined,"[]"},"|")):sub(1,32)
+  control.mac=SelectedMac(control,joined)
   db.launchControl=control
   Say("Requested a fresh check of "..#targets.." verified native Initiates. This reload exports the request; load its completed result before promoting. No promotion was sent.")
   OlympusVerifyAPI.Sync();return true
@@ -1467,7 +1516,7 @@ events:SetScript("OnUpdate",function()
   if type(control)~="table" or control.action=="stop" or not Number(control.observedAt,1,time()) then return end
   local age=time()-control.observedAt
   if age<5 or age>=60 or Q.remindedControl==control.id then return end
-  local identity=Identity()
+  local identity=Identity() or (control.action=="select-prime-initiates" and PrimeInitiateIdentity())
   local selected=identity and SelectedCurrent(identity,time(),control)
   if selected and selected.completed then Q.remindedControl=control.id;return end -- Notification-only decision, never cached authority.
   if not OlympusLaunchQueue or OlympusLaunchQueue.controlId~=control.id then

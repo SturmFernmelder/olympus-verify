@@ -20,6 +20,11 @@ type Predecessor = {id:number; exported_at:number; source:string; member_count:n
 export type PrimeRosterBinding = Readonly<{previous:Predecessor; observer:string; guids:string}>;
 const nativeGuid = /^Player-\d{1,6}-[0-9A-Fa-f]{8,16}$/;
 
+export async function enrolledPrimeMaster(env:Env, scope:LaunchNativeScope, observer:unknown):Promise<boolean> {
+  return env.GUILD_ID===NATIVE_GUILD232 && scope.guild===NATIVE_SCOPE232.guild && scope.realm===NATIVE_SCOPE232.realm &&
+    typeof observer==='string' && nativeGuid.test(observer) && await sha256('prime-guild-master|1|'+observer)===PRIME_GUILD_MASTER_SHA256;
+}
+
 // The predecessor can be old (a collector reconnecting), but it must be the most recent
 // completed observation, trusted, in this exact scope, and from the current launch.
 // Require the same sole leader and a strict majority of BOTH rosters' GUIDs in common.
@@ -38,8 +43,7 @@ export async function admitPrimeRoster(env:Env, scope:LaunchNativeScope, body:Na
   const marker=body.nativeScopeBinding;
   if (!marker || typeof marker!=='object' || Object.keys(marker).sort().join(',')!=='kind,observerGuid,version') return null;
   const {version,kind,observerGuid:observer}=marker as Record<string,unknown>;
-  if (version!==1 || kind!=='prime-guild-master' || typeof observer!=='string' || !nativeGuid.test(observer) ||
-      await sha256('prime-guild-master|1|'+observer)!==PRIME_GUILD_MASTER_SHA256) return null;
+  if (version!==1 || kind!=='prime-guild-master' || typeof observer!=='string' || !await enrolledPrimeMaster(env,scope,observer)) return null;
   const guids:string[]=[];
   let masterCount=0;
   for (const row of body.members) {
