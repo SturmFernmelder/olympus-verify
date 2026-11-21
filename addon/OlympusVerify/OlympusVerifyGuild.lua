@@ -53,7 +53,9 @@ local function Identity()
   if not IsInGuild or not IsInGuild() or not GetGuildInfo then return nil end
   local guild, _, _, realm = GetGuildInfo("player")
   guild, realm = Text(guild), Text(realm) or (GetRealmName and Text(GetRealmName()))
-  return guild and realm and guild .. "\n" .. realm or nil
+  local observer
+  if not realm and API.Roster.CurrentScope then guild, realm, observer = API.Roster.CurrentScope() end
+  return guild and realm and guild .. "\n" .. realm or nil, observer
 end
 local function Fresh(at, now)
   return type(at) == "number" and at == math.floor(at) and at > 0 and now >= at and now - at <= LIST_AGE
@@ -138,6 +140,7 @@ local function HistoricalIndex(now)
   local z = type(q) == "table" and q.version == 2 and q.unknown
   local guild = GetGuildInfo and Text(GetGuildInfo("player"), 128)
   local realm = GetRealmName and Text(GetRealmName(), 128)
+  if not realm and API.Roster.CurrentScope then guild, realm = API.Roster.CurrentScope() end
   local fetched, snapshot = type(v) == "table" and v.fetchedAt, type(v) == "table" and v.snapshotAt
   local uf, us = type(u) == "table" and u.fetchedAt, type(u) == "table" and u.snapshotAt
   local vm, um = type(v) == "table" and v.members, type(u) == "table" and u.members
@@ -212,7 +215,10 @@ end
 -- Only exact GUID matches are green. A name-only legacy link remains explicitly unknown;
 -- a new character reusing a linked name must not inherit that character's verification.
 local function Verification(name, guid)
-  local now, identity = time(), Identity()
+  local now = time()
+  local identity, observer = Identity()
+  -- Login and Guild events may precede the core's first complete snapshot.
+  if not loadedIdentity and observer and not changedGuild then loadedIdentity = identity end
   if not identity or changedGuild or not loadedIdentity or identity ~= loadedIdentity then
     return { status = "unknown", reason = "Guild changed or snapshot scope is unknown. Reload with the current watcher's list." }
   end

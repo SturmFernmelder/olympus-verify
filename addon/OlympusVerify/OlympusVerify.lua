@@ -41,7 +41,7 @@ local SECRET = cfg.secret
 -- 0.6.12: the example's placeholder is public, so a Config.lua copied without replacing it must not accept codes made from it.
 if type(SECRET) ~= "string" or SECRET == "" or string.find(SECRET, "^REPLACE_WITH_") then SECRET = nil end
 local secretWarned = false  -- 0.6.12: say once per session, not on every whisper, that codes cannot be checked
-local SOURCE_VERSION = "0.6.43" -- Keep this source fallback and OlympusVerify.toc aligned.
+local SOURCE_VERSION = "0.6.44" -- Keep this source fallback and OlympusVerify.toc aligned.
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
   or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or SOURCE_VERSION
 local SET_NOTES = cfg.setNotes == true  -- SetNote is forbidden for addons on the Forever beta; leave false there
@@ -579,17 +579,72 @@ local function ShowOfflineMembers(exportAfter)
   return RequestRoster(exportAfter)
 end
 
--- .227: role proofs bind the officer's native own-guild roster to its actual guild and realm.
--- Config strings, /who text and names in a whisper are never substitutes for these client APIs.
-function Presence.NativeRosterScope()
-  local function read(fn, ...)
-    if type(fn) ~= "function" then return nil end
-    local ok, value = pcall(fn, ...)
-    value = ok and Presence.Readable(value) or nil
-    if not value or value == "" or #value > 128 or value:find("[%c<>]") or value:find("^%s") or value:find("%s$") then return nil end
-    return value
+-- A client may return an ordinary empty player realm after realm consolidation.
+-- The compatibility key belongs to the previously enrolled PRIME scope. Its
+-- sole substitute witness is the current native GM, corroborated in a complete
+-- roster from this session. It never authorizes invitations or officer actions.
+do
+  local primeRealm = "CAMWOW US2 Realm 3 PvE"
+  local enrolledDigest = "d0988804294170b3414fcaf60ea77658d3b511bbd0c1ccf4286b04e47d935a16"
+  local enrolledGuid, capturedGuid, capturedAt, capturedRoster
+
+  local function validScope(value)
+    return value and value ~= "" and #value <= 128 and not value:find("[%c<>]")
+      and not value:find("^%s") and not value:find("%s$")
   end
-  return read(rawget(_G, "GetGuildInfo"), "player"), read(rawget(_G, "GetRealmName"))
+
+  function Presence.SameScopeBinding(binding, guid)
+    if type(binding) ~= "table" or getmetatable(binding) or binding.version ~= 1
+      or binding.kind ~= "prime-guild-master" or binding.observerGuid ~= guid then return false end
+    for key in pairs(binding) do
+      if key ~= "version" and key ~= "kind" and key ~= "observerGuid" then return false end
+    end
+    return true
+  end
+
+  local function clearBinding(guild, realm)
+    capturedGuid, capturedAt, capturedRoster = nil, nil, nil
+    return guild, realm
+  end
+
+  function Presence.ReadRosterSlot(value)
+    local ok, slot = pcall(function()
+      if type(issecretvalue) == "function" and issecretvalue(value) then return nil end
+      if type(value) == "number" and value >= 0 and value <= 9 and value == math.floor(value) then return value end
+    end)
+    return ok and slot or nil
+  end
+
+  function Presence.NativeRosterScope(capturing)
+    local ok, guild, _, slot = pcall(GetGuildInfo, "player")
+    guild = ok and Presence.Readable(guild) or nil
+    if not validScope(guild) then guild = nil end
+    local realmOk, realm = pcall(GetRealmName)
+    realm = realmOk and Presence.Readable(realm) or nil
+    if validScope(realm) then return clearBinding(guild, realm) end
+    if realm ~= "" or cfg.membershipOnly ~= true or guild ~= "OLYMPUS PRIME" then return clearBinding(guild) end
+    local guildOk, inGuild = pcall(IsInGuild)
+    if not guildOk or inGuild ~= true or Presence.ReadRosterSlot(slot) ~= 0 then return clearBinding(guild) end
+    local guidOk, guid = pcall(UnitGUID, "player")
+    guid = guidOk and Presence.Readable(guid) or nil
+    if not Presence.IsGuid(guid) or #guid > 40 then return clearBinding(guild) end
+    if guid ~= enrolledGuid then
+      if type(L.sha256hex) ~= "function" or L.sha256hex("prime-guild-master|1|" .. guid) ~= enrolledDigest then return clearBinding(guild) end
+      enrolledGuid = guid
+    end
+    if not capturing then
+      local now = time()
+      if capturedGuid ~= guid or not capturedAt or now < capturedAt or now - capturedAt > 600
+        or not capturedRoster or not OlympusVerifyDB or OlympusVerifyDB.roster ~= capturedRoster
+        or capturedRoster.nativeRealm ~= "" or capturedRoster.nativeGuild ~= guild or capturedRoster.exportedAt ~= capturedAt
+        or not Presence.SameScopeBinding(capturedRoster.nativeScopeBinding, guid) then return clearBinding(guild) end
+    end
+    return guild, primeRealm, guid
+  end
+
+  function Presence.RecordScopedCapture(observer, roster)
+    capturedGuid, capturedAt, capturedRoster = observer, roster and roster.exportedAt, roster
+  end
 end
 
 -- Pending-alert fingerprints belong to a newly captured native export, never a
@@ -598,6 +653,7 @@ end
 do
   local fields = { "name", "full", "guid", "rank", "rankIndex", "level", "class", "note", "onote", "lastOnline" }
   local rowKeys, rosterKeys = {}, { exportedAt=true, members=true, total=true, online=true, nativeGuild=true, nativeRealm=true, nativeRankTable=true }
+  rosterKeys.nativeScopeBinding = true
   for _, key in ipairs(fields) do rowKeys[key] = true end
   local accepted, cached, lastClock, lastPoll
   local function scalar(value)
@@ -626,6 +682,9 @@ do
           local copy=ranks and ranks.Copy(r[key])
           if not copy then return end
           witness.rankTable, witness.rankEncoding = r[key], ranks.Encode(copy)
+        elseif key == "nativeScopeBinding" and r[key] ~= nil then
+          if type(r[key]) ~= "table" or not Presence.SameScopeBinding(r[key], r[key].observerGuid) then return end
+          witness.observer = r[key].observerGuid
         elseif not scalar(r[key]) then return end
         witness.metadata[key] = r[key]
       end
@@ -654,6 +713,8 @@ do
         if key=="nativeRankTable" and accepted.rankTable then
           local ranks=OlympusVerifyNativeRanks
           if r[key]~=accepted.rankTable or not ranks or not ranks.Copy(r[key]) or ranks.Encode(r[key])~=accepted.rankEncoding then return false end
+        elseif key == "nativeScopeBinding" and accepted.observer then
+          if r[key] ~= accepted.metadata[key] or not Presence.SameScopeBinding(r[key], accepted.observer) then return false end
         elseif not scalar(r[key]) or r[key] ~= accepted.metadata[key] then return false end
       end
     end
@@ -690,13 +751,13 @@ do
     if not accepted or accepted.invalid or r ~= accepted.roster or getmetatable(r) ~= nil
       or rawget(r, "members") ~= accepted.members or getmetatable(accepted.members) ~= nil then return hold() end
     for key in pairs(rosterKeys) do
-      if key ~= "members" and key ~= "nativeRankTable" and not scalar(rawget(r, key)) then return hold() end
+      if key ~= "members" and key ~= "nativeRankTable" and key ~= "nativeScopeBinding" and not scalar(rawget(r, key)) then return hold() end
     end
-    local guild, realm = Presence.NativeRosterScope()
+    local guild, realm, observer = Presence.NativeRosterScope()
     local ownGuid = UnitGUID and Presence.Readable(UnitGUID("player"))
     local ownName = Presence.MyName()
     if cfg.membershipOnly ~= true or not IsInGuild or IsInGuild() ~= true or not guild or not realm or not Presence.IsGuid(ownGuid) or not ownName
-      or not r or r.nativeGuild ~= guild or r.nativeRealm ~= realm or type(r.exportedAt) ~= "number"
+      or observer ~= accepted.observer or not r or r.nativeGuild ~= guild or r.nativeRealm ~= (observer and "" or realm) or type(r.exportedAt) ~= "number"
       or r.exportedAt > now or now - r.exportedAt > 75 or type(r.members) ~= "table" or #r.members ~= r.total
       or type(r.total) ~= "number" or r.total < 1 or r.total > 1000 or r.total ~= math.floor(r.total) then return hold() end
     local upper = string.upper(guild)
@@ -707,6 +768,7 @@ do
       return { strict=true, exportedAt=r.exportedAt, digest=cached.digest }
     end
     local parts, own = { "G" .. #guild .. ":" .. guild, "R" .. #realm .. ":" .. realm, "T" .. tostring(r.total), "N" .. (accepted.rankEncoding or "unavailable") }, 0
+    if observer then parts[#parts + 1] = "B" .. observer end
     for _, old in ipairs(accepted.rows) do
       local values, encoded = old.values, {}
       if values.guid == ownGuid then own = own + 1 end
@@ -727,23 +789,52 @@ end
 
 ExportRoster = function(force, rosterAlreadyAsked, deferPendingFacts)
   if not IsInGuild() then return end
-  local nativeGuild, nativeRealm = Presence.NativeRosterScope()
-  if cfg.membershipOnly == true and not (nativeGuild and nativeRealm) then return nil end
+  local nativeGuild, nativeRealm, observer = Presence.NativeRosterScope(true)
+  if cfg.membershipOnly == true and not (nativeGuild and nativeRealm) then return nil, "native guild scope unavailable" end
   local now = time()
   if not force and now - lastRosterExport < ROSTER_THROTTLE then return end
   if not rosterAlreadyAsked and not ShowOfflineMembers(not force) and not force then return end
+  Presence.RecordScopedCapture(nil)
   -- Event responses establish visibility without issuing another roster request.
   if not EnsureShowOffline() then return end
   local total, online = GetNumGuildMembers()
   if not total or total == 0 then return end
+  if observer and (type(total) ~= "number" or total < 1 or total > 1000 or total ~= math.floor(total)) then return nil end
   local rankActor=UnitGUID and Presence.Readable(UnitGUID("player"))
   local rankReader=OlympusVerifyNativeRanks
   local beforeRanks=rankReader and rankReader.Observe()
+  if observer and not (rankReader and rankReader.Qualified(beforeRanks)) then
+    return nil, "the native guild rank table is missing or unrecognized"
+  end
   lastRosterExport = now
-  local members = {}
+  local members, leaders, observerRows = {}, 0, 0
+  local seenGuids = observer and {}
   for i = 1, total do
     local name, rank, rankIndex, level, _, _, note, onote, online, _, classFile, _, _, _, _, _, guid = GetGuildRosterInfo(i)
     if name then
+      if observer then
+        local slot = Presence.ReadRosterSlot(rankIndex)
+        local title = Presence.Readable(rank)
+        if slot == nil or title ~= beforeRanks.names[slot + 1] then
+          return nil, "a native roster rank disagrees with the guild rank table"
+        end
+        local rowName = Presence.Readable(name)
+        if not rowName or not (BaseName(rowName) or ""):find("%S") then return nil, "a native character name is unreadable" end
+        if slot == 0 then leaders = leaders + 1 end
+        local rowGuid = Presence.Readable(guid)
+        local server, character
+        if rowGuid and #rowGuid <= 30 then server, character = rowGuid:match("^Player%-(%d+)%-(%x+)$") end
+        if not server or #server > 6 or #character < 8 or #character > 16 then
+          return nil, "a native roster character GUID is unreadable"
+        end
+        local key = rowGuid:lower()
+        if seenGuids[key] then return nil, "a native roster character GUID appears more than once" end
+        seenGuids[key] = true
+        if rowGuid == observer then
+          observerRows = observerRows + 1
+          if rankIndex ~= 0 then return nil, "the enrolled observer is not the native roster guild master" end
+        end
+      end
       local lastOnline = 0
       if not online and GetGuildRosterLastOnline then
         local y, m, d, h = GetGuildRosterLastOnline(i)
@@ -756,12 +847,18 @@ ExportRoster = function(force, rosterAlreadyAsked, deferPendingFacts)
   -- short. Reject a partial FIRST/forced export too: a 46-of-50 list passes the
   -- original90% comparison. Keep the original snapshot/timestamp unchanged.
   if #members ~= total or not RosterVisibilityCurrent() then return nil end
-  local finalGuild, finalRealm = Presence.NativeRosterScope()
-  if not IsInGuild() or finalGuild ~= nativeGuild or finalRealm ~= nativeRealm then return nil end
+  if observer and (leaders ~= 1 or observerRows ~= 1 or GetNumGuildMembers() ~= total) then
+    return nil, "the complete roster could not confirm its sole enrolled guild master"
+  end
+  local finalGuild, finalRealm, finalObserver = Presence.NativeRosterScope(true)
+  if not IsInGuild() or finalGuild ~= nativeGuild or finalRealm ~= nativeRealm or observer ~= finalObserver then return nil end
   local afterRanks=rankReader and rankReader.Observe()
   local finalRankActor=UnitGUID and Presence.Readable(UnitGUID("player"))
   local rankTable=rankReader and Presence.IsGuid(rankActor) and finalRankActor==rankActor
     and rankReader.Same(beforeRanks,afterRanks) and rankReader.Copy(afterRanks) or false
+  if observer and (not rankTable or finalRankActor ~= observer) then
+    return nil, "the native observer or guild rank table changed during capture"
+  end
   -- Second guard, on this side of the wire: an export far smaller than the last one is almost certainly truncated
   -- (show-offline off, or a GUILD_ROSTER_UPDATE that fired before the full list arrived). Keep the previous one.
   local prev = OlympusVerifyDB.roster
@@ -770,7 +867,9 @@ ExportRoster = function(force, rosterAlreadyAsked, deferPendingFacts)
     Print(string.format("roster export looked short (%d members vs %d last time) — kept the previous export. /olv roster forces one.", #members, prevCount))
     return nil
   end
-  local captured = { exportedAt = now, members = members, total = total, online = online, nativeGuild = nativeGuild, nativeRealm = nativeRealm, nativeRankTable=rankTable }
+  local captured = { exportedAt = now, members = members, total = total, online = online, nativeGuild = nativeGuild, nativeRealm = observer and "" or nativeRealm, nativeRankTable=rankTable }
+  if observer then captured.nativeScopeBinding = { version=1, kind="prime-guild-master", observerGuid=observer } end
+  Presence.RecordScopedCapture(observer, captured)
   Presence.CapturePendingRoster235(captured)
   OlympusVerifyDB.roster = captured
   if cfg.membershipOnly == true and OlympusVerifyAutoSync and not deferPendingFacts then OlympusVerifyAutoSync.NativeChanged() end
@@ -1604,14 +1703,14 @@ function Presence.NativeMembershipProof(sender, guid, code, eventObservedAt)
     if type(value) ~= "boolean" then return nil end
     return value
   end
-  local guild, realm = Presence.NativeRosterScope()
+  local guild, realm, observer = Presence.NativeRosterScope()
   if not guild or not realm or boolean(rawget(_G, "IsInGuild")) ~= true then return nil end
   local getter = C_GuildInfo and C_GuildInfo.MemberExistsByName
   local first = boolean(getter, sender)
   if first == nil then return nil end
   local member = boolean(getter, sender)
-  local finalGuild, finalRealm = Presence.NativeRosterScope()
-  if member == nil or member ~= first or finalGuild ~= guild or finalRealm ~= realm or boolean(rawget(_G, "IsInGuild")) ~= true then return nil end
+  local finalGuild, finalRealm, finalObserver = Presence.NativeRosterScope()
+  if observer ~= finalObserver or member == nil or member ~= first or finalGuild ~= guild or finalRealm ~= realm or boolean(rawget(_G, "IsInGuild")) ~= true then return nil end
   local capturedAt = time()
   local observedAt = eventObservedAt or capturedAt
   -- A native event and its immediate membership read share one clock sample.
@@ -3356,7 +3455,7 @@ OlympusVerifyAPI = {
   RemoveMember = function(name, reason) return OlympusVerify_RemoveMember(name, reason) end,
   -- The roster window's reads (0.6.4). A table for the same reason as Text and Name: nothing here acts, so /olv
   -- preview has nothing to stand in for.
-  Roster = { Members = Roster.Members, Filter = Roster.Filter, Sort = Roster.Sort, DisplaySource = Roster.DisplaySource,
+  Roster = { CurrentScope = function() return Presence.NativeRosterScope() end, Members = Roster.Members, Filter = Roster.Filter, Sort = Roster.Sort, DisplaySource = Roster.DisplaySource,
     DisplayFacts = Roster.DisplayFacts },
   UnverifiedList = function(n) return Unverified.Candidates(n) end,
   UnverifiedRanks = function(info) return Unverified.Ranks(info) end,
@@ -3700,6 +3799,13 @@ function Diag.Launch(scopeOnly)
   end
   Print("native diagnostics (read only): addon source " .. facts.addon .. "; metadata=" .. facts.metadataVersion .. "; membershipOnly=" .. tostring(cfg.membershipOnly == true))
   Print(string.format("guild=%q realm=%q rank=%q slot0=%s GUID=%q", facts.guild, facts.realm, facts.rankName, facts.rankSlot, facts.guid))
+  if facts.realm == "" and cfg.membershipOnly == true then
+    local _, _, bound = Presence.NativeRosterScope()
+    local _, _, enrolled = Presence.NativeRosterScope(true)
+    if bound then Print("Blank realm: current PRIME roster confirmed through its enrolled guild master.")
+    elseif enrolled then Print("Blank realm: enrolled PRIME guild master found. Waiting for a complete offline-visible roster capture.")
+    else Print("Blank realm: this character cannot establish the enrolled PRIME roster scope.") end
+  end
   return facts
 end
 
@@ -3996,8 +4102,9 @@ OlympusVerifySlash234.Register("OLYMPUSVERIFY", {"/olv"}, function(msg)
   elseif cmd == "flush" or cmd == "invite" then
     OlympusVerify_Flush() -- typed slash commands count as hardware events
   elseif cmd == "roster" then
-    local n = ExportRoster(true)
-    Print(string.format("roster exported: %s members (written to SavedVariables at logout or /reload).", tostring(n or 0)))
+    local n, why = ExportRoster(true)
+    if n then Print(string.format("roster exported: %d members (written to SavedVariables at logout or /reload).", n))
+    else Print("Roster export held: " .. (why or "the full offline-visible native roster is unavailable") .. ". The previous snapshot was kept.") end
   elseif cmd == "clear" then
     if OlympusVerifyAPI.ClearQueue() ~= false then Print("queue cleared.") end
   elseif cmd == "sync" then

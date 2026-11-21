@@ -79,6 +79,11 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".298", date: "2026-11-21", lines: [
+      "The PRIME guild master can refresh Discord verification when WoW leaves the realm blank. The Watcher checks the complete roster, and the Worker compares it with the last trusted roster.",
+    ],
+  },
+  {
     build: ".297", date: "2026-11-17", lines: [
       "Staff can read one Discord account directly while keeping a paused scan. A fresh review and separate confirmation are still required before any role change.",
     ],

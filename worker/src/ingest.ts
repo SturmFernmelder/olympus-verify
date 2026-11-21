@@ -3,12 +3,13 @@ import { readPrivacySubject, admittedPrivacySubjectWrite, pendingPrivacyCapture,
 /** Endpoints for the officer-side watcher (bearer WATCHER_TOKEN). */
 import { intVar, staffChannel, type Env } from "./env";
 import { nativeSnapshotSource } from './native-rank-schemes';
+import { admitPrimeRoster, type NativeRosterBody, type PrimeRosterBinding } from './prime-realm-binding';
 import { audit, getCharacter, linksNotBefore, now, openPendingFor, openTicket, type PendingRow,type PrivacyReference } from "./db";
 import { codeFor, dayBucket, isValidCode, isValidTicket, normalizeCharacter, normalizeCodeInput, TICKET_LENGTH, ticketFor, ticketNonce } from "./codes";
 import { json, logLine, postMessage, staffNotice } from "./discord";
 import { onVerified } from "./review";
 import { flushNotices, notify, noticeBatch, type NoticeBatch } from "./dm";
-import { demote, guidOf, ingestRoster, isCurrentRoster, latestRosterEntry, onLatestRoster, promote, ROSTER_PIN_WITHIN, type RosterMemberIn } from "./roster";
+import { demote, guidOf, ingestRoster, isCurrentRoster, latestRosterEntry, onLatestRoster, promote, ROSTER_PIN_WITHIN } from "./roster";
 import { callBudget,type GrantOutcome } from "./roles"; // .90 (P-20): the join events' promotions share one Discord-call budget per batch
 import {captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy';
 import type { RemovalDispatch } from './role-settlements';
@@ -1022,22 +1023,29 @@ async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: N
   return json({ applied });
 }
 
-export async function postRoster(env: Env, body: { exportedAt: number; members: RosterMemberIn[];nativeGuild?:string;nativeRealm?:string;nativeRankTable?:unknown }, defer?: (label: string, work: () => Promise<unknown>) => void,originalDispatch?:BetaRoleDispatch,rankProtocol=false): Promise<Response> {
+export async function postRoster(env: Env, body: NativeRosterBody, defer?: (label: string, work: () => Promise<unknown>) => void,originalDispatch?:BetaRoleDispatch,rankProtocol=false): Promise<Response> {
   const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
   const launch=captureLaunchVerification(env);
   if(launch.mode==='held')return json({error:'verification_native_scope_unconfirmed'},503);
+  const marked=Object.hasOwn(body,'nativeScopeBinding');
+  if(marked&&(!rankProtocol||launch.mode!=='members-only'||body.nativeRealm!==''))return json({error:'native_roster_scope_mismatch'},409);
+  let binding:PrimeRosterBinding|null=null;
   if(launch.mode==='members-only'){
-    if(!launch.scope||body.nativeGuild!==launch.scope.guild||body.nativeRealm!==launch.scope.realm)return json({error:'native_roster_scope_mismatch'},409);
+    if(!launch.scope||body.nativeGuild!==launch.scope.guild||!marked&&body.nativeRealm!==launch.scope.realm)return json({error:'native_roster_scope_mismatch'},409);
     env=launchVerificationEnv(env,launch);
   }
   // Revision 4 (A1): the lane configuration is captured here, before any await of this export, and handed to ingestRoster
   // (roster.ts cannot import the lane module: full-release-roles reaches roster.ts, so that would be a module-load cycle).
   const lane = captureLaneConfig(env);
+  if(marked){
+    binding=await admitPrimeRoster(env,launch.scope!,body);
+    if(!binding)return json({error:'native_roster_binding_unconfirmed'},409);
+  }
   if (!Array.isArray(body.members) || !body.exportedAt) return json({ error: "exportedAt and members[] required" }, 400);
   const source=launch.mode==='members-only' ? rankProtocol
     ? nativeSnapshotSource(launch.scope!.guild,launch.scope!.realm,body.nativeRankTable,body.members)
     : launch.scope!.provenance : "addon";
-  const summary = await ingestRoster(env, body.exportedAt, body.members, source, lane.configured && defer ? { cap: lane, defer } : undefined,roleDispatch);
+  const summary = await ingestRoster(env, body.exportedAt, body.members, source, lane.configured && defer ? { cap: lane, defer } : undefined,roleDispatch,binding);
   // .115 (Codex's review of f975, 3 Oct 2026, 13:15 UTC, finding 2): an export refused for duplicate names is a 422, which
   // the watcher takes as final (watcher.py Worker.call: a 4xx is not retried, since sending it again changes nothing).
   // The review of 3 Oct 2026 added "unusable" (every batch committed, and the stored rows still fell short of the count):

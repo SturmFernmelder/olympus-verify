@@ -224,7 +224,7 @@ def control_mac(secret: str, value: dict[str, Any]) -> str:
 
 def complete_roster_digest(roster: Any) -> str | None:
     """All native fields except the export timestamp; no normalization or restart inference."""
-    if (not isinstance(roster, dict) or not _integer(roster.get('exportedAt'), 1)
+    if (not isinstance(roster, dict) or 'nativeScopeBinding' in roster or not _integer(roster.get('exportedAt'), 1)
             or not _integer(roster.get('total'), 1, 1000) or not isinstance(roster.get('members'), list)
             or len(roster['members']) != roster['total'] or canonical_guild(roster.get('nativeGuild')) != 'OLYMPUS PRIME'
             or not _text(roster.get('nativeRealm')) or not roster['nativeRealm']):

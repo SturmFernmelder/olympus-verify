@@ -103,5 +103,155 @@ do
   check("legacy mode manufactures no native scope fields", f.snapshot().nativeGuild == nil and f.snapshot().nativeRealm == nil)
   check("legacy export still performs no membership action", f.effects == 0)
 end
+-- Substitute only the enrollment lookup for a synthetic GM. The production
+-- digest has an independent known input in the private enrollment receipt.
+local function blankFixture()
+  local f = fixture()
+  local e = f.env
+  f.guild, f.realm, f.slot = "OLYMPUS PRIME", "", 0
+  e.PLAYER_GUID = e.ROSTER[1].guid
+  e.ROSTER[1].rank, e.ROSTER[1].rankIndex = "Guild Master", 0
+  e.ROSTER[2].name = "Ñò Example"
+  local readRoster = e.GetGuildRosterInfo
+  e.GetGuildRosterInfo = function(i)
+    local row = {readRoster(i)}
+    if e.ROSTER[i] then row[1] = e.ROSTER[i].name end
+    return unpack(row,1,17)
+  end
+  e.GetGuildInfo = function() return f.guild, "Guild Master", f.slot end
+  e.date = function(format,stamp) return os.date(format,stamp) end
+  local hash = e.OlympusHmac.sha256hex
+  local enrollment = "prime-guild-master|1|" .. e.PLAYER_GUID
+  f.enrollmentReads = 0
+  e.OlympusHmac.sha256hex = function(data)
+    if data == enrollment then
+      f.enrollmentReads = f.enrollmentReads + 1
+      return "d0988804294170b3414fcaf60ea77658d3b511bbd0c1ccf4286b04e47d935a16"
+    end
+    return hash(data)
+  end
+  local ranks = assert(loadfile("directive_fixture280.lua"))()
+  f.rankNames = ranks.ranks(e)
+  f.scope = e.OlympusVerifyAPI.Roster.CurrentScope
+  return f
+end
+
+do
+  local f = blankFixture()
+  local e, scopeRealm = f.env, "CAMWOW US2 Realm 3 PvE"
+  local _, before = f.scope()
+  check("an enrolled GM still waits for a complete roster observation this session", before == nil)
+  local row = e.ROSTER[2]
+  e.OlympusVerifyLists = {version=2,guild=f.guild,realm=scopeRealm,
+    verified={fetchedAt=e.NOW,snapshotAt=e.NOW,members={}},
+    unverified={fetchedAt=e.NOW,snapshotAt=e.NOW,members={{name=row.name,guid=row.guid,pending=false}}},
+    unknown={fetchedAt=e.NOW,snapshotAt=e.NOW,members={}}}
+  check("generated display metadata alone never binds a blank realm",e.OlympusVerifyAPI.Roster.DisplaySource()==nil)
+  setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyGuild.lua")),e)("OlympusVerify",{})
+  local frame = e.FRAMES[#e.FRAMES]
+  frame:GetScript("OnEvent")(frame,"PLAYER_LOGIN")
+  check("login before the native roster is populated keeps the Guild tab unknown",
+    e.OlympusVerifyGuild.Verification(row.name,row.guid).status=="unknown")
+  check("fresh complete native PRIME roster accepts its sole enrolled GM",f.export()==2)
+  local r = f.snapshot()
+  check("snapshot retains the raw empty realm and explicit provenance", r.nativeRealm == ""
+    and r.nativeScopeBinding.version == 1 and r.nativeScopeBinding.kind == "prime-guild-master"
+    and r.nativeScopeBinding.observerGuid == e.PLAYER_GUID)
+  local guild, realm, observer = f.scope()
+  check("captured scope retains the current native observer", guild==f.guild and realm==scopeRealm and observer==e.PLAYER_GUID)
+  local firstFacts = e.OlympusVerifyAPI.AutoSyncFacts()
+  local secondFacts = e.OlympusVerifyAPI.AutoSyncFacts()
+  check("Pending Sync accepts and reuses a scoped snapshot digest", firstFacts and secondFacts
+    and firstFacts.strict == true and firstFacts.digest == secondFacts.digest)
+  local display = e.OlympusVerifyGuild.Verification(row.name,row.guid)
+  check("fresh exact Ñò Example in Guild tab clears blanket Unknown (" .. tostring(display.reason) .. ")",display.status=="unverified")
+  setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLive242.lua")),e)("OlympusVerify",{})
+  local h = e.OlympusHmac
+  local code = h.codeFor(e.OlympusVerifyConfig.secret,row.name,h.utcDay(e.NOW))
+  local handler = e.OlympusVerifyFrame:GetScript("OnEvent")
+  handler(e.OlympusVerifyFrame,"CHAT_MSG_WHISPER","!verify " .. code,row.name,nil,nil,nil,nil,nil,nil,nil,nil,nil,row.guid)
+  local event = e.OlympusVerifyDB.events[#e.OlympusVerifyDB.events]
+  local intake = e.OlympusVerifyDB.intake242
+  local _, request = next(intake.entries)
+  check("durable whisper request preserves the accented sender and binds the signed proof",
+    request and request.character==row.name and request.guid==row.guid and request.realm==scopeRealm
+    and request.nativeMembership and request.nativeMembership.mac==event.nativeMembership.mac)
+  local expectedScope = h.sha256hex("native-scope|1|" .. f.guild .. "|" .. scopeRealm):sub(1,16)
+  check("accented realmless whisper captures original identity and affirmative native membership",
+    event and event.ok and event.name==row.name and event.guid==row.guid and event.nativeMembership
+    and event.nativeMembership.member==true and event.nativeMembership.scopeHash==expectedScope)
+  local payload = table.concat({"membership","1","Ñò example",row.guid,code,"1",tostring(e.NOW),expectedScope},"|")
+  check("code proof authenticates the accented spelling using the original bytes",
+    event and event.nativeMembership and event.nativeMembership.mac==h.hmacSha256hex(e.OlympusVerifyConfig.secret,payload):sub(1,32))
+  local originalBinding = r.nativeScopeBinding
+  r.nativeScopeBinding = nil
+  check("stripping the marker leaves the raw realm empty and disables native display", r.nativeRealm==""
+    and e.OlympusVerifyAPI.Roster.DisplaySource()==nil)
+  r.nativeScopeBinding = originalBinding
+  check("restoring a stored binding cannot re-establish scope without a new native capture", select(2,f.scope())==nil)
+  check("fresh capture re-establishes scope from live evidence", f.export()==2 and select(2,f.scope())==scopeRealm)
+  r = f.snapshot()
+  r.nativeScopeBinding.kind = "unknown"
+  check("mutated scope metadata invalidates the Pending Sync witness", e.OlympusVerifyAPI.AutoSyncFacts()==nil)
+  check("clean capture repairs an invalidated in-memory witness", f.export()==2)
+  e.NOW = e.NOW + 601
+  local _, expired = f.scope()
+  check("the previous session observation cannot perpetuate a stale blank-realm witness", expired==nil)
+end
+
+do
+  local f = blankFixture()
+  local rows = f.env.ROSTER
+  for i=3,1000 do
+    rows[i]={name=string.format("Test Member %04d",i),guid=string.format("Player-2-%08X",i),
+      rank="Member",rankIndex=7,level=50,online=false}
+  end
+  local started=os.clock()
+  check("complete 1,000-member realmless roster preserves all rows",f.export()==1000 and #f.snapshot().members==1000)
+  for _=1,60 do f.scope() end
+  check("reviewing 60 visible rows hashes the enrolled observer once",f.enrollmentReads==1)
+  print(string.format("MEASURE blank-realm 1000-member capture and 60 scope reads %.1f ms",(os.clock()-started)*1000))
+end
+
+for _, invalid in ipairs({"guild","slot","other-guid","non-master-row","two-masters","duplicate-observer","changed-realm","changed-guild","unknown-ranks","missing-table","changed-table","inconsistent-rank","empty-name","missing-rank","short-guid","long-guid","long-server","duplicate-member","partial"}) do
+  local f = blankFixture()
+  check(invalid .. " setup captures original roster", f.export()==2)
+  local e, prior = f.env, f.snapshot()
+  e.NOW = e.NOW+1
+  if invalid=="guild" then f.guild="Olympus I"
+  elseif invalid=="slot" then f.slot=1
+  elseif invalid=="other-guid" then e.PLAYER_GUID="Player-1-0000CCCC"
+  elseif invalid=="non-master-row" then e.ROSTER[1].rankIndex=1
+  elseif invalid=="unknown-ranks" then f.rankNames[3]="Unrecognized"
+  elseif invalid=="missing-table" then e.GuildControlGetNumRanks=nil
+  elseif invalid=="changed-table" then
+    local read=e.GetGuildRosterInfo
+    e.GetGuildRosterInfo=function(i)
+      local row={read(i)}
+      if i==2 then f.rankNames[3]="Changed" end
+      return unpack(row,1,17)
+    end
+  elseif invalid=="inconsistent-rank" then e.ROSTER[2].rankLabel="Initiate"
+  elseif invalid=="empty-name" then e.ROSTER[2].name="  "
+  elseif invalid=="missing-rank" then e.ROSTER[2].rankIndex=nil
+  elseif invalid=="two-masters" then e.ROSTER[2].rankIndex=0
+  elseif invalid=="short-guid" then e.ROSTER[2].guid="Player-1-ABCD"
+  elseif invalid=="long-guid" then e.ROSTER[2].guid="Player-1-0123456789ABCDEF0"
+  elseif invalid=="long-server" then e.ROSTER[2].guid="Player-1234567-ABCDEF00"
+  elseif invalid=="duplicate-member" then
+    e.ROSTER[3]={name="Other Member",guid=e.ROSTER[2].guid:gsub("BBBB","bbbb"),rank="Member",rankIndex=7,level=1,online=true}
+  elseif invalid=="duplicate-observer" then e.ROSTER[2].guid=e.PLAYER_GUID
+  elseif invalid=="partial" then e.GetNumGuildMembers=function() return 3,2 end
+  else
+    local getter=e.GetGuildRosterInfo
+    e.GetGuildRosterInfo=function(i)
+      if i==2 then
+        if invalid=="changed-realm" then f.realm="CAMWOW US2 Realm 3 PvE" else f.guild="OLYMPUS II" end
+      end
+      return getter(i)
+    end
+  end
+  check(invalid .. " holds and preserves the original snapshot", f.export()==nil and f.snapshot()==prior)
+end
 print(string.format("%d passed, %d failed", passed, failed))
 if failed > 0 then os.exit(1) end

@@ -113,10 +113,38 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.41"
+WATCHER_VERSION = "0.6.42"
 STRICT_DISPLAY_PROTOCOL = "launch-roster-display-v2"
 STRICT_DISPLAY_PATH = "/queue/unverified?keyVersion=" + STRICT_DISPLAY_PROTOCOL
 STRICT_DISPLAY_MAX_BYTES = 512 * 1024
+PRIME_REALM_LABEL = "CAMWOW US2 Realm 3 PvE"
+PRIME_GUILD_MASTER_PIN = "d0988804294170b3414fcaf60ea77658d3b511bbd0c1ccf4286b04e47d935a16"
+
+
+def valid_prime_guild_master_scope(roster: dict[str, Any], guids: dict[str, int]) -> bool:
+    """Validate the marked blank-realm export against the enrolled GM and actual rank observations."""
+    marker = roster['nativeScopeBinding']
+    if (roster['nativeGuild'] != 'OLYMPUS PRIME' or roster['nativeRealm'] != ''
+            or type(marker) is not dict or set(marker) != {'version', 'kind', 'observerGuid'}
+            or type(marker['version']) is not int or marker['version'] != 1 or marker['kind'] != 'prime-guild-master'
+            or not codes.is_guid(marker['observerGuid']) or guids.get(marker['observerGuid']) != 1
+            or not native_rank_attestation.qualified(roster.get('nativeRankTable'))):
+        return False
+    if (len(guids) != roster['total'] or len({guid.lower() for guid in guids}) != len(guids)
+            or any(re.fullmatch(r'Player-[0-9]{1,6}-[0-9A-Fa-f]{8,16}', guid) is None for guid in guids)):
+        return False
+    guid = marker['observerGuid']
+    if hashlib.sha256(('prime-guild-master|1|' + guid).encode('utf-8')).hexdigest() != PRIME_GUILD_MASTER_PIN:
+        return False
+    ranks = roster['nativeRankTable']['names']
+    masters = []
+    for member in roster['members']:
+        index = member.get('rankIndex')
+        if type(index) is not int or not 0 <= index < len(ranks) or member.get('rank') != ranks[index]:
+            return False
+        if index == 0:
+            masters.append(member.get('guid'))
+    return masters == [guid]
 
 
 def verification_roster_source(roster: Any) -> dict[str, Any] | None:
@@ -132,6 +160,8 @@ def verification_roster_source(roster: Any) -> dict[str, Any] | None:
         return None
     for key in ('nativeGuild', 'nativeRealm'):
         value = roster.get(key)
+        if key == 'nativeRealm' and value == '' and 'nativeScopeBinding' in roster:
+            continue
         if not isinstance(value, str) or not value or len(value.encode('utf-8')) > 128 or any(ord(c) < 32 or ord(c) == 127 for c in value):
             return None
     members, guids = {}, {}
@@ -146,12 +176,17 @@ def verification_roster_source(roster: Any) -> dict[str, Any] | None:
         members[key] = guid
         if guid is not None:
             guids[guid] = guids.get(guid, 0) + 1
+    scope_realm = roster['nativeRealm']
+    if 'nativeScopeBinding' in roster:
+        if not valid_prime_guild_master_scope(roster, guids):
+            return None
+        scope_realm = PRIME_REALM_LABEL
     try:
         raw = json.dumps({k: v for k, v in roster.items() if k != 'exportedAt'}, sort_keys=True, ensure_ascii=False, allow_nan=False)
     except (TypeError, ValueError, OverflowError):
         return None
     return {'digest': hashlib.sha256(raw.encode()).hexdigest(), 'members': members, 'guidCounts': guids,
-            'scopeHash': hashlib.sha256(('native-scope|1|' + roster['nativeGuild'] + '|' + roster['nativeRealm']).encode()).hexdigest()[:16]}
+            'scopeHash': hashlib.sha256(('native-scope|1|' + roster['nativeGuild'] + '|' + scope_realm).encode()).hexdigest()[:16]}
 
 
 # Where a relay character may come from: a login note addressed to the name it carries (a whisper the server delivered),
@@ -855,7 +890,8 @@ class Watcher:
         guid = db.get("lastCharacterGuid")
         if (source is None or roster["exportedAt"] > int(time.time()) + 5
                 or not codes.is_guid(guid) or source["members"].get(officer) != guid
-                or source["guidCounts"].get(guid) != 1):
+                or source["guidCounts"].get(guid) != 1
+                or 'nativeScopeBinding' in roster and roster['nativeScopeBinding']['observerGuid'] != guid):
             return None
         return {"identity": (os.path.normcase(os.path.abspath(self.sv_file)), snapshot.witness[:2]),
                 "rosterDigest": source["digest"], "exportedAt": roster["exportedAt"],
@@ -910,7 +946,7 @@ class Watcher:
         witness = self._verification_roster
         at = int(time.time())
         valid = officer_invites233.validate(self.secret, body, at)
-        if not self.membership_only or valid is None or witness is None:
+        if not self.membership_only or valid is None or witness is None or witness.get('boundPrimeRealm'):
             return False
         if not self._verification_source_current280(witness):
             return False
@@ -952,6 +988,7 @@ class Watcher:
                 and self._verification_source_current280(installed)):
             return
         self._verification_roster = {"digest": source["digest"], "exportedAt": source["exportedAt"],
+                                     "boundPrimeRealm": "nativeScopeBinding" in source["body"],
                                      "scopeHash": source["scopeHash"], "members": source["members"], "guidCounts": source["guidCounts"],
                                      "snapshot": receipt["snapshot"], "fileStamp": source["fileStamp"],
                                      "fileSource280": source["fileSource280"]}
@@ -1093,6 +1130,13 @@ class Watcher:
         if item.get("refusal_status") is not None:
             self._warn_custody("explicitly refused original retained for attended review")
             return Delivery.HELD
+        if (item.get('path') == '/ingest/roster' and isinstance(item.get('body'), dict)
+                and 'nativeScopeBinding' in item['body']):
+            source = self._verification_roster_originals.get(id(item))
+            if (source is None or source.get('original') is not item or source.get('body') != item['body']
+                    or not 0 <= time.time() - source['exportedAt'] < 600 or not self._verification_source_current280(source)):
+                self._warn_custody("bound PRIME roster requires its fresh original source")
+                return Delivery.HELD
         independent = self._independent_originals.get(id(item))
         if independent is not None and not self._independent_original_current(item):
             self._warn_custody("fresh independent original changed; no request was made")
@@ -2131,6 +2175,18 @@ class Watcher:
             value = roster.get(field)
             if isinstance(value, str) and 0 < len(value.encode("utf-8")) <= 128 and not any(ord(c) < 32 or ord(c) == 127 for c in value):
                 native_scope[field] = value
+        if 'nativeScopeBinding' in roster or roster.get('nativeRealm') == '' and self.membership_only:
+            file_source = self._verification_sv_source280
+            if (verification is None or file_source is None or file_source['rosterDigest'] != verification['digest']
+                    or file_source['exportedAt'] != exported
+                    or file_source['officerGuid'] != roster['nativeScopeBinding']['observerGuid']
+                    or not 0 <= at - exported < 600):
+                self._verification_roster = None
+                self._verification_roster_candidate = None
+                raise SavedVariablesSourceUnavailable()
+            # Send the raw observed realm. The logical verification scope is local to the witness.
+            native_scope.update(nativeRealm=roster['nativeRealm'], nativeScopeBinding=roster['nativeScopeBinding'],
+                                nativeRosterTotal=roster['total'])
         if 'nativeRankTable' in roster:
             native_scope['nativeRankTable'] = native_rank_attestation.observation(roster['nativeRankTable'])
         # Scope is part of source identity, including an otherwise identical
@@ -2329,6 +2385,9 @@ class Watcher:
         at = int(time.time())
         if not isinstance(roster, dict):
             self._control_diagnosis280(control, "native roster unavailable")
+            return None
+        if 'nativeScopeBinding' in roster:
+            self._control_diagnosis280(control, "launch controls require an observed realm")
             return None
         own = saved_character(db)
         if not own or codes.normalize_character(own) != codes.normalize_character(self.officer):
