@@ -155,7 +155,8 @@ function M.Promotions(list, launchAPI, now)
   end
   if current then
     local pages, promotions = array(current.pages, 50), array(current.promotions, 1000)
-    if not pages or pages==0 and not current.selection or not promotions or type(current.freshness) ~= "table" then
+    local primeInitiateRead=current.identity and current.identity.primeInitiates==true
+    if not pages or pages==0 and not current.selection and not primeInitiateRead or not promotions or type(current.freshness) ~= "table" then
       unavailable, current = "The validated projection is incomplete; original page freshness is unavailable.", nil
     else
       diagnostics.queueAvailable, diagnostics.pageCount = true, pages
@@ -237,6 +238,8 @@ function M.Promotions(list, launchAPI, now)
     elseif attemptStatus=="blocked" then info=detail("held","Client promotion action blocked","The client reported a blocked promotion API. Original attempt history is retained; this view cannot clear the block or send a fallback.")
     elseif launchAPI.pending[id] ~= nil or attemptStatus=="pending"
       or not attemptStatus and type(launchAPI.AttemptHeld)=="function" and launchAPI.AttemptHeld(id,current,row.rankIndex) then info = detail("pending", "Prior attempt pending", "An earlier promotion attempt for this member is pending or unconfirmed. The addon does not repeat it. Review that attempt's unresolved history and check the member's current rank in the game's guild window. Only if staff review confirms a promotion is still due, do it there by hand. The earlier attempt and its uncertainty stay on record.")
+    elseif attemptStatus=="recheck" and current.identity and current.identity.primeInitiates then
+      info=detail("held","Further steps need the native realm","The first step was confirmed. WoW must report the player realm before the addon can check another step for this character.")
     elseif attemptStatus=="recheck" then info=detail("recheck","Check next original step","The last owned step was confirmed. Check this GUID against a fresh complete roster before a separate next promotion click; the original intent and expiry stay fixed.")
     elseif current.selection and current.selection.covered[id] and not current.selection.completed then
       local selected=current.selection
@@ -244,6 +247,9 @@ function M.Promotions(list, launchAPI, now)
       elseif selected.refreshable==true and initiate(row) and verified(row) then info=detail("check","Check again",selected.reason)
       else info=detail("held",selected.code=="directive-rank-policy-held" and "Promotion policy held"
         or selected.code=="native-rank-scheme-unconfirmed" and "Guild rank table unconfirmed" or "Selected read held",selected.reason) end
+    elseif current.identity and current.identity.primeInitiates and initiate(row) and verified(row)
+      and (not current.selection or not current.selection.covered[id]) then
+      info=detail("check","Check eligibility","The current PRIME Guild Master roster supports a fresh eligibility check for this Initiate. Each promotion needs its own officer click.")
     elseif freshRead and initiate(row) and verified(row)
       and (sourceHeld[id]==nil or current.rankHeldReason=="directive-rank-policy-held" and sourceHeld[id]=="directive-rank-policy-held") and riskReview[id]==nil
       and (not current.selection or current.selection.covered[id]~=true)
@@ -305,6 +311,8 @@ function M.Promotions(list, launchAPI, now)
   elseif diagnostics.ready>0 then diagnostics.state,diagnostics.reason="ready",tostring(diagnostics.ready).." fresh supported recommendation(s); each hardware click rechecks the exact native target."
   elseif current.selection and current.selection.completed and (diagnostics.counts.expired or 0)>0 then diagnostics.state,diagnostics.reason="expired","The selected recommendation has expired; its original clocks remain unchanged. Recheck the selected GUID for a new read."
   elseif current.selection then diagnostics.state,diagnostics.reason=current.selection.state=="pending" and "pending" or "held",current.selection.reason
+  elseif current.identity and current.identity.primeInitiates then diagnostics.state,diagnostics.reason="no_recommendation",
+    "Select verified Initiates to check their current eligibility using the PRIME Guild Master roster."
   elseif current.actionHeld then diagnostics.state, diagnostics.reason = "held", diagnostics.loadedScan
     and (diagnostics.loadedScan.reason.." No recommendations are actionable. Next step: "..diagnostics.loadedScan.nextStep)
     or "The promotion projection is stopped or superseded. No recommendations are actionable."

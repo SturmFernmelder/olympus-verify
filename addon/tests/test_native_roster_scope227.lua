@@ -253,5 +253,97 @@ for _, invalid in ipairs({"guild","slot","other-guid","non-master-row","two-mast
   end
   check(invalid .. " holds and preserves the original snapshot", f.export()==nil and f.snapshot()==prior)
 end
+-- Exercise the real scope capture, signed control, projection reader, roster
+-- model and secure-button hooks. Only the client's protected call is simulated.
+local function selectedFixture()
+  local f=blankFixture()
+  local e=f.env
+  local row=e.ROSTER[2]
+  local steward=e.OlympusVerifyNativeRankConstants.profiles[2]
+  for i,name in ipairs(steward.names) do f.rankNames[i]=name end
+  row.rankIndex,row.rank=9,"Initiate"
+  local granted=0
+  e.CanGuildPromote=function() return true end
+  e.C_GuildInfo.IsGuildRankAssignmentAllowed=function() return true end
+  e.SECURE_MACRO_EXECUTE=function(body)
+    assert(body=="/gpromote "..row.name)
+    granted=granted+1
+    row.rankIndex=row.rankIndex-1
+  end
+  e.OlympusVerifyAPI.Sync=function() f.syncs=(f.syncs or 0)+1;assert(f.export()==2) end
+  setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyRosterModel.lua")),e)("OlympusVerify")
+  setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLaunch229.lua")),e)("OlympusVerify")
+  local q=e.OlympusLaunch229
+  f.event=function() q.Events:GetScript("OnEvent")(q.Events,"GUILD_ROSTER_UPDATE") end
+  f.event()
+  f.click=function()
+    local button=e.CreateFrame("Button",nil,e.UIParent,"SecureActionButtonTemplate,UIPanelButtonTemplate")
+    q.BindPromotionButton(button,function() return row.guid end)
+    button:Show();button:Click()
+    return granted
+  end
+  f.publish=function(finalSlot)
+    local control=e.OlympusVerifyDB.launchControl
+    local d=assert(loadfile("directive_fixture280.lua"))()
+    local data,page=d.publish(e,{control=control,guild=f.guild,realm="CAMWOW US2 Realm 3 PvE",total=2,
+      specs={{guid=row.guid,name=row.name,start=9,final=finalSlot}}})
+    page.rankProfile,page.rankSchemeDigest,page.rankNames=steward.profile,steward.digest,{unpack(steward.names)}
+    local recommendation=page.promotions[1]
+    recommendation.intent.rankProfile,recommendation.intent.rankSchemeDigest=steward.profile,steward.digest
+    if finalSlot==steward.veteran then
+      recommendation.targetName,recommendation.reason,recommendation.intent.reason="Veteran","knight-veteran","knight-veteran"
+    end
+    return data
+  end
+  f.selectedCount=function() return granted end
+  return f,e,q,row
+end
+for _,final in ipairs({8,6}) do
+  local f,e,q,row=selectedFixture()
+  check("blank selected check waits for the enrolled native capture",not q.SelectMany({row.guid}) and not f.syncs)
+  check("native enrolled capture becomes available for the selected check",f.export()==2)
+  local shown={{name=row.name,guid=row.guid,rankIndex=9,rank="Initiate",status="verified"}}
+  local _,info=e.OlympusVerifyRosterModel.Promotions(shown,q,e.NOW)
+  check("verified INITIATE offers a check before any discovery page or selection",info.byGuid[row.guid].state=="check" and info.ready==0)
+  check("the button and single row use the blank-realm Initiate-only control",q.Select(row.guid) and f.syncs==1)
+  local control=e.OlympusVerifyDB.launchControl
+  local bytes=table.concat({"launch-selected-read","5","select-prime-initiates",control.id,tostring(control.observedAt),control.scopeHash,control.guid,row.guid,"[]"},"|")
+  check("v5 signs its exact purpose, actor and selected GUID",control.version==5 and control.action=="select-prime-initiates"
+    and control.confirmations=="[]" and control.mac==e.OlympusHmac.hmacSha256hex(e.OlympusVerifyConfig.secret,bytes):sub(1,32))
+  check("an unreturned request has zero promotion authority",q.Current().selection.state=="pending" and f.click()==0)
+  local data=f.publish(final)
+  local result=q.Current()
+  check("selected projection covers the original target and retains its genuine entitlement",result and result.selection.completed
+    and result.promotions[1].targetSlot==final and result.freshness[row.guid].kind=="selected" and f.selectedCount()==0)
+  check("marked selection cannot supply a discovery, MOTD or risk-buffer operation",not q.Control("scan") and not q.Motd("set")
+    and #q.RiskBuffer()==0 and #result.pages==0 and f.effects==0)
+  local original=data.page.promotions[1].currentSlot
+  data.page.promotions[1].currentSlot=8
+  check("changing the original native start rank invalidates the recommendation",f.click()==0)
+  data.page.promotions[1].currentSlot=original
+  e.CanGuildPromote=function() return false end
+  check("a ready row cannot override native officer permission",f.click()==0)
+  e.CanGuildPromote=function() return true end
+  check("one explicit officer click admits exactly the first promotion step",f.click()==1 and row.rankIndex==8)
+  f.event()
+  check("later clicks and checking a non-Initiate cannot reuse the first step",f.click()==1 and not q.Select(row.guid)
+    and f.syncs==1 and f.effects==0)
+end
+do
+  local f,e,q,row=selectedFixture()
+  assert(f.export()==2 and q.SelectMany({row.guid}))
+  f.publish(8)
+  local control=e.OlympusVerifyDB.launchControl
+  local v5mac=control.mac
+  control.version,control.action=4,"select-directive"
+  check("a different control purpose cannot consume a blank-scope result",q.Current().selection==nil and f.click()==0)
+  control.version,control.action,control.mac=5,"select-prime-initiates",v5mac
+  f.realm="CAMWOW US2 Realm 3 PvE"
+  local observed=q.Current()
+  check("ordinary realm cannot consume the blank-realm control",not (observed and observed.selection) and f.click()==0)
+  f.realm=""
+  e.NOW=e.NOW+601
+  check("an expired GM witness cannot consume the signed read",q.Current()==nil and not q.SelectMany({row.guid}) and f.click()==0)
+end
 print(string.format("%d passed, %d failed", passed, failed))
 if failed > 0 then os.exit(1) end

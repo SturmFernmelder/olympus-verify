@@ -27,15 +27,24 @@ const {Miniflare,Log,LogLevel,convertV4MiniflareOptions} = require('miniflare');
         telemetry:{enabled:false},log:new Log(LogLevel.WARN),logRequests:false,unsafeRegisterWorker:false,
         unsafeLocalExplorer:false,unsafeObservability:false,d1Databases:{DB:'prime-'+scenario},
         resourceTmpPath:path.join(temp,'tmp'),resourcePersistencePath:path.join(temp,'persist'),
-        isolatedResourcePersistencePath:path.join(temp,'isolated'),outboundService:request=>{
-          outbound.push(request.method+' '+new URL(request.url).pathname);
+        isolatedResourcePersistencePath:path.join(temp,'isolated'),outboundService:async request=>{
+          const url=new URL(request.url),id=url.pathname.split('/').pop();
+          outbound.push(request.method+' '+url.pathname);
+          if(request.method==='GET'&&url.hostname==='discord.com'&&['800000000000000012','800000000000000013'].includes(id)){
+            if(request.headers.get('Authorization')==='Bot synthetic-advance-roster-during-discord'){
+              const advanced=await mf.dispatchFetch('http://fixture.invalid/fixture-advance/'+scenario);
+              assert.equal(advanced.status,204);
+            }
+            return Response.json({user:{id},roles:id.endsWith('13')?['1299841745550311535']:[]});
+          }
           return new Response(null,{status:503});
         }}));
       try {
         const response=await mf.dispatchFetch('http://fixture.invalid/'+scenario);
         const payload=await response.json();
         assert.equal(response.status,200,JSON.stringify(payload));
-        assert.deepEqual(outbound,[]);
+        assert.deepEqual(outbound,productionPin?[]:[12,13,12,13,12].map(id=>
+          'GET /api/v10/guilds/236932545793490944/members/8000000000000000'+id));
         for (const row of payload.checks)console.log('PASS ['+scenario+'] '+row);
       } finally { await mf.dispose(); }
     }

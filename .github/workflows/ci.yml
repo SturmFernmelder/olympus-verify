@@ -57,7 +57,7 @@ jobs:
       - name: TypeScript, targeted genuine Workerd D1 behavior, D1 statement ceilings and query plans
         run: npm run qualify -- --target lease --target treasury --target reconciliation --target promotions
         working-directory: worker
-      - name: Verify a complete PRIME roster with an empty realm
+      - name: Verify blank-realm PRIME rosters and selected Initiate checks
         working-directory: worker
         run: node tests/prime_realm_binding_workerd_test.cjs
       - name: Held-read diagnostics, uncertain writes and explicit page retry

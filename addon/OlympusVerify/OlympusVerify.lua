@@ -41,7 +41,7 @@ local SECRET = cfg.secret
 -- 0.6.12: the example's placeholder is public, so a Config.lua copied without replacing it must not accept codes made from it.
 if type(SECRET) ~= "string" or SECRET == "" or string.find(SECRET, "^REPLACE_WITH_") then SECRET = nil end
 local secretWarned = false  -- 0.6.12: say once per session, not on every whisper, that codes cannot be checked
-local SOURCE_VERSION = "0.6.44" -- Keep this source fallback and OlympusVerify.toc aligned.
+local SOURCE_VERSION = "0.6.45" -- Keep this source fallback and OlympusVerify.toc aligned.
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
   or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or SOURCE_VERSION
 local SET_NOTES = cfg.setNotes == true  -- SetNote is forbidden for addons on the Forever beta; leave false there
@@ -582,7 +582,8 @@ end
 -- A client may return an ordinary empty player realm after realm consolidation.
 -- The compatibility key belongs to the previously enrolled PRIME scope. Its
 -- sole substitute witness is the current native GM, corroborated in a complete
--- roster from this session. It never authorizes invitations or officer actions.
+-- roster from this session. A selected-Initiate check can consume this witness
+-- with its own signed request. The witness alone cannot authorize a rank action.
 do
   local primeRealm = "CAMWOW US2 Realm 3 PvE"
   local enrolledDigest = "d0988804294170b3414fcaf60ea77658d3b511bbd0c1ccf4286b04e47d935a16"

@@ -2,11 +2,14 @@
 import copy
 import hashlib
 import unittest
+import urllib.parse
 from unittest.mock import patch
 
 import test_verification_source_witness280 as sources
+import test_directive_rank_transition as directive
 
 watcher = sources.watcher
+launch = watcher.launch_operations229
 
 
 class PrimeRealmBinding298Tests(unittest.TestCase):
@@ -24,6 +27,103 @@ class PrimeRealmBinding298Tests(unittest.TestCase):
                      patch.object(sources, 'REALM', watcher.PRIME_REALM_LABEL)):
             mock.start()
             self.addCleanup(mock.stop)
+
+    def selected_initiates(self):
+        self.roster['members'][1].update(rankIndex=9, rank='Initiate')
+        c = dict(version=5, action=launch.PRIME_INITIATE_ACTION, id=f'{self.f.at}:1',
+                 observedAt=self.f.at, scopeHash=self.f.body()['nativeMembership']['scopeHash'],
+                 guid=sources.OFFICER_GUID, targetGuids=[sources.GUID], confirmations='[]')
+        c['mac'] = launch.selected_control_mac(sources.SECRET, c)
+        self.f.db['launchControl'] = c
+        return c
+
+    def test_selected_initiates_uses_exact_original_ack_and_one_read(self):
+        c = self.selected_initiates()
+        self.roster['exportedAt'] -= 1
+        self.w.launch_selected_file.parent.mkdir(parents=True)
+        self.f.write()
+        self.w.check_savedvars()
+        self.assertTrue(self.w.launch_selected.running)
+        self.assertIsNone(self.w._launch_accepted_roster)
+        self.assertEqual(self.w.launch_scan.phase, 'idle')
+
+        def answer(method, path, retries):
+            self.assertEqual((method, retries), ('GET', 1))
+            parsed = urllib.parse.urlsplit(path)
+            self.assertEqual(parsed.path, '/queue/launch-operations')
+            self.assertEqual(urllib.parse.parse_qs(parsed.query), dict(
+                keyVersion=['officer-operations-v234'], primeBinding=['prime-guild-master'],
+                selectionId=[c['id']], snapshotId=['7'], snapshotAt=[str(self.roster['exportedAt'])],
+                actorGuid=[sources.OFFICER_GUID], confirmations=['[]'], targetGuids=['["' + sources.GUID + '"]']))
+            fixture = directive.DirectiveTransition()
+            fixture.at, fixture.actor, fixture.target, fixture.scope = self.f.at, sources.OFFICER_GUID, sources.GUID, c['scopeHash']
+            page = fixture.page()
+            page.update(realm=watcher.PRIME_REALM_LABEL, snapshotId=7)
+            page['promotions'][0].update(name=sources.NAME)
+            page['promotions'][0]['intent'].update(name=sources.NAME, originSnapshotId=7, lastSnapshotId=7)
+            return True, dict(version=2, protocol=launch.DIRECTIVE_PROTOCOL, controlId=c['id'],
+                actorGuid=c['guid'], coverageKind='selected-guids', targetGuids=c['targetGuids'],
+                targetsDigest=launch.targets_digest276(c['targetGuids']), coveredGuids=c['targetGuids'], page=page)
+
+        with patch.object(self.w.worker, 'call', side_effect=answer) as get:
+            self.w.pull_launch_operations()
+            self.assertEqual(get.call_count, 1)
+        self.assertFalse(self.w.launch_selected.running)
+        self.assertTrue(self.w.launch_selected.record['completed'])
+        self.assertEqual(self.w.launch_selected.record['attempts'], 1)
+        saved = watcher.savedvars.parse_file(self.w.launch_selected_file)['OlympusLaunchSelected']
+        self.assertEqual(saved['page']['promotions'][0]['guid'], sources.GUID)
+        self.assertTrue(saved['completed'])
+        self.w.read_launch_control(self.f.db)
+        self.assertFalse(self.w.launch_selected.running)
+        self.assertEqual(self.w.launch_selected.record['attempts'], 1)
+
+    def test_bound_selection_refuses_old_controls_unmarked_rosters_and_continuations(self):
+        c = self.selected_initiates()
+        self.assertEqual(self.w.valid_launch_control(self.f.db), c)
+        for version, action, changes in [(4, 'select-directive', {}), (5, 'select-directive', {}),
+                                        (5, launch.PRIME_INITIATE_ACTION, {'confirmations': '[{}]'}),
+                                        (5, launch.PRIME_INITIATE_ACTION, {'targetGuids': [sources.OFFICER_GUID]})]:
+            alternate = dict(c, version=version, action=action, **changes)
+            alternate['mac'] = launch.selected_control_mac(sources.SECRET, alternate)
+            self.assertIsNone(self.w.valid_launch_control(dict(self.f.db, launchControl=alternate)))
+        older = dict(c, version=4, action='select-directive')
+        c['mac'] = launch.selected_control_mac(sources.SECRET, older)
+        self.assertIsNone(self.w.valid_launch_control(self.f.db))
+        c['mac'] = launch.selected_control_mac(sources.SECRET, c)
+        del self.roster['nativeScopeBinding']
+        self.roster['nativeRealm'] = watcher.PRIME_REALM_LABEL
+        self.assertIsNone(self.w.valid_launch_control(self.f.db))
+
+    def test_selection_holds_when_original_ack_is_unknown(self):
+        self.selected_initiates()
+        self.f.unknown_roster = True
+        self.f.write()
+        self.w.check_savedvars()
+        self.assertFalse(self.w.launch_selected.running)
+        self.assertEqual(self.w.launch_selected.record['stoppedReason'], 'native-roster-receipt-required')
+        self.assertEqual(self.w.launch_selected.record['attempts'], 0)
+        self.assertIsNone(self.w._launch_accepted_roster)
+
+    def test_selection_cannot_borrow_other_rank_or_changed_snapshot(self):
+        self.selected_initiates()
+        self.roster['members'][1].update(rankIndex=7, rank=self.roster['nativeRankTable']['names'][7])
+        self.f.write()
+        self.w.check_savedvars()
+        self.assertFalse(self.w.launch_selected.running)
+        self.assertEqual(self.w.launch_selected.record['stoppedReason'], 'selected-target-unavailable')
+        self.assertEqual(self.w.launch_selected.record['attempts'], 0)
+
+    def test_selected_read_rechecks_ack_immediately_before_request(self):
+        self.selected_initiates()
+        self.f.write()
+        self.w.check_savedvars()
+        self.assertTrue(self.w.launch_selected.running)
+        self.w._verification_roster['snapshot'] += 1
+        with patch.object(self.w.worker, 'call') as get:
+            self.w.pull_launch_operations()
+            get.assert_not_called()
+        self.assertEqual(self.w.launch_selected.record['stoppedReason'], 'native-roster-changed-or-expired')
 
     def test_actual_file_wire_receipt_whisper_and_operator_holds(self):
         self.f.write()
