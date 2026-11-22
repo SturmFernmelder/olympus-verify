@@ -107,6 +107,9 @@ class InitiateViewTests(unittest.TestCase):
         self.assertEqual(len(data.rows), 21)
         self.assertEqual(len(view.filtered(data.rows, "", view.REVIEW)), 20)
         self.assertEqual(len(view.filtered(data.rows, "", view.HELD)), 1)
+        expired = self.files.get(self.at + 601)
+        self.assertEqual({row.name for row in expired.rows}, {row.name for row in data.rows})
+        self.assertTrue(all(row.state == view.STALE for row in expired.rows))
 
     def test_explicit_intent_and_actor_required_even_for_a_verified_name(self):
         path = self.directory / (view.CHECKS + ".lua")

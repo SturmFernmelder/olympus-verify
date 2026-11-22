@@ -190,7 +190,7 @@ def project(display, checks, now):
                 state = STALE
             for guid in targets:
                 member = verified.get(guid)
-                if member is None or (state != STALE and holds.get(guid) == "selected-rank-changed"):
+                if member is None or holds.get(guid) == "selected-rank-changed":
                     continue
                 name, discord = member
                 ready = recommendations.get(guid)
