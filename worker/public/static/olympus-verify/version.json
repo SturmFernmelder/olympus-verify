@@ -1,16 +1,16 @@
 {
   "schema": "olympus-verify-public-download-v1",
   "addon": "OlympusVerify",
-  "version": "0.6.45",
+  "version": "0.6.46",
   "generator": {
     "path": "scripts/build-verify-addon.cjs",
-    "bytes": 5695,
-    "sha256": "f3ec81ae41cdbd9aad8ab22731bd1a21293580a8e6f2277a42d982b5d0d89c5b"
+    "bytes": 5724,
+    "sha256": "5e2cd3ddd6e30b209c853af9d26dcbff9710af25929266d98b743af6c955e0bb"
   },
   "archive": {
-    "path": "/static/olympus-verify/olympus-verify-0.6.45.zip",
-    "bytes": 796206,
-    "sha256": "f1c5caa0f6346ed23367cf0bd0da958d607a26ff78154ec4bfc48ed5233264d3"
+    "path": "/static/olympus-verify/olympus-verify-0.6.46.zip",
+    "bytes": 808173,
+    "sha256": "f454757dc2954bfa4ce6304a9afc0dd19f0c2d44bc1e30596193b82a48a4c100"
   },
   "files": [
     {
@@ -35,13 +35,13 @@
     },
     {
       "path": "OlympusVerify/OlympusVerify.lua",
-      "bytes": 240241,
-      "sha256": "44f991b76230a687540edc34c878652fea2fda94aa22bf530068a82c9ae21f45"
+      "bytes": 240490,
+      "sha256": "17a0d38245df90d547cda818e58d92710c8a96b32e57bb082414c0613df04b83"
     },
     {
       "path": "OlympusVerify/OlympusVerify.toc",
-      "bytes": 972,
-      "sha256": "73dbc087c38f40d467058fa21c33e03dd7fe31c44c8688293efbebc4559fd812"
+      "bytes": 998,
+      "sha256": "850d5d54cd6f864452db40803e585ad9913d4f3e812f78d13de95aaee4836a94"
     },
     {
       "path": "OlympusVerify/OlympusVerifyNativeRankConstants.lua",
@@ -80,8 +80,8 @@
     },
     {
       "path": "OlympusVerify/OlympusVerifyLaunch229.lua",
-      "bytes": 111836,
-      "sha256": "3a01052e51ddec7ac9221f6a66db8a541dda828249d0146f0946fa37aa02f6d2"
+      "bytes": 121874,
+      "sha256": "1e15f34d037a1d33b2804640a5071efd1c4a2b1bdd3de768e0fb29eb3c21c066"
     },
     {
       "path": "OlympusVerify/OlympusVerifyLive242.lua",
@@ -105,13 +105,13 @@
     },
     {
       "path": "OlympusVerify/OlympusVerifyRoster.lua",
-      "bytes": 50136,
-      "sha256": "791478b3543b558a50023c3f15dafda864a2d5c127b27f9807259a73c2db7f52"
+      "bytes": 50729,
+      "sha256": "9a392d38a8d5ca74cb63aace62a12620ef2d4e06b63aa2e1fa6194d5f519f4d1"
     },
     {
       "path": "OlympusVerify/OlympusVerifyRosterModel.lua",
-      "bytes": 27421,
-      "sha256": "1b1ca9c4e94ef50d0a191c2d7c26e6d6a86ea63ef793f300185325f5ec2dd891"
+      "bytes": 28482,
+      "sha256": "d2c713cad429258d2022a3291198f992cc32d9ed2b5b58d9d3b6ba50c15ac919"
     },
     {
       "path": "OlympusVerify/OlympusVerifyTreasury.lua",
@@ -129,6 +129,7 @@
     "OlympusQueue.lua",
     "OlympusLaunchQueue.lua",
     "OlympusLaunchSelected.lua",
+    "OlympusInitiateChecks.lua",
     "OlympusVerifyLists.lua",
     "SavedVariables"
   ],

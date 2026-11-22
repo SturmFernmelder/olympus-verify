@@ -486,7 +486,8 @@ def selected_control_mac(secret: str, value: dict[str, Any]) -> str:
     return hmac.new(secret.encode(), message.encode(), hashlib.sha256).hexdigest()[:32]
 
 
-def validate_selected_control(secret: str, value: Any, at: int, guid: Any, guild: Any, realm: Any, *, prime_binding: bool = False) -> bool:
+def validate_selected_control(secret: str, value: Any, at: int, guid: Any, guild: Any, realm: Any, *,
+                              prime_binding: bool = False, automatic_initiates: bool = False) -> bool:
     if not isinstance(value, dict):
         return False
     # Old controls remain historical originals; never upgrade them to the new ladder.
@@ -496,7 +497,7 @@ def validate_selected_control(secret: str, value: Any, at: int, guid: Any, guild
             or not _text(value['confirmations'],8192) or not value['confirmations'].isascii()
             or not isinstance(value['id'], str) or re.fullmatch(r'[0-9]{9,11}:[0-9]{1,10}', value['id']) is None
             or not _integer(value['observedAt'], 1) or value['id'].split(':')[0] != str(value['observedAt'])
-            or not at-60 <= value['observedAt'] <= at+5 or value['guid'] != guid
+            or not at-(599 if automatic_initiates else 60) <= value['observedAt'] <= at+5 or value['guid'] != guid
             or not isinstance(guid, str) or _GUID.fullmatch(guid) is None or guid in value['targetGuids']
             or not _text(guild) or canonical_guild(guild) != 'OLYMPUS PRIME' or guild != guild.strip() or not _text(realm) or not realm
             or value['scopeHash'] != hashlib.sha256(f'native-scope|1|{guild}|{realm}'.encode()).hexdigest()[:16]
@@ -527,6 +528,33 @@ def validate_legacy_selected_control(secret: str, value: Any, at: int, guid: Any
             or not isinstance(value['mac'], str) or re.fullmatch(r'[0-9a-f]{32}', value['mac']) is None):
         return False
     return hmac.compare_digest(value['mac'], selected_control_mac(secret, value))
+
+
+def sweep_mac(secret: str, sweep_id: str, controls: list[dict]) -> str:
+    signed_pages = ','.join(control['mac'] for control in controls)
+    message = f'prime-initiate-sweep|1|{sweep_id}|{signed_pages}'
+    return hmac.new(secret.encode(), message.encode(), hashlib.sha256).hexdigest()[:32]
+
+
+def valid_sweep(secret: str, envelope: Any, at: int, guid: Any, guild: Any, realm: Any, prime_binding: bool) -> bool:
+    if (type(envelope) is not dict or set(envelope) != {'version', 'id', 'controls', 'mac'}
+            or type(envelope['version']) is not int or envelope['version'] != 1
+            or not isinstance(envelope['mac'], str) or re.fullmatch('[0-9a-f]{32}', envelope['mac']) is None):
+        return False
+    controls = envelope['controls']
+    if type(controls) is not list or not 1 <= len(controls) <= MAX_PAGES:
+        return False
+    ids, guids = set(), set()
+    for c in controls:
+        if (not validate_selected_control(secret, c, at, guid, guild, realm,
+                                          prime_binding=prime_binding, automatic_initiates=True)
+                or c['confirmations'] != '[]' or c['observedAt'] != controls[0]['observedAt']
+                or c['id'] in ids or not guids.isdisjoint(c['targetGuids'])):
+            return False
+        ids.add(c['id'])
+        guids.update(c['targetGuids'])
+    return (envelope['id'] == controls[0]['id']
+            and hmac.compare_digest(envelope['mac'], sweep_mac(secret, envelope['id'], controls)))
 
 
 def _selected_page(page: Any, record: dict[str, Any], covered: Any, at: int, allow_stale: bool = False) -> bool:
@@ -561,8 +589,9 @@ def _selected_page(page: Any, record: dict[str, Any], covered: Any, at: int, all
 
 class SelectedRead:
     """One explicit new-source read. Never resets or resumes the discovery Scan."""
-    def __init__(self, clock: Callable[[], float] = time.time):
+    def __init__(self, clock: Callable[[], float] = time.time, *, automatic_initiates: bool = False):
         self.clock = clock
+        self.automatic_initiates = automatic_initiates
         self.record: dict[str, Any] | None = None
         self.cursor: str | None = None
         self.next_at = 0.0
@@ -574,7 +603,8 @@ class SelectedRead:
     def running(self) -> bool:
         return self.record is not None and self.record['running']
 
-    def request(self, control: dict[str, Any], accepted: Any, roster: Any, at: float) -> None:
+    def request(self, control: dict[str, Any], accepted: Any, roster: Any, at: float,
+                *, sweep_source: tuple[str | None, set[str]] | None = None) -> None:
         self.prime_binding = control.get('version') == 5
         batch = self.prime_binding or control.get('version') == 4
         self.record = dict(version=2, protocol=DIRECTIVE_PROTOCOL, controlId=control['id'], actorGuid=control['guid'],
@@ -592,7 +622,8 @@ class SelectedRead:
         self.cursor = None
         self.native_digest = None
         self.native_guids = set()
-        digest = roster_content_digest(roster) if self.prime_binding else complete_roster_digest(roster)
+        digest = (sweep_source[0] if sweep_source is not None else
+                  roster_content_digest(roster) if self.prime_binding else complete_roster_digest(roster))
         if (not batch or not isinstance(accepted, dict) or digest is None or accepted.get('digest') != digest
                 or self.prime_binding and accepted.get('boundPrimeRealm') is not True
                 or accepted.get('exportedAt') != roster['exportedAt'] or not _integer(accepted.get('snapshot'), 1)
@@ -601,8 +632,9 @@ class SelectedRead:
         r = self.record
         r.update(snapshotId=accepted['snapshot'], snapshotAt=accepted['exportedAt'],
                  expiresAt=min(control['observedAt']+600, accepted['exportedAt']+600))
-        self.native_guids = {row['guid'] for row in roster['members']
-                             if not self.prime_binding or row.get('rankIndex') == 9 and row.get('rank') == 'Initiate'}
+        self.native_guids = (sweep_source[1] if sweep_source is not None else
+                             {row['guid'] for row in roster['members']
+                              if not self.prime_binding or row.get('rankIndex') == 9 and row.get('rank') == 'Initiate'})
         self.native_digest = digest
         targets = control['targetGuids'] if batch else [control['targetGuid']]
         if any(guid not in self.native_guids for guid in targets):
@@ -626,7 +658,7 @@ class SelectedRead:
     def expire_admission(self, at: float) -> bool:
         if self.expire(at):
             return True
-        if self.running and not self.cursor and at >= self.record['observedAt']+60:
+        if self.running and not self.automatic_initiates and not self.cursor and at >= self.record['observedAt']+60:
             return self.hold('selection-admission-expired')
         return False
 
@@ -645,7 +677,8 @@ class SelectedRead:
         if not _integer(delay, 1, 86400):
             return self.hold('source-refused')
         self.next_at = max(self.next_at, self.clock()+max(5, delay))
-        limit = self.record['expiresAt'] if self.cursor else min(self.record['expiresAt'], self.record['observedAt']+60)
+        limit = (self.record['expiresAt'] if self.cursor or self.automatic_initiates
+                 else min(self.record['expiresAt'], self.record['observedAt']+60))
         if self.next_at >= limit:
             return self.hold('rate-limit-exceeds-scan')
         self.record['stoppedReason'] = 'rate-limited-wait'
@@ -663,6 +696,8 @@ class SelectedRead:
             return self.hold('rate-limit-retries-exhausted')
         batch = r['protocol'] == DIRECTIVE_PROTOCOL
         query = dict(selectionId=r['controlId'], snapshotId=r['snapshotId'], snapshotAt=r['snapshotAt'], actorGuid=r['actorGuid'], confirmations=r['confirmations'])
+        if self.automatic_initiates:
+            query['autoInitiates'] = '1'
         if self.prime_binding:
             query['primeBinding'] = 'prime-guild-master'
         query.update(targetGuids=json.dumps(r['targetGuids'], separators=(',', ':'))) if batch else query.update(targetGuid=r['targetGuid'])
@@ -708,7 +743,8 @@ class SelectedRead:
             return self.hold('source-held')
         observation = {**r, 'protocol': reply['protocol']}
         if (not _selected_page(page, observation, covered, int(self.clock())) or not set(covered) <= self.native_guids
-                or self.prime_binding and any(row['currentSlot'] != 9 for row in page['promotions'])
+                or (self.prime_binding or self.automatic_initiates) and any(row['currentSlot'] != 9
+                    or row['intent']['startSlot'] != 9 or row['intent']['acknowledgedSteps'] != 0 for row in page['promotions'])
                 or r['page'] is not None and page['scan']['id'] != r['page']['scan']['id']):
             return self.hold('invalid-selected-page')
         r['page'] = json.loads(json.dumps(page))
@@ -729,7 +765,7 @@ class SelectedRead:
         return True
 
 
-def render_selected(record: Any, at: int) -> str | None:
+def selected_projection(record: Any, at: int) -> dict | None:
     if not isinstance(record, dict):
         return None
     batch = record.get('protocol') == DIRECTIVE_PROTOCOL
@@ -761,6 +797,27 @@ def render_selected(record: Any, at: int) -> str | None:
         return None
     if record['page'] is None and record['coveredGuids']:
         return None
-    safe = {**record, 'page': None if record['page'] is None else
+    return {**record, 'page': None if record['page'] is None else
             {key: value for key, value in record['page'].items() if key not in {'pageCursor', 'nextCursor'}}}
+
+
+def render_selected(record: Any, at: int) -> str | None:
+    safe = selected_projection(record, at)
+    if safe is None:
+        return None
     return "-- Independent dated promotion observation; never renews discovery or native authority.\nOlympusLaunchSelected=" + _lua(safe) + "\n"
+
+
+def render_sweep(records: list[dict], at: int, empty_receipt: dict | None = None) -> str | None:
+    if not records:
+        if (not isinstance(empty_receipt, dict) or set(empty_receipt) != {'scopeHash', 'snapshotId', 'snapshotAt'}
+                or not _integer(empty_receipt['snapshotId'], 1) or not _integer(empty_receipt['snapshotAt'], 1)
+                or not isinstance(empty_receipt['scopeHash'], str) or not re.fullmatch('[0-9a-f]{16}', empty_receipt['scopeHash'])):
+            return None
+        return 'OlympusInitiateChecks=' + _lua(dict(version=1, kind='no-native-initiates', records=[], **empty_receipt)) + '\n'
+    if len(records) > MAX_PAGES:
+        return None
+    pages = [selected_projection(record, at) for record in records]
+    if any(page is None for page in pages):
+        return None
+    return 'OlympusInitiateChecks=' + _lua(dict(version=1, id=records[0]['controlId'], records=pages)) + '\n'

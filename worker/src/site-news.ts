@@ -79,6 +79,11 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".300", date: "2026-11-22", lines: [
+      "A fresh PRIME roster now queues Initiate checks automatically. Officers can see results in the Watcher desktop window while WoW stays open, or load them together in game. Each promotion still requires its own officer click.",
+    ],
+  },
+  {
     build: ".299", date: "2026-11-21", lines: [
       "The PRIME Guild Master can check selected Initiates against the latest trusted roster when WoW leaves the realm blank. Each promotion still needs a separate officer click.",
     ],

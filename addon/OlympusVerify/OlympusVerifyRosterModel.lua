@@ -156,7 +156,7 @@ function M.Promotions(list, launchAPI, now)
   if current then
     local pages, promotions = array(current.pages, 50), array(current.promotions, 1000)
     local primeInitiateRead=current.identity and current.identity.primeInitiates==true
-    if not pages or pages==0 and not current.selection and not primeInitiateRead or not promotions or type(current.freshness) ~= "table" then
+    if not pages or pages==0 and not current.selection and not current.backgroundChecks and not primeInitiateRead or not promotions or type(current.freshness) ~= "table" then
       unavailable, current = "The validated projection is incomplete; original page freshness is unavailable.", nil
     else
       diagnostics.queueAvailable, diagnostics.pageCount = true, pages
@@ -181,7 +181,12 @@ function M.Promotions(list, launchAPI, now)
           end
         end
       end
-      if current and current.selection and current.selection.completed then
+      if current and current.selectedByGuid then
+        for id,chosen in pairs(current.selectedByGuid) do
+          local source=chosen.completed and chosen.checked.freshness[id]
+          originalPages[id]=source and source.row and recommendation(source.row,source.page) and {row=source.row,page=source.page} or nil
+        end
+      elseif current and current.selection and current.selection.completed then
         local chosen=current.selection
         for id in pairs(chosen.covered) do originalPages[id]=nil end
         for _,row in ipairs(chosen.page.promotions) do
@@ -210,6 +215,7 @@ function M.Promotions(list, launchAPI, now)
   diagnostics.current = current -- One validated context for this paint; never a persistent authority cache.
   diagnostics.loadedScan=current and current.loadedScan or nil
   diagnostics.selection=current and current.selection or nil
+  diagnostics.backgroundChecks=current and current.backgroundChecks or nil
 
   local freshRead=FreshReadContext(current) -- One complete native rank-table observation per model paint.
   local displayRanks=pageRanks(current and current.selection and current.selection.completed and current.selection.page)
@@ -217,6 +223,8 @@ function M.Promotions(list, launchAPI, now)
   for index = 1, size do
     local row, info = list[index], nil
     local id = guid(row.guid) and row.guid or nil
+    local selected=current and (current.selectedByGuid and current.selectedByGuid[id] or
+      not current.selectedByGuid and current.selection and current.selection.covered[id] and current.selection)
     local rankScheme=pageRanks(id and originalPages[id] and originalPages[id].page) or displayRanks
     local attemptStatus=id and type(launchAPI)=="table" and type(launchAPI.PromotionStatus)=="function"
       and launchAPI.PromotionStatus(id,current,row.rankIndex) or nil
@@ -241,18 +249,17 @@ function M.Promotions(list, launchAPI, now)
     elseif attemptStatus=="recheck" and current.identity and current.identity.primeInitiates then
       info=detail("held","Further steps need the native realm","The first step was confirmed. WoW must report the player realm before the addon can check another step for this character.")
     elseif attemptStatus=="recheck" then info=detail("recheck","Check next original step","The last owned step was confirmed. Check this GUID against a fresh complete roster before a separate next promotion click; the original intent and expiry stay fixed.")
-    elseif current.selection and current.selection.covered[id] and not current.selection.completed then
-      local selected=current.selection
+    elseif selected and not selected.completed then
       if selected.state=="pending" then info=detail("checking","Check pending",selected.reason)
       elseif selected.refreshable==true and initiate(row) and verified(row) then info=detail("check","Check again",selected.reason)
       else info=detail("held",selected.code=="directive-rank-policy-held" and "Promotion policy held"
         or selected.code=="native-rank-scheme-unconfirmed" and "Guild rank table unconfirmed" or "Selected read held",selected.reason) end
     elseif current.identity and current.identity.primeInitiates and initiate(row) and verified(row)
-      and (not current.selection or not current.selection.covered[id]) then
+      and not selected then
       info=detail("check","Check eligibility","The current PRIME Guild Master roster supports a fresh eligibility check for this Initiate. Each promotion needs its own officer click.")
     elseif freshRead and initiate(row) and verified(row)
       and (sourceHeld[id]==nil or current.rankHeldReason=="directive-rank-policy-held" and sourceHeld[id]=="directive-rank-policy-held") and riskReview[id]==nil
-      and (not current.selection or current.selection.covered[id]~=true)
+      and not selected
       and (current.freshness[id]==nil or type(current.freshness[id])=="table" and current.freshness[id].kind=="discovery") then
       info=detail("check","Check eligibility","The scan's old results do not authorize a promotion. Click Check to request a separate current result for this character. Check does not restart the old scan, change its dates or clear promotion history.")
     elseif current.actionHeld and not (current.freshness[id] and current.freshness[id].kind=="selected" and current.freshness[id].actionHeld==false) then info = detail("held", diagnostics.loadedScan and diagnostics.loadedScan.label or "Projection stopped or held",
@@ -312,7 +319,7 @@ function M.Promotions(list, launchAPI, now)
   elseif current.selection and current.selection.completed and (diagnostics.counts.expired or 0)>0 then diagnostics.state,diagnostics.reason="expired","The selected recommendation has expired; its original clocks remain unchanged. Recheck the selected GUID for a new read."
   elseif current.selection then diagnostics.state,diagnostics.reason=current.selection.state=="pending" and "pending" or "held",current.selection.reason
   elseif current.identity and current.identity.primeInitiates then diagnostics.state,diagnostics.reason="no_recommendation",
-    "Select verified Initiates to check their current eligibility using the PRIME Guild Master roster."
+    "The next complete PRIME roster export checks Initiates in the background. A separate officer click promotes an eligible member."
   elseif current.actionHeld then diagnostics.state, diagnostics.reason = "held", diagnostics.loadedScan
     and (diagnostics.loadedScan.reason.." No recommendations are actionable. Next step: "..diagnostics.loadedScan.nextStep)
     or "The promotion projection is stopped or superseded. No recommendations are actionable."
@@ -324,7 +331,13 @@ function M.Promotions(list, launchAPI, now)
   elseif (diagnostics.counts.expired or 0) > 0 then diagnostics.state, diagnostics.reason = "expired", "Loaded recommendation pages or their original scan have expired; no promotion is ready."
   elseif (diagnostics.counts.pending or 0) > 0 then diagnostics.state, diagnostics.reason = "pending", "Original promotion attempts remain pending or unconfirmed; no automatic retry is permitted."
   else diagnostics.state, diagnostics.reason = "held", "Loaded recommendations do not match an actionable unique native Initiate. Inspect each row's reason." end
-  if diagnostics.partial then diagnostics.reason = diagnostics.reason .. " Discovery is partial; absent recommendations may be undiscovered." end
+  if current and current.backgroundChecks then
+    local sweep=current.backgroundChecks
+    diagnostics.reason=diagnostics.reason.." Background check: "..sweep.checked.." of "..sweep.total
+      .." native Initiates checked, "..sweep.pending.." awaiting results, "..sweep.held.." held or expired. Reload to load newer Watcher results."
+  elseif diagnostics.partial then diagnostics.reason = diagnostics.reason .. " Discovery is partial; absent recommendations may be undiscovered." end
+  local missing=OlympusVerifyDB and OlympusVerifyDB.primeInitiateMissingGuids
+  if whole(missing,1,1000) then diagnostics.reason=diagnostics.reason.." "..missing.." native Initiate(s) have no readable GUID and could not be checked." end
   if diagnostics.sourceHeld > 0 or diagnostics.riskReview > 0 then
     diagnostics.reason = diagnostics.reason .. " Source projection: " .. diagnostics.sourceHeld .. " held; "
       .. diagnostics.riskReview .. " risk-review only. Neither is a promotion recommendation."

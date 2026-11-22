@@ -12,7 +12,8 @@ import uuid
 from custody_recovery import reviewed_path
 from savedvars_source280 import MAX_BYTES, _parents, _regular
 
-NAMES = {"OlympusQueue.lua", "OlympusVerifyLists.lua", "OlympusLaunchQueue.lua", "OlympusLaunchSelected.lua"}
+NAMES = {"OlympusQueue.lua", "OlympusVerifyLists.lua", "OlympusLaunchQueue.lua", "OlympusLaunchSelected.lua",
+         "OlympusInitiateChecks.lua"}
 
 
 class ProjectionUnavailable(ValueError):

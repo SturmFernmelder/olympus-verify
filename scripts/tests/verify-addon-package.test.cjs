@@ -25,7 +25,7 @@ check('archive allowlist is exactly the 22 permitted public files', () => {
   assert.deepEqual(pack.FILES, expected); assert.deepEqual(manifest.files.map(row => row.path), expected.map(file => 'OlympusVerify/' + file));
 });
 check('every public TOC dependency is shipped', () => {
-  const localOnly = new Set(['Config.lua','OlympusQueue.lua','OlympusVerifyLists.lua','OlympusLaunchQueue.lua','OlympusLaunchSelected.lua']);
+  const localOnly = new Set(['Config.lua','OlympusQueue.lua','OlympusVerifyLists.lua','OlympusLaunchQueue.lua','OlympusLaunchSelected.lua','OlympusInitiateChecks.lua']);
   const declarations = get(pack.SOURCE + 'OlympusVerify.toc').toString('utf8').split(/\r?\n/)
     .map(line => line.trim().replace(/\\/g, '/')).filter(line => line && !line.startsWith('#'));
   for (const file of declarations) assert(localOnly.has(file) || expected.includes(file), 'Missing public TOC dependency: ' + file);

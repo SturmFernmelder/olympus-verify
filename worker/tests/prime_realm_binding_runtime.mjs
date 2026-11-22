@@ -18,7 +18,7 @@ const marker={version:1,kind:'prime-guild-master',observerGuid:members[0].guid};
 const scope={version:1,...NATIVE_SCOPE232};
 const endpoint='/ingest/roster?keyVersion=native-roster-v2';
 
-async function checkSelected(check,env,writer,snapshot,ctx) {
+async function checkSelected(check,env,writer,snapshot,ctx,refreshNamed) {
   const selectedEnv={...env,SITE_GUILD_ID:CANONICAL_GUILD233,DISCORD_BOT_TOKEN:'synthetic-blank-selected',
     CANONICAL_RANKS233:JSON.stringify({version:1,enabled:true,profile:CANONICAL_PROFILE233,guildId:CANONICAL_GUILD233,
       ranks:CANONICAL_RANKS233.map(row=>({...row,permissions:'0'}))})};
@@ -33,12 +33,13 @@ async function checkSelected(check,env,writer,snapshot,ctx) {
   }
   const query={keyVersion:LAUNCH_OPERATIONS_PROTOCOL229,selectionId:at+':17',targetGuids:JSON.stringify(targets.map(row=>row.guid)),
     actorGuid:members[0].guid,snapshotId:String(snapshot.id),snapshotAt:String(snapshot.exported_at),confirmations:'[]',primeBinding:marker.kind};
-  const read=async(params={})=>{
+  const read=async(params={},bearer=token)=>{
     const q=new URLSearchParams({...query,...params});
     for(const [k,v] of Object.entries(params))if(v===null)q.delete(k);
     const response=await worker.fetch(new Request('https://verify.example/queue/launch-operations?'+q,
-      {headers:{Authorization:'Bearer '+token}}),selectedEnv,ctx);
-    return {status:response.status,body:await response.json()};
+      {headers:{Authorization:'Bearer '+bearer}}),selectedEnv,ctx);
+    return {status:response.status,body:response.headers.get('Content-Type')?.includes('application/json')
+      ?await response.json():await response.text()};
   };
   const before=await writer.DB.prepare('SELECT name_key,guid,status FROM characters ORDER BY name_key').all();
   const result=await read(),page=result.body.page;
@@ -80,6 +81,70 @@ async function checkSelected(check,env,writer,snapshot,ctx) {
   check('Same-ID refresh during the Discord read holds the entire result before any intent is issued',
     raced.body.page?.heldReasons.includes('native-snapshot-changed')&&!raced.body.page.promotions.length,raced);
   await writer.DB.prepare('UPDATE roster_snapshots SET exported_at=?1 WHERE id=?2').bind(snapshot.exported_at,snapshot.id).run();
+
+  selectedEnv.DISCORD_BOT_TOKEN='synthetic-blank-selected';
+  const automatic={autoInitiates:'1'};
+  const unauthorized=await read(automatic,'invalid-fixture-bearer');
+  check('Automatic reads require the Watcher credential',unauthorized.status===401,unauthorized);
+  const missingScope=await read({...automatic,primeBinding:null});
+  check('Automatic named mode cannot read a blank-realm observation without its GM binding',
+    missingScope.body.page?.status==='held'&&!missingScope.body.page.promotions.length,missingScope);
+  const wrongActor=await read({...automatic,actorGuid:members[1].guid});
+  check('A blank-realm automatic request requires the enrolled GM',
+    wrongActor.body.page?.heldReasons.includes('promotion-actor-unconfirmed'),wrongActor);
+  const pending=members[4];
+  await writer.DB.prepare('INSERT INTO pending(discord_id,name_key,name,created_at,expires_at) VALUES(?1,?2,?3,?4,?5)')
+    .bind('800000000000000014',pending.name.toLowerCase(),pending.name,at-10,at+300).run();
+  const assertAutoPage=(label,response)=>{
+    const page=response.body.page;
+    check(label,response.status===200&&response.body.coveredGuids.join()===queryGuids.join()&&
+      page.promotions.length===2&&[[2,'verified-initiate',8],[3,'knight-veteran',6]].every(([index,reason,slot])=>
+        page.promotions.some(r=>r.guid===members[index].guid&&r.currentSlot===9&&r.targetSlot===slot&&r.reason===reason&&
+          r.intent.actorGuid===members[0].guid&&r.intent.acknowledgedSteps===0))&&
+      page.held.some(r=>r.guid===pending.guid&&r.reason==='pending-verification')&&
+      page.held.some(r=>r.guid===members[5].guid&&r.reason==='selected-rank-changed')&&
+      page.actions.requiresNativeRecheck&&!page.actions.automatic&&!page.actions.roleGrants&&!page.actions.removals&&
+      !page.invites.length&&!page.riskBuffer.length,response);
+  };
+  const queryGuids=targets.map(r=>r.guid);
+  const currentAuto=await read(automatic);
+  assertAutoPage('Blank-realm automatic read yields only verified Initiate recommendations and holds pending or changed ranks',currentAuto);
+  for(const [label,params] of [
+    ['manual cursor in automatic mode',{...automatic,cursor:page.pageCursor}],
+    ['automatic cursor in manual mode',{cursor:currentAuto.body.page.pageCursor}],
+    ['automatic cursor with stripped realm binding',{...automatic,cursor:currentAuto.body.page.pageCursor,primeBinding:null}],
+  ]){
+    const deniedCursor=await read(params);
+    check('Refuses '+label,deniedCursor.status===400&&deniedCursor.body.error==='invalid_selection_cursor',deniedCursor);
+  }
+  const late={selectionId:(at-90)+':18'};
+  const lateAuto=await read({...automatic,...late});
+  assertAutoPage('An automatic selection older than sixty seconds can finish within its original freshness window',lateAuto);
+  check('Background result expires at the earlier original clock',lateAuto.body.page.expiresAt===Math.min(at-90,snapshot.exported_at)+600,lateAuto);
+  const lateManual=await read(late);
+  check('The attended initial request still expires after sixty seconds',
+    lateManual.status===400&&lateManual.body.error==='expired_selection_request',lateManual);
+  for(const [label,clock] of [['control',{selectionId:(at-600)+':19'}],['source',{snapshotAt:String(at-600)}]]){
+    const expired=await read({...automatic,...clock});
+    check('Automatic admission rejects a '+label+' clock at least 600 seconds old',
+      expired.status===400&&expired.body.error==='expired_selection_request',expired);
+  }
+  const confirmInput={targetGuids:JSON.stringify([members[3].guid]),confirmations:JSON.stringify([{
+    guid:members[3].guid,token:currentAuto.body.page.promotions.find(r=>r.guid===members[3].guid).intentToken,from:9,to:8,observedAt:at}])};
+  const named=await refreshNamed();
+  check('A genuine named upload refreshes its original snapshot with a distinct clock',named.id===snapshot.id&&named.exported_at>snapshot.exported_at,named);
+  const namedQuery={...automatic,primeBinding:null,snapshotAt:String(named.exported_at)};
+  assertAutoPage('Named-realm background read enforces the same per-Initiate eligibility and click restrictions',await read(namedQuery));
+  for(const [label,params] of [['named',namedQuery],['blank',automatic]]){
+    const confirmed=await read({...params,...confirmInput});
+    check('Automatic '+label+' selections refuse even a valid prior step confirmation',
+      confirmed.status===400&&confirmed.body.error==='invalid_selection_request',confirmed);
+  }
+  const addedMarker=await read({...namedQuery,primeBinding:marker.kind});
+  check('A named automatic selection cannot acquire a blank GM binding by adding a marker',
+    addedMarker.body.page?.status==='held'&&!addedMarker.body.page.promotions.length,addedMarker);
+  check('Automatic eligibility never changes the native character links',
+    JSON.stringify((await writer.DB.prepare('SELECT name_key,guid,status FROM characters ORDER BY name_key').all()).results)===JSON.stringify(before.results));
 }
 
 async function install(db,layout) {
@@ -197,7 +262,11 @@ export default {async fetch(request,bindings,ctx) {
     const retry=await call(again);
     check('Identical replay preserves clocks and does not duplicate the binding audit',retry.status===200&&
       (await latest()).exported_at===again.exportedAt&&(await audit()).results.length===2,retry);
-    await checkSelected(check,env,writer,current,ctx);
+    await checkSelected(check,env,writer,current,ctx,async()=>{
+      const response=await call({...named,members:changed,exportedAt:current.exported_at+1});
+      check('Named background fixture uploads through the native ingestion route',response.status===200,response);
+      return latest();
+    });
     await reject('Smaller previously trusted guild snapshot cannot be truncated',{...again,exportedAt:t-40,
       members:changed.slice(0,-1),nativeRosterTotal:5},{},422);
     const priorAdmission=await admitPrimeRoster(writer,mode.scope,{...again,exportedAt:t-25});

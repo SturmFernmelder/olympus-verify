@@ -113,7 +113,7 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.43"
+WATCHER_VERSION = "0.6.44"
 STRICT_DISPLAY_PROTOCOL = "launch-roster-display-v2"
 STRICT_DISPLAY_PATH = "/queue/unverified?keyVersion=" + STRICT_DISPLAY_PROTOCOL
 STRICT_DISPLAY_MAX_BYTES = 512 * 1024
@@ -661,6 +661,7 @@ class Watcher:
         self.strict_display_file = self.queue_file.with_name("OlympusVerifyLists.lua")
         self.launch_operations_file = self.queue_file.with_name("OlympusLaunchQueue.lua")
         self.launch_selected_file = self.queue_file.with_name("OlympusLaunchSelected.lua")
+        self.initiate_checks_file = self.queue_file.with_name("OlympusInitiateChecks.lua")
         self.worker = Worker(cfg["worker_url"], cfg["watcher_token"])
         self.secret = cfg["verify_secret"]
         self.officer = cfg.get("officer_character", "")
@@ -707,6 +708,12 @@ class Watcher:
         self._next_strict_display_pull = 0.0
         self.launch_scan = launch_operations229.Scan(lambda: time.time(), discovery235=True)
         self.launch_selected = launch_operations229.SelectedRead(lambda: time.time())
+        self.initiate_checks: list[launch_operations229.SelectedRead] = []
+        self._sweep_witness = None
+        self._sweep_mac = None
+        self._sweep_native_digest = None
+        self._sweep_empty_receipt = None
+        self._sweep_publish_retry = None
         self._launch_selected_control = None  # A consumed control identity; never read/admission authority.
         self._next_launch_read_at = 0.0  # Shared across discovery and new-source selected reads.
         self._launch_roster_candidate = None
@@ -1987,6 +1994,8 @@ class Watcher:
         control = self.valid_launch_control(db)
         new_scan = (control is not None and control['action'] in ('scan', 'select', 'select-many', 'select-directive', launch_operations229.PRIME_INITIATE_ACTION)
                     and not self.state.was_seen("launch-control:" + control['guid'] + ":" + control['id']))
+        sweep = self.valid_initiate_checks(db)
+        new_sweep = sweep is not None and not self.state.was_seen('initiate-sweep:' + sweep['mac'])
         slot = db.get('launchControl')
         consumed = getattr(self, '_launch_selected_control', None)
         preserve_discovery = (control is not None and control.get('version') in (2, 3, 4, 5) or consumed is not None
@@ -1995,7 +2004,7 @@ class Watcher:
         # Recognizing the already consumed slot after 60s preserves history only;
         # it never validates a new request, receipt, clock or role observation.
         roster_options = {}
-        if new_scan:
+        if new_scan or new_sweep and self.launch_scan.phase == 'idle':
             roster_options['begin_launch_scan'] = True
         if preserve_discovery:
             roster_options['preserve_discovery'] = True
@@ -2016,6 +2025,7 @@ class Watcher:
             except VerificationDeferred:
                 return  # keep the original SavedVariables cursor until roster admission is known
         self.read_launch_control(db)
+        self.read_initiate_checks(db, sweep, witness)
         self.state.d["sv_mtime"] = mtime
         self._save_state280()
         self._source_diagnoses280["source"] = "readable"
@@ -2474,6 +2484,106 @@ class Watcher:
         else:
             self._control_diagnosis280(control, "scan request refused; use a new explicit control")
 
+    def valid_initiate_checks(self, db: dict[str, Any]) -> dict | None:
+        envelope = db.get('primeInitiateChecks')
+        if not self.membership_only or self._custody_halted or not isinstance(envelope, dict):
+            return None
+        roster = db.get('roster')
+        if not isinstance(roster, dict):
+            return None
+        own = saved_character(db)
+        if not own or codes.normalize_character(own) != codes.normalize_character(self.officer):
+            return None
+        guid = db.get('lastCharacterGuid')
+        bound = 'nativeScopeBinding' in roster
+        realm = roster.get('nativeRealm')
+        if bound:
+            if verification_roster_source(roster) is None or roster['nativeScopeBinding']['observerGuid'] != guid:
+                return None
+            realm = PRIME_REALM_LABEL
+        if launch_operations229.valid_sweep(self.secret, envelope, int(time.time()), guid, roster.get('nativeGuild'), realm, bound):
+            return envelope
+        return None
+
+    def read_initiate_checks(self, db: dict, sweep: dict | None, witness: tuple | None) -> None:
+        if not witness:
+            return
+        if sweep is None:
+            # A trusted complete roster can retire old positive observations
+            # when there are no native Initiates left to sign a new batch for.
+            roster = db.get('roster') or {}
+            accepted = self._verification_roster
+            if ('primeInitiateChecks' not in db and accepted
+                    and accepted['exportedAt'] == roster.get('exportedAt') == self.state.d['roster_sent']
+                    and 0 <= time.time() - accepted['exportedAt'] < 600
+                    and native_rank_attestation.qualified(roster.get('nativeRankTable'))
+                    and all(type(row.get('rankIndex')) is int and 0 <= row['rankIndex'] < 9
+                            and row.get('rank') == roster['nativeRankTable']['names'][row['rankIndex']]
+                            for row in roster['members'])
+                    and self._verification_source_current280(accepted)):
+                empty = dict(snapshotId=accepted['snapshot'], snapshotAt=accepted['exportedAt'], scopeHash=accepted['scopeHash'])
+                if empty == self._sweep_empty_receipt:
+                    return
+                self._sweep_empty_receipt = empty
+                self.initiate_checks = []
+                self._sweep_mac, self._sweep_native_digest, self._sweep_witness = '', None, witness
+                self.write_initiate_checks()
+            return
+        continuing = self._sweep_mac == sweep['mac']
+        if continuing:
+            if witness == self._sweep_witness or not any(page.running for page in self.initiate_checks):
+                return
+        else:
+            # A restarted process cannot reconstruct read attempts or their ACK.
+            key = 'initiate-sweep:' + sweep['mac']
+            if self.state.was_seen(key):
+                return
+            self.state.seen(key)
+            try:
+                self._save_state280()
+            except Exception:
+                self._custody_halted = True
+                raise CustodyStopped("Initiate checks stopped before dispatch") from None
+        roster = db['roster']
+        bound = 'nativeScopeBinding' in roster
+        accepted = self._verification_roster if bound else self._launch_accepted_roster
+        if (accepted and (accepted['exportedAt'] != self.state.d['roster_sent']
+                or bound and not self._verification_source_current280(accepted))):
+            accepted = None
+        digest = (launch_operations229.roster_content_digest(roster) if bound
+                  else launch_operations229.complete_roster_digest(roster))
+        if continuing and (not digest or digest != self._sweep_native_digest):
+            for page in self.initiate_checks:
+                page.hold('native-roster-changed-or-expired')
+            self.write_initiate_checks()
+            return
+        # Reuse a single native index across up to fifty independent pages.
+        guids = {row['guid'] for row in roster.get('members', []) if type(row) is dict
+                 and codes.is_guid(row.get('guid')) and row.get('rankIndex') == 9 and row.get('rank') == 'Initiate'}
+        if not continuing:
+            self._sweep_empty_receipt = None
+            self.initiate_checks = [launch_operations229.SelectedRead(lambda: time.time(), automatic_initiates=True)
+                                    for _ in sweep['controls']]
+        self._sweep_mac, self._sweep_native_digest = sweep['mac'], digest
+        self._sweep_witness = witness
+        for read, control in zip(self.initiate_checks, sweep['controls']):
+            if continuing:
+                if not read.running:
+                    continue  # Completed, refused or unknown reads retain their own clocks and outcome.
+                if read.record['attempts']:
+                    if not accepted or (accepted['snapshot'], accepted['exportedAt']) != (read.record['snapshotId'], read.record['snapshotAt']):
+                        read.hold('native-roster-changed-or-expired')
+                    continue
+            read.request(control, accepted, roster, time.time(), sweep_source=(digest, guids))
+        self.write_initiate_checks()
+
+    def write_initiate_checks(self) -> None:
+        records = [read.record for read in self.initiate_checks]
+        body = launch_operations229.render_sweep(records, int(time.time()), self._sweep_empty_receipt)
+        if body is not None:
+            result = self._write_projection280(self.initiate_checks_file, body, records or self._sweep_empty_receipt)
+            self._sweep_publish_retry = time.time() + 5 if result is None else None
+
     def write_launch_operations(self) -> None:
         body = launch_operations229.render_pages(self.launch_scan.result(), int(time.time()))
         if body is None:
@@ -2497,44 +2607,57 @@ class Watcher:
         r = self.launch_selected.record
         log(f"selected promotion read: {r['attempts']}/3 attempts; {'complete' if r['completed'] else r['stoppedReason'] or 'pending'}; reload to load")
 
-    def _selected_pause280(self, paused: dict[str, Any]) -> None:
-        before = json.dumps(self.launch_selected.record, sort_keys=True)
+    def _selected_pause280(self, paused: dict[str, Any], selected=None) -> None:
+        selected = self.launch_selected if selected is None else selected
+        before = json.dumps(selected.record, sort_keys=True)
         if isinstance(paused, dict) and type(paused.get('httpStatus')) is int and paused['httpStatus'] == 429:
-            self.launch_selected.defer_rate_limit(paused.get('retryAfterSeconds'))
+            selected.defer_rate_limit(paused.get('retryAfterSeconds'))
         else:
-            self.launch_selected.hold('source-refused')
-        if json.dumps(self.launch_selected.record, sort_keys=True) != before:
-            self.write_launch_selected()
+            selected.hold('source-refused')
+        if json.dumps(selected.record, sort_keys=True) != before:
+            (self.write_initiate_checks if selected.automatic_initiates else self.write_launch_selected)()
 
-    def _pull_launch_selected(self) -> None:
-        selected = self.launch_selected
+    def _pull_launch_selected(self, selected=None) -> None:
+        selected = self.launch_selected if selected is None else selected
+        automatic = selected.automatic_initiates
+        write = self.write_initiate_checks if automatic else self.write_launch_selected
         at = time.time()
         if selected.expire_admission(at):
-            self.write_launch_selected()
+            if automatic:
+                for page in self.initiate_checks:
+                    page.expire(at)
+            write()
             return
         if not selected.running:
             return
         paused = self.worker.paused()
         if paused:
-            self._selected_pause280(paused)
+            self._selected_pause280(paused, selected)
             return
         witness = self._launch_savedvars_witness()
         if witness is None or witness != getattr(self, '_launch_consumed_sv_witness', None):
             return
+        if automatic and witness != self._sweep_witness:
+            for page in self.initiate_checks:
+                page.hold('native-roster-changed-or-expired')
+            write()
+            return
         due = max(selected.next_at, getattr(self, '_next_launch_read_at', 0))
-        if 0 < due-at <= 5:
+        if automatic and at < due:
+            return  # Background reads yield to chat, roster and manual controls.
+        if not automatic and 0 < due-at <= 5:
             time.sleep(due-at)
             self._require_custody_continuation()
             if self._custody_halted or self._launch_savedvars_witness() != witness or witness != self._launch_consumed_sv_witness:
                 return
             if selected.expire_admission(time.time()):
-                self.write_launch_selected()
+                write()
                 return
             if not selected.running:
                 return
             paused = self.worker.paused()
             if paused:
-                self._selected_pause280(paused)
+                self._selected_pause280(paused, selected)
                 return
         if time.time() < getattr(self, '_next_launch_read_at', 0):
             return
@@ -2542,25 +2665,25 @@ class Watcher:
             if (self._custody_halted or self._launch_savedvars_witness() != witness
                     or witness != getattr(self, '_launch_consumed_sv_witness', None)):
                 return False
-            if not selected.prime_binding:
+            if not selected.prime_binding and not automatic:
                 return True
-            accepted = self._verification_roster
-            return (accepted is not None and accepted['boundPrimeRealm']
+            accepted = self._verification_roster if selected.prime_binding else self._launch_accepted_roster
+            return (accepted is not None and (not selected.prime_binding or accepted['boundPrimeRealm'])
                     and accepted['snapshot'] == selected.record['snapshotId']
                     and accepted['digest'] == selected.native_digest
                     and self.state.d['roster_sent'] == accepted['exportedAt'] == selected.record['snapshotAt']
                     and 0 <= time.time() - accepted['exportedAt'] < 600)
 
-        if selected.prime_binding and not current_source():
+        if (selected.prime_binding or automatic) and not current_source():
             selected.hold('native-roster-changed-or-expired')
-            self.write_launch_selected()
+            write()
             return
         attempts = selected.record['attempts']
         changed = selected.step(self.worker.call, time.time(), current_source)
         if selected.record['attempts'] > attempts:
             self._next_launch_read_at = max(getattr(self, '_next_launch_read_at', 0), selected.next_at)
         if changed:
-            self.write_launch_selected()
+            write()
 
     def pull_launch_operations(self) -> None:
         if not self.membership_only or self._custody_halted:
@@ -2573,6 +2696,11 @@ class Watcher:
             self.write_launch_operations()
             return
         if self.launch_scan.phase == 'idle':
+            if getattr(self, '_sweep_publish_retry', None) is not None and at >= self._sweep_publish_retry:
+                self.write_initiate_checks()  # Retry local publication alone; reads keep their original outcomes.
+            selected = next((page for page in getattr(self, 'initiate_checks', ()) if page.running), None)
+            if selected is not None:
+                self._pull_launch_selected(selected)
             return
         paused = self.worker.paused()
         if paused:
