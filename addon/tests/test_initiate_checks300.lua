@@ -43,7 +43,14 @@ local function client(count,blank)
     return e.OlympusVerifyDB.primeInitiateChecks
   end
   local function record(control,snapshot,positive)
-    local specs=positive and {{guid=f.id,name="Candidate",start=9,final=7}} or {}
+    local specs={}
+    if positive then
+      local target=positive==true and f.id or positive
+      for _,row in ipairs(e.ROSTER) do
+        if row.guid==target then specs[1]={guid=target,name=row.name,start=9,final=7};break end
+      end
+      assert(specs[1])
+    end
     local before=e.OlympusLaunchSelected
     local r=D.publish(e,{control=control,guild=f.guild,realm=f.realm,scopeHash=f.scope,actor=f.actor,
       specs=specs,total=#e.ROSTER,snapshotId=snapshot,snapshotAt=e.NOW,ttl=600})
@@ -99,13 +106,88 @@ do
   check("first results-loading reload keeps its original control on an unrelated source change",prepare()==a)
   e.OlympusInitiateChecks={version=1,id=a.id,records={record(a.controls[1],77,true)}}
   local b=prepare()
-  check("new export rotates after loading a partial result and changed native content",b.id~=a.id)
+  check("a second unrelated source change cannot extend the spent readback handoff",b.id~=a.id)
   local current=f.q.Current()
   check("new sweep does not take a positive from earlier cycle",current.backgroundChecks.total==41 and current.backgroundChecks.checked==0
     and not f.click(f.id) and f.promote==0)
   e.OlympusInitiateChecks={version=1,id=b.id,records={record(b.controls[1],78,false)}}
   verified[#verified+1]={guid=e.ROSTER[3].guid}
   check("new verification rotates even if its GUID stays on same page",prepare().id~=b.id)
+end
+for _,blank in ipairs({false,true}) do
+  local f,e,prepare,record=client(43,blank)
+  local cycle=prepare()
+  local pages,first=cycle.controls,record(cycle.controls[1],101,true)
+  local secondGuid=pages[2].targetGuids[1]
+  local later=record(pages[2],101,secondGuid)
+  local waiting=record(pages[3],101,false)
+  waiting.page,waiting.coveredGuids,waiting.completed,waiting.running=nil,{},false,true
+  e.OlympusInitiateChecks={version=1,id=cycle.id,records={first,later,waiting}}
+  -- This session loaded only one result. The Watcher completes the rest on
+  -- disk while WoW is running. Lua won't see those bytes until the next load.
+  later.page,later.coveredGuids,later.completed,later.running=nil,{},false,true
+  e.NOW=e.NOW+30
+  check("displayed first page plus pending records does not spend the unchanged-source handoff",
+    prepare()==cycle and e.OlympusVerifyDB.primeInitiateInputs.awaitingLoad
+      and f.q.Current().backgroundChecks.checked==20 and not f.click(secondGuid))
+  e.NOW=e.NOW+30
+  f.content="b"
+  check("one normal import reload preserves the original signed set despite unrelated native changes",
+    prepare()==cycle and e.OlympusVerifyDB.primeInitiateInputs.awaitingLoad==false)
+  e.OlympusInitiateChecks.records[2]=record(pages[2],101,secondGuid)
+  e.OlympusInitiateChecks.records[3]=record(pages[3],101,false)
+  local full=f.q.Current()
+  check("one import sees all 43 results and the second-page positive on its own original dated control",
+    full.backgroundChecks.checked==43 and full.backgroundChecks.pending==0 and full.freshness[secondGuid].controlId==pages[2].id
+      and full.freshness[secondGuid].page==e.OlympusInitiateChecks.records[2].page and full.freshness[secondGuid].expiresAt==cycle.controls[1].observedAt+600
+      and f.promote==0 and not f.syncs)
+  check("subsequent changed-source export rotates without borrowing the previous positive",
+    prepare().id~=cycle.id and f.q.Current().backgroundChecks.checked==0 and not f.click(secondGuid) and f.promote==0)
+end
+do
+  local f,e,prepare,record,verified=client(41,false)
+  local cycle=prepare()
+  e.OlympusInitiateChecks={version=1,id=cycle.id,records={record(cycle.controls[1],88,true)}}
+  f.content="b"
+  verified[#verified+1]={guid=e.ROSTER[3].guid}
+  check("even a first handoff refuses changed verified targets in an otherwise unchanged partition",prepare().id~=cycle.id)
+  cycle=e.OlympusVerifyDB.primeInitiateChecks
+  e.OlympusVerifyAPI.AutoSyncFacts=function() return nil end
+  check("unknown native content cannot authorize the one-time handoff",prepare().id~=cycle.id)
+end
+do
+  local f,e,prepare,record=client(21,false)
+  local q=prepare()
+  local held=record(q.controls[2],45,false)
+  held.page,held.coveredGuids,held.completed,held.running,held.stoppedReason=nil,{},false,false,"source-refused"
+  e.OlympusInitiateChecks={version=1,id=q.id,records={record(q.controls[1],45,true),held}}
+  check("a terminal source refusal has no action authority",f.q.Current().backgroundChecks.held==1)
+  f.content="b"
+  check("all terminal outcomes rotate on a changed source without an extra import",prepare().id~=q.id)
+end
+for _,changed in ipairs({false,true}) do
+  local f,e,prepare,record=client(999,false)
+  local cycle=prepare()
+  local first=record(cycle.controls[1],92,true)
+  e.OlympusInitiateChecks={version=1,id=cycle.id,records={first}}
+  e.NOW=e.NOW+350
+  if changed then f.content="b" end
+  check("a fresh 50-page cycle can use one import at age 350s",prepare()==cycle and not e.OlympusVerifyDB.primeInitiateInputs.awaitingLoad)
+  check("late import preserves its first page's expiry and pending groups",f.q.Current().backgroundChecks.checked==20
+    and f.q.Current().backgroundChecks.pending==979 and first.page.expiresAt==cycle.controls[1].observedAt+600)
+  check("350s reuse cannot become a recurring extension",prepare().id~=cycle.id)
+end
+for _,age in ipairs({301,600}) do
+  local f,e,prepare,record=client(21,false)
+  local cycle=prepare()
+  local records={record(cycle.controls[1],67,true)}
+  if age==301 then records[2]=record(cycle.controls[2],67,false) end
+  e.OlympusInitiateChecks={version=1,id=cycle.id,records=records}
+  e.NOW=e.NOW+age
+  if age==600 then
+    check("at the original 600-second deadline every covered row is held",f.q.Current().backgroundChecks.held==21 and not f.click(f.id))
+  end
+  check("routine refresh rotates at 301s and an unspent import cannot cross 600s",prepare().id~=cycle.id)
 end
 do
   local f,e,prepare,record=client(42,false)
