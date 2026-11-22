@@ -111,7 +111,7 @@ do
   local f,e,prepare,record=client(42,false)
   e.ROSTER[#e.ROSTER].guid=nil
   local init=prepare()
-  check("observed-realm rows missing a GUID cannot starve other target checks",init and e.OlympusVerifyDB.primeInitiateMissingGuids==1
+  check("named-realm collection records missing GUIDs and preserves known local targets",init and e.OlympusVerifyDB.primeInitiateMissingGuids==1
     and #init.controls==3 and #init.controls[3].targetGuids==1)
   local data=record(init.controls[1],20,true)
   e.OlympusInitiateChecks={version=1,id=init.id,records={data}}
