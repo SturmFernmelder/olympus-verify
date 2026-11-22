@@ -8893,3 +8893,9 @@ For rollback, retain the current D1 database and delivery journal. Restore the .
 Ship Verify 0.6.45, Watcher 0.6.43 and the Worker together. Preserve local officer configuration, generated lists and the Watcher delivery journal. On the enrolled PRIME Guild Master's client, check selected Initiates after a fresh, complete blank-realm roster reaches the Worker. Verify the exact selection and result in the running client after reload. Keep each actual promotion behind an officer click.
 
 For rollback, deploy the accepted .298 commit and restore its public Verify 0.6.44 and Watcher 0.6.42 files. Preserve D1 and pending officer records. The .298 release continues to verify blank-realm PRIME membership and holds promotion checks until WoW reports the realm.
+
+## 22 November 2026 — .300 automatic PRIME Initiate checks
+
+Ship Verify 0.6.46, Watcher 0.6.44 and the Worker together. Retain local officer configuration, generated files, delivery and promotion attempt history. Qualify both named and blank PRIME realm paths, coverage beyond 20 characters, the original roster and eligibility expiries, and the read-only officer window. Check a fresh complete roster through the running Watcher. The in-game eligibility list imports available results at login or UI reload. Officers decide and click each promotion individually.
+
+For rollback, deploy the accepted .299 Worker and restore the .299 public addon and Watcher code. Keep D1, configuration and the existing journal. Use the attended selected-Initiate check from .299.

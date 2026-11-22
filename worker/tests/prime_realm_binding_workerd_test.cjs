@@ -43,7 +43,10 @@ const {Miniflare,Log,LogLevel,convertV4MiniflareOptions} = require('miniflare');
         const response=await mf.dispatchFetch('http://fixture.invalid/'+scenario);
         const payload=await response.json();
         assert.equal(response.status,200,JSON.stringify(payload));
-        assert.deepEqual(outbound,productionPin?[]:[12,13,12,13,12].map(id=>
+        // Count what actually reached the external transport. Any lookup for a pending
+        // Initiate or changed rank, or any role mutation, fails this assertion.
+        const attended=[12,13,12,13,12],background=[12,13,12,13,12,13];
+        assert.deepEqual(outbound,productionPin?[]:[...attended,...background].map(id=>
           'GET /api/v10/guilds/236932545793490944/members/8000000000000000'+id));
         for (const row of payload.checks)console.log('PASS ['+scenario+'] '+row);
       } finally { await mf.dispose(); }

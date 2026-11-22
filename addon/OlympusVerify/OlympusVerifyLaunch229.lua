@@ -295,10 +295,18 @@ local function BatchTargets(value, sorted)
   local encoded={};for i,id in ipairs(copy) do encoded[i]='"'..id..'"' end
   return copy,"["..table.concat(encoded,",").."]",table.concat(copy,",")
 end
+local macMemo=setmetatable({}, {__mode="k"})
+local function CachedMac(owner,message)
+  local hit=macMemo[owner]
+  if hit and hit.key==cfg.secret and hit.message==message then return hit.mac end
+  local mac=H.hmacSha256hex(cfg.secret,message):sub(1,32)
+  macMemo[owner]={key=cfg.secret,message=message,mac=mac}
+  return mac
+end
 local function SelectedMac(control,joined)
   local message=table.concat({"launch-selected-read",tostring(control.version),control.action,control.id,
     tostring(control.observedAt),control.scopeHash,control.guid,joined,control.confirmations},"|")
-  return H.hmacSha256hex(cfg.secret,message):sub(1,32)
+  return CachedMac(control,message)
 end
 local function ValidSelect(control,identity,now)
   local batch=type(control)=="table" and (identity.primeInitiates
@@ -353,13 +361,21 @@ local SELECT_REFRESH={['native-roster-receipt-required']=true,['native-roster-ch
   ['native-rank-scheme-unconfirmed']=true,['selection-source-not-current']=true,['native-snapshot-unavailable']=true,
   ['promotion-actor-unconfirmed']=true,['entitlement-expired']=true,['native-snapshot-changed']=true,
   ['launch-page-verification-changed']=true,['selection-read-expired']=true,['launch-read-window-exhausted']=true}
-local function SelectedCurrent(identity, now, control)
-  local data=OlympusLaunchSelected
+local digestMemo=setmetatable({}, {__mode="k"})
+local function TargetsDigest(data,encoded)
+  local prior=digestMemo[data]
+  if prior and prior.encoded==encoded then return prior.digest end
+  local digest=H.sha256hex(encoded)
+  digestMemo[data]={encoded=encoded,digest=digest}
+  return digest
+end
+local function SelectedCurrent(identity, now, control, data, automaticRead)
   local targets,batch,encoded=ValidSelect(control,identity,now)
   if not targets then return nil end
   local requested={};for _,id in ipairs(targets) do requested[id]=true end
   local held={targetGuid=targets[1],targetGuids=batch and targets or nil,covered=requested,state="pending",code="awaiting-result",reason="This check is waiting for its result. Wait for the Watcher, then click Sync & reload to load it. Do not click Check again while it is waiting."}
-  if now>=control.observedAt+60 then
+  if automaticRead then held.reason="The Watcher checks these Initiates automatically. The next normal reload loads its latest dated results." end
+  if now>=control.observedAt+(automaticRead and 600 or 60) then
     held.state,held.code,held.refreshable="held","selection-admission-expired",true
     held.reason=SELECT_HOLDS[held.code]
   end
@@ -371,7 +387,7 @@ local function SelectedCurrent(identity, now, control)
   if batch then
     local returned,returnedJSON=BatchTargets(data.targetGuids,true)
     if not returned or returnedJSON~=encoded or data.coverageKind~="selected-guids" or type(H.sha256hex)~="function"
-      or data.targetsDigest~=H.sha256hex(encoded) then return held end
+      or data.targetsDigest~=TargetsDigest(data,encoded) then return held end
   end
   held.state=data.running and "pending" or "held"
   held.code=data.stoppedReason or (data.running and "pending" or "incomplete")
@@ -379,6 +395,11 @@ local function SelectedCurrent(identity, now, control)
   held.reason=SELECT_HOLDS[data.stoppedReason] or (data.running
     and "The last loaded selected read is pending. Load its later dated result; this view cannot observe the Watcher process."
     or "The selected read is held or incomplete. Review the current source with staff; its historical recommendation remains advisory.")
+  if automaticRead and data.running and now>=control.observedAt+600 then
+    held.state,held.code,held.refreshable="held","selection-read-expired",true
+    held.reason="This automatic check expired before a final result loaded. A later complete roster export can request a new check."
+    return held
+  end
   if not data.completed or data.running or data.stoppedReason~=nil then return held end
   if not Number(data.snapshotId,1,2147483647) or not Number(data.snapshotAt,1,now+5)
     or data.expiresAt~=math.min(data.observedAt+600,data.snapshotAt+600) or not Number(data.expiresAt,data.startedAt+1,data.startedAt+600)
@@ -428,6 +449,56 @@ local function SelectedCurrent(identity, now, control)
     completed=true,page=page,covered=covered,checked=checked,controlId=data.controlId}
   return held
 end
+
+local SWEEP_KEYS={version=true,id=true,controls=true,mac=true}
+local SWEEP_RESULT_KEYS={version=true,id=true,records=true}
+local function ArraySize(value, max)
+  if type(value)~="table" or getmetatable(value) or #value>max then return nil end
+  local count=0
+  for k in pairs(value) do
+    if not Number(k,1,#value) then return nil end
+    count=count+1
+  end
+  if count==#value then return count end
+end
+local function EnvelopeMac(envelope, macs)
+  return CachedMac(envelope,"prime-initiate-sweep|1|"..envelope.id.."|"..table.concat(macs,","))
+end
+
+local function BackgroundChecks(identity,now)
+  local envelope=OlympusVerifyDB and OlympusVerifyDB.primeInitiateChecks
+  if not ExactKeys(envelope,SWEEP_KEYS) or envelope.version~=1 or not Text(envelope.id,32)
+    or not Text(envelope.mac,32) or not Text(cfg.secret,1024) or #cfg.secret<16
+    or not H or type(H.hmacSha256hex)~="function" then return nil end
+  local count=ArraySize(envelope.controls,50)
+  if not count or count<1 or type(envelope.controls[1])~="table" or envelope.id~=envelope.controls[1].id then return nil end
+  local data=OlympusInitiateChecks
+  local records=ExactKeys(data,SWEEP_RESULT_KEYS) and data.version==1 and data.id==envelope.id and data.records or nil
+  local length=ArraySize(records,count)
+  local sweep={observedAt=envelope.controls[1].observedAt,total=0,checked=0,held=0,pending=0,groups={},byGuid={}}
+  local macs, ids={},{}
+  for i,control in ipairs(envelope.controls) do
+    if type(control)~="table" or control.observedAt~=envelope.controls[1].observedAt or not Text(control.id,32)
+      or ids[control.id] or control.confirmations~="[]" then return nil end
+    ids[control.id]=true
+    local selection=SelectedCurrent(identity,now,control,length and records[i],true)
+    if not selection then return nil end
+    -- Each group proves its own receipt and immutable clocks. A later group
+    -- may observe a later ACK for the same native content during a reload.
+    macs[i]=control.mac
+    for guid in pairs(selection.covered) do
+      if sweep.byGuid[guid] then return nil end
+      sweep.byGuid[guid]=selection
+      sweep.total=sweep.total+1
+      if selection.completed and now<selection.page.expiresAt then sweep.checked=sweep.checked+1
+      elseif selection.state=="pending" then sweep.pending=sweep.pending+1
+      else sweep.held=sweep.held+1 end
+    end
+    sweep.groups[i]=selection
+  end
+  if envelope.mac~=EnvelopeMac(envelope,macs) then return nil end
+  return sweep
+end
 function Q.Current()
   local current,why,code=HistoricalCurrent(OlympusLaunchQueue,false)
   local identity,now=Identity(),time()
@@ -439,30 +510,48 @@ function Q.Current()
   if cfg.membershipOnly~=true or not identity or Q.scopeChanged or Preview() then return current,why,code end
   if Q.identityBaseline and not SameIdentity(Q.identityBaseline,identity) then Q.scopeChanged=true;return nil,"Native identity changed; launch actions held." end
   local control=OlympusVerifyDB and OlympusVerifyDB.launchControl
-  local selection=SelectedCurrent(identity,now,control)
-  if not selection and not identity.primeInitiates then return current,why,code end
+  local selection=SelectedCurrent(identity,now,control,OlympusLaunchSelected)
+  local sweep=BackgroundChecks(identity,now)
+  if not selection and not sweep and not identity.primeInitiates then return current,why,code end
   if not current then
     current={identity=identity,invites={},promotions={},riskBuffer={},held={},pages={},actionHeld=true,freshness={},scanComplete=false,partial=true,stalePages=0}
   end
-  if not selection then return current end
-  current.selection=selection
-  local covered=selection.covered or {[selection.targetGuid or ""]=true}
-  -- Supersede positive AND negative display rows, even if this result has no recommendation.
-  if selection.completed then
-    for _,kind in ipairs({"promotions","held","riskBuffer"}) do
-      local keep={}
-      for _,row in ipairs(current[kind]) do if not covered[row.guid] then keep[#keep+1]=row end end
-      for _,row in ipairs(selection.checked[kind]) do keep[#keep+1]=row end
-      current[kind]=keep
+  if not selection and not sweep then return current end
+  current.backgroundChecks=sweep
+  local byGuid,groups={},{}
+  if sweep then
+    for id,group in pairs(sweep.byGuid) do byGuid[id]=group end
+    for i,group in ipairs(sweep.groups) do groups[i]=group end
+  end
+  if selection then
+    local manualCurrent=false
+    for id in pairs(selection.covered) do
+      if not byGuid[id] or control.observedAt>=OlympusVerifyDB.primeInitiateChecks.controls[1].observedAt then
+        byGuid[id]=selection;manualCurrent=true
+      end
     end
+    if manualCurrent then current.selection=selection;groups[#groups+1]=selection end
   end
-  for id in pairs(covered) do
-    if selection.completed then
-      local source=selection.checked.freshness[id]
-      if source then source.kind="selected";source.actionHeld=false;source.controlId=selection.controlId;current.freshness[id]=source
-      else current.freshness[id]={kind="selected",actionHeld=true,page=selection.page,controlId=selection.controlId} end
-    elseif current.freshness[id] then current.freshness[id].actionHeld=true end
+  current.selectedByGuid=byGuid
+  -- Only the newest applicable read may supply rows for a GUID. A pending,
+  -- missing or negative read takes precedence over any earlier positive.
+  for _,kind in ipairs({"promotions","held","riskBuffer"}) do
+    local keep={}
+    for _,row in ipairs(current[kind]) do if not byGuid[row.guid] then keep[#keep+1]=row end end
+    for _,group in ipairs(groups) do
+      if group.completed then
+        for _,row in ipairs(group.checked[kind]) do if byGuid[row.guid]==group then keep[#keep+1]=row end end
+      end
+    end
+    current[kind]=keep
   end
+  for id,group in pairs(byGuid) do
+    local source=group.completed and group.checked.freshness[id]
+    if source then source.kind="selected";source.actionHeld=false;source.controlId=group.controlId end
+    current.freshness[id]=source or {kind="selected",actionHeld=true,page=group.page,controlId=group.controlId}
+  end
+  current.promotionByGuid={}
+  for _,row in ipairs(current.promotions) do current.promotionByGuid[row.guid]=row end
   return current
 end
 local function RequestRoster()
@@ -629,6 +718,7 @@ function Q.PrintPromotionCustody()
   return result
 end
 local function PromotionRow(current,id)
+  if current.promotionByGuid then return current.promotionByGuid[id],current.freshness[id] end
   for _,row in ipairs(current.promotions) do if row.guid==id then return row,current.freshness[id] end end
 end
 local function SameAttempt(record,id,current)
@@ -1328,6 +1418,103 @@ function Q.SelectMany(targetGuids)
   Say("Requested a fresh check of "..#targets.." verified native Initiates. This reload exports the request; load its completed result before promoting. No promotion was sent.")
   OlympusVerifyAPI.Sync();return true
 end
+
+-- Build the read request only when WoW is already saving a complete export.
+-- Include newly whispered and offline Initiates even when the previously
+-- loaded Discord display has not yet learned that they verified.
+function Q.PrepareInitiateChecks(roster)
+  local db=OlympusVerifyDB
+  if type(db)~="table" then return end
+  local old=db.primeInitiateChecks
+  local priorInputs=db.primeInitiateInputs
+  db.primeInitiateChecks=nil
+  db.primeInitiateInputs=nil
+  db.primeInitiateMissingGuids=nil
+  local identity=Identity() or PrimeInitiateIdentity()
+  if cfg.membershipOnly~=true or not identity or Q.scopeChanged or Preview()
+    or Read(CanGuildPromote)~=true or not H or type(H.sha256hex)~="function" or type(H.hmacSha256hex)~="function"
+    or not Text(cfg.secret,1024) or #cfg.secret<16 or cfg.secret:find("REPLACE",1,true)
+    or Q.identityBaseline and not SameIdentity(identity,Q.identityBaseline) then return end
+  local now=time()
+  if type(roster)~="table" or roster~=db.roster or roster.nativeGuild~=identity.guild
+    or roster.nativeRealm~=(identity.primeInitiates and "" or identity.realm)
+    or not Number(roster.exportedAt,now-5,now) or not Number(roster.total,1,1000)
+    or ArraySize(roster.members,1000)~=roster.total then return end
+  local ranks=OlympusVerifyNativeRanks and OlympusVerifyNativeRanks.Scheme(roster.nativeRankTable)
+  local ledger=AttemptLedger()
+  if not ranks or not ledger or db.launchPromotionCustodyConflict or db.launchPromotionSaveHolds~=nil and not SaveHolds() then return end
+  local known={}
+  local display=OlympusVerifyAPI and OlympusVerifyAPI.Roster and OlympusVerifyAPI.Roster.DisplaySource and OlympusVerifyAPI.Roster.DisplaySource()
+  if display then for _,row in ipairs(display.verified.members) do
+    if type(row)=="table" and Text(row.guid,40) then known[row.guid]=true end
+  end end
+  local first,rest,seen,actor,missing,order={},{},{},nil,0,{}
+  for _,row in ipairs(roster.members) do
+    if type(row)~="table" or not Number(row.rankIndex,0,9) or row.rank~=ranks.names[row.rankIndex+1] then return end
+    local id=Text(row.guid,40) and row.guid:match("^Player%-%d+%-%x+$")
+    order[#order+1]=id or row.full or row.name or ""
+    if id then
+      if seen[id:lower()] then return end
+      seen[id:lower()]=true
+      if id==identity.guid then actor=row.rankIndex end
+    elseif identity.primeInitiates then return
+    elseif row.rankIndex==ranks.initiate then missing=missing+1 end
+    if id and id~=identity.guid and row.rankIndex==ranks.initiate and ledger[row.guid]==nil
+      and not Q.pending[row.guid] and not (db.launchPromotionSaveHolds and db.launchPromotionSaveHolds[row.guid]) then
+      local targets=known[row.guid] and first or rest
+      targets[#targets+1]=row.guid
+    end
+  end
+  if actor~=identity.rank or actor>=ranks.member then return end
+  db.primeInitiateMissingGuids=missing>0 and missing or nil
+  if #first+#rest==0 then return end
+  table.sort(first);table.sort(rest)
+  local knownDigest=H.sha256hex(table.concat(first,","))
+  local facts=OlympusVerifyAPI and OlympusVerifyAPI.AutoSyncFacts and OlympusVerifyAPI.AutoSyncFacts()
+  local nativeDigest=facts and facts.strict and facts.exportedAt==roster.exportedAt and Text(facts.digest,64)
+    and H.sha256hex(table.concat({facts.digest,tostring(roster.online),table.concat(order,"\031")},"|"))
+  for _,id in ipairs(rest) do first[#first+1]=id end
+  local controls,macs={},{}
+  local reusable=ExactKeys(old,SWEEP_KEYS) and old.version==1 and ArraySize(old.controls,50)==math.ceil(#first/20)
+    and type(old.controls[1])=="table" and old.id==old.controls[1].id and Number(old.controls[1].observedAt,now-300,now)
+  for index=1,#first,20 do
+    local ids={}
+    for i=index,math.min(index+19,#first) do ids[#ids+1]=first[i] end
+    table.sort(ids)
+    local page=#controls+1
+    if reusable then
+      local prior=old.controls[page]
+      local valid=ValidSelect(prior,identity,now)
+      reusable=valid and prior.observedAt==old.controls[1].observedAt and prior.confirmations=="[]"
+        and table.concat(valid,",")==table.concat(ids,",")
+      if reusable then macs[page]=prior.mac end
+    end
+    controls[page]=ids
+  end
+  if reusable and EnvelopeMac(old,macs)==old.mac and type(priorInputs)=="table" and priorInputs.id==old.id then
+    local loaded=type(OlympusInitiateChecks)=="table" and OlympusInitiateChecks.id==old.id
+    local same=nativeDigest and nativeDigest==priorInputs.native and knownDigest==priorInputs.verified
+    -- On the first results-loading reload the file on disk is still invisible
+    -- to this Lua session. Allow one handoff for a changed unrelated source.
+    if same or not loaded and priorInputs.awaitingLoad==true then
+      if loaded or not same then priorInputs.awaitingLoad=false end
+      db.primeInitiateChecks,db.primeInitiateInputs=old,priorInputs
+      return
+    end
+  end
+  local at=roster.exportedAt
+  for i,ids in ipairs(controls) do
+    db.launchSequence=Number(db.launchSequence,0,999999999) and db.launchSequence+1 or 1
+    local control={version=identity.primeInitiates and 5 or 4,action=identity.primeInitiates and "select-prime-initiates" or "select-directive",
+      id=tostring(at)..":"..tostring(db.launchSequence),observedAt=at,scopeHash=identity.scopeHash,guid=identity.guid,targetGuids=ids,confirmations="[]"}
+    control.mac=SelectedMac(control,table.concat(ids,","))
+    controls[i],macs[i]=control,control.mac
+  end
+  local envelope={version=1,id=controls[1].id,controls=controls}
+  envelope.mac=EnvelopeMac(envelope,macs)
+  db.primeInitiateChecks=envelope
+  db.primeInitiateInputs={id=envelope.id,native=nativeDigest,verified=knownDigest,awaitingLoad=true}
+end
 local function TabRows(current)
   local rows={}
   if not current then return rows end
@@ -1517,7 +1704,7 @@ events:SetScript("OnUpdate",function()
   local age=time()-control.observedAt
   if age<5 or age>=60 or Q.remindedControl==control.id then return end
   local identity=Identity() or (control.action=="select-prime-initiates" and PrimeInitiateIdentity())
-  local selected=identity and SelectedCurrent(identity,time(),control)
+  local selected=identity and SelectedCurrent(identity,time(),control,OlympusLaunchSelected)
   if selected and selected.completed then Q.remindedControl=control.id;return end -- Notification-only decision, never cached authority.
   if not OlympusLaunchQueue or OlympusLaunchQueue.controlId~=control.id then
     Q.remindedControl=control.id

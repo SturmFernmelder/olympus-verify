@@ -59,6 +59,7 @@ SUITES = {
     "loaded_scan_status": (TESTS, Path("test_loaded_scan_status.lua")),
     "selected_promotion273": (TESTS, Path("test_selected_promotion273.lua")),
     "selected_batch276": (TESTS, Path("test_selected_batch276.lua")),
+    "initiate_checks300": (TESTS, Path("test_initiate_checks300.lua")),
     "promotion_steps": (TESTS, Path("test_promotion_steps.lua")),
     "directive_rank_transition": (TESTS, Path("test_directive_rank_transition.lua")),
     "tithe280": (TESTS, Path("test_tithe280.lua")),

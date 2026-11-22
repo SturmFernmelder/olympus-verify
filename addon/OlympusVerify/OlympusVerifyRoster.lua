@@ -502,12 +502,15 @@ function W.Refresh()
     or "Promote: none ready"
   SetButtonText(nextBtn,actionTitle);nextBtn:SetEnabled(readyCount>0)
   local loaded=diagnostics.queueAvailable and tostring(diagnostics.recommendations or 0) or "unavailable"
-  queueSummary:SetText(WHITE..string.format("Native Initiates: %d | Verified Initiates: %d potential | Signed recommendations: %s | Actionable: %d total / %d shown | Source holds: %d | Risk review: %d",
+  local sweep=diagnostics.backgroundChecks
+  local progress=sweep and string.format("Auto-check %d/%d | %d waiting | %d held or expired | Requested %s",sweep.checked,sweep.total,sweep.pending,sweep.held,Stamp(sweep.observedAt))
+    or "Auto-check waits for a complete roster export"
+  queueSummary:SetText(WHITE..progress.."\n"..string.format("Native Initiates: %d | Verified Initiates: %d potential | Signed recommendations: %s | Actionable: %d total / %d shown | Source holds: %d | Risk review: %d",
     diagnostics.nativeInitiates or 0,diagnostics.knownVerifiedInitiates or 0,loaded,diagnostics.ready or 0,readyCount,diagnostics.sourceHeld or 0,diagnostics.riskReview or 0).."|r")
   local explanation=diagnostics.reason or why or "No signed recommendation is available."
   if shown==0 then
     local empty=view.action==2 and "No actionable signed promotions match these filters. "
-      or view.initiates and view.status==2 and view.action==4 and "No current verified Initiates match these filters. "
+      or view.initiates and view.status==2 and view.action==4 and "No current verified Initiates match these filters. A saved whisper can still be pending. Clear filters to see the native rank and verification state. "
       or "No members match these filters. "
     explanation=empty..explanation
   end
@@ -677,8 +680,8 @@ local function Build()
   local copy=Button(frame,"Copy table",104,24,CopyTable,"Copy filtered table","Open a read-only tab-separated copy of the current filtered/sorted rows. No codes, request bodies or account IDs are exported.")
   copy:SetPoint("LEFT",refresh,"RIGHT",6,0)
   W.selectButton:SetPoint("LEFT",copy,"RIGHT",6,0)
-  W.batchButton=Button(frame,"Check first 20 shown",176,24,function() W.RequestVerifiedInitiates() end,
-    "Check verified Initiates", "Request fresh promotion checks for the shown verified native Initiates, up to twenty exact GUIDs, then reload. Current display filters are preserved; this never promotes anyone.")
+  W.batchButton=Button(frame,"Recheck up to 20 shown",176,24,function() W.RequestVerifiedInitiates() end,
+    "Recheck shown Initiates", "Complete roster exports automatically request checks for all native Initiates. Use this optional recheck for up to twenty verified members in these filters. Each promotion requires its own officer click.")
   W.batchButton:SetPoint("LEFT",W.selectButton,"RIGHT",6,0)
   W.refreshButton,W.copyButton=refresh,copy
   local sourceTip=CreateFrame("Frame",nil,frame)
@@ -865,10 +868,10 @@ W.RequestVerifiedInitiates=function()
       if #targets<20 then targets[#targets+1]=row.guid end
     end
   end
-  if #targets<1 then Say("No verified native Initiates match the current shown filters. Refresh verification data or adjust the view first.");return false end
+  if #targets<1 then Say("No verified Initiates match these filters in the loaded roster. Clear filters and search the character to see their native rank and verification state. A saved whisper is pending until Discord confirms the link and the new list loads.");return false end
   local launch=OlympusLaunch229
   if type(launch)~="table" or type(launch.SelectMany)~="function" then Say("The bounded Initiate checker is unavailable; no check requested.");return false end
-  Say("Selected the first "..#targets.." shown verified Initiate(s) for this explicit check; "..(eligible-#targets).." additional shown candidate(s). No automatic next batch or promotion.")
+  Say("Rechecking "..#targets.." shown verified Initiate(s). "..(eligible-#targets).." additional shown Initiate(s) are outside this selection. Automatic roster checks cover the full list. Promotions require individual officer clicks.")
   offset=0;W.Refresh()
   return launch.SelectMany(targets)
 end
