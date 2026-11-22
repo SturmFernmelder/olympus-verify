@@ -8899,3 +8899,7 @@ For rollback, deploy the accepted .298 commit and restore its public Verify 0.6.
 Ship Verify 0.6.46, Watcher 0.6.44 and the Worker together. Retain local officer configuration, generated files, delivery and promotion attempt history. Qualify both named and blank PRIME realm paths, coverage beyond 20 characters, the original roster and eligibility expiries, and the read-only officer window. Check a fresh complete roster through the running Watcher. The in-game eligibility list imports available results at login or UI reload. Officers decide and click each promotion individually.
 
 For rollback, deploy the accepted .299 Worker and restore the .299 public addon and Watcher code. Keep D1, configuration and the existing journal. Use the attended selected-Initiate check from .299.
+
+## 22 November 2026 — .301 import completed Initiate checks
+
+Ship Verify 0.6.47 with Watcher 0.6.44. Verify that a client which loaded only part of a background check can import the completed groups on its next reload despite unrelated roster changes. Changed participants, new verification, custody changes and expired observations must still follow their own checks. Confirm the completed count and the individual officer control in game. To roll back, redeploy the .300 Worker and restore Verify 0.6.46 while preserving the Watcher, its journal and the local roster files.

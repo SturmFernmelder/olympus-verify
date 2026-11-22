@@ -465,6 +465,21 @@ local function EnvelopeMac(envelope, macs)
   return CachedMac(envelope,"prime-initiate-sweep|1|"..envelope.id.."|"..table.concat(macs,","))
 end
 
+local function AllSweepReadsTerminal(envelope,identity,now)
+  local data=OlympusInitiateChecks
+  local count=#envelope.controls
+  if not ExactKeys(data,SWEEP_RESULT_KEYS) or data.version~=1 or data.id~=envelope.id
+    or ArraySize(data.records,count)~=count then return false end
+  for i,record in ipairs(data.records) do
+    if type(record)~="table" or record.running~=false then return false end
+    local selection=SelectedCurrent(identity,now,envelope.controls[i],record,true)
+    if not selection then return false end
+    if not selection.completed and not (record.completed==false and SELECT_HOLDS[record.stoppedReason]
+      and selection.state=="held" and selection.code==record.stoppedReason) then return false end
+  end
+  return true
+end
+
 local function BackgroundChecks(identity,now)
   local envelope=OlympusVerifyDB and OlympusVerifyDB.primeInitiateChecks
   if not ExactKeys(envelope,SWEEP_KEYS) or envelope.version~=1 or not Text(envelope.id,32)
@@ -1476,7 +1491,7 @@ function Q.PrepareInitiateChecks(roster)
   for _,id in ipairs(rest) do first[#first+1]=id end
   local controls,macs={},{}
   local reusable=ExactKeys(old,SWEEP_KEYS) and old.version==1 and ArraySize(old.controls,50)==math.ceil(#first/20)
-    and type(old.controls[1])=="table" and old.id==old.controls[1].id and Number(old.controls[1].observedAt,now-300,now)
+    and type(old.controls[1])=="table" and old.id==old.controls[1].id and Number(old.controls[1].observedAt,now-599,now)
   for index=1,#first,20 do
     local ids={}
     for i=index,math.min(index+19,#first) do ids[#ids+1]=first[i] end
@@ -1491,13 +1506,16 @@ function Q.PrepareInitiateChecks(roster)
     end
     controls[page]=ids
   end
-  if reusable and EnvelopeMac(old,macs)==old.mac and type(priorInputs)=="table" and priorInputs.id==old.id then
-    local loaded=type(OlympusInitiateChecks)=="table" and OlympusInitiateChecks.id==old.id
-    local same=nativeDigest and nativeDigest==priorInputs.native and knownDigest==priorInputs.verified
-    -- On the first results-loading reload the file on disk is still invisible
-    -- to this Lua session. Allow one handoff for a changed unrelated source.
-    if same or not loaded and priorInputs.awaitingLoad==true then
-      if loaded or not same then priorInputs.awaitingLoad=false end
+  if reusable and EnvelopeMac(old,macs)==old.mac and type(priorInputs)=="table" and priorInputs.id==old.id
+    and nativeDigest and priorInputs.native and knownDigest==priorInputs.verified then
+    local same=nativeDigest==priorInputs.native
+    -- A running client can see just the first few pages while the Watcher
+    -- finishes the same signed set on disk. Preserve its ID for one reload
+    -- after unrelated roster changes so WoW can load those remaining pages.
+    local awaiting=priorInputs.awaitingLoad==true and not AllSweepReadsTerminal(old,identity,now)
+    local routine=same and now-old.controls[1].observedAt<=300
+    if routine or awaiting then
+      priorInputs.awaitingLoad=routine and awaiting
       db.primeInitiateChecks,db.primeInitiateInputs=old,priorInputs
       return
     end
