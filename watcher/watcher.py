@@ -47,6 +47,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import codes  # noqa: E402
 import intake242
+import initiate_notice
 import local_correspondence280
 import savedvars  # noqa: E402
 import savedvars_source280
@@ -113,7 +114,7 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.44"
+WATCHER_VERSION = "0.6.45"
 STRICT_DISPLAY_PROTOCOL = "launch-roster-display-v2"
 STRICT_DISPLAY_PATH = "/queue/unverified?keyVersion=" + STRICT_DISPLAY_PROTOCOL
 STRICT_DISPLAY_MAX_BYTES = 512 * 1024
@@ -714,6 +715,9 @@ class Watcher:
         self._sweep_native_digest = None
         self._sweep_empty_receipt = None
         self._sweep_publish_retry = None
+        self._initiate_notice = initiate_notice.WindowsNotice()
+        self._notice_history = initiate_notice.NoticeHistory(self.state.path)
+        self._notice_check_at = None
         self._launch_selected_control = None  # A consumed control identity; never read/admission authority.
         self._next_launch_read_at = 0.0  # Shared across discovery and new-source selected reads.
         self._launch_roster_candidate = None
@@ -2583,6 +2587,84 @@ class Watcher:
         if body is not None:
             result = self._write_projection280(self.initiate_checks_file, body, records or self._sweep_empty_receipt)
             self._sweep_publish_retry = time.time() + 5 if result is None else None
+            self._notice_check_at = (0 if result is not None and not any(read.running for read in self.initiate_checks) else None)
+
+    def check_initiate_notice(self) -> None:
+        """One private Windows notice after the complete importable projection is on disk."""
+        try:
+            self._initiate_notice.tidy()
+        except initiate_notice.OS_ERRORS:
+            pass  # Shell UI availability is independent of roster and verification delivery.
+        now = time.time()
+        if self._notice_check_at is None or now < self._notice_check_at:
+            return
+        self._notice_check_at = None
+        try:
+            self._check_ready_notice(now)
+        except initiate_notice.NoticeHistoryUnavailable:
+            self._notice_check_at = now + 20  # Optional sidecar; it never owns or blocks ingest.
+
+    def _check_ready_notice(self, now: float) -> None:
+        accepted = self._verification_roster
+        if (not self.membership_only or self._custody_halted or not accepted
+                or codes.normalize_character(self.officer) != codes.normalize_character("Fern Melder")
+                or accepted['fileSource280']['officer'] != codes.normalize_character("Fern Melder")
+                or accepted['scopeHash'] != hashlib.sha256(('native-scope|1|OLYMPUS PRIME|' + PRIME_REALM_LABEL).encode()).hexdigest()[:16]
+                or hashlib.sha256(('prime-guild-master|1|' + accepted['fileSource280']['officerGuid']).encode()).hexdigest() != PRIME_GUILD_MASTER_PIN
+                or accepted['exportedAt'] != self.state.d['roster_sent'] or not 0 <= now - accepted['exportedAt'] < 600
+                or not self._sweep_witness or self._sweep_witness != self._launch_consumed_sv_witness
+                or self._launch_savedvars_witness() != self._sweep_witness or not self._verification_source_current280(accepted)):
+            return
+        notified, history_witness = self._notice_history.load()
+        actor = accepted['fileSource280']['officerGuid']
+        scope = accepted['scopeHash']
+        if self.initiate_checks:
+            native = next((read.native_guids for read in self.initiate_checks if read.native_digest == accepted['digest']), None)
+            if native is None:
+                return
+        elif self._sweep_empty_receipt == dict(snapshotId=accepted['snapshot'], snapshotAt=accepted['exportedAt'], scopeHash=scope):
+            native = set()
+        else:
+            return
+        eligible, unverified = initiate_notice.ready_sets(self.initiate_checks, accepted, self.secret, now)
+        if notified is None:
+            # First installation establishes a silent baseline; a confirmed zero
+            # is a real baseline too. Partial/stale groups cannot establish it.
+            if all(read.record['completed'] and read.native_digest == accepted['digest']
+                   and (read.record['snapshotId'], read.record['snapshotAt']) == (accepted['snapshot'], accepted['exportedAt'])
+                   and read.record['page']['fetchedAt'] <= now < read.record['page']['expiresAt'] for read in self.initiate_checks):
+                self._notice_history.save(eligible, history_witness)
+            return
+        retained = notified - unverified
+        if retained:
+            retained.intersection_update(initiate_notice.token(self.secret, scope, actor, guid) for guid in native)
+        fresh = eligible - retained
+        sending = False
+        if fresh:
+            try:
+                available = self._initiate_notice.available(self.wow_dir)
+            except initiate_notice.OS_ERRORS:
+                available = False
+            if available:
+                # Revalidate local output before prompting an officer to import it.
+                records = [read.record for read in self.initiate_checks]
+                body = launch_operations229.render_sweep(records, int(time.time()))
+                sending = body is not None and self._write_projection280(self.initiate_checks_file, body, records) is not None
+            if not sending:
+                self._notice_check_at = now + 20
+        claimed = retained | fresh if sending else retained
+        if claimed != notified:
+            history_witness = self._notice_history.save(claimed, history_witness)
+        if sending:
+            try:
+                shown = (self._launch_savedvars_witness() == self._sweep_witness
+                         and fresh <= initiate_notice.ready_sets(self.initiate_checks, accepted, self.secret, time.time())[0]
+                         and self._initiate_notice.show())
+            except initiate_notice.OS_ERRORS:
+                shown = False
+            if not shown:
+                self._notice_history.save(retained, history_witness)
+                self._notice_check_at = now + 20
 
     def write_launch_operations(self) -> None:
         body = launch_operations229.render_pages(self.launch_scan.result(), int(time.time()))
@@ -2688,6 +2770,8 @@ class Watcher:
     def pull_launch_operations(self) -> None:
         if not self.membership_only or self._custody_halted:
             return
+        if getattr(self, '_initiate_notice', None) is not None:
+            self.check_initiate_notice()
         if getattr(self, 'launch_selected', None) is not None and self.launch_selected.running:
             self._pull_launch_selected()
             return

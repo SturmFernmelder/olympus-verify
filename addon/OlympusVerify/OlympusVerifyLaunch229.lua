@@ -966,6 +966,190 @@ local function PromotionCommand()
   -- effect still needs an attended newer complete-roster confirmation.
   return "/gpromote"
 end
+-- Notification history is local to Fern's enrolled character and scope. It
+-- holds only native GUIDs/observation times and never supplies action authority.
+local function AlertOfficer()
+  local api=OlympusVerifyAPI
+  local mine=api and api.Name and Text(Read(api.Name.Mine),100)
+  if cfg.membershipOnly~=true or not mine or not H or type(H.normalizeCharacter)~="function" or H.normalizeCharacter(mine)~="fern melder"
+    or Q.scopeChanged or Preview() or Read(CanGuildPromote)~=true then return nil end
+  local identity=Identity() or PrimeInitiateIdentity()
+  if identity and api.Roster and Read(api.Roster.IsEnrolledPrimeGM,identity.guild,identity.realm,identity.rank,identity.guid)==true then return identity end
+end
+local armedHere
+function Q.ArmReadyReview()
+  local identity=AlertOfficer()
+  if not identity or type(OlympusVerifyDB)~="table" then return false end
+  armedHere={version=1,actor=identity.guid,scope=identity.scopeHash,at=time()}
+  OlympusVerifyDB.primeReadyReview=armedHere
+  return true
+end
+function Q.CancelReadyReview()
+  if armedHere and OlympusVerifyDB and OlympusVerifyDB.primeReadyReview==armedHere then OlympusVerifyDB.primeReadyReview=nil end
+end
+function Q.OpenRequestedReview(safe)
+  local db=OlympusVerifyDB
+  local request=db and db.primeReadyReview
+  if not request or request==armedHere then return end
+  local now=time()
+  if not ExactKeys(request,{version=true,actor=true,scope=true,at=true}) or request.version~=1 or not Number(request.at,now-599,now)
+    or not Text(request.actor,40) or not Text(request.scope,16) then db.primeReadyReview=nil;return end
+  local actor=Text(Read(UnitGUID,"player"),40)
+  if not actor then return end -- Login may precede native identity becoming readable.
+  if request.actor~=actor then db.primeReadyReview=nil;return end
+  if not Number(Q.rosterAt,now-15,now) or not safe() then return end
+  local identity=AlertOfficer()
+  if not identity or identity.scopeHash~=request.scope or not OlympusVerifyRoster or not OlympusVerifyRoster.ShowReadyInitiates then return end
+  db.primeReadyReview=nil
+  OlympusVerifyRoster.ShowReadyInitiates()
+end
+local function NoticeHistory(identity)
+  local db=OlympusVerifyDB
+  local old=db.primeInitiateNotices
+  if type(old)=="table" and old.version==1 and old.actor==identity.guid and old.scope==identity.scopeHash
+    and type(old.seen)=="table" and type(old.whispers)=="table" then return old end
+  local fresh={version=1,actor=identity.guid,scope=identity.scopeHash,seen={},whispers={}}
+  db.primeInitiateNotices=fresh
+  return fresh
+end
+function Q.IsInitiateWhisper(name,id,proof)
+  local identity=AlertOfficer()
+  local now=time()
+  if not identity or not Text(name,100) or not Text(id,40) or type(proof)~="table" or proof.member~=true
+    or proof.scopeHash~=identity.scopeHash or not Number(proof.observedAt,now-5,now) then return false end
+  local r=OlympusVerifyDB and OlympusVerifyDB.roster
+  local ranks=type(r)=="table" and OlympusVerifyNativeRanks and OlympusVerifyNativeRanks.Scheme(r.nativeRankTable)
+  if not ranks or not Number(r.exportedAt,now-5,now) or r.nativeGuild~=identity.guild
+    or r.nativeRealm~=(identity.primeInitiates and "" or identity.realm) or not Number(r.total,1,1000)
+    or ArraySize(r.members,1000)~=r.total then return false end
+  local match=false
+  for _,row in ipairs(r.members) do
+    if type(row)~="table" then return false end
+    if row.guid==id then
+      if match or row.rankIndex~=ranks.initiate or row.rank~=ranks.names[ranks.initiate+1]
+        or not Text(row.name,100) or H.normalizeCharacter(row.name)~=H.normalizeCharacter(name) then return false end
+      match=true
+    end
+  end
+  if match then
+    local history=NoticeHistory(identity)
+    local count=0
+    for key,at in pairs(history.whispers) do
+      if not Number(at,now-3600,now) then history.whispers[key]=nil else count=count+1 end
+    end
+    if history.whispers[id] or count<1000 then history.whispers[id]=now end
+  end
+  return match
+end
+
+local noticeFile,noticeControl,noticeManual,noticeManualControl
+local lastNoticeRosterAt
+function Q.PollInitiateAlerts(safe)
+  local db=OlympusVerifyDB
+  if type(db)~="table" or not OlympusInitiateChecks and not OlympusLaunchSelected
+    or noticeFile==OlympusInitiateChecks and noticeControl==db.primeInitiateChecks
+      and noticeManual==OlympusLaunchSelected and noticeManualControl==db.launchControl then return end
+  local now=time()
+  local empty=not db.primeInitiateChecks and ExactKeys(OlympusInitiateChecks,{version=true,kind=true,scopeHash=true,snapshotId=true,snapshotAt=true,records=true})
+    and OlympusInitiateChecks.version==1 and OlympusInitiateChecks.kind=="no-native-initiates" and ArraySize(OlympusInitiateChecks.records,0)==0
+    and Number(OlympusInitiateChecks.snapshotId,1,2147483647) and Number(OlympusInitiateChecks.snapshotAt,now-599,now)
+  -- Files loaded by the TOC are immutable to the Watcher until a new session.
+  -- No selected page yet: skip the entire native pass until new input loads.
+  local projected=type(OlympusLaunchSelected)=="table" and OlympusLaunchSelected.completed==true and type(db.launchControl)=="table"
+    and OlympusLaunchSelected.controlId==db.launchControl.id
+  if not projected and type(OlympusInitiateChecks)=="table" and type(db.primeInitiateChecks)=="table"
+    and OlympusInitiateChecks.id==db.primeInitiateChecks.id and type(OlympusInitiateChecks.records)=="table" then
+    for i=1,math.min(#OlympusInitiateChecks.records,50) do
+      local record=OlympusInitiateChecks.records[i]
+      if type(record)=="table" and record.completed==true then projected=true;break end
+    end
+  end
+  if not projected and not empty then
+    noticeFile,noticeControl,noticeManual,noticeManualControl=OlympusInitiateChecks,db.primeInitiateChecks,OlympusLaunchSelected,db.launchControl
+    return
+  end
+  if not Number(Q.rosterAt,now-15,now) or type(safe)~="function" or not safe() then return end
+  local identity=AlertOfficer()
+  if not identity or empty and OlympusInitiateChecks.scopeHash~=identity.scopeHash then return end
+  if empty then
+    local history=db.primeInitiateNotices
+    if type(history)=="table" and history.actor==identity.guid and history.scope==identity.scopeHash
+      and Number(history.latest,1,now) and OlympusInitiateChecks.snapshotAt<history.latest then return end
+  end
+  if lastNoticeRosterAt and now>=lastNoticeRosterAt and now-lastNoticeRosterAt<30 then return end
+  local current=not empty and Q.Current()
+  if not empty and (not current or not current.selectedByGuid or not SameIdentity(identity,current.identity)) then return end
+  local native,_,scheme=NativeRoster(identity)
+  if not native or not native[identity.guid] or H.normalizeCharacter(native[identity.guid].name)~="fern melder" then
+    lastNoticeRosterAt=now;return
+  end
+  lastNoticeRosterAt=nil
+  if empty then
+    for _,member in pairs(native) do if member.slot==scheme.initiate then lastNoticeRosterAt=now;return end end
+    local history=NoticeHistory(identity)
+    history.seen,history.whispers,history.baseline={}, {},true
+    history.latest,history.emptyAt=OlympusInitiateChecks.snapshotAt,OlympusInitiateChecks.snapshotAt
+    noticeFile,noticeControl,noticeManual,noticeManualControl=OlympusInitiateChecks,db.primeInitiateChecks,OlympusLaunchSelected,db.launchControl
+    return
+  end
+  local ledger=AttemptLedger()
+  if not ledger then return end
+  local count=0
+  for _ in pairs(ledger) do count=count+1;if count>=1000 then break end end
+  local history=NoticeHistory(identity)
+  local seen,whispers,notices={},{},{}
+  local expires,latest=nil,Number(history.latest,1,now) and history.latest or 0
+  for id,member in pairs(native) do
+    if member.slot==scheme.initiate and member.rank==scheme.names[scheme.initiate+1] then
+      -- Positive/negative original result time. Missing and held observations
+      -- retain the last determinate fact through partial imports and reloads.
+      local prior=history.seen[id]
+      if Number(prior,-now,now) and prior~=0 then seen[id]=prior end
+      if Number(history.whispers[id],now-3600,now) then whispers[id]=history.whispers[id] end
+      local selected=current.selectedByGuid[id]
+      if selected and selected.completed and now<selected.page.expiresAt and now<selected.page.scan.expiresAt
+        and (not Number(history.emptyAt,1,now) or selected.page.snapshotAt>=history.emptyAt)
+        and selected.page.fetchedAt>=math.abs(seen[id] or 0) then
+        local fetched=selected.page.fetchedAt
+        latest=math.max(latest,fetched)
+        local row,fresh=PromotionRow(current,id)
+        local observed=selected.checked.freshness[id]
+        if row and fresh and fresh.kind=="selected" and fresh.page==selected.page and fresh.row==row
+          and ActionFresh(current,fresh) and row.currentSlot==scheme.initiate and row.intent.startSlot==scheme.initiate
+          and row.intent.acknowledgedSteps==0 and row.targetSlot>identity.rank and row.targetSlot<member.slot
+          and row.intent.expiresAt>now and H.normalizeCharacter(row.name)==H.normalizeCharacter(member.name)
+          and scheme==OlympusVerifyNativeRanks.Profile(fresh.page.rankProfile,fresh.page.rankSchemeDigest)
+          and not member.name:find("[/\\]") and (count<1000 or ledger[id]~=nil) and Q.PromotionStatus(id,current,member.slot)=="clear"
+          and (not C_GuildInfo or type(C_GuildInfo.IsGuildRankAssignmentAllowed)~="function"
+            or Read(C_GuildInfo.IsGuildRankAssignmentAllowed,id,row.targetSlot+1)==true) then
+          if (not whispers[id] or fetched>=whispers[id]) and seen[id]~=-fetched then
+            if (seen[id] or 0)<=0 and (seen[id] or history.baseline==true or whispers[id]) then
+              notices[#notices+1]=row.name.." → "..row.targetName
+              expires=math.min(expires or fresh.expiresAt,fresh.expiresAt,fresh.scanExpiresAt,row.intent.expiresAt)
+            end
+            seen[id],whispers[id]=fetched,nil
+          end
+        elseif observed and observed.page==selected.page and observed.row and observed.row.reason=="unverified-initiate"
+          and H.normalizeCharacter(observed.row.name)==H.normalizeCharacter(member.name)
+          and seen[id]~=fetched then
+          seen[id]=-fetched -- The Worker explicitly identified this native Initiate as unverified.
+        end
+      end
+    end
+  end
+  history.seen,history.whispers,history.latest=seen,whispers,latest
+  local sweep=current.backgroundChecks
+  if sweep and sweep.total>0 and sweep.checked==sweep.total then history.baseline=true end
+  noticeFile,noticeControl,noticeManual,noticeManualControl=OlympusInitiateChecks,db.primeInitiateChecks,OlympusLaunchSelected,db.launchControl
+  if #notices>0 then
+    table.sort(notices)
+    local names=table.concat(notices,", ",1,math.min(3,#notices))
+    if #notices>3 then names=names.." and "..(#notices-3).." more" end
+    Say("Ready for promotion: "..names..". Review with /olv ready. Each promotion requires your click.")
+    if OlympusVerifyAutoSync and OlympusVerifyAutoSync.ShowReadyNotice then OlympusVerifyAutoSync.ShowReadyNotice(#notices,expires) end
+  end
+end
+
 local function PreparePromotion(target)
   local current, roster = ActionContext()
   if not current then Say(roster); return false end

@@ -14,6 +14,7 @@ local function fixture(saved)
   e.UnitCastingInfo=function() return nil end;e.UnitChannelInfo=function() return nil end
   e.ReloadUI=function() end;e.PlaySound=function() f.chimes=f.chimes+1 end
   e.OlympusVerifyDB=saved or {}
+  e.OlympusLaunch229={ArmReadyReview=function() return true end,CancelReadyReview=function() end}
   e.OlympusVerifyAPI={AutoSyncFacts=function() return f.valid and {strict=true,exportedAt=f.wall,digest=f.digest} or nil end,
     ExportRoster=function() f.exports=f.exports+1 end,
     Sync=function() f.reloads=f.reloads+1;e.OlympusVerifyAutoSync.RecordSync();if f.refuse then error("synthetic refusal") end;if f.blocked then f.event("ADDON_ACTION_BLOCKED") end end}
@@ -146,5 +147,69 @@ do
   local file=assert(io.open("../OlympusVerify/Bindings.xml","r"));local xml=file:read("*a");file:close()
   local _,syncCount=xml:gsub('name="OLYMPUSVERIFY_SYNC"','');local _,nextCount=xml:gsub('name="OLYMPUSVERIFY_OFFICER_NEXT"','')
   check("exactly one Sync and officer keybinding is declared",syncCount==1 and nextCount==1 and xml:find("OlympusVerify_Sync()",1,true) and xml:find("OlympusLaunch229.NextAction()",1,true))
+end
+for _,event in ipairs({"TRADE_SHOW","MAIL_SHOW","BANKFRAME_OPENED","AUCTION_HOUSE_SHOW"}) do
+  local f=fixture();f.event(event)
+  check("optional import without a whisper holds in "..event,not f.a.HardwareSync(true) and f.reloads==0)
+end
+do
+  local e=setmetatable({},{__index=_G});e._G=e;setfenv(assert(loadfile("wow_mock.lua")),e)()
+  local D=assert(loadfile("directive_fixture280.lua"))()
+  local names=D.ranks(e)
+  e.GetGuildInfo=function() return "OLYMPUS PRIME",names[1],0 end;e.GetRealmName=function() return "CAMWOW US2 Realm 3 PvE" end
+  e.GetGuildRosterShowOffline=function() return true end;e.CanGuildPromote=function() return true end
+  e.InCombatLockdown=function() return false end;e.GetTime=function() return 0 end
+  e.ROSTER={{name="Fern Melder",guid=e.PLAYER_GUID,rankIndex=0,level=60},{name="New Initiate",guid="Player-1-ABCDEF12",rankIndex=9,level=60}}
+  e.C_GuildInfo.MemberExistsByName=function() return true end
+  local reloads=0;e.ReloadUI=function() reloads=reloads+1 end
+  e.OlympusVerifyConfig={secret="local-synthetic-alert-test",membershipOnly=true,uiAutoShow=false}
+  for _,file in ipairs({"Libs/OlympusHmac.lua","OlympusVerify.lua","OlympusVerifyAutoSync.lua","OlympusVerifyLaunch229.lua"}) do
+    setfenv(assert(loadfile("../OlympusVerify/"..file)),e)("OlympusVerify")
+  end
+  local hash=e.OlympusHmac.sha256hex
+  e.OlympusHmac.sha256hex=function(input)
+    if input=="prime-guild-master|1|"..e.PLAYER_GUID then return "d0988804294170b3414fcaf60ea77658d3b511bbd0c1ccf4286b04e47d935a16" end
+    return hash(input)
+  end
+  local core=e.OlympusVerifyFrame;local event=core:GetScript("OnEvent")
+  event(core,"ADDON_LOADED","OlympusVerify");event(core,"GUILD_ROSTER_UPDATE")
+  local a=e.OlympusVerifyAutoSync;local on=a.frame:GetScript("OnEvent");on(a.frame,"PLAYER_LOGIN");on(a.frame,"PLAYER_ENTERING_WORLD")
+  local code=e.OlympusHmac.codeFor(e.OlympusVerifyConfig.secret,"New Initiate",e.OlympusHmac.utcDay(e.NOW))
+  event(core,"CHAT_MSG_WHISPER","!verify "..code,"New Initiate",nil,nil,nil,nil,nil,nil,nil,nil,nil,"Player-1-ABCDEF12")
+  check("normal game whisper enters the private pending path through the real native capture",a.button:GetText():find("Export Initiate verification",1,true)
+    and e.OlympusVerifyDB.primeInitiateNotices.whispers["Player-1-ABCDEF12"]==e.NOW and not a.readyButton and reloads==0)
+end
+do
+  local f=fixture();f.a.Request("whisper");f.a.OfferInitiateImport()
+  check("local pending notice asks the officer to export before Windows can confirm readiness",f.a.button:GetText():find("Export Initiate verification",1,true)
+    and f.a.button:GetText():find("send the proof",1,true) and table.concat(f.a.Description()," "):find("/olv ready sync",1,true)
+    and not f.a.readyButton and f.reloads==0)
+  f.e.UnitChannelInfo=function() return "Fishing" end
+  f.a.button:GetScript("OnClick")(f.a.button,"LeftButton",false)
+  check("pending Initiate button holds while fishing",f.reloads==0 and not f.a.Status().requested)
+  f.e.UnitChannelInfo=function() end
+  f.a.button:GetScript("OnClick")(f.a.button,"LeftButton",false)
+  check("one safe button press requests exactly one reload",f.reloads==1 and not f.a.HardwareSync(true))
+end
+do
+  local f=fixture();local text="/olv ready sync"
+  local edit={GetName=function() return "ChatFrame1EditBox" end,GetText=function() return text end}
+  f.e.ChatFrame1EditBox=edit;f.e.GetCurrentKeyBoardFocus=function() return edit end
+  check("an ordinary click still holds while a chat edit box is focused",not f.a.HardwareSync(true) and f.reloads==0)
+  text="unfinished chat"
+  check("an unrelated focused draft holds a command import",not f.a.HardwareSync(true,true) and f.reloads==0)
+  text="/OLV   READY SYNC"
+  check("the submitted import command can finish while its own native edit box still has focus",f.a.HardwareSync(true,true) and f.reloads==1)
+  check("a duplicate optional import cannot repeat the request",not f.a.HardwareSync(true,true) and f.reloads==1)
+end
+do
+  local f=fixture();local opens=0
+  f.e.OlympusVerifyRoster={ShowReadyInitiates=function() opens=opens+1 end}
+  f.a.ShowReadyNotice(2,f.wall+30)
+  check("the private notice exposes a review-only button",f.a.readyButton:IsShown() and f.a.readyButton:GetText():find("(2)",1,true) and f.reloads==0)
+  f.a.readyButton:Click();f.a.Tick()
+  check("opening ready Initiates never syncs or reopens its alert",opens==1 and f.reloads==0 and not f.a.readyButton:IsShown())
+  f.a.ShowReadyNotice(1,f.wall+2);f.advance(3);f.a.Tick()
+  check("the private button disappears at original expiry",not f.a.readyButton:IsShown() and f.reloads==0)
 end
 print(string.format("%d passed, %d failed",passed,failed));if failed>0 then error("pending hardware sync failed") end

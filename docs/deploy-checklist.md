@@ -8903,3 +8903,7 @@ For rollback, deploy the accepted .299 Worker and restore the .299 public addon 
 ## 22 November 2026 — .301 import completed Initiate checks
 
 Ship Verify 0.6.47 with Watcher 0.6.44. Verify that a client which loaded only part of a background check can import the completed groups on its next reload despite unrelated roster changes. Changed participants, new verification, custody changes and expired observations must still follow their own checks. Confirm the completed count and the individual officer control in game. To roll back, redeploy the .300 Worker and restore Verify 0.6.46 while preserving the Watcher, its journal and the local roster files.
+
+## 23 November 2026 — .303 private Initiate promotion alerts
+
+Ship Verify 0.6.48 and Watcher 0.6.45. Check whisper intake, fresh and expired promotion recommendations, repeated observations, busy-client reload refusal and the individual promotion control. Verify the official download, installed versions and running Watcher. Record any native alert that needs a genuinely new eligible member for acceptance. Preserve officer configuration and pending work during installation. To roll back, redeploy .301 and restore its public addon and Watcher files.

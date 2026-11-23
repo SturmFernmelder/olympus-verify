@@ -54,7 +54,13 @@ local function boolean(name, required, ...)
   if not ok or not readable(value) or type(value) ~= "boolean" then return nil end
   return value
 end
-local function contextHeld(hardware)
+local function submittingImport(focus)
+  local name=type(focus.GetName)=="function" and focus:GetName()
+  if not readable(name) or type(name)~="string" or not name:match("^ChatFrame%d+EditBox$") or _G[name]~=focus or type(focus.GetText)~="function" then return false end
+  local text=focus:GetText()
+  return readable(text) and type(text)=="string" and (text=="" or text:lower():match("^%s*/olv%s+ready%s+sync%s*$")~=nil)
+end
+local function contextHeld(hardware,submittedSlash)
   if not state.active then return "loading" end
   local combat = boolean("InCombatLockdown", true)
   if combat == nil then return "combat status unavailable" elseif combat then return "combat" end
@@ -80,7 +86,10 @@ local function contextHeld(hardware)
   if type(GetCurrentKeyBoardFocus) ~= "function" then return "keyboard focus unavailable" end
   local focusOK, focus = pcall(GetCurrentKeyBoardFocus)
   if not focusOK or not readable(focus) then return "keyboard focus unavailable" end
-  if focus ~= nil then activity(); return "typing" end
+  if focus ~= nil then
+    local ok,submitted=pcall(submittingImport,focus)
+    if not (submittedSlash and ok and submitted) then activity(); return "typing" end
+  end
   for _, held in pairs(state.contexts) do if held then return held end end
   for _, name in ipairs({ "TradeFrame", "MailFrame", "OpenMailFrame", "BankFrame", "GuildBankFrame", "AuctionHouseFrame", "AuctionFrame",
     "MerchantFrame", "LootFrame", "QuestFrame", "GossipFrame", "ItemTextFrame", "TradeSkillFrame", "CraftFrame", "ProfessionsFrame",
@@ -134,7 +143,8 @@ local function UpdateAlert()
   local detail=status.lastRequestedAt and ("Requested "..stamp(status.lastRequestedAt,"%H:%M")
     .."; loaded "..stamp(status.loadedListAt,"%H:%M")..(status.displayState=="stale" and " (stale)" or ""))
     or "Click or press Sync (right-drag to move)"
-  A.button:SetText((state.requested and "Sync requested: confirm the UI reload" or "Pending Verification Sync").."\n"..detail)
+  if state.initiateImport and not state.requested then detail="Click once when safely idle to send the proof" end
+  A.button:SetText((state.requested and "Sync requested: confirm the UI reload" or state.initiateImport and "Export Initiate verification" or "Pending Verification Sync").."\n"..detail)
   A.button:SetScript("OnEnter",function(self)
     if not GameTooltip then return end
     GameTooltip:SetOwner(self,"ANCHOR_RIGHT");GameTooltip:SetText("Sync request and loaded server data")
@@ -169,13 +179,17 @@ end
 function A.Description()
   local s=A.Status()
   return {
+    state.initiateImport and "Click to export the whisper for the Watcher. After Windows reports a ready member, use /olv ready sync once to load the result." or "Pending Verification Sync",
     "Last Sync requested: "..stamp(s.lastRequestedAt)..". This is a local request, not a server confirmation.",
     "Loaded server list queried: "..stamp(s.loadedListAt).."; server roster observed: "..stamp(s.loadedRosterAt).." ("..s.displayState..").",
     "Sync exports pending data and reloads once. The Watcher processes that export afterward; the reload can still load the older result.",
     "Wait for the Watcher result, then use Sync once more to load its newer file. If dates still do not advance, check the Watcher; repeated clicks do not confirm success.",
-    "Loaded dates keep their original values. Current access is checked in Discord /verify-status. Live updates without reload are on hold.",
+    "WoW loads the Watcher's dated results at login or reload. Check current access in Discord /verify-status.",
     s.held,
   }
+end
+function A.OfferInitiateImport()
+  if state.pendingAt and not state.requested then state.initiateImport=true; UpdateAlert() end
 end
 local function RequestWithFacts(reason, source)
   if reason~="whisper" and reason~="native-change" and reason~="periodic" and reason~="queue-check" then return false end
@@ -215,21 +229,54 @@ function A.RecordSync()
 end
 -- This function is reached only from the addon button, a key binding or a typed slash command.
 -- Timer and event callbacks below only export/read/update the alert.
-function A.HardwareSync()
+function A.HardwareSync(guardImport,submittedSlash)
   if OlympusVerifyUI and OlympusVerifyUI.preview then return false end
   -- The officer's explicit click/slash is the hardware event. Idle/movement,
   -- keyboard focus and a mailbox window do not veto a deliberate sync.
   local held=boolean("InCombatLockdown", true) ~= false and "combat or combat status unavailable" or nil
-  if held then state.held=held; UpdateAlert(); return false end
+  if not held and (guardImport==true or state.initiateImport) then held=contextHeld(true,submittedSlash==true) end
+  if held then
+    state.held=held
+    if guardImport==true or state.initiateImport then DEFAULT_CHAT_FRAME:AddMessage("Olympus: import held ("..held.."). Try when safely idle.") end
+    UpdateAlert(); return false
+  end
   if state.requested then state.held="request unconfirmed; use the normal /reload command if needed"; UpdateAlert(); return false end
   if type(API.Sync)~="function" or not ((C_UI and type(C_UI.Reload)=="function") or type(ReloadUI)=="function") then
     state.held="reload API unavailable; type /reload in normal chat"; UpdateAlert(); return false
   end
+  if guardImport==true and (not OlympusLaunch229 or not OlympusLaunch229.ArmReadyReview or not OlympusLaunch229.ArmReadyReview()) then
+    state.held="current enrolled PRIME Guild Master roster required";UpdateAlert()
+    DEFAULT_CHAT_FRAME:AddMessage("Olympus: load Fern's complete PRIME guild roster before importing promotion results.")
+    return false
+  end
   state.requested=true
   local success,result=pcall(API.Sync)
-  if not success or result==false then state.held="client refused Sync; use the normal /reload command" end
+  if not success or result==false then
+    if guardImport==true and OlympusLaunch229 then OlympusLaunch229.CancelReadyReview() end
+    state.held="client refused Sync; use the normal /reload command"
+  end
   UpdateAlert()
   return success and result~=false
+end
+function A.ShowReadyNotice(count,expiresAt)
+  if not state.active or contextHeld(true) or not readable(expiresAt)
+    or type(expiresAt)~="number" or expiresAt<=time() then return end
+  if not A.readyButton then
+    local button=CreateFrame("Button","OlympusReviewReadyInitiates",UIParent,"UIPanelButtonTemplate")
+    button:SetSize(285,34);button:SetPoint("TOP",UIParent,"TOP",0,-195)
+    button:SetFrameStrata("DIALOG");button:RegisterForClicks("LeftButtonUp")
+    button:SetScript("OnClick",function(self)
+      self:Hide()
+      if state.active and not contextHeld(true) and OlympusVerifyRoster and OlympusVerifyRoster.ShowReadyInitiates then
+        state.readyUntil=nil
+        OlympusVerifyRoster.ShowReadyInitiates()
+      end
+    end)
+    A.readyButton=button
+  end
+  state.readyUntil=expiresAt
+  A.readyButton:SetText("Review ready Initiates ("..count..")")
+  A.readyButton:Show();Chime()
 end
 function A.SetEnabled(value)
   -- Compatibility with the retired timer preference never starts automatic reloads.
@@ -255,6 +302,14 @@ function A.Tick()
     if type(last)=="number" and time()>=last and time()-last>=A.REFRESH_INTERVAL then RequestWithFacts("periodic", source) end
   end
   if state.pendingAt then state.held=state.requested and state.held or contextHeld(false) or "hardware click or keybind required" end
+  if OlympusLaunch229 and OlympusLaunch229.PollInitiateAlerts then
+    local function safe() return not contextHeld(true) end
+    OlympusLaunch229.PollInitiateAlerts(safe)
+    OlympusLaunch229.OpenRequestedReview(safe)
+  end
+  if A.readyButton then
+    if state.readyUntil and time()<state.readyUntil and not contextHeld(true) then A.readyButton:Show() else A.readyButton:Hide() end
+  end
   UpdateAlert()
 end
 local open={TRADE_SHOW="trade",MAIL_SHOW="mail",BANKFRAME_OPENED="bank",GUILDBANKFRAME_OPENED="guild bank",AUCTION_HOUSE_SHOW="auction",MERCHANT_SHOW="merchant",CINEMATIC_START="cinematic",LOADING_SCREEN_ENABLED="loading"}
@@ -265,14 +320,18 @@ f:SetScript("OnEvent",function(_,event)
     state.started=true; state.wallBoot=time(); pref()
     if C_Timer and type(C_Timer.NewTicker)=="function" then pcall(C_Timer.NewTicker,5,function() pcall(A.Tick) end) end
   elseif event=="PLAYER_ENTERING_WORLD" then state.active=true
-  elseif event=="PLAYER_LEAVING_WORLD" then state.active=false
+  elseif event=="PLAYER_LEAVING_WORLD" then state.active=false;if A.readyButton then A.readyButton:Hide() end
+  elseif event=="PLAYER_REGEN_DISABLED" then if A.readyButton then A.readyButton:Hide() end
   elseif event=="ADDON_ACTION_FORBIDDEN" or event=="ADDON_ACTION_BLOCKED" then
-    if state.requested then state.held="client blocked reload; use normal /reload, no bypass or automatic retry" end
+    if state.requested then
+      if OlympusLaunch229 and OlympusLaunch229.CancelReadyReview then OlympusLaunch229.CancelReadyReview() end
+      state.held="client blocked reload; use normal /reload, no bypass or automatic retry"
+    end
   elseif open[event] then state.contexts[event]=open[event]
   elseif close[event] then state.contexts[close[event]]=nil end
   UpdateAlert()
 end)
-for _,event in ipairs({"PLAYER_LOGIN","PLAYER_ENTERING_WORLD","PLAYER_LEAVING_WORLD","ADDON_ACTION_FORBIDDEN","ADDON_ACTION_BLOCKED"}) do pcall(f.RegisterEvent,f,event) end
+for _,event in ipairs({"PLAYER_LOGIN","PLAYER_ENTERING_WORLD","PLAYER_LEAVING_WORLD","PLAYER_REGEN_DISABLED","ADDON_ACTION_FORBIDDEN","ADDON_ACTION_BLOCKED"}) do pcall(f.RegisterEvent,f,event) end
 for event in pairs(open) do pcall(f.RegisterEvent,f,event) end
 for event in pairs(close) do pcall(f.RegisterEvent,f,event) end
 A.frame=f

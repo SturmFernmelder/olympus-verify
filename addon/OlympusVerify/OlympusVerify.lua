@@ -41,7 +41,7 @@ local SECRET = cfg.secret
 -- 0.6.12: the example's placeholder is public, so a Config.lua copied without replacing it must not accept codes made from it.
 if type(SECRET) ~= "string" or SECRET == "" or string.find(SECRET, "^REPLACE_WITH_") then SECRET = nil end
 local secretWarned = false  -- 0.6.12: say once per session, not on every whisper, that codes cannot be checked
-local SOURCE_VERSION = "0.6.47" -- Keep this source fallback and OlympusVerify.toc aligned.
+local SOURCE_VERSION = "0.6.48" -- Keep this source fallback and OlympusVerify.toc aligned.
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
   or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or SOURCE_VERSION
 local SET_NOTES = cfg.setNotes == true  -- SetNote is forbidden for addons on the Forever beta; leave false there
@@ -395,7 +395,13 @@ local function HandleCode(source, sender, text, guid, lineId, mailObservation)
   if ok then
     if cfg.membershipOnly == true then
       OlympusVerifyDB.verificationExchange = { phase = "sync-needed", capturedAt = time() }
-      if source == "whisper" and nativeMembership and OlympusVerifyAutoSync then OlympusVerifyAutoSync.Request("whisper") end
+      if source == "whisper" and nativeMembership and OlympusVerifyAutoSync then
+        OlympusVerifyAutoSync.Request("whisper")
+        if OlympusLaunch229 and OlympusLaunch229.IsInitiateWhisper and OlympusVerifyAutoSync.OfferInitiateImport
+          and OlympusLaunch229.IsInitiateWhisper(base,guid,nativeMembership) then
+          OlympusVerifyAutoSync.OfferInitiateImport()
+        end
+      end
       -- .227: a valid code proves control, not current guild membership. Keep the old invite workflow opt-in.
       Print(string.format("%s from %s: code confirmed locally. Use /olv sync (Sync & reload) to send the proof and current roster; then check the Watcher result. No invite queued.", source, base))
       if source == "whisper" then
@@ -616,6 +622,14 @@ do
     return ok and slot or nil
   end
 
+  function Presence.IsEnrolledPrimeGM(guild, realm, slot, guid)
+    if guild~="OLYMPUS PRIME" or realm~=primeRealm or slot~=0 or not Presence.IsGuid(guid) or #guid>40 then return false end
+    if guid~=enrolledGuid then
+      if type(L.sha256hex)~="function" or L.sha256hex("prime-guild-master|1|"..guid)~=enrolledDigest then return false end
+      enrolledGuid=guid
+    end
+    return true
+  end
   function Presence.NativeRosterScope(capturing)
     local ok, guild, _, slot = pcall(GetGuildInfo, "player")
     guild = ok and Presence.Readable(guild) or nil
@@ -628,11 +642,7 @@ do
     if not guildOk or inGuild ~= true or Presence.ReadRosterSlot(slot) ~= 0 then return clearBinding(guild) end
     local guidOk, guid = pcall(UnitGUID, "player")
     guid = guidOk and Presence.Readable(guid) or nil
-    if not Presence.IsGuid(guid) or #guid > 40 then return clearBinding(guild) end
-    if guid ~= enrolledGuid then
-      if type(L.sha256hex) ~= "function" or L.sha256hex("prime-guild-master|1|" .. guid) ~= enrolledDigest then return clearBinding(guild) end
-      enrolledGuid = guid
-    end
+    if not Presence.IsEnrolledPrimeGM(guild,primeRealm,0,guid) then return clearBinding(guild) end
     if not capturing then
       local now = time()
       if capturedGuid ~= guid or not capturedAt or now < capturedAt or now - capturedAt > 600
@@ -3456,7 +3466,7 @@ OlympusVerifyAPI = {
   RemoveMember = function(name, reason) return OlympusVerify_RemoveMember(name, reason) end,
   -- The roster window's reads (0.6.4). A table for the same reason as Text and Name: nothing here acts, so /olv
   -- preview has nothing to stand in for.
-  Roster = { CurrentScope = function() return Presence.NativeRosterScope() end, Members = Roster.Members, Filter = Roster.Filter, Sort = Roster.Sort, DisplaySource = Roster.DisplaySource,
+  Roster = { CurrentScope = function() return Presence.NativeRosterScope() end, IsEnrolledPrimeGM=Presence.IsEnrolledPrimeGM, Members = Roster.Members, Filter = Roster.Filter, Sort = Roster.Sort, DisplaySource = Roster.DisplaySource,
     DisplayFacts = Roster.DisplayFacts },
   UnverifiedList = function(n) return Unverified.Candidates(n) end,
   UnverifiedRanks = function(info) return Unverified.Ranks(info) end,
@@ -4210,6 +4220,11 @@ OlympusVerifySlash234.Register("OLYMPUSVERIFY", {"/olv"}, function(msg)
           tostring(c.level), tostring(c.rank), AwayText(c.days), c.need or 0, (c.note and c.note ~= "") and (", note: " .. c.note) or ""))
       end
     end
+  elseif cmd == "ready" then
+    local arg=(msg or ""):match("^%s*%S+%s+(.-)%s*$") or ""
+    if arg:lower()=="sync" and OlympusVerifyAutoSync then OlympusVerifyAutoSync.HardwareSync(true,true)
+    elseif arg=="" and OlympusVerifyRoster and OlympusVerifyRoster.ShowReadyInitiates then OlympusVerifyRoster.ShowReadyInitiates()
+    else Print("Use /olv ready to review promotion-ready Initiates, or /olv ready sync after the Windows alert to import its results.") end
   elseif cmd == "members" or cmd == "who" then
     -- The roster window (OlympusVerifyRoster.lua): every member, verified or not, with Discord names. Anything after
     -- the command is the search text.
