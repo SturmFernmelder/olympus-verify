@@ -491,6 +491,10 @@ function W.Refresh()
   SetButtonText(actionFilterBtn,ACTION_FILTERS[view.action or 1][2].." v")
   SetButtonText(initiateBtn,(view.initiates and GOLD or WHITE).."Initiates|r")
   SetButtonText(readyBtn,(view.initiates and view.status==2 and view.action==4 and GOLD or WHITE).."Verified Initiates|r")
+  if W.importButton then
+    if view.initiates and view.action==2 then W.batchButton:Hide();W.importButton:Show()
+    else W.importButton:Hide();W.batchButton:Show() end
+  end
   local readyCount=0
   for _,m in ipairs(list) do if Eligible(m,candidates) then readyCount=readyCount+1 end end
   local actionTitle=not diagnostics.queueAvailable and "Promote: unavailable"
@@ -683,6 +687,10 @@ local function Build()
   W.batchButton=Button(frame,"Recheck up to 20 shown",176,24,function() W.RequestVerifiedInitiates() end,
     "Recheck shown Initiates", "Complete roster exports automatically request checks for all native Initiates. Use this optional recheck for up to twenty verified members in these filters. Each promotion requires its own officer click.")
   W.batchButton:SetPoint("LEFT",W.selectButton,"RIGHT",6,0)
+  W.importButton=Button(frame,"Import Watcher results",176,24,function()
+    if OlympusVerifyAutoSync then OlympusVerifyAutoSync.HardwareSync(true) end
+  end,"Import Watcher results","After Windows reports a ready Initiate, click once while safely idle to reload the dated results. This does not promote a member.")
+  W.importButton:SetPoint("LEFT",W.selectButton,"RIGHT",6,0);W.importButton:Hide()
   W.refreshButton,W.copyButton=refresh,copy
   local sourceTip=CreateFrame("Frame",nil,frame)
   sourceTip:SetSize(Layout.INNER-230,24);sourceTip:SetPoint("TOPLEFT",frame,"TOPLEFT",Layout.PAD+230,Layout.FILTER_Y-64);sourceTip:EnableMouse(true)
@@ -807,6 +815,15 @@ function W.Show(text)
   offset = 0
   frame:Show()
   W.Refresh()
+end
+
+function W.ShowReadyInitiates()
+  if not InCombatLockdown or InCombatLockdown()~=false then return end
+  if not frame then Build() end
+  CloseMenu()
+  view.initiates,view.rank,view.class,view.online,view.presence,view.status,view.action,view.text=true,0,0,false,1,1,2,""
+  search:SetText("")
+  W.Show()
 end
 
 function W.Hide()

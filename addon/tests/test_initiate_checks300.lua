@@ -224,4 +224,186 @@ do
   local sweep=e.OlympusLaunch229.Current().backgroundChecks
   check("a 50-group request without replies is fully visible as pending",sweep.total==999 and sweep.pending==999 and sweep.checked==0)
 end
+local function notifications(blank)
+  local f,e,prepare,record=client(23,blank)
+  local api=e.OlympusVerifyAPI
+  setfenv(assert(loadfile("../OlympusVerify/OlympusVerify.lua")),e)("OlympusVerify")
+  api.Roster.IsEnrolledPrimeGM=e.OlympusVerifyAPI.Roster.IsEnrolledPrimeGM
+  e.OlympusVerifyAPI=api
+  local hash=e.OlympusHmac.sha256hex
+  local enrolled="prime-guild-master|1|"..f.actor
+  e.OlympusHmac.sha256hex=function(data)
+    if data==enrolled then return "d0988804294170b3414fcaf60ea77658d3b511bbd0c1ccf4286b04e47d935a16" end
+    return hash(data)
+  end
+  e.ROSTER[1].name,e.ROSTER[1].rankIndex="Fern Melder",0
+  e.GetGuildInfo=function() return f.guild,f.names[e.ROSTER[1].rankIndex+1],e.ROSTER[1].rankIndex end
+  f.realm="CAMWOW US2 Realm 3 PvE";f.scope=D.scope(e,f.guild,f.realm)
+  api.Name={Mine=function() return e.ROSTER[1].name end}
+  setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLaunch229.lua")),e)("OlympusVerify");f.q=e.OlympusLaunch229
+  f.emit("GUILD_ROSTER_UPDATE")
+  local calls={}
+  e.OlympusVerifyAutoSync={ShowReadyNotice=function(count,expiry) calls[#calls+1]={count,expiry} end}
+  local cycle=prepare()
+  local second=cycle.controls[2].targetGuids[1]
+  local function publish(first,later)
+    e.NOW=e.NOW+1;f.emit("GUILD_ROSTER_UPDATE")
+    e.OlympusInitiateChecks={version=1,id=cycle.id,records={record(cycle.controls[1],92,first),record(cycle.controls[2],92,later)}}
+    local names={}
+    for _,member in ipairs(e.ROSTER) do names[member.guid]=member.name end
+    for _,result in ipairs(e.OlympusInitiateChecks.records) do
+      local promotion=result.page.promotions[1]
+      for _,guid in ipairs(result.coveredGuids) do
+        if not promotion or promotion.guid~=guid then
+          table.insert(result.page.held,{guid=guid,name=names[guid],reason="unverified-initiate"})
+        end
+      end
+    end
+  end
+  local function poll(safe) f.q.PollInitiateAlerts(function() return safe~=false end) end
+  return f,e,cycle,second,publish,poll,calls
+end
+do
+  local f,e,cycle,_,publish,poll=notifications(false)
+  local q=f.q
+  local opens=0;e.OlympusVerifyRoster={ShowReadyInitiates=function() opens=opens+1 end}
+  check("enrolled observed-realm Fern can request one review",q.ArmReadyReview())
+  q.OpenRequestedReview(function() return true end)
+  check("requesting a post-import review cannot open or promote before reload",opens==0 and f.promote==0)
+  local function reload()
+    setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLaunch229.lua")),e)("OlympusVerify")
+    f.q=e.OlympusLaunch229;f.emit("GUILD_ROSTER_UPDATE")
+  end
+  reload()
+  local guid=e.UnitGUID;e.UnitGUID=function() return nil end;f.q.OpenRequestedReview(function() return true end);e.UnitGUID=guid
+  check("a temporarily unreadable player during login preserves the one-shot review",opens==0 and e.OlympusVerifyDB.primeReadyReview)
+  f.q.OpenRequestedReview(function() return false end)
+  check("post-import list waits for a safe client",opens==0 and e.OlympusVerifyDB.primeReadyReview)
+  f.q.OpenRequestedReview(function() return true end);f.q.OpenRequestedReview(function() return true end)
+  check("one requested reload opens the actual review path exactly once even with no new toast or candidate",opens==1 and not e.OlympusVerifyDB.primeReadyReview and f.promote==0 and not f.syncs)
+  f.realm="Other Realm";check("another realm cannot arm a review",not f.q.ArmReadyReview())
+  f.realm="CAMWOW US2 Realm 3 PvE";e.UnitGUID=function() return "Player-1-00ABCDEF" end
+  check("a same-name other GUID on the official realm cannot arm a review",not f.q.ArmReadyReview())
+  e.UnitGUID=function() return f.actor end;e.ROSTER[1].rankIndex=1
+  check("an enrolled former GM cannot arm a review",not f.q.ArmReadyReview())
+end
+for _,bad in ipairs({"ok","stale","wrong-scope","extra-field","bad-id","unknown","native-nonempty"}) do
+  local f,e,cycle,_,publish,poll,calls=notifications(true)
+  local db=e.OlympusVerifyDB
+  local previous=e.ROSTER;e.ROSTER={previous[1]}
+  if bad=="native-nonempty" then e.ROSTER[2]=previous[2] end
+  db.primeInitiateChecks=nil
+  e.OlympusInitiateChecks={version=1,kind="no-native-initiates",scopeHash=f.scope,snapshotId=77,snapshotAt=e.NOW,records={}}
+  if bad=="stale" then e.OlympusInitiateChecks.snapshotAt=e.NOW-600
+  elseif bad=="wrong-scope" then e.OlympusInitiateChecks.scopeHash=string.rep("0",16)
+  elseif bad=="extra-field" then e.OlympusInitiateChecks.another=true
+  elseif bad=="bad-id" then e.OlympusInitiateChecks.snapshotId=0
+  elseif bad=="unknown" then e.OlympusInitiateChecks=nil end
+  local reads=0
+  local native=e.GetGuildRosterInfo
+  e.GetGuildRosterInfo=function(...) reads=reads+1;return native(...) end
+  f.emit("GUILD_ROSTER_UPDATE");poll()
+  check("only fresh corroborated zero sets an empty baseline: "..bad,(db.primeInitiateNotices and db.primeInitiateNotices.baseline==true or false)==(bad=="ok") and #calls==0)
+  if bad=="native-nonempty" then
+    local first=reads
+    for i=1,5 do e.NOW=e.NOW+5;f.emit("GUILD_ROSTER_UPDATE");poll() end
+    check("a contradictory zero cannot read the native roster on every timer or roster update",first>0 and reads==first)
+    e.NOW=e.NOW+5;e.ROSTER={previous[1]};f.emit("GUILD_ROSTER_UPDATE");poll()
+    check("a genuinely empty roster after the retry delay can corroborate the original zero",reads>first and db.primeInitiateNotices.baseline and #calls==0)
+  elseif bad=="ok" then
+    local empty=e.OlympusInitiateChecks
+    e.ROSTER=previous;db.primeInitiateChecks=cycle;publish(true,false);poll()
+    check("first ready member after true zero alerts without a whisper",#calls==1)
+    e.ROSTER={previous[1]};db.primeInitiateChecks=nil;e.OlympusInitiateChecks=empty;f.emit("GUILD_ROSTER_UPDATE");poll()
+    check("old zero cannot clear a newer dated positive",db.primeInitiateNotices.seen[f.id]>0)
+    e.NOW=e.NOW+1;e.OlympusInitiateChecks={version=1,kind="no-native-initiates",scopeHash=f.scope,snapshotId=78,snapshotAt=e.NOW,records={}};poll()
+    e.ROSTER=previous;db.primeInitiateChecks=cycle;publish(true,false);poll()
+    check("same GUID returning after a true native empty result can alert again",#calls==2)
+  end
+end
+for _,blank in ipairs({false,true}) do
+  local f,e,cycle,second,publish,poll,calls=notifications(blank)
+  publish(true,false);poll()
+  check("first complete eligibility baseline leaves existing ready members quiet",#calls==0 and e.OlympusVerifyDB.primeInitiateNotices.baseline)
+  publish(true,second);poll(false)
+  check("new readiness waits until safe",#calls==0)
+  poll()
+  check("new later-page eligible native Initiate is announced without whisper or reload",#calls==1 and calls[1][1]==1 and calls[1][2]==cycle.controls[2].observedAt+600
+    and e.PRINTS[#e.PRINTS]:find("/olv ready",1,true) and not f.syncs and f.promote==0)
+  poll();publish(true,second);poll()
+  check("same eligibility from another page read never repeats a notice",#calls==1)
+  publish(true,false);local page=e.OlympusInitiateChecks.records[2]
+  page.completed,page.running,page.page,page.coveredGuids=false,true,nil,{}
+  poll();publish(true,second);poll()
+  check("partial or pending coverage cannot re-arm an old positive",#calls==1)
+  publish(true,false);poll();publish(true,second);poll()
+  check("explicit later negative followed by positive alerts once for this new opportunity",#calls==2 and f.promote==0)
+end
+do
+  local f,e,cycle,_,publish,poll,calls=notifications(true)
+  local proof={member=true,observedAt=e.NOW,scopeHash=f.scope}
+  check("an observed whisper matches only its current native Initiate",not f.q.IsInitiateWhisper("Other character",f.id,proof)
+    and f.q.IsInitiateWhisper("Candidate",f.id,proof) and #calls==0)
+  e.OlympusInitiateChecks={version=1,id=cycle.id,records={}}
+  local native=e.GetGuildRosterInfo
+  local reads=0;e.GetGuildRosterInfo=function(...) reads=reads+1;return native(...) end
+  for i=1,20 do poll() end
+  check("pending whisper and missing results do not alert or repeatedly read the native roster",reads==0 and #calls==0 and not f.syncs)
+  publish(true,false);poll()
+  check("a genuine locally observed candidate can alert on the first accepted positive",#calls==1 and f.promote==0)
+  local before=reads;for i=1,20 do poll() end
+  check("steady result file incurs no repeated native scan",reads==before)
+end
+do
+  local f,e,_,_,publish,poll,calls=notifications(false)
+  publish(true,false)
+  local old=e.OlympusInitiateChecks
+  e.NOW=e.NOW+2
+  check("a new local whisper can be retained before an old result is loaded",f.q.IsInitiateWhisper("Candidate",f.id,{member=true,scopeHash=f.scope,observedAt=e.NOW}))
+  poll()
+  check("a still-unexpired positive fetched before the whisper cannot consume or announce it",#calls==0 and e.OlympusVerifyDB.primeInitiateNotices.whispers[f.id]==e.NOW)
+  publish(true,false);poll()
+  check("a later checked positive can announce the pending character",#calls==1)
+  publish(false,false);poll()
+  e.OlympusInitiateChecks=old;poll()
+  check("restoring an older positive cannot reverse a later recorded negative",#calls==1)
+  publish(true,false);poll()
+  check("an actually newer positive remains observable",#calls==2)
+end
+do
+  local f,e,_,_,publish,poll,calls=notifications(true)
+  local function held(reason)
+    publish(false,false)
+    e.OlympusInitiateChecks.records[1].page.held={{guid=f.id,name="Candidate",reason=reason}}
+    return e.OlympusInitiateChecks
+  end
+  publish(true,false);poll()
+  local negative=held("unverified-initiate");poll()
+  publish(true,false);poll()
+  check("the Worker's explicit unverified-initiate hold rearms once on later verification",#calls==1)
+  for _,reason in ipairs({"pending-verification","verification-unknown","selected-rank-changed"}) do
+    held(reason);poll();publish(true,false);poll()
+    check(reason.." retains previous eligibility history without a repeated alert",#calls==1)
+  end
+  held("unverified-initiate").records[1].page.held[1].name="A different Initiate";poll()
+  publish(true,false);poll()
+  check("unverified data for a different native name cannot rearm the covered GUID",#calls==1)
+  held("unverified-initiate").records[1].page.held={};poll()
+  publish(true,false);poll()
+  check("covered GUID without an explicit result preserves previous readiness",#calls==1)
+  e.OlympusInitiateChecks=negative;poll();publish(true,false);poll()
+  check("replaying the old explicit unverified hold cannot rearm a newer positive",#calls==1)
+end
+for _,gate in ipairs({"officer","permission","permission-target","rank","custody","tampered","expired"}) do
+  local f,e,cycle,_,publish,poll,calls=notifications(false)
+  publish(false,false);poll();publish(true,false)
+  if gate=="officer" then e.ROSTER[1].name="Another Officer"
+  elseif gate=="permission" then e.CanGuildPromote=function() return false end
+  elseif gate=="permission-target" then e.C_GuildInfo.IsGuildRankAssignmentAllowed=function() return false end
+  elseif gate=="rank" then e.ROSTER[2].rankIndex=8
+  elseif gate=="custody" then f.q.pending[f.id]={}
+  elseif gate=="tampered" then e.OlympusInitiateChecks.records[1].targetsDigest=string.rep("0",64)
+  elseif gate=="expired" then e.NOW=e.NOW+600;f.emit("GUILD_ROSTER_UPDATE") end
+  poll();check(gate.." hold prevents a private ready alert or native effect",#calls==0 and not f.syncs and f.promote==0)
+end
 print(n.." passed, 0 failed")

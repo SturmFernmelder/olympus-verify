@@ -79,6 +79,11 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".303", date: "2026-11-23", lines: [
+      "PRIME officers can receive a private Windows alert when a newly verified Initiate is ready. One safe reload brings the completed checks into WoW, where the officer reviews and clicks each promotion.",
+    ],
+  },
+  {
     build: ".301", date: "2026-11-22", lines: [
       "The roster can load a completed set of Initiate checks in one reload even when another guild member comes online while the Watcher is checking.",
     ],

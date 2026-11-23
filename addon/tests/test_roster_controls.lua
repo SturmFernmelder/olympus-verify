@@ -177,5 +177,15 @@ do
   f.e.NOW=f.sp.expiresAt;f.forceClick(row.promote)
   check("expiry between paint and a forced old row click leaves no command or reservation",f.attempts==0 and not next(f.e.OlympusVerifyDB.launchPromotionAttempts or {}) and not row.promote:GetAttribute("type1") and not row.promote:GetAttribute("macrotext1"))
 end
+do
+  local f=ready();f.w.Show();f.search("Nothing");f.w.view.presence=3;f.w.view.class="MAGE"
+  f.w.ShowReadyInitiates()
+  check("ready alert opens the signed native Initiates view and clears stale filters",f.w.view.initiates and f.w.view.action==2 and f.w.view.text==""
+    and f.w.view.presence==1 and f.w.view.class==0 and #f.w.Visible()>0 and f.attempts==0 and f.reloads==0)
+  local guarded=0;f.e.OlympusVerifyAutoSync={HardwareSync=function(guard) if guard==true then guarded=guarded+1 end end}
+  f.w.importButton:Click()
+  check("ready roster offers guarded import without a preceding whisper or a promotion",f.w.importButton:IsShown() and not f.w.batchButton:IsShown()
+    and guarded==1 and f.attempts==0)
+end
 print(string.format("%d passed, %d failed",passed,failed))
 if failed>0 then error("roster controls failed") end
