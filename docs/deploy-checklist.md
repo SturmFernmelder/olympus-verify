@@ -8907,3 +8907,7 @@ Ship Verify 0.6.47 with Watcher 0.6.44. Verify that a client which loaded only p
 ## 23 November 2026 — .303 private Initiate promotion alerts
 
 Ship Verify 0.6.48 and Watcher 0.6.45. Check whisper intake, fresh and expired promotion recommendations, repeated observations, busy-client reload refusal and the individual promotion control. Verify the official download, installed versions and running Watcher. Record any native alert that needs a genuinely new eligible member for acceptance. Preserve officer configuration and pending work during installation. To roll back, redeploy .301 and restore its public addon and Watcher files.
+
+## 24 November 2026 — .304 online Initiate verification reminders
+
+Ship Verify 0.6.49 with the existing 0.6.45 Watcher. In Members, check the online Initiate filter against native rank and presence. Verify that the officer can address one currently unverified character, that a dated outgoing whisper and an optional matching GOT IT reply have separate outcomes, and that history survives a normal UI reload. Use a consenting recipient for live acceptance. To roll back, redeploy .303 and restore the 0.6.48 public addon files. Preserve the officer’s SavedVariables, including reminder history.

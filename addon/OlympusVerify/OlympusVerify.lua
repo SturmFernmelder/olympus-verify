@@ -41,7 +41,7 @@ local SECRET = cfg.secret
 -- 0.6.12: the example's placeholder is public, so a Config.lua copied without replacing it must not accept codes made from it.
 if type(SECRET) ~= "string" or SECRET == "" or string.find(SECRET, "^REPLACE_WITH_") then SECRET = nil end
 local secretWarned = false  -- 0.6.12: say once per session, not on every whisper, that codes cannot be checked
-local SOURCE_VERSION = "0.6.48" -- Keep this source fallback and OlympusVerify.toc aligned.
+local SOURCE_VERSION = "0.6.49" -- Keep this source fallback and OlympusVerify.toc aligned.
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
   or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or SOURCE_VERSION
 local SET_NOTES = cfg.setNotes == true  -- SetNote is forbidden for addons on the Forever beta; leave false there
@@ -293,7 +293,7 @@ end
 
 -- ---------------------------------------------------------------- who may be whispered
 -- Viktor, 26 Sep: "ensure I don't whisper people unless they whisper me first". The addon whispers a character only
--- if that character has whispered this one within CONTACT_DAYS. Every whisper the addon starts goes through here:
+-- if that character has whispered this one within CONTACT_DAYS. The automatic outreach paths go through here:
 -- the refusal notices (NoticeApplicant) and the welcome on joining (ConfirmJoin). Replies to a code whisper need no
 -- check -- the code whisper is the first whisper.
 local CONTACT_DAYS = 14
@@ -3467,7 +3467,7 @@ OlympusVerifyAPI = {
   -- The roster window's reads (0.6.4). A table for the same reason as Text and Name: nothing here acts, so /olv
   -- preview has nothing to stand in for.
   Roster = { CurrentScope = function() return Presence.NativeRosterScope() end, IsEnrolledPrimeGM=Presence.IsEnrolledPrimeGM, Members = Roster.Members, Filter = Roster.Filter, Sort = Roster.Sort, DisplaySource = Roster.DisplaySource,
-    DisplayFacts = Roster.DisplayFacts },
+    DisplayFacts = Roster.DisplayFacts, VisibilityCurrent = RosterVisibilityCurrent },
   UnverifiedList = function(n) return Unverified.Candidates(n) end,
   UnverifiedRanks = function(info) return Unverified.Ranks(info) end,
   ToggleUnverifiedRank = function(rank) Unverified.ToggleRank(rank) end,

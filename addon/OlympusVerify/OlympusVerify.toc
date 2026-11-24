@@ -1,8 +1,8 @@
 ## Interface: 16001, 16000, 11509
 ## Title: Olympus Verify
-## Notes: Discord verification, native guild roster status and editable member reminders. /olv opens the panel.
+## Notes: Discord verification, native guild roster status and officer whisper reminders. /olv opens the panel.
 ## Author: Olympus
-## Version: 0.6.48
+## Version: 0.6.49
 ## OptionalDeps: Olympus
 ## SavedVariables: OlympusVerifyDB
 

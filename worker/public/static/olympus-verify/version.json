@@ -1,16 +1,16 @@
 {
   "schema": "olympus-verify-public-download-v1",
   "addon": "OlympusVerify",
-  "version": "0.6.48",
+  "version": "0.6.49",
   "generator": {
     "path": "scripts/build-verify-addon.cjs",
     "bytes": 5724,
     "sha256": "5e2cd3ddd6e30b209c853af9d26dcbff9710af25929266d98b743af6c955e0bb"
   },
   "archive": {
-    "path": "/static/olympus-verify/olympus-verify-0.6.48.zip",
-    "bytes": 825344,
-    "sha256": "f8883ea300a971a47824bdda081425cc563181cc80749c11a7dbfe0b7b9eeb80"
+    "path": "/static/olympus-verify/olympus-verify-0.6.49.zip",
+    "bytes": 849383,
+    "sha256": "3c86362429f1b32ecb14f1546972fbfc67916cabec7d0a08eb5f885c539a0c58"
   },
   "files": [
     {
@@ -35,13 +35,13 @@
     },
     {
       "path": "OlympusVerify/OlympusVerify.lua",
-      "bytes": 241479,
-      "sha256": "5458280bb08aad7d187ac710ccc57b9600ae824beab53663496b9abef99f4b19"
+      "bytes": 241520,
+      "sha256": "020180eeefb0589edb32ff4adb0b91cbd1f8acbe9a751b08e24812d30cf61b27"
     },
     {
       "path": "OlympusVerify/OlympusVerify.toc",
       "bytes": 998,
-      "sha256": "775bad48c9c3f24607f368b335ee0e6a09c16cd4cddc0071a97f624ea6e0ed4c"
+      "sha256": "207c810b679d334078fa387c3c2722d47c41c1f14da05080c6417ef91a4a37f0"
     },
     {
       "path": "OlympusVerify/OlympusVerifyNativeRankConstants.lua",
@@ -75,8 +75,8 @@
     },
     {
       "path": "OlympusVerify/OlympusVerifyGuild.lua",
-      "bytes": 44033,
-      "sha256": "56b4ef1a5866f1f4e48316369403ba5c60a8cd1c21991cd7ab5a03df2f4367bf"
+      "bytes": 58036,
+      "sha256": "36e7ddc40512a893785dff17217bc0d5947227e65d00a56ede5cc72b60b6628b"
     },
     {
       "path": "OlympusVerify/OlympusVerifyLaunch229.lua",
@@ -105,8 +105,8 @@
     },
     {
       "path": "OlympusVerify/OlympusVerifyRoster.lua",
-      "bytes": 51612,
-      "sha256": "141ce889248f4ce0d42ce1bf3864260461b99823e0cbb37234ab0871205911c6"
+      "bytes": 61607,
+      "sha256": "1f900f2c5543f5dd36d5a516076dd8b66e7cabfa9d27a51a01485da0d11f1f4c"
     },
     {
       "path": "OlympusVerify/OlympusVerifyRosterModel.lua",
