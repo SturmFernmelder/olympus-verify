@@ -121,15 +121,16 @@ export async function postIntake242(env:Env,body:{entries?:unknown},origin?:Orig
    if(e.type==='verify'){
     const observedAt=Number(e.observedAt??e.requestedAt??e.ts);let proof=e.nativeMembership,guid=clean(e.guid,40);
     if(e.source==='mail'&&e.mailProof242){const witness=await mailWitness242(env,e,character,String(e.code??''));if(witness){proof=witness.nativeMembership;guid=witness.guid;}}
-    if(!Number.isSafeInteger(observedAt)||observedAt<1||observedAt>now()+5){acknowledgements.push({...base,status:'rejected',outcome:'invalid_source_time'});continue;}
-    if(observedAt<=now()-600){
-     if(ordinaryWhisperId===id){
-      // The source crossed 600 seconds after classification, before postVerify ran.
-      // The next original request can take the signed late path with these exact bytes.
-      deferred.push({...base,bodySHA256:await canonicalIntakeBodySHA285(e),outcome:'intake_capacity_pending285',originalNoEffect:true});
-     }else acknowledgements.push({...base,status:'rejected',outcome:'source_expired'});
+    const dispatchAt=now();
+    if(!Number.isSafeInteger(observedAt)||observedAt<1||observedAt>dispatchAt+5){acknowledgements.push({...base,status:'rejected',outcome:'invalid_source_time'});continue;}
+    // A sole original positive from a capable Watcher can wait one five-second
+    // retry interval. Send the exact no-dispatch receipt before a near-expiry
+    // proof can enter a claim whose reply might be lost.
+    if(ordinaryWhisperId===id && observedAt+600-dispatchAt<=5){
+     deferred.push({...base,bodySHA256:await canonicalIntakeBodySHA285(e),outcome:'intake_capacity_pending285',originalNoEffect:true});
      continue;
     }
+    if(observedAt<=dispatchAt-600){acknowledgements.push({...base,status:'rejected',outcome:'source_expired'});continue;}
     if(!proof||!guid){acknowledgements.push({...base,status:'rejected',outcome:'membership-proof-required'});continue;}
     const response=await postVerify(env,{character,code:String(e.code??''),source:e.source==='mail'?'mail':'whisper',ts:observedAt,guid,nativeMembership:proof});
     const result=await response.json() as Record<string,unknown>;let outcome=String(result.result??'outcome_unknown');

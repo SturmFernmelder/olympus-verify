@@ -7,6 +7,7 @@ import {now,linksNotBefore} from './db';
 import {normalizeCharacter,normalizeCodeInput,ticketFor,ticketNonce,codeFor,isValidCode,dayBucket} from './codes';
 import {captureLaunchVerification,captureNativeMembershipProof,type NativeMembershipProof} from './launch-verification227';
 import {nativeMembershipSourceMatches} from './native-rank-schemes';
+import {exactDiscordNames,type DiscordNames} from './names';
 import {apiJson,b64u,isSiteAdmin,originalUserSession,PAGE_VERSION,sameOrigin,type SiteUser} from './site-core';
 import {admittedReadAs,FENCE_REFUSED,type CommunitySubject} from './community-context';
 import {privacyBoundSiteRoleActionEnv,privacyCaptureFromColumns,admittedPrivacySubjectWrite,privacyGenerationExpressionFenceSql,privacyBoundSubjectEnv} from './privacy-serving-authority';
@@ -126,7 +127,8 @@ function guards(p:Plan,deadline:number,memberAt:number){
 async function currentMember(env:Env,c:ReturnType<typeof capture>,subject:string){
  let raw:unknown;try{raw=await rest<unknown>(env,'GET','/guilds/'+NEUTRAL_IDENTITY_GUILD280+'/members/'+subject,undefined,1);}catch(e){if(e instanceof DiscordError&&e.status===404)return fail('account_unavailable',true);throw e;}
  const v=raw as {user?:{id?:unknown;bot?:unknown};pending?:unknown;roles?:unknown};if(!v||v.user?.id!==subject||v.user.bot===true||v.pending===true||!Array.isArray(v.roles)||v.roles.length>250||v.roles.some(r=>!validId(r))||v.user.bot!==undefined&&typeof v.user.bot!=='boolean'||v.pending!==undefined&&typeof v.pending!=='boolean')return fail('account_unavailable',true);
- if(v.roles.some(r=>c.blocking.includes(r as string)))return fail('account_unavailable',true);return now();
+ if(v.roles.some(r=>c.blocking.includes(r as string)))return fail('account_unavailable',true);
+ return {at:now(),user:exactDiscordNames(subject,v.user)};
 }
 const key=async(secret:string)=>importKey('raw',await digest('SHA-256',encode(PURPOSE+'\0preview\0'+secret)),{name:'AES-GCM'},false,['encrypt','decrypt']);
 const decode=(s:string)=>{if(!/^[A-Za-z0-9_-]+$/.test(s))return fail('preview_invalid');const v=Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-s.length%4)%4)),c=>c.charCodeAt(0));if(b64u(v)!==s)return fail('preview_invalid');return v;};
@@ -136,15 +138,24 @@ async function open(secret:string,binding:string,token:unknown):Promise<Preview>
 const statement=(env:Env,sql:string,values:readonly Scalar[])=>env.DB.prepare(sql).bind(...values.slice(0,Math.max(0,...[...sql.matchAll(/\?(\d+)/g)].map(m=>Number(m[1])))));
 type ClaimProvenance285=Readonly<{kind:'attended';actor:string;inventory:Envelope['inventory']}>|Readonly<{kind:'new-intake';bodyDigest:string;ids:readonly string[];intent:ForwardIntent285}>;
 const NEW_INTAKE_NOT_BEFORE285=LATE_FORWARD_SINCE285; // Same fixed source boundary as the original authenticated request issuer.
-async function issueNeutralClaim285(c:ReturnType<typeof capture>,p:Plan,effect:Env,expiresAt:number,memberAt:number,nonce:string,provenance:ClaimProvenance285,progress:{writeStarted:boolean},check:()=>void):Promise<string>{
-  const g=guards(p,expiresAt,memberAt),acceptedAt=now(),purpose=provenance.kind==='attended'?PURPOSE:'olympus-new-intake-late-whisper285-v1',receiptDigest=await hash(json([purpose,p.envelopeDigest,tuple(p.pending),p.generation,p.native,p.holderDigest,acceptedAt,nonce])),receiptId=receiptDigest.slice(0,32),consumedSource=provenance.kind==='attended'?'late-whisper285':'late-whisper-intake285',actor=provenance.kind==='attended'?provenance.actor:'watcher',auditAction=provenance.kind==='attended'?'verify.late_claim285':'verify.late_intake285';check();
+async function issueNeutralClaim285(c:ReturnType<typeof capture>,p:Plan,effect:Env,expiresAt:number,member:{at:number;user:DiscordNames|null},nonce:string,provenance:ClaimProvenance285,progress:{writeStarted:boolean},check:()=>void):Promise<string>{
+  const g=guards(p,expiresAt,member.at),acceptedAt=now(),purpose=provenance.kind==='attended'?PURPOSE:'olympus-new-intake-late-whisper285-v1',receiptDigest=await hash(json([purpose,p.envelopeDigest,tuple(p.pending),p.generation,p.native,p.holderDigest,acceptedAt,nonce])),receiptId=receiptDigest.slice(0,32),consumedSource=provenance.kind==='attended'?'late-whisper285':'late-whisper-intake285',actor=provenance.kind==='attended'?provenance.actor:'watcher',auditAction=provenance.kind==='attended'?'verify.late_claim285':'verify.late_intake285';check();
   const retainedIntent=provenance.kind==='new-intake'?forwardIntentPredicate285(effect,p,provenance.intent):null;retainedIntent?.check();
   const v:Scalar[]=[...g.values,acceptedAt,p.native.name,receiptId,receiptDigest,actor,json({version:285,kind:purpose,groupDigest:p.envelopeDigest,...(provenance.kind==='attended'?{inventory:provenance.inventory}:{originalIntakeBodyDigest:provenance.bodyDigest,intakeIDs:provenance.ids,automaticNotBefore:NEW_INTAKE_NOT_BEFORE285}),identityAction:p.holder?'reproof':'new-link',holderDigest:p.holderDigest,originalRequestId:p.pending.id,originalRequestCreatedAt:p.pending.created_at,originalRequestExpiresAt:p.pending.expires_at,signedObservedAt:p.observedAt,memberAtObservation:p.memberAtObservation,acceptedAt,snapshotId:p.native.id,snapshotAt:p.native.exported_at,roleChangesSent:0,noticesSent:0,_privacySubjectIds:[...new Set([...(provenance.kind==='attended'?[provenance.actor]:[]),p.subject])]}),...(retainedIntent?.values??[])];
   const claimed="EXISTS(SELECT 1 FROM pending WHERE id=json_extract(?1,'$[0]') AND discord_id=?2 AND created_at IS json_extract(?1,'$[4]') AND expires_at IS json_extract(?1,'$[5]') AND nonce IS json_extract(?1,'$[8]') AND consumed_at=?13 AND consumed_source='"+consumedSource+"' AND name_key=?7 AND name=?14)";
   const identity=p.holder?g.holder:"EXISTS(SELECT 1 FROM characters WHERE name_key=?7 AND name=?14 AND discord_id=?2 AND guid=?8 AND status='member' AND bound_at=?13 AND verified_at=?13 AND member_since=?13 AND source='whisper')";
   const admission=retainedIntent?'('+g.sql+') AND ('+retainedIntent.sql+')':g.sql;
+  // The original guarded transaction admits the account. When Discord supplied its username,
+  // fill the same row in that existing statement; a newer authenticated name always wins.
+  const memberRow = member.user
+    ? effect.DB.prepare(`INSERT INTO members(discord_id,username,global_name,names_at) VALUES(?1,?2,?3,?4)
+        ON CONFLICT(discord_id) DO UPDATE SET username=excluded.username,global_name=excluded.global_name,names_at=excluded.names_at
+        WHERE members.names_at IS NULL OR members.names_at<excluded.names_at
+           OR (members.names_at=excluded.names_at AND NULLIF(TRIM(members.username),'') IS NULL)`)
+      .bind(p.subject,member.user.username,member.user.global_name,member.at)
+    : statement(effect,'INSERT INTO members(discord_id)VALUES(?2)ON CONFLICT(discord_id)DO NOTHING',v);
   const stmts=[statement(effect,'SELECT CASE WHEN '+admission+" THEN 1 ELSE json_extract('late_claim_admission_changed','$') END AS admitted",retainedIntent?v:g.values),
-   statement(effect,'INSERT INTO members(discord_id)VALUES(?2)ON CONFLICT(discord_id)DO NOTHING',v),
+   memberRow,
    statement(effect,"UPDATE pending SET consumed_at=?13,consumed_source='"+consumedSource+"',name_key=?7,name=?14 WHERE "+PF.map((k,i)=>k+" IS json_extract(?1,'$["+i+"]')").join(' AND ')+ ' RETURNING id',v),
    statement(effect,p.holder?"UPDATE characters SET name_key=CASE WHEN changes()=1 AND "+claimed+" THEN name_key ELSE json_extract('late_claim_consume_unknown','$') END WHERE "+HF.map((k,i)=>k+" IS json_extract(?1,'$[12]["+i+"]')").join(' AND ')+" RETURNING name_key":"INSERT INTO characters(name_key,name,discord_id,guid,status,bound_at,verified_at,member_since,source)SELECT CASE WHEN changes()=1 AND "+claimed+" THEN ?7 ELSE json_extract('late_claim_consume_unknown','$') END,?14,?2,?8,'member',?13,?13,?13,'whisper' RETURNING name_key",v),
    statement(effect,"INSERT INTO role_settlements(id,subject,purpose,proof_id,guild_id,role_id,desired,state,reason,claim_nonce,subject_generation,request_digest,roster_id,native_guid,native_profile,native_rank,native_rank_name,created_at,expires_at,attempts,checked_at)SELECT CASE WHEN changes()=1 AND "+claimed+' AND '+identity+' AND '+g.source+' AND '+g.standing+' AND '+g.fresh+(retainedIntent?' AND ('+retainedIntent.sql+')':'')+" THEN ?15 ELSE json_extract('late_claim_identity_changed','$') END,?2,'"+NEUTRAL_IDENTITY_PURPOSE280+"',NULL,'"+NEUTRAL_IDENTITY_GUILD280+"','"+NEUTRAL_IDENTITY_CARRIER280+"',1,'settled','"+NEUTRAL_IDENTITY_REASON280+"',NULL,?3,?16,?4,?8,'"+NEUTRAL_IDENTITY_PROFILE280+"',NULL,NULL,?13,?10,0,?13 RETURNING id",v),
@@ -153,7 +164,8 @@ async function issueNeutralClaim285(c:ReturnType<typeof capture>,p:Plan,effect:E
   const target=privacyCaptureFromColumns(p.subject,{privacy_generation:p.generation,privacy_state:p.pending.privacy_state,privacy_revision:p.revision});progress.writeStarted=true;const out=await admittedPrivacySubjectWrite(effect,p.subject,target,stmts);check();
   if(out.length!==7||out.some(r=>r.success!==true)||out[2]?.meta?.changes!==1||out[2]?.results.length!==1||out[3]?.meta?.changes!==1||out[3]?.results.length!==1||out[4]?.meta?.changes!==1||out[4]?.results.length!==1||out[6]?.results.length!==1)throw new Held('apply_receipt_unconfirmed');
   const consumedRow=snapshotDataFields(out[2]!.results[0],['id'],'late_consume_receipt'),holderRow=snapshotDataFields(out[3]!.results[0],['name_key'],'late_holder_receipt'),neutralRow=snapshotDataFields(out[4]!.results[0],['id'],'late_identity_receipt'),terminal=snapshotDataFields(out[6]!.results[0],['admitted'],'late_terminal_receipt');
-  if(consumedRow.id!==p.pending.id||holderRow.name_key!==p.native.name_key||neutralRow.id!==receiptId||terminal.admitted!==1)throw new Held('apply_receipt_unconfirmed');retainedIntent?.check();return receiptId;
+  if(consumedRow.id!==p.pending.id||holderRow.name_key!==p.native.name_key||neutralRow.id!==receiptId||terminal.admitted!==1)throw new Held('apply_receipt_unconfirmed');retainedIntent?.check();
+  return receiptId;
 }
 export async function handleSiteLateProof285(request:Request,env:Env,admin:SiteUser,body:Record<string,unknown>={}):Promise<Response>{
  let action='count';const progress={writeStarted:false};
@@ -169,14 +181,14 @@ export async function handleSiteLateProof285(request:Request,env:Env,admin:SiteU
   await read([]);const e=envelope(b.envelope),p=await plan(c,e,read,effect);check();
   const binding=json([PURPOSE,original.u,original.v,original.e,original.g,original.n,c.launch.scope,c.cutoff]),preview=action==='apply'?await open(c.cookie,binding,b.previewToken):null;
   if(preview&&(!HEX32.test(preview.nonce)||preview.subject!==p.subject||preview.generation!==p.generation||preview.revision!==p.revision||preview.requestId!==p.pending.id||preview.pendingDigest!==p.pendingDigest||preview.envelopeDigest!==p.envelopeDigest||preview.holderDigest!==p.holderDigest||preview.snapshotId!==p.native.id||preview.snapshotAt!==p.native.exported_at||preview.snapshotSource!==p.native.source||preview.observedAt!==p.observedAt||!int(preview.issuedAt,1)||preview.issuedAt>now()||!int(preview.expiresAt,1)||preview.expiresAt<=now()||preview.expiresAt>preview.issuedAt+300))return fail('preview_changed');
-  const memberAt=await currentMember(effect,c,p.subject);check();const expiresAt=preview?.expiresAt??Math.min(now()+300,p.native.exported_at+600,original.e),g=guards(p,expiresAt,memberAt);
+  const member=await currentMember(effect,c,p.subject);check();const memberAt=member.at,expiresAt=preview?.expiresAt??Math.min(now()+300,p.native.exported_at+600,original.e),g=guards(p,expiresAt,memberAt);
   const fresh=async()=>{const r=await read([effect.DB.prepare('SELECT CASE WHEN '+g.sql+" THEN 1 ELSE json_extract('late_claim_admission_changed','$') END AS admitted").bind(...g.values)]);if((r[0]?.results[0] as {admitted?:number}|undefined)?.admitted!==1)return fail('admission_changed',true);};await fresh();
   if(action==='count')return apiJson({...zero,result:'eligible',linksChanged:0,counts:{eligible:1,held:0,unavailable:0},reason:null,inputCount:p.inputCount,distinctEvidence:p.distinctEvidence});
   if(action==='preview'){
    const t=now(),v=Object.freeze({nonce:random(),subject:p.subject,generation:p.generation,revision:p.revision,requestId:Number(p.pending.id),pendingDigest:p.pendingDigest,envelopeDigest:p.envelopeDigest,holderDigest:p.holderDigest,snapshotId:p.native.id,snapshotAt:p.native.exported_at,snapshotSource:p.native.source,observedAt:p.observedAt,issuedAt:t,expiresAt}) satisfies Preview,previewToken=await seal(c.cookie,binding,v);check();await fresh();
    return apiJson({...zero,result:'eligible',linksChanged:0,counts:{eligible:1,held:0,unavailable:0},candidate:{subject:p.subject,character:p.native.name,guid:p.native.guid,requestId:p.pending.id,observedAt:p.observedAt,snapshotId:p.native.id,snapshotAt:p.native.exported_at},previewToken,expiresAt,meaning:p.holder?'New accepted proof for the exact existing own character. Its stored fields and clocks remain unchanged; Apply sends no message or role change.':'Historical signed whisper plus current native membership. Apply sends no message or role change.'});
   }
-  const receiptId=await issueNeutralClaim285(c,p,effect,expiresAt,memberAt,preview!.nonce,{kind:'attended',actor:original.u,inventory:e.inventory},progress,check);await read([]);
+  const receiptId=await issueNeutralClaim285(c,p,effect,expiresAt,member,preview!.nonce,{kind:'attended',actor:original.u,inventory:e.inventory},progress,check);await read([]);
   return apiJson({...zero,result:'linked',linksChanged:p.holder?0:1,proofRefreshed:p.holder!==null,pendingConsumed:true,neutralReceiptId:receiptId,automaticRoleGrant:false});
  }catch(error){const h=error instanceof Held?error:null,status=h?.status??(error instanceof DiscordError&&[403,429].includes(error.status)?error.status:503);
   if(progress.writeStarted)return apiJson({...zero,result:'outcome_unknown',linksChanged:null,linksMayHaveChanged:true,recovery:'Inspect the current link and retained request; do not retry an uncertain apply.'},503);
@@ -292,10 +304,10 @@ export async function processNewLateWhisperIntake285(origin:OriginalWatcherIntak
   const effect=privacyBoundSubjectEnv(env,String(pending.discord_id),target),read=async(statements:D1PreparedStatement[])=>{check();const result=await effect.DB.batch(statements);check();if(result.length!==statements.length||result.some(r=>r.success!==true))throw new Held('late_intake_read_unconfirmed',true);return result;};
   const observationKeys=await Promise.all(observations.map(forwardProofKey285));selectedProofKeys=new Map(group.map((v,i)=>[ids[v.index]!,observationKeys[i]!]));const keys=Object.freeze([...new Set(observationKeys)].sort()),rowDigests=Object.freeze((await Promise.all(group.map(v=>canonicalIntakeBodySHA285(v.row)))).sort());check();context=Object.freeze({c,effect,pending,evidence,keys,rowDigests,check});
 
-  const p=await planFromPending(c,evidence,pending,read,effect),memberAt=await currentMember(effect,c,p.subject);check();
+  const p=await planFromPending(c,evidence,pending,read,effect),member=await currentMember(effect,c,p.subject),memberAt=member.at;check();
   const expiresAt=Math.min(now()+300,p.native.exported_at+600,original.expiresAt),g=guards(p,expiresAt,memberAt),fresh=await read([effect.DB.prepare('SELECT CASE WHEN '+g.sql+" THEN 1 ELSE json_extract('late_claim_admission_changed','$') END AS admitted").bind(...g.values)]);if((fresh[0]?.results[0] as {admitted?:number}|undefined)?.admitted!==1)throw new Held('late_intake_admission_changed',true);
   const record=await appendForwardRecord285(context,'intent',null,progress,g),intent=Object.freeze({kind:'original_forward_intake_intent285' as const});forwardIntents285.set(intent,Object.freeze({context,record}));check();
-  await issueNeutralClaim285(c,p,effect,expiresAt,memberAt,random(),{kind:'new-intake',bodyDigest:original.bodyDigest,ids:selectedIds,intent},progress,check);
+  await issueNeutralClaim285(c,p,effect,expiresAt,member,random(),{kind:'new-intake',bodyDigest:original.bodyDigest,ids:selectedIds,intent},progress,check);
   const sourceCurrent=async()=>{const facts=await read([effect.DB.prepare('SELECT CASE WHEN ('+g.source+') AND ('+g.standing+') AND ('+g.fresh+") THEN 1 ELSE json_extract('late_intake_source_changed','$') END AS admitted").bind(...g.values)]);if((facts[0]?.results[0] as {admitted?:number}|undefined)?.admitted!==1)throw new Held('late_intake_source_changed',true);};
   await sourceCurrent();check();const {requestRoleReconciliation242}=await import('./role-reconcile242');check();const requested=await requestRoleReconciliation242(effect,p.subject,'new-future-whisper285');check();await sourceCurrent();check();
   if(requested.kind!=='created'&&requested.kind!=='already_pending')throw new Held('role_request_unconfirmed',true);roleRequestCreated=requested.kind==='created';return finish('linked',null,p.holder?0:1,200);

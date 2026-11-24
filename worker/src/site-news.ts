@@ -79,6 +79,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".306", date: "2026-11-24", lines: [
+      "Fern’s verified list can show a member’s Discord handle even when the member first requested a code before their profile existed. A missing handle can be filled after verification without another whisper.",
+      "Near the ten-minute cutoff, the Watcher can carry the original signed whisper into delayed verification. Members can keep the code they already sent.",
+    ],
+  },
+  {
     build: ".305", date: "2026-11-24", lines: [
       "A small clock difference could leave a valid verification whisper waiting for officer recovery. Olympus now uses the database clock to check the ticket and record the link. Signed whispers that arrive at the ten-minute cutoff go through the existing delayed verification checks.",
     ],

@@ -498,6 +498,14 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
     }catch{return json({result:'outcome_unknown'},503);}
   }
   const launchSource=onRoster?captureLaunchMembershipSource(env,launch,onRoster,nameKey,nativeMembership):null;
+  // The Worker's and SQLite's clocks can straddle either end of the source
+  // window. Wait before any claim if the proof or roster is outside the
+  // database's window. The transaction still rechecks the source at commit.
+  if (launchSource && nativeClaimAt !== undefined &&
+      (nativeClaimAt >= launchSource.nativeObservedAt + 600 || launchSource.nativeObservedAt > nativeClaimAt + 5 ||
+       nativeClaimAt >= launchSource.exportedAt + 600 || launchSource.exportedAt > nativeClaimAt)) {
+    return json({result:'membership_source_pending',pendingConsumed:false,roleGranted:false,inviteQueued:false},503);
+  }
   const who = whisperGuid ?? rosterGuid;
   const holder = who
     ? await env.DB.prepare(

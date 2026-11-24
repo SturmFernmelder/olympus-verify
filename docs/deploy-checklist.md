@@ -8915,3 +8915,11 @@ Ship Verify 0.6.49 with the existing 0.6.45 Watcher. In Members, check the onlin
 ## 24 November 2026 — .305 automatic whisper verification
 
 Qualify new whisper tickets through the authenticated Watcher route with the Worker clock ahead of and behind D1. Check the acknowledgment, ticket consumption and single character link, including ticket expiry, duplicate delivery and the ten-minute handoff for signed delayed whispers. Verify the deployed Worker and distinguish a new live automatic link from an earlier officer recovery. To roll back, redeploy the accepted .304 Worker. Preserve the original whispers, receipts and D1 records.
+
+## 24 November 2026 — .306 Discord handles for verified guild members
+
+Check first-time whisper links, attended recovery, and existing verified members whose Discord usernames are missing. Confirm the username belongs to the linked Discord account and compare the five previously blank rows with Fern’s roster display. A Discord lookup failure must leave the verified link intact. Keep the .305 ticket-clock and delayed-delivery checks in qualification. For rollback, redeploy the accepted .305 Worker and preserve the member records and original verification receipts.
+
+Measure the complete verification request, including its deferred work. Confirm a separate signed role-request continuation fills a missing handle with one spare Discord read. The ordinary names schedule also repairs missing handles when there is no recent roster activity.
+
+For a single signed positive whisper from a Watcher that can retain the original request, check the last five seconds before the ten-minute cutoff. The Worker should defer it before starting a claim, then accept the same original through delayed verification when it qualifies. Check that the direct path remains available earlier and that a lost response to a submitted claim cannot authorize another claim.
