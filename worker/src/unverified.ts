@@ -14,6 +14,7 @@
  */
 import type { Env } from "./env";
 import { intVar } from "./env";
+import { isDiscordRosterLabel } from "./names";
 import { linksNotBefore, now } from "./db";
 import type { LaunchVerificationCapture } from "./launch-verification227";
 import { captureRosterLineage275,rosterVerificationSql275 } from "./roster-verification275";
@@ -46,7 +47,9 @@ export async function strictRosterDisplay(env: Env, launch: LaunchVerificationCa
   SELECT s.exported_at AS snapshotAt, s.member_count AS memberCount, rm.name, rm.guid,
     ${verification.status} AS status,
     ${verification.unknownReason} AS unknownReason,
-    NULLIF(COALESCE(m.username,u.username),'') AS username, NULLIF(COALESCE(m.global_name,u.global_name),'') AS displayName
+    COALESCE(NULLIF(TRIM(m.username),''), NULLIF(TRIM(u.username),'')) AS username,
+    CASE WHEN NULLIF(TRIM(m.username),'') IS NOT NULL THEN NULLIF(TRIM(m.global_name),'')
+         WHEN NULLIF(TRIM(u.username),'') IS NOT NULL THEN NULLIF(TRIM(u.global_name),'') END AS displayName
   FROM snapshot s JOIN roster_members rm ON rm.snapshot_id = s.id
   LEFT JOIN characters c ON c.name_key = rm.name_key
   LEFT JOIN linked_guids g ON g.guid = rm.guid
@@ -68,7 +71,9 @@ export async function strictRosterDisplay(env: Env, launch: LaunchVerificationCa
   for (const row of rows.results) {
     if (!row.guid || !/^Player-\d+-[0-9A-Fa-f]+$/.test(row.guid) || row.guid.length > 40) continue;
     if (row.status === "verified") {
-      verified.push({ name: row.name, guid: row.guid, status: "member", username: row.username, displayName: row.displayName });
+      verified.push({ name: row.name, guid: row.guid, status: "member",
+        username: isDiscordRosterLabel(row.username) ? row.username : null,
+        displayName: isDiscordRosterLabel(row.displayName) ? row.displayName : null });
     } else if (row.status === "unverified" || row.status === "pending") {
       unverified.push({ name: row.name, guid: row.guid, pending: row.status === "pending" });
     } else if (protocol === STRICT_ROSTER_DISPLAY_PROTOCOL_V2) {

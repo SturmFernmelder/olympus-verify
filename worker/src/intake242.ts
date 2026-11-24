@@ -57,9 +57,10 @@ async function nativeDiscord242(env:Env,e:Record<string,unknown>,subject:string,
  await audit(env,'watcher','guild.discord_observation242',subject,{guid,character:name,observedAt:p.observedAt,source:'native-discord-event242'});
  return launch.current();
 }
-export async function postIntake242(env:Env,body:{entries?:unknown},origin?:OriginalWatcherIntake285):Promise<Response>{
+export async function postIntake242(env:Env,body:{entries?:unknown},origin?:OriginalWatcherIntake285,deferVerifiedNames?:(work:()=>Promise<void>)=>void):Promise<Response>{
  let rows=Array.isArray(body.entries)?body.entries:body.entries&&typeof body.entries==='object'?Object.values(body.entries):null;
  if(!rows||rows.length>25)return json({error:'entries_limit_25'},400);
+ const singleEntry = rows.length === 1;
  const acknowledgements:Record<string,unknown>[]=[],deferred:Record<string,unknown>[]=[],policyHolds:Record<string,unknown>[]=[];let createdAny=false,originalProofLedgerRead=false;
  let ordinaryWhisperId:string|null=null;
  if(origin){
@@ -121,17 +122,21 @@ export async function postIntake242(env:Env,body:{entries?:unknown},origin?:Orig
    if(e.type==='verify'){
     const observedAt=Number(e.observedAt??e.requestedAt??e.ts);let proof=e.nativeMembership,guid=clean(e.guid,40);
     if(e.source==='mail'&&e.mailProof242){const witness=await mailWitness242(env,e,character,String(e.code??''));if(witness){proof=witness.nativeMembership;guid=witness.guid;}}
-    if(!Number.isSafeInteger(observedAt)||observedAt<1||observedAt>now()+5){acknowledgements.push({...base,status:'rejected',outcome:'invalid_source_time'});continue;}
-    if(observedAt<=now()-600){
-     if(ordinaryWhisperId===id){
-      // The source crossed 600 seconds after classification, before postVerify ran.
-      // The next original request can take the signed late path with these exact bytes.
-      deferred.push({...base,bodySHA256:await canonicalIntakeBodySHA285(e),outcome:'intake_capacity_pending285',originalNoEffect:true});
-     }else acknowledgements.push({...base,status:'rejected',outcome:'source_expired'});
+    const dispatchAt=now();
+    if(!Number.isSafeInteger(observedAt)||observedAt<1||observedAt>dispatchAt+5){acknowledgements.push({...base,status:'rejected',outcome:'invalid_source_time'});continue;}
+    // A sole original positive from a capable Watcher can wait one five-second
+    // retry interval. Send the exact no-dispatch receipt before a near-expiry
+    // proof can enter a claim whose reply might be lost.
+    if(ordinaryWhisperId===id && observedAt+600-dispatchAt<=5){
+     deferred.push({...base,bodySHA256:await canonicalIntakeBodySHA285(e),outcome:'intake_capacity_pending285',originalNoEffect:true});
      continue;
     }
+    if(observedAt<=dispatchAt-600){acknowledgements.push({...base,status:'rejected',outcome:'source_expired'});continue;}
     if(!proof||!guid){acknowledgements.push({...base,status:'rejected',outcome:'membership-proof-required'});continue;}
-    const response=await postVerify(env,{character,code:String(e.code??''),source:e.source==='mail'?'mail':'whisper',ts:observedAt,guid,nativeMembership:proof});
+    // Leave the full verification budget available to co-batched entries. The
+    // regular names refresh picks up any confirmed link still missing a handle.
+    const nameRefresh = singleEntry && e.source === 'whisper' ? deferVerifiedNames : undefined;
+    const response=await postVerify(env,{character,code:String(e.code??''),source:e.source==='mail'?'mail':'whisper',ts:observedAt,guid,nativeMembership:proof},undefined,nameRefresh);
     const result=await response.json() as Record<string,unknown>;let outcome=String(result.result??'outcome_unknown');
     if(outcome==='no_pending'){
      const launch=captureLaunchVerification(env),captured=captureNativeMembershipProof(proof);

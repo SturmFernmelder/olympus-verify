@@ -45,6 +45,11 @@ export default {async fetch(request, bindings) {
       db.prepare("INSERT INTO pending(discord_id,name_key,name,created_at,expires_at,nonce) VALUES(?1,?2,?3,?4,?5,'M2X')").bind(rows.find(row => row.kind === 'pending').subject, 'pending member', 'Pending Member', at, at + 120),
       db.prepare("INSERT INTO characters(name_key,name,discord_id,status,bound_at,verified_at,source,guid) VALUES('duplicate alias','Duplicate Alias',?1,'member',?2,?2,'whisper',?3)").bind(rows.find(row => row.kind === 'duplicate').subject, at - 60, rows.find(row => row.kind === 'duplicate').guid),
     ]);
+    const freshSubject = rows.find(row => row.kind === 'member').subject;
+    await db.batch([
+      db.prepare("INSERT INTO site_users(discord_id,username,global_name,first_login,last_login) VALUES(?1,'site_handle','Site name',?2,?2)").bind(freshSubject, at),
+      db.prepare("UPDATE members SET username=' ',global_name='Older display name' WHERE discord_id=?1").bind(freshSubject),
+    ]);
     const triggers = catalogue.triggers.map(row => db.prepare(row.sql));
     while (triggers.length) await db.batch(triggers.splice(0, 40));
     env.DB = createPrivacyWriteAdmissionDatabase(db, 'writer', 'canonical', EPOCH);
@@ -66,6 +71,14 @@ export default {async fetch(request, bindings) {
     check('display reads do not refresh or repair original link anchors', before === JSON.stringify((await db.prepare('SELECT name_key,guid,status,bound_at,verified_at FROM characters ORDER BY name_key').all()).results));
     check('actual D1 foreign-key integrity is intact', (await db.prepare('PRAGMA foreign_key_check').all()).results.length === 0);
     const display = () => strictRosterDisplay(env, captureLaunchVerification(env), STRICT_ROSTER_DISPLAY_PROTOCOL_V2);
+    const fromSite = (await display()).verified[0];
+    check('a blank member handle uses the authenticated site profile and its display name', fromSite.username === 'site_handle' && fromSite.displayName === 'Site name');
+    await env.DB.prepare("UPDATE members SET username='current_handle',global_name=NULL WHERE discord_id=?1").bind(freshSubject).run();
+    const fromMember = (await display()).verified[0];
+    check('a cleared Discord display name stays cleared when the member handle is current', fromMember.username === 'current_handle' && fromMember.displayName === null);
+    await env.DB.prepare("UPDATE members SET global_name='old'||char(10)||'name' WHERE discord_id=?1").bind(freshSubject).run();
+    const legacyLabel = (await display()).verified[0];
+    check('an invalid cached display name leaves its verified row and handle usable', legacyLabel.username === 'current_handle' && legacyLabel.displayName === null);
     await env.DB.prepare('UPDATE roster_snapshots SET exported_at=?1 WHERE id=1').bind(at - 3601).run();
     check('an old roster is refused rather than redated', await display() === null);
     await env.DB.prepare('UPDATE roster_snapshots SET exported_at=?1,trusted=0 WHERE id=1').bind(at - 30).run();

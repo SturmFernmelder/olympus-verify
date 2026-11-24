@@ -674,6 +674,9 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
   if (path.startsWith("/ingest/") || path.startsWith("/queue")) {
     if (!(await watcherAuthorized(env, request))) return new Response("unauthorized", { status: 401 });
     if (!schemaReady) return json({ error: "database schema not ready; retry shortly" }, 503);
+    const deferVerifiedNames = ctx
+      ? (work: () => Promise<void>) => deferOriginalServing(ctx, 'verified_member_names', work)
+      : undefined;
     let legacyIntakeBody285:Readonly<{body:unknown}>|null=null;
     // The original versioned intake request is read by its native origin
     // issuer. A caller-supplied parsed body cannot mint future-proof authority.
@@ -682,7 +685,7 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
       if(launch.mode==='members-only'&&launch.scope&&launch.current()){
         const native=launchVerificationEnv(env,launch),originModule=await import('./watcher-late-origin285');
         const origin=await originModule.captureOriginalWatcherIntake285(request,native);
-        if(origin){const facts=originModule.originalWatcherIntake285(origin);facts.check();return postIntake242(native,{entries:facts.entries},origin);}
+        if(origin){const facts=originModule.originalWatcherIntake285(origin);facts.check();return postIntake242(native,{entries:facts.entries},origin,deferVerifiedNames);}
         // Optional historical-proof authority failing must not reject valid
         // ordinary rows. Retain only parsed native data, never an origin.
         legacyIntakeBody285=originModule.takeLegacyWatcherIntakeBody285(request);
@@ -728,8 +731,8 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
         return json({ error: "unsupported_protocol", message: "This Worker serves the unversioned protocol only; a keyVersion is not supported." }, 400);
       if(ingest)env=launchVerificationEnv(env,launch);
     }
-    if(request.method==='POST'&&path==='/ingest/intake242')return postIntake242(env,body);
-    if (request.method === "POST" && path === "/ingest/verify") return await postVerify(env, body,roleDispatch);
+    if(request.method==='POST'&&path==='/ingest/intake242')return postIntake242(env,body,undefined,deferVerifiedNames);
+    if (request.method === "POST" && path === "/ingest/verify") return await postVerify(env, body,roleDispatch,deferVerifiedNames);
     if (request.method === "POST" && path === "/ingest/roster") return await postRoster(env, body, ctx ? (label, work) => deferOriginalServing(ctx, label, work) : undefined,roleDispatch);
     if (request.method === "POST" && path === "/ingest/events") return await postEvents(env, body,roleDispatch);
     if (request.method === "GET" && path === "/queue") {
@@ -813,7 +816,7 @@ async function freshRegistrationRefused(env: Env, trigger: string): Promise<void
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-11-24.305 Use the database clock for whisper verification";
+const BUILD = "2026-11-24.306 Discord handles for verified guild members";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a
