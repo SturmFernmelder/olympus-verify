@@ -18,9 +18,7 @@ import { messageOperationId,postPrivacyMessage } from './privacy-provider-messag
 import { captureLaneConfig } from './full-release-roles';
 import { captureLaunchVerification,launchVerificationRefusal,launchVerificationEnv,captureNativeMembershipProof,verifyNativeMembershipProof,captureLaunchMembershipSource,launchMembershipFence,launchMembershipCurrent,launchMembershipPredicate,assertLaunchMembershipMode,launchContradictionRestriction,LaunchVerificationHeld,type LaunchVerificationCapture,type NativeMembershipProof,type LaunchMembershipSource } from './launch-verification227';
 
-import { refreshVerifiedNames, type VerifiedNameTarget } from './names';
-
-type WatcherCapture = { references: PrivacyReference[]; verifiedNames?: VerifiedNameTarget };
+type WatcherCapture = { references: PrivacyReference[] };
 type CapturedQueue = {id:number;discord_id:string;name_key:string;name:string;created_at:number;status:string;attempts:number|null;retry_after:number|null;last_reason:string|null;claimed_by:string|null;claimed_at:number|null;last_reason_at:number|null;note:string|null;written_at:number|null;invited_at:number|null;joined_at:number|null;approved_by:string|null;priority:number;privacy_generation:string|null;privacy_state:string|null;privacy_revision:number|null};
 const queueSelect = "SELECT q.*,p.generation AS privacy_generation,p.state AS privacy_state,p.revision AS privacy_revision FROM invite_queue q LEFT JOIN privacy_subjects p ON p.subject_id=q.discord_id ";
 /** The event consumes the physical row it originally observed, never a replacement under its name/id. */
@@ -333,7 +331,7 @@ const retainedForwardResponses285=new WeakSet<Response>();
 /** Deny-only original-response metadata. No caller field can suppress or create
  * a role request, and this marker provides no identity/effect authority. */
 export function isRetainedForwardVerificationReply285(response:Response):boolean{return retainedForwardResponses285.has(response);}
-export async function postVerify(env: Env, body: VerifyIn,originalDispatch?:BetaRoleDispatch,deferVerifiedNames?: (work:()=>Promise<void>)=>void): Promise<Response> {
+export async function postVerify(env: Env, body: VerifyIn,originalDispatch?:BetaRoleDispatch): Promise<Response> {
   const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
   const launch = captureLaunchVerification(env);
   const consumedSelection230=captureConsumed230Config(env);
@@ -348,14 +346,7 @@ export async function postVerify(env: Env, body: VerifyIn,originalDispatch?:Beta
       copied.nativeMembership=captureNativeMembershipProof(copied.nativeMembership);originalBody=Object.freeze(copied) as unknown as VerifyIn;
     }
     const result=await postVerifyInner(launchVerificationEnv(env,launch),originalBody,context,roleDispatch,launch,consumedSelection230);
-    if(result.status<400){
-      await assertWatcherCurrent(env,context);
-      const target=context.verifiedNames;
-      // Register display work only after the original verification and its privacy witness have passed.
-      if(target && deferVerifiedNames) {
-        try { deferVerifiedNames(()=>refreshVerifiedNames(env,target)); } catch { /* The bounded names refresh can fill this later. */ }
-      }
-    }
+    if(result.status<400)await assertWatcherCurrent(env,context);
     return result;
   }
   catch(error) { if(error instanceof PrivacySiteRequestHeld||error instanceof LaunchVerificationHeld)return watcherHeldResult(env,context);throw error; }
@@ -643,7 +634,6 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
     const rankResult=launchSource?await verifiedRankResult232(env,pending.discord_id,roleOutcome,originalConsumed230):{};
     await audit(env, "watcher", "verify.already_linked", name, { discordId: pending.discord_id, source: body.source },reference);
     if(launchSource&&!await launchMembershipCurrent(env,launchSource))return json({result:'outcome_unknown',pendingConsumed:true,roleOutcome:'unknown',inviteQueued:false},503);
-    if(body.source==='whisper' && identityIntent280 && launchSource && whisperGuid) context.verifiedNames={subject:pending.discord_id,nameKey,guid:whisperGuid,privacy:privacyCapture};
     return json({ result: "member", discordId: pending.discord_id, name,...(launchSource?memberRoleResult230(roleOutcome):{}),...rankResult });
   }
   await audit(env, "watcher", "verify.confirmed", name, { discordId: pending.discord_id, source: body.source, officer: body.officer, ticket, guid: whisperGuid },reference);
@@ -659,7 +649,6 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
     const roleOutcome=await promote(env, pending.discord_id, nameKey, name, undefined, whisperGuid ?? (now() - onRoster.exportedAt <= ROSTER_PIN_WITHIN ? onRoster.guid : null),undefined,privacyCapture,roleDispatch,launchSource??undefined,originalConsumed230);
     const rankResult=launchSource?await verifiedRankResult232(env,pending.discord_id,roleOutcome,originalConsumed230):{};
     if(launchSource&&!await launchMembershipCurrent(env,launchSource))return json({result:'outcome_unknown',pendingConsumed:true,roleOutcome:'unknown',inviteQueued:false},503);
-    if(body.source==='whisper' && identityIntent280 && launchSource && whisperGuid) context.verifiedNames={subject:pending.discord_id,nameKey,guid:whisperGuid,privacy:privacyCapture};
     return json({ result: "member", discordId: pending.discord_id, name,...(launchSource?memberRoleResult230(roleOutcome):{}),...rankResult });
   }
   if (onRoster) await audit(env, "watcher", "verify.roster_not_current", name, { exportedAt: onRoster.exportedAt },reference);

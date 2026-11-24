@@ -9,6 +9,8 @@ import {errorRef} from './log';
 import {credentialFetch} from './discord';
 import {CANONICAL_RANKS233} from './canonical-ranks233';
 import type {NativeSweep249} from './full-release-pass';
+import {captureLaunchVerification,launchVerificationEnv} from './launch-verification227';
+import {scheduleMissingVerifiedName} from './names';
 
 export type RoleWorkDefer242=(label:string,work:()=>Promise<unknown>)=>void;
 const ID=/^[1-9][0-9]{16,19}$/;
@@ -49,7 +51,7 @@ export async function requestRoleReconciliation242(env:Env,subject:string,reason
 /** The queue is ordinary privacy-referenced audit data, not new identity state.
  * An unsuccessful visit is reported as held; it is never an ACK or an automatic
  * retry of a spent effect. A new request can re-evaluate current source facts. */
-async function requested242(env:Env):Promise<boolean>{
+async function requested242(env:Env,defer?:RoleWorkDefer242):Promise<boolean>{
  const began=Date.now();
  const {runNativeSubject232}=await import('./full-release-pass');
  const count={used:0},bounded=countStatements(env,count),calls=callBudget(bounded);
@@ -71,6 +73,16 @@ async function requested242(env:Env):Promise<boolean>{
   const result=await runNativeSubject232(writer,row.subject,calls);
   await audit(writer,'system',FINISHED,row.subject,{schema:REQUEST_SCHEMA280,generation:row.generation,requestId:row.id,state:result.state,reason:result.reason},{subject:row.subject,capture});
   visited++;
+ }
+ // A signed continuation has its own budget. Give role work first use of it,
+ // then spend at most one spare Discord read on a verified member's missing name.
+ if(defer && calls.attempts<calls.limit && count.used+12<=850){
+  const launch=captureLaunchVerification(env);
+  if(launch.mode==='members-only' && launch.scope && launch.current()){
+   try {
+    scheduleMissingVerifiedName(launchVerificationEnv(env,launch),work=>defer('verified_member_names',work));
+   } catch(error){ console.error('verified name refresh held',errorRef(error)); }
+  }
  }
  return visited>0&&rows.results.length>visited;
 }
@@ -114,7 +126,7 @@ export async function kickRoleWorkGroups266(env:Env,sweep?:NativeSweep249):Promi
 export async function runRoleWork242(env:Env,kind:'requests'|'sweep',defer?:RoleWorkDefer242,sweep?:NativeSweep249):Promise<void>{
  let more=false,nextSweep:NativeSweep249|undefined;
  try{
-  if(kind==='requests')more=await requested242(env);
+  if(kind==='requests')more=await requested242(env,defer);
   else{
    const {nativeAdmission232,runFreshPass}=await import('./full-release-pass');
    const {captureLaneConfig}=await import('./full-release-roles');

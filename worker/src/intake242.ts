@@ -57,10 +57,9 @@ async function nativeDiscord242(env:Env,e:Record<string,unknown>,subject:string,
  await audit(env,'watcher','guild.discord_observation242',subject,{guid,character:name,observedAt:p.observedAt,source:'native-discord-event242'});
  return launch.current();
 }
-export async function postIntake242(env:Env,body:{entries?:unknown},origin?:OriginalWatcherIntake285,deferVerifiedNames?:(work:()=>Promise<void>)=>void):Promise<Response>{
+export async function postIntake242(env:Env,body:{entries?:unknown},origin?:OriginalWatcherIntake285):Promise<Response>{
  let rows=Array.isArray(body.entries)?body.entries:body.entries&&typeof body.entries==='object'?Object.values(body.entries):null;
  if(!rows||rows.length>25)return json({error:'entries_limit_25'},400);
- const singleEntry = rows.length === 1;
  const acknowledgements:Record<string,unknown>[]=[],deferred:Record<string,unknown>[]=[],policyHolds:Record<string,unknown>[]=[];let createdAny=false,originalProofLedgerRead=false;
  let ordinaryWhisperId:string|null=null;
  if(origin){
@@ -133,10 +132,7 @@ export async function postIntake242(env:Env,body:{entries?:unknown},origin?:Orig
     }
     if(observedAt<=dispatchAt-600){acknowledgements.push({...base,status:'rejected',outcome:'source_expired'});continue;}
     if(!proof||!guid){acknowledgements.push({...base,status:'rejected',outcome:'membership-proof-required'});continue;}
-    // Leave the full verification budget available to co-batched entries. The
-    // regular names refresh picks up any confirmed link still missing a handle.
-    const nameRefresh = singleEntry && e.source === 'whisper' ? deferVerifiedNames : undefined;
-    const response=await postVerify(env,{character,code:String(e.code??''),source:e.source==='mail'?'mail':'whisper',ts:observedAt,guid,nativeMembership:proof},undefined,nameRefresh);
+    const response=await postVerify(env,{character,code:String(e.code??''),source:e.source==='mail'?'mail':'whisper',ts:observedAt,guid,nativeMembership:proof});
     const result=await response.json() as Record<string,unknown>;let outcome=String(result.result??'outcome_unknown');
     if(outcome==='no_pending'){
      const launch=captureLaunchVerification(env),captured=captureNativeMembershipProof(proof);

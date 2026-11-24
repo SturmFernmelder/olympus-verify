@@ -31,7 +31,7 @@ try {
   const response=await runtime.dispatchFetch('https://fixture.invalid/names',{method:'POST'});
   assert.equal(response.status,200,(await response.clone().text())+'; provider calls '+JSON.stringify(calls));
   const {checks}=await response.json();
-  assert.deepEqual(calls.map(([kind,n])=>[kind==='users'?'user':'member',n]),[['member',1],['member',2],['member',3],['member',4],['member',6],['user',4],['user',2],['user',1]]);
+  assert.deepEqual(calls.map(([kind,n])=>[kind==='users'?'user':'member',n]),[['member',1],['member',2],['member',3],['member',4],['member',6],['user',4],['user',2],['user',1],['member',8]]);
   for(const check of checks)console.log('PASS '+check);
   console.log('Verified names runtime PASS ('+checks.length+' D1 checks and exact provider requests)');
 } finally {

@@ -1,4 +1,4 @@
-import { exactDiscordNames, refreshVerifiedNames, refreshNames } from '../src/names';
+import { exactDiscordNames, refreshVerifiedNames, refreshNames, scheduleMissingVerifiedName } from '../src/names';
 import { ADMISSION_EXPECTED_JSON, ADMISSION_PROTOCOL } from '../src/privacy-write-admission-catalogue';
 import { createPrivacyWriteAdmissionDatabase } from '../src/privacy-write-admission';
 
@@ -75,6 +75,42 @@ export default {async fetch(request, bindings) {
       plan.results.some(r=>/SEARCH j USING (?:COVERING )?INDEX privacy_serving_jobs_open/.test(r.detail))
       &&!plan.results.some(r=>/\bSCAN j\b/.test(r.detail)));
   } finally { Date.now=realClock; }
+  await env.DB.prepare("UPDATE members SET banned=(discord_id<>?1)").bind(subject(8)).run();
+  let simulationAt=realClock();
+  try {
+    Date.now=()=>simulationAt;
+    const submitted=[];
+    const submit=work=>submitted.push(work);
+    let selection;
+    const continuation={...env,DB:{prepare(sql){
+      if(sql.startsWith('WITH unique_guids')) selection=sql;
+      return env.DB.prepare(sql);
+    }}};
+    scheduleMissingVerifiedName(env,()=>{throw Error('synthetic registration refusal');});
+    scheduleMissingVerifiedName(env,submit);
+    check('a refused registration retains its cooldown',submitted.length===0);
+    simulationAt+=61_000;
+    scheduleMissingVerifiedName(env,submit);
+    scheduleMissingVerifiedName(env,submit);
+    check('concurrent background continuations reserve only one job',submitted.length===1);
+    simulationAt+=301_000;
+    scheduleMissingVerifiedName(continuation,submit);
+    check('a discarded deferred context cannot permanently block later continuations',submitted.length===2);
+    await submitted[0]();
+    check('a superseded deferred job never adopts the later reservation',await observed(8,null));
+    await submitted[1]();
+    check('a later independent callback fills the exact remaining eligible member',await observed(8,'valid_account'));
+    const plan=await db.prepare('EXPLAIN QUERY PLAN '+selection).bind(Math.floor(simulationAt/1000)-604800,1).all();
+    check('continuation computes GUID uniqueness in one materialized grouping instead of scanning all characters per candidate',
+      plan.results.some(r=>/MATERIALIZE unique_guids/.test(r.detail))&&
+      !plan.results.some(r=>/SCAN other/.test(r.detail)));
+    scheduleMissingVerifiedName(env,submit);
+    check('completion coalesces repeat callbacks within the same minute',submitted.length===2);
+    simulationAt+=61_000;
+    scheduleMissingVerifiedName(env,submit);
+    await submitted[2]();
+    check('an empty selection leaves the existing verified handle intact',await observed(8,'valid_account'));
+  } finally {Date.now=realClock;}
   const after=await db.prepare('SELECT COUNT(*) AS n FROM characters').first();
   check('metadata lookups never create or remove linked characters',before.n===after.n);
   return Response.json({checks});

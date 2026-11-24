@@ -48,7 +48,7 @@ const linkedNameTarget = `discord_id=?1 AND banned=0
   AND (SELECT count(*) FROM characters c WHERE c.guid=?3)=1`;
 
 /** Display metadata is optional. A missed lookup/write is recovered by the normal names refresh. */
-export async function refreshVerifiedNames(env: Env, target: VerifiedNameTarget): Promise<void> {
+export async function refreshVerifiedNames(env: Env, target: VerifiedNameTarget, current: ()=>boolean = ()=>true): Promise<void> {
   try {
     const { subject, nameKey, guid, privacy } = target;
     if (privacy && (privacy.subject !== subject || privacy.state !== 'active')) return;
@@ -57,15 +57,64 @@ export async function refreshVerifiedNames(env: Env, target: VerifiedNameTarget)
     if (!env.DISCORD_BOT_TOKEN || !/^\d{17,20}$/.test(env.GUILD_ID)) return;
     const due = await env.DB.prepare(`SELECT 1 AS due FROM members WHERE ${linkedNameTarget}
       AND (NULLIF(TRIM(username),'') IS NULL OR names_at IS NULL OR names_at<?5)`).bind(...params, at - STALE_AFTER).first();
-    if (!due) return;
+    if (!due || !current()) return;
     const member = await rest<{ user?: unknown; pending?: boolean }>(env, 'GET', `/guilds/${env.GUILD_ID}/members/${subject}`, undefined, 1);
-    if (!member || member.pending === true) return;
+    if (!current() || !member || member.pending === true) return;
     const names = exactDiscordNames(subject, member.user);
     if (!names) return;
     await env.DB.prepare(`UPDATE members SET username=?5, global_name=?6, names_at=?7 WHERE ${linkedNameTarget}
       AND (names_at IS NULL OR names_at<?7 OR (names_at=?7 AND NULLIF(TRIM(username),'') IS NULL))`)
       .bind(...params, names.username, names.global_name, at).run();
   } catch { /* Verification has its own durable acknowledgment. */ }
+}
+
+// This work runs only on a separate authorized background request. A refused
+// registration or a discarded context must not leave a permanently occupied slot.
+const MISSING_NAME_CADENCE = 60;
+let nextMissingNameAt = 0;
+let missingNameTurn: number | undefined;
+let activeMissingName: {expiresAt:number} | null = null;
+export function scheduleMissingVerifiedName(env: Env, defer: (work:()=>Promise<void>)=>void): void {
+  const at=now();
+  if (!env.DISCORD_BOT_TOKEN || !/^\d{17,20}$/.test(env.GUILD_ID) || at<nextMissingNameAt
+      || (activeMissingName && at<activeMissingName.expiresAt)) return;
+  const claim={expiresAt:at+5*MISSING_NAME_CADENCE};
+  const current=()=>activeMissingName===claim && now()<claim.expiresAt;
+  activeMissingName=claim;
+  nextMissingNameAt=at+MISSING_NAME_CADENCE;
+  try {
+    defer(async()=>{
+      try {
+        if(!current()) return;
+        // Select one account on each turn. Multiple alts count once, and a
+        // refused Discord lookup cannot monopolize the next turn.
+        const turn=missingNameTurn ?? Math.floor(at/MISSING_NAME_CADENCE);
+        missingNameTurn=turn+1;
+        const row=await env.DB.prepare(`WITH unique_guids AS MATERIALIZED (
+          SELECT guid FROM characters WHERE guid IS NOT NULL GROUP BY guid HAVING COUNT(*)=1
+        ), missing AS (
+          SELECT m.discord_id AS subject,c.name_key AS nameKey,c.guid,ps.generation,ps.revision,
+            ROW_NUMBER() OVER(PARTITION BY m.discord_id ORDER BY c.name_key) AS alt
+          FROM members m JOIN characters c ON c.discord_id=m.discord_id JOIN unique_guids g ON g.guid=c.guid
+          LEFT JOIN privacy_subjects ps ON ps.subject_id=m.discord_id
+          LEFT JOIN site_users s ON s.discord_id=m.discord_id
+          WHERE NULLIF(TRIM(m.username),'') IS NULL AND NULLIF(TRIM(s.username),'') IS NULL
+            AND (m.names_at IS NULL OR m.names_at < ?1) AND m.banned=0 AND COALESCE(s.denied,0)=0
+            AND c.status='member' AND c.guid IS NOT NULL AND c.name_key<>''
+            AND (ps.state IS NULL OR ps.state='active')
+            AND NOT EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.subject_id=m.discord_id AND j.state<>'complete' AND j.state IN ('waiting_role','held','erasing'))
+            AND NOT EXISTS(SELECT 1 FROM rename_holds r WHERE r.discord_id=m.discord_id AND r.state='reapply')
+        ), ranked AS (
+          SELECT *,ROW_NUMBER() OVER(ORDER BY subject)-1 AS pos,COUNT(*) OVER() AS size FROM missing WHERE alt=1
+        ) SELECT subject,nameKey,guid,generation,revision FROM ranked WHERE pos=CAST(?2 AS INTEGER)%size LIMIT 1`)
+          .bind(at-STALE_AFTER,turn).first<{subject:string;nameKey:string;guid:string;generation:string|null;revision:number|null}>();
+        if(!current() || !row || !/^[1-9]\d{16,19}$/.test(row.subject) || !/^Player-\d{1,6}-[0-9A-Fa-f]{4,16}$/.test(row.guid)) return;
+        const privacy:PrivacySubject|null=row.generation===null?null:{subject:row.subject,subjectGeneration:row.generation,revision:row.revision!,state:'active'};
+        await refreshVerifiedNames(env,{subject:row.subject,nameKey:row.nameKey,guid:row.guid,privacy},current);
+      } catch { /* The next eligible callback or the regular names cron can recover. */ }
+      finally { if(activeMissingName===claim) activeMissingName=null; }
+    });
+  } catch { if(activeMissingName===claim) activeMissingName=null; }
 }
 
 /** Re-written at most once a day unless something changed, so an interaction costs a read, not a write. */
