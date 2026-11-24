@@ -79,6 +79,11 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".305", date: "2026-11-24", lines: [
+      "A small clock difference could leave a valid verification whisper waiting for officer recovery. Olympus now uses the database clock to check the ticket and record the link. Signed whispers that arrive at the ten-minute cutoff go through the existing delayed verification checks.",
+    ],
+  },
+  {
     build: ".304", date: "2026-11-24", lines: [
       "Fern can see all online Initiates and whisper verification instructions to an unverified character. Members can reply GOT IT. The officer’s addon records when WoW reports the send and when the character acknowledges it.",
     ],

@@ -247,12 +247,14 @@ function forwardIntentPredicate285(effect:Env,p:Plan,cap:ForwardIntent285):Reado
 
 /** A NEW future observation from the existing authenticated intake. This never reopens a stored outbox. */
 
-type IntakeOutcome285=Readonly<{kind:'not_applicable'|'legacy_mixed'|'legacy_retained'|'policy_held'|'linked'|'known_no_effect'|'outcome_unknown';selectedIds:readonly string[];unprocessedIds:readonly string[];heldIds:readonly string[];reason:string|null;linksChanged:0|1|null;roleRequestCreated:boolean;ledgerRead:boolean}>;
+type IntakeOutcome285=Readonly<{kind:'not_applicable'|'legacy_mixed'|'legacy_retained'|'policy_held'|'linked'|'known_no_effect'|'outcome_unknown';selectedIds:readonly string[];unprocessedIds:readonly string[];heldIds:readonly string[];ordinaryWhisperId:string|null;reason:string|null;linksChanged:0|1|null;roleRequestCreated:boolean;ledgerRead:boolean}>;
 const intakeOutcomes285=new WeakMap<Response,IntakeOutcome285>();
 export function lateWhisperIntakeOutcome285(response:Response):IntakeOutcome285|null{return intakeOutcomes285.get(response)??null;}
 export async function processNewLateWhisperIntake285(origin:OriginalWatcherIntake285):Promise<Response>{
- const progress={writeStarted:false,ledgerStarted:false};let selectedIds:readonly string[]=Object.freeze([]),unprocessedIds:readonly string[]=Object.freeze([]),heldIds:readonly string[]=Object.freeze([]),spent=false,roleRequestCreated=false,ledgerRead=false,selectedProofKeys=new Map<string,string>(),context:ForwardContext285|null=null;
- const finish=(kind:IntakeOutcome285['kind'],reason:string|null,linksChanged:0|1|null,status:number)=>{const response=apiJson({...zero,result:kind==='known_no_effect'||kind==='policy_held'?'held':kind,reason,linksChanged,...(kind==='outcome_unknown'?{linksMayHaveChanged:true}:{}),automaticRoleGrant:false},status);intakeOutcomes285.set(response,Object.freeze({kind,selectedIds,unprocessedIds,heldIds,reason,linksChanged,roleRequestCreated,ledgerRead}));return response;};
+ const progress={writeStarted:false,ledgerStarted:false};
+ let ordinaryWhisperId:string|null=null;
+ let selectedIds:readonly string[]=Object.freeze([]),unprocessedIds:readonly string[]=Object.freeze([]),heldIds:readonly string[]=Object.freeze([]),spent=false,roleRequestCreated=false,ledgerRead=false,selectedProofKeys=new Map<string,string>(),context:ForwardContext285|null=null;
+ const finish=(kind:IntakeOutcome285['kind'],reason:string|null,linksChanged:0|1|null,status:number)=>{const response=apiJson({...zero,result:kind==='known_no_effect'||kind==='policy_held'?'held':kind,reason,linksChanged,...(kind==='outcome_unknown'?{linksMayHaveChanged:true}:{}),automaticRoleGrant:false},status);intakeOutcomes285.set(response,Object.freeze({kind,selectedIds,unprocessedIds,heldIds,ordinaryWhisperId,reason,linksChanged,roleRequestCreated,ledgerRead}));return response;};
  try{
   const original=originalWatcherIntake285(origin);original.check();
   const rows=snapshotDataArray(original.entries,25,'late_intake_rows'),ids=rows.map(row=>{if(!row||typeof row!=='object'||Array.isArray(row))return '';const d=Object.getOwnPropertyDescriptor(row,'id');return d&&Object.hasOwn(d,'value')&&typeof d.value==='string'&&/^[A-Za-z0-9:._-]{1,128}$/.test(d.value)?d.value:'';});
@@ -261,18 +263,25 @@ export async function processNewLateWhisperIntake285(origin:OriginalWatcherIntak
   const checkable=rows.map((raw,index)=>{if(!raw||typeof raw!=='object'||Array.isArray(raw))return null;const row=raw as Record<string,unknown>,proof=captureNativeMembershipProof(row.nativeMembership);if(row.type!=='verify'||typeof row.character!=='string'||!row.character.trim()||typeof row.guid!=='string'||!GUID.test(row.guid)||typeof row.code!=='string'||!proof||proof.observedAt<NEW_INTAKE_NOT_BEFORE285)return null;const code=normalizeCodeInput(row.code);if(!/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6,7}$/.test(code))return null;return {row,index,proof,code,observation:Object.freeze({input:'new-intake' as const,source:'whisper' as const,character:row.character,nameKey:normalizeCharacter(row.character),guid:row.guid,code,nativeMembership:proof})};}).filter((v):v is NonNullable<typeof v>=>v!==null);
   const keyPairs=await Promise.all(checkable.map(async value=>({index:value.index,key:await forwardProofKey285(value.observation)})));original.check();
   const retained=await retainedForwardKeys285(nativeRead,original.env,[...new Set(keyPairs.map(v=>v.key))].sort());ledgerRead=keyPairs.length>0;const alreadyHandled=new Set(keyPairs.filter(v=>retained.has(v.key)).map(v=>v.index));
-  const classifiedAt=now(),candidates=checkable.filter(v=>ordinaryIntakeShape280(v.row)&&v.row.source==='whisper'&&v.proof.observedAt<=classifiedAt+5&&v.row.observedAt===v.proof.observedAt),late=candidates.filter(v=>v.proof.observedAt<classifiedAt-600),trigger=late[0];
+  // Ordinary intake expires a proof at age 600. The original signed late path starts at that same second.
+  const classifiedAt=now(),freshAfter=classifiedAt-600;
+  const candidates=checkable.filter(v=>ordinaryIntakeShape280(v.row)&&v.row.source==='whisper'&&v.proof.observedAt<=classifiedAt+5&&v.row.observedAt===v.proof.observedAt),late=candidates.filter(v=>v.proof.observedAt<=freshAfter),trigger=late[0];
   if(!original.supportsForward285){
    if(alreadyHandled.size){selectedIds=Object.freeze(ids.filter((id,index)=>!!id&&alreadyHandled.has(index)));unprocessedIds=Object.freeze(ids.filter((id,index)=>!!id&&!alreadyHandled.has(index)));original.spend();spent=true;return finish('legacy_retained','forward_original_retained',0,200);}
    unprocessedIds=Object.freeze(ids.filter(Boolean));return finish('not_applicable',null,0,200);
   }
   if(alreadyHandled.size){const skipped=new Set([...alreadyHandled,...late.map(v=>v.index)]);selectedIds=Object.freeze(ids.filter((id,index)=>!!id&&skipped.has(index)));heldIds=Object.freeze(ids.filter((id,index)=>!!id&&alreadyHandled.has(index)));unprocessedIds=Object.freeze(ids.filter((id,index)=>!!id&&!skipped.has(index)));original.spend();spent=true;return finish('legacy_mixed','forward_original_retained',0,200);}
-  if(!trigger){unprocessedIds=Object.freeze(ids.filter(Boolean));return finish('not_applicable',null,0,200);}
+  if(!trigger){
+   // A solitary fresh original can age out before ordinary dispatch. A mixed batch stays together.
+   const only=rows.length===1?candidates[0]:undefined;
+   if(only?.proof.member&&only.proof.observedAt>freshAfter)ordinaryWhisperId=ids[only.index]||null;
+   unprocessedIds=Object.freeze(ids.filter(Boolean));return finish('not_applicable',null,0,200);
+  }
   const rawGroup=rows.map((raw,index)=>{if(!raw||typeof raw!=='object'||Array.isArray(raw))return null;const row=raw as Record<string,unknown>;return row.type==='verify'&&typeof row.code==='string'&&normalizeCodeInput(row.code)===trigger.code?{row,index}:null;}).filter((v):v is NonNullable<typeof v>=>v!==null),chosen=new Set(rawGroup.map(v=>v.index));selectedIds=Object.freeze(rawGroup.map(v=>ids[v.index]!).filter(Boolean));unprocessedIds=Object.freeze(ids.filter((id,index)=>!!id&&!chosen.has(index)));
   original.spend();spent=true;original.check();
   // A fresh observation keeps the original live verifier, including alt, relink
   // and same-character refresh semantics. A late planner may not refuse it.
-  if(rows.some(raw=>{if(!ordinaryIntakeShape280(raw))return false;const row=raw as Record<string,unknown>,at=Number(row.observedAt??row.requestedAt??row.ts);return row.type==='verify'&&Number.isSafeInteger(at)&&at>=classifiedAt-600&&at<=classifiedAt+5;})){const skipped=new Set(late.map(v=>v.index));selectedIds=Object.freeze(ids.filter((id,index)=>!!id&&skipped.has(index)));unprocessedIds=Object.freeze(ids.filter((id,index)=>!!id&&!skipped.has(index)));return finish('legacy_mixed','fresh_observations_keep_live_verifier',0,200);}
+  if(rows.some(raw=>{if(!ordinaryIntakeShape280(raw))return false;const row=raw as Record<string,unknown>,at=Number(row.observedAt??row.requestedAt??row.ts);return row.type==='verify'&&Number.isSafeInteger(at)&&at>freshAfter&&at<=classifiedAt+5;})){const skipped=new Set(late.map(v=>v.index));selectedIds=Object.freeze(ids.filter((id,index)=>!!id&&skipped.has(index)));unprocessedIds=Object.freeze(ids.filter((id,index)=>!!id&&!skipped.has(index)));return finish('legacy_mixed','fresh_observations_keep_live_verifier',0,200);}
   const capturedGroup=rawGroup.map(v=>{const row=v.row;if(!ordinaryIntakeShape280(row)||row.source!=='whisper'||typeof row.character!=='string'||typeof row.guid!=='string'||!GUID.test(row.guid))return null;const proof=captureNativeMembershipProof(row.nativeMembership);if(!proof||proof.observedAt<NEW_INTAKE_NOT_BEFORE285||proof.observedAt>now()+5||row.observedAt!==proof.observedAt)return null;return {...v,proof,code:trigger.code};});
   if(capturedGroup.some(v=>v===null)){const skipped=new Set(late.map(v=>v.index));selectedIds=Object.freeze(ids.filter((id,index)=>!!id&&skipped.has(index)));heldIds=Object.freeze(ids.filter((id,index)=>!!id&&late.some(v=>v.index===index&&v.proof.observedAt<=now()-FORWARD_WAIT_SECONDS285)));unprocessedIds=Object.freeze(ids.filter((id,index)=>!!id&&!skipped.has(index)));return finish('legacy_mixed','mixed_intake_group_pending',0,200);}
   const env=original.env,c=capture(env),check=()=>{original.check();c.check();};check();

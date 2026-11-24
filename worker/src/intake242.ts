@@ -61,12 +61,14 @@ export async function postIntake242(env:Env,body:{entries?:unknown},origin?:Orig
  let rows=Array.isArray(body.entries)?body.entries:body.entries&&typeof body.entries==='object'?Object.values(body.entries):null;
  if(!rows||rows.length>25)return json({error:'entries_limit_25'},400);
  const acknowledgements:Record<string,unknown>[]=[],deferred:Record<string,unknown>[]=[],policyHolds:Record<string,unknown>[]=[];let createdAny=false,originalProofLedgerRead=false;
+ let ordinaryWhisperId:string|null=null;
  if(origin){
   const original=originalWatcherIntake285(origin);original.check();
   if(original.env!==env||rows!==original.entries)throw Error('original_intake_body_changed');
   const {processNewLateWhisperIntake285,lateWhisperIntakeOutcome285}=await import('./site-late-proof285');
   const result=await processNewLateWhisperIntake285(origin),outcome=lateWhisperIntakeOutcome285(result);original.check();
   if(!outcome)throw Error('original_intake_outcome_missing');originalProofLedgerRead=outcome.ledgerRead;
+  ordinaryWhisperId=outcome.ordinaryWhisperId;
   if(outcome.kind==='legacy_mixed'||outcome.kind==='legacy_retained'){
    // Unsupported co-batched rows retain their original ordinary verifier. Only
    // the exact late rows skipped above wait; no historical claim was attempted.
@@ -120,7 +122,14 @@ export async function postIntake242(env:Env,body:{entries?:unknown},origin?:Orig
     const observedAt=Number(e.observedAt??e.requestedAt??e.ts);let proof=e.nativeMembership,guid=clean(e.guid,40);
     if(e.source==='mail'&&e.mailProof242){const witness=await mailWitness242(env,e,character,String(e.code??''));if(witness){proof=witness.nativeMembership;guid=witness.guid;}}
     if(!Number.isSafeInteger(observedAt)||observedAt<1||observedAt>now()+5){acknowledgements.push({...base,status:'rejected',outcome:'invalid_source_time'});continue;}
-    if(observedAt<=now()-600){acknowledgements.push({...base,status:'rejected',outcome:'source_expired'});continue;}
+    if(observedAt<=now()-600){
+     if(ordinaryWhisperId===id){
+      // The source crossed 600 seconds after classification, before postVerify ran.
+      // The next original request can take the signed late path with these exact bytes.
+      deferred.push({...base,bodySHA256:await canonicalIntakeBodySHA285(e),outcome:'intake_capacity_pending285',originalNoEffect:true});
+     }else acknowledgements.push({...base,status:'rejected',outcome:'source_expired'});
+     continue;
+    }
     if(!proof||!guid){acknowledgements.push({...base,status:'rejected',outcome:'membership-proof-required'});continue;}
     const response=await postVerify(env,{character,code:String(e.code??''),source:e.source==='mail'?'mail':'whisper',ts:observedAt,guid,nativeMembership:proof});
     const result=await response.json() as Record<string,unknown>;let outcome=String(result.result??'outcome_unknown');

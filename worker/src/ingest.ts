@@ -372,7 +372,11 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
     await audit(env, "watcher", "verify.invalid_code", name, { source: body.source, ticket });
     return json({ result: "invalid" });
   }
-  let pending: PendingRow | null = ticket ? await openTicket(env, ticketNonce(code)!) : await openPendingFor(env, nameKey);
+  const guardedNativeProof = launch.mode === 'members-only' && consumedSelection230.enabled && !!body.nativeMembership
+    && (body.source === 'whisper' || body.source === 'mail');
+  let pending: PendingRow | null = ticket
+    ? await openTicket(env, ticketNonce(code)!, guardedNativeProof)
+    : await openPendingFor(env, nameKey, guardedNativeProof);
   const pendingCheck230=pending?original230Slots(pending,['id','discord_id','name_key','name','created_at','expires_at','consumed_at','nonce','privacy_generation','privacy_state','privacy_revision']):()=>consumed230Held();
   if(pending?.privacy_state&&pending.privacy_state!=='active')return json({result:'privacy_held'},409);
   // Bind immediately after the joint pending/generation read, before ticket crypto or any later await.
@@ -422,16 +426,29 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
   // Known standing refusals are not an uncertain consuming batch. Keep the
   // same-statement fences below for a restriction that arrives after this read.
   // These scalar facts replace the former member-only read at the same cost.
-  const account = await env.DB.prepare(`SELECT (SELECT banned FROM members WHERE discord_id=?1) AS banned,
+  const account = await env.DB.prepare(`SELECT CAST(strftime('%s','now') AS INTEGER) AS d1_observed_at,
+    (SELECT banned FROM members WHERE discord_id=?1) AS banned,
     EXISTS(SELECT 1 FROM site_users WHERE discord_id=?1 AND denied=1) AS denied,
     EXISTS(SELECT 1 FROM rename_holds WHERE discord_id=?1 AND state='reapply') AS rename_held,
     ${retainedForward?retainedForward.sql(2):'0'} AS forward_retained`)
-    .bind(pending.discord_id,...(retainedForward?[retainedForward.keys]:[])).first<{banned:number|null;denied:number;rename_held:number;forward_retained:number}>();
+    .bind(pending.discord_id,...(retainedForward?[retainedForward.keys]:[])).first<{banned:number|null;denied:number;rename_held:number;forward_retained:number;d1_observed_at:number}>();
   if(!account)return json({result:'outcome_unknown'},503);
   if(account.forward_retained===1){const response=json({result:'forward_original_retained',pendingConsumed:false,roleGranted:false,inviteQueued:false});retainedForwardResponses285.add(response);return response;}
   if(account.forward_retained!==0)return json({result:'outcome_unknown'},503);
+  // D1 checks every guarded claim against SQLite's own second at commit.
+  // Using the Worker's timestamp here could roll back a valid first link,
+  // or record a refusal outside the ticket window when the clocks differ.
+  const nativeClaimAt = guardedNativeProof ? account.d1_observed_at : undefined;
+  if (guardedNativeProof) {
+    if (typeof nativeClaimAt !== 'number' || !Number.isSafeInteger(nativeClaimAt) || nativeClaimAt < 1)
+      return json({result:'verification_configuration_held',pendingConsumed:false,roleGranted:false,inviteQueued:false},503);
+    if (nativeClaimAt < pending.created_at)
+      return json({result:'membership_source_pending',pendingConsumed:false,roleGranted:false,inviteQueued:false},503);
+    if (nativeClaimAt >= pending.expires_at)
+      return json({result:'source_expired',pendingConsumed:false,roleGranted:false,inviteQueued:false});
+  }
   if (account?.banned) {
-    await closeRequest(env, pending, "banned");
+    await closeRequest(env, pending, "banned",nativeClaimAt);
     await audit(env, "watcher", "verify.banned", name, { discordId: pending.discord_id, source: body.source, ticket },reference);
     await logLine(env, `⛔ verify: **${name}** whispered a valid code for <@${pending.discord_id}>, who is banned from verifying. Nothing was linked.`,[reference!]);
     return json({ result: "banned" });
@@ -444,7 +461,7 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
     await audit(env, "watcher", "verify.bound_elsewhere", name, { pendingFor: pending.discord_id, boundTo: existing.discord_id, ticket },references);
     // A request code is closed here: the addon and the watcher have already tied it to this sender, so left open it
     // would sit unusable for a day while Get my code kept showing it. The next press issues a fresh one.
-    if (ticket) await closeRequest(env, pending, "refused");
+    if (ticket) await closeRequest(env, pending, "refused",nativeClaimAt);
     await logLine(env, `⚠️ verify: **${name}** whispered a valid code but the name is bound to <@${existing.discord_id}> (request from <@${pending.discord_id}>). Not re-linked — an officer must /olympus-admin unbind first.`,references);
     return json({ result: "bound_elsewhere" });
   }
@@ -475,7 +492,7 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
       const refused=await admittedPrivacySubjectWrite(env,pending.discord_id,privacyCapture,[pendingFingerprintFence(env,pending,undefined,retainedForward),
         env.DB.prepare(`UPDATE pending SET consumed_at=?8,consumed_source='membership_refused' WHERE id=?1 AND discord_id=?2
           AND created_at=?3 AND name_key=?4 AND name=?5 AND expires_at=?6 AND nonce IS ?7 AND consumed_at IS NULL RETURNING id`)
-          .bind(pending.id,pending.discord_id,pending.created_at,pending.name_key,pending.name,pending.expires_at,pending.nonce??null,now()),...(restriction?[restriction]:[])]);
+          .bind(pending.id,pending.discord_id,pending.created_at,pending.name_key,pending.name,pending.expires_at,pending.nonce??null,nativeClaimAt??now()),...(restriction?[restriction]:[])]);
       if(refused[1]?.meta?.changes!==1||refused[1]?.results?.length!==1)return json({result:'outcome_unknown'},503);
       return json({...launchRefusal,pendingConsumed:true,requestRefused:true},409);
     }catch{return json({result:'outcome_unknown'},503);}
@@ -493,12 +510,13 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
   if (holder && holder.discord_id !== pending.discord_id) {
     const references=[reference!,{subject:holder.discord_id,capture:privacyCaptureFromColumns(holder.discord_id,holder)}];
     await audit(env, "watcher", "verify.bound_elsewhere", name, { pendingFor: pending.discord_id, boundTo: holder.discord_id, as: holder.name, ticket },references);
-    if (ticket) await closeRequest(env, pending, "refused");
+    if (ticket) await closeRequest(env, pending, "refused",nativeClaimAt);
     // SEN-01: a character-code request stays open with the same code, and the watcher that relayed it drops a repeat.
     await logLine(env, `⚠️ verify: **${name}** whispered a valid code, but this character is linked to <@${holder.discord_id}> as **${holder.name}** (renamed since). Not re-linked — an officer decides. Once it is settled, the member retries with **Get my code** (a request code, while those are on), by mail, or by whispering another officer: the same code whispered to the same officer is not relayed again.`,references);
     return json({ result: "bound_elsewhere" });
   }
-  const t = now();
+  const nativeIdentity = guardedNativeProof && launchSource !== null;
+  const t = nativeClaimAt ?? now();
   // A request code whispered from a character that is already this account's member: nothing to link or admit. The same
   // goes for this account's own character under its new name: the next export carries the link there.
   const alreadyLinked = (!!existing && existing.discord_id === pending.discord_id && existing.status === "member") || !!holder;
@@ -545,7 +563,7 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
     );
   }
   let identityIntent280:IdentityIntent280|undefined;
-  if(consumedSelection230.enabled&&launchSource&&(body.source==='whisper'||body.source==='mail')){
+  if (nativeIdentity) {
     // A same-name Member keeps its original source just like a renamed holder.
     // This fresh proof does not rewrite the old link or manufacture its origin.
     const originalHolder=holder??(alreadyLinked?existing:null),originalCheck=holder?holderCheck280:existingCheck280;
@@ -583,7 +601,7 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
     const after = await env.DB.prepare("SELECT consumed_at, name FROM pending WHERE id = ?1").bind(pending.id).first<{ consumed_at: number | null; name: string }>();
     if (!after?.consumed_at) {
       await audit(env, "watcher", "verify.bound_elsewhere", name, { pendingFor: pending.discord_id, ticket, race: true },reference);
-      if (ticket) await closeRequest(env, pending, "refused");
+      if (ticket) await closeRequest(env, pending, "refused",nativeClaimAt);
       return json({ result: "bound_elsewhere" });
     }
     await audit(env, "watcher", "verify.already_used", name, { source: body.source, ticket, usedBy: after.name },reference);
@@ -597,7 +615,7 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
   const resolved: PendingRow = { ...pending, name_key: nameKey, name, consumed_at: t };
   if(identityIntent280){try{assertIdentityReceipt280(env,identityIntent280,allDone,allDone.length-1);}catch{return json({result:'outcome_unknown'},503);}}
   let originalConsumed230:OriginalConsumedMembership230|undefined;
-  if(consumedSelection230.enabled&&launchSource&&(body.source==='whisper'||body.source==='mail')){
+  if (nativeIdentity) {
     try{if(!identityIntent280)consumed230Held();originalConsumed230=await mintConsumed230(env,consumedSelection230,pending,pendingCheck230,privacyCapture,launchSource,allDone,3,t,nameKey,name,body.source,identityIntent280,allDone.length-1);}
     catch{/* The link may be acknowledged while new role authority is held. Never adopt a later pending row or ACK. */}
   }
@@ -630,10 +648,11 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
   return json({ result: "verified", discordId: pending.discord_id, name });
 }
 
-async function closeRequest(env: Env, p:PendingRow, why: "refused" | "banned") {
+async function closeRequest(env: Env, p:PendingRow, why: "refused" | "banned", nativeClaimAt?:number) {
   await env.DB.prepare(`UPDATE pending SET consumed_at=?8,consumed_source=?9 WHERE id=?1 AND discord_id=?2
-    AND created_at=?3 AND name_key=?4 AND name=?5 AND expires_at=?6 AND nonce IS ?7 AND consumed_at IS NULL`)
-    .bind(p.id,p.discord_id,p.created_at,p.name_key,p.name,p.expires_at,p.nonce??null,now(),why).run();
+    AND created_at=?3 AND name_key=?4 AND name=?5 AND expires_at=?6 AND nonce IS ?7 AND consumed_at IS NULL
+    AND (?10=0 OR (created_at<=?8 AND ?8<=CAST(strftime('%s','now') AS INTEGER) AND expires_at>CAST(strftime('%s','now') AS INTEGER)))`)
+    .bind(p.id,p.discord_id,p.created_at,p.name_key,p.name,p.expires_at,p.nonce??null,nativeClaimAt??now(),why,nativeClaimAt===undefined?0:1).run();
 }
 
 /**
