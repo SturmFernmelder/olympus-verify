@@ -573,4 +573,144 @@ do
   for _=1,5 do f.tick()end
   check("thousand-member native Guild paint shares native indexes and one source read per visible batch",f.reads==nativeReads and sourceReads==5 and f.promotions==0 and f.restrictedCalls==0)
 end
+-- Real guild module and capture/blank-realm binding. All chat events stay in
+-- the synthetic client. In particular a direct send does not fake its echo.
+local function reminderClient(blank)
+  local f=fixture(2);local e=f.e
+  local prime="CAMWOW US2 Realm 3 PvE"
+  f.member,f.actor=e.ROSTER[1],e.ROSTER[2]
+  f.member.name,f.member.rankIndex="Ñò Example",9
+  f.actor.name,f.actor.rankIndex="Fern Melder",0
+  e.PLAYER_GUID=f.actor.guid
+  f.realm=blank and "" or prime
+  e.GetGuildInfo=function() return f.guild,"Guild Master",f.actor.rankIndex end
+  e.GetGuildRosterShowOffline=function() return true end
+  local read=e.GetGuildRosterInfo
+  e.GetGuildRosterInfo=function(i)
+    local data={read(i)}
+    if e.ROSTER[i] then data[1]=e.ROSTER[i].name end
+    return unpack(data,1,17)
+  end
+  local hash=e.OlympusHmac.sha256hex
+  e.OlympusHmac.sha256hex=function(input)
+    if input=="prime-guild-master|1|"..f.actor.guid then return "d0988804294170b3414fcaf60ea77658d3b511bbd0c1ccf4286b04e47d935a16" end
+    return hash(input)
+  end
+  D.ranks(e)
+  f.fresh=function()
+    assert(e.OlympusVerifyAPI.ExportRoster()==2,"synthetic native roster")
+    local q=f.install(2,0)
+    q.realm=prime
+    q.verified.members={q.verified.members[2]}
+    q.unverified.members={{name=f.member.name,guid=f.member.guid,pending=false}}
+  end
+  f.fresh()
+  f.event("PLAYER_LOGIN")
+  f.calls={}
+  e.SendChatMessage=function(body,channel,lang,target)
+    f.calls[#f.calls+1]={body=body,channel=channel,lang=lang,target=target}
+  end
+  f.send=function() return f.g.SendInitiateReminder(f.member.name,f.member.guid) end
+  f.history=function() return f.g.ReminderHistory(f.member.guid) end
+  f.chat=function(event,body,name,guid)
+    local args={[1]=body,[2]=name,[11]=19,[12]=guid}
+    f.frame:GetScript("OnEvent")(f.frame,event,unpack(args,1,12))
+  end
+  f.echo=function()
+    f.chat("CHAT_MSG_WHISPER_INFORM",f.calls[#f.calls].body,f.member.name,f.actor.guid)
+  end
+  f.ack=function() f.chat("CHAT_MSG_WHISPER","GOT IT",f.member.name,f.member.guid) end
+  f.reload=function()
+    setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyGuild.lua")),e)("OlympusVerify",{})
+    f.g=e.OlympusVerifyGuild;f.frame=e.FRAMES[#e.FRAMES];f.event("PLAYER_LOGIN")
+  end
+  return f
+end
+do
+  local f=reminderClient(true);local m=f.member
+  local eligible,reason=f.g.ReminderEligibility(m.name,m.guid)
+  check("enrolled blank-realm observer can use one direct reminder for an online red Initiate: "..tostring(reason),eligible and not reason)
+  local rows,_,rev=f.history()
+  check("empty history can be cached",#rows==0 and rev==0 and f.g.ReminderHistory(nil,rev)==nil)
+  check("one click sends one private addressed whisper",f.send() and #f.calls==1 and f.calls[1].channel=="WHISPER" and f.calls[1].target==m.name)
+  local body=f.calls[1].body
+  check("bounded fixed template asks for verification and an explicit acknowledgment",#body<=255 and body:find("Get my code",1,true) and body:find("GOT IT",1,true))
+  check("dispatch alone records only an attempt",#f.history()==1 and not f.history()[1].sentAt and not f.history()[1].acknowledgedAt)
+  f.ack();f.chat("CHAT_MSG_WHISPER_INFORM",body,"Another Person",m.guid)
+  f.chat("CHAT_MSG_WHISPER_INFORM",body,m.name.."-WrongRealm",m.guid)
+  f.chat("CHAT_MSG_WHISPER_INFORM",body.."!",m.name,m.guid)
+  f.chat("CHAT_MSG_WHISPER_INFORM",body,m.name,"Player-9-FEED")
+  check("no unrelated echo or premature reply establishes a send",not f.history()[1].sentAt and not f.history()[1].acknowledgedAt)
+  f.now=f.now+1
+  f.chat("CHAT_MSG_WHISPER_INFORM",body,m.name.."-CAMWOWUS2Realm3PvE",f.actor.guid)
+  local sentAt=f.now
+  check("matching realm-qualified outgoing event timestamps only the sent whisper",f.history()[1].sentAt==sentAt and not f.history()[1].acknowledgedAt)
+  check("repeated click and roster repaint cannot send another reminder",not f.send() and #f.calls==1 and #f.history()==1)
+  local first,_,revision=f.history();first[1].name="Changed"
+  check("history copies preserve evidence and unchanged reads avoid copying it",f.history()[1].name==m.name and f.g.ReminderHistory(m.guid,revision)==nil)
+  f.reload();f.now=f.now+601
+  f.chat("CHAT_MSG_WHISPER","got it",m.name,m.guid)
+  f.chat("CHAT_MSG_WHISPER","GOT IT!",m.name,m.guid)
+  f.chat("CHAT_MSG_WHISPER","GOT IT",m.name,nil)
+  f.chat("CHAT_MSG_WHISPER","GOT IT",m.name,"Player-1-0000Feed")
+  f.chat("CHAT_MSG_WHISPER","GOT IT",m.name.."-AnotherRealm",m.guid)
+  f.chat("CHAT_MSG_GUILD","GOT IT",m.name,m.guid)
+  check("only exact private reply from same native GUID and realm qualifies",not f.history()[1].acknowledgedAt)
+  f.ack();local firstAck=f.now;f.now=f.now+10;f.ack()
+  check("first exact reply after reload survives expired blank-realm snapshot; duplicate never overwrites",f.history()[1].acknowledgedAt==firstAck and f.history()[1].sentAt==sentAt)
+  f.e.ROSTER={f.actor};f.event("GUILD_ROSTER_UPDATE")
+  check("departures preserve local history and actor identity",f.g.ReminderHistory()[1].officer=="Fern Melder")
+  f.realm="Another Realm";local held,why,invalid=f.history()
+  check("a different realm cannot view or modify saved history",#held==0 and why and not invalid)
+end
+do
+  local f=reminderClient(false)
+  local function held(label,change)
+    local other=reminderClient(false);local e=other.e;change(other,e);local ok=other.send()
+    check(label,not ok and #other.calls==0 and #other.history()==0)
+  end
+  held("offline changes after drawing are rechecked on click",function(x) x.g.ReminderEligibility(x.member.name,x.member.guid);x.member.online=false end)
+  held("promotion before a click suppresses outreach",function(x) x.member.rankIndex=7 end)
+  held("a hidden offline roster suppresses outreach",function(x,e) e.GetGuildRosterShowOffline=function() return false end end)
+  held("a missing getter with no established visibility suppresses outreach",function(x,e) e.GetGuildRosterShowOffline=nil end)
+  held("an unconfirmed legacy combat state suppresses outreach",function(x,e) e.InCombatLockdown=function() end;e.UnitAffectingCombat=function() return true end end)
+  local legacy=reminderClient(false)
+  legacy.e.GetGuildRosterShowOffline=nil
+  assert(legacy.e.OlympusVerifyAPI.ExportRoster()==2)
+  legacy.e.InCombatLockdown=function() end
+  legacy.e.UnitAffectingCombat=function(unit) assert(unit=="player");return false end
+  check("old clients with established visibility and independently explicit idle can whisper",legacy.send() and #legacy.calls==1)
+  held("roster without current enrolled officer suppresses outreach",function(x,e) e.ROSTER={x.member} end)
+  held("a different officer cannot use Fern's history",function(x,e) e.PLAYER_GUID="Player-2-BBBB" end)
+  held("an expired original snapshot suppresses outreach",function(x) x.now=x.now+600 end)
+  held("a Worker-pending verification suppresses outreach",function(x) x.q.unverified.members[1].pending=true end)
+  held("a duplicate Worker GUID under a different name suppresses outreach",function(x) x.q.unverified.members[2]={name="Other",guid=x.member.guid,pending=false} end)
+  held("same-name Worker review row suppresses outreach",function(x) x.q.unknown.members[1]={name=x.member.name,guid="Player-2-CCCC",reason="link_review"} end)
+  held("a sparse Worker list suppresses outreach",function(x) x.q.verified.members[4]={name="Other",guid="Player-2-CCCC",status="member"} end)
+  held("a new verification whisper suppresses outreach",function(x,e) e.OlympusVerifyDB.events={{type="whisper",ok=true,guid=x.member.guid,ts=x.now}} end)
+  held("a valid mailed request without a GUID suppresses outreach by exact native sender",function(x,e) e.OlympusVerifyDB.events={{type="mail",ok=true,target=x.member.name,ts=x.now}} end)
+  held("a pending addon request suppresses outreach",function(x,e) e.OlympusVerifyDB.intake242={entries={a={type="verify",source="self-addon243",status="pending",guid=x.member.guid,observedAt=x.now}}} end)
+  held("a name reused with a new native GUID suppresses outreach",function(x) x.q.unverified.members[1].guid="Player-2-DDDD" end)
+  held("a v1 source cannot enable direct-send",function(x) x.q.version=1 end)
+  held("a damaged saved history is held in place",function(x,e) e.OlympusVerifyDB.initiateReminderHistory={version=0} end)
+  f.e.C_ChatInfo={SendChatMessage=function() return false end}
+  check("explicit native refusal records failed and calls no fallback",not f.send() and f.history()[1].failedAt==f.now and #f.calls==0)
+  f.e.C_ChatInfo=nil
+  check("officer may intentionally retry a refused send",f.send() and #f.calls==1 and #f.history()==2)
+  f.now=f.now+61;f.echo()
+  check("late outgoing echo is unconfirmed",not f.history()[2].sentAt)
+  local uncertain=reminderClient(false)
+  uncertain.e.C_ChatInfo={SendChatMessage=function() error("ambiguous dispatch") end}
+  check("throw after dispatch stays unconfirmed, with no fallback/resend",uncertain.send() and not uncertain.send() and not uncertain.history()[1].failedAt and #uncertain.calls==0)
+end
+do
+  local f=reminderClient(false);assert(f.send());f.echo()
+  f.now=f.now+86401;f.ack();check("GOT IT outside 24 hours cannot acknowledge an older unrelated conversation",not f.history()[1].acknowledgedAt)
+  f.fresh();assert(f.send());f.ack()
+  check("newer unconfirmed attempt never credits an older confirmed send",#f.history()==2 and not f.history()[1].acknowledgedAt and not f.history()[2].acknowledgedAt)
+  local book=f.e.OlympusVerifyDB.initiateReminderHistory
+  for i=3,2000 do book.attempts[i]={guid="Player-8-"..string.format("%08X",i),name="Synthetic",officer="Fern Melder",at=f.now} end
+  f.reload();f.now=f.now+86401;f.fresh()
+  check("bounded history survives reload and retires an eligible old row",f.send() and #f.g.ReminderHistory()==2000 and #f.history()==2)
+end
 print("guild_status268: "..passed.." passed, 0 failed")

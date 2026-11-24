@@ -13,6 +13,7 @@ local LABEL = { verified = "Verified", unverified = "Not verified", pending = "V
 local COLOR = { verified = "|cff8ac69a", unverified = "|cffe57572", pending = "|cffe8be65", unknown = "|cff9ea3ad", stale = "|cffe8be65" }
 local nativeNames, nativeGuids, nativeAliases, nativeAt, loadedIdentity, changedGuild = {}, {}, {}, nil, nil, false
 local sourceIndex, historyIndex, nativeRankScheme
+local completeForReminder
 local hosts, bridgeEnabled = {}, false -- session-only opt-in, never SavedVariables
 -- Round 5 item 2 (13 Nov 2026): set when combat skipped a layout change; PLAYER_REGEN_ENABLED applies it at once.
 local layoutPending = false
@@ -62,23 +63,26 @@ local function Fresh(at, now)
 end
 local function Scan()
   local names, guids, aliases, count = {}, {}, {}, GetNumGuildMembers and GetNumGuildMembers() or 0
-  nativeRankScheme = nil
+  nativeRankScheme,completeForReminder = nil,false
   if type(count) ~= "number" or count ~= math.floor(count) or count < 0 or count > MAX_MEMBERS then nativeNames, nativeGuids, nativeAliases, nativeAt = {}, {}, {}, nil; return end
   -- Observe the complete table once with this cached roster, never once per row.
   local ranks = OlympusVerifyNativeRanks
   if ranks and type(ranks.Observe)=="function" and type(ranks.Scheme)=="function" then nativeRankScheme = ranks.Scheme(ranks.Observe()) end
+  local complete=count>0
   for i = 1, count do
     local name, rankName, rankIndex, _, _, _, _, _, online, _, _, _, _, _, _, _, guid = GetGuildRosterInfo(i)
     name, guid = Text(name), Text(guid, 40)
     if name then
-      local m = { name = name, guid = guid, rankName = Text(rankName), rankIndex = rankIndex, online = online and true or false }
+      local m = { name = name, guid = guid, rankName = Text(rankName), rankIndex = rankIndex, online = online and true or false, onlineConfirmed = online == true }
       local nk = Key(name)
+      if not guid or not guid:match("^Player%-%d+%-%x+$") or names[nk]~=nil or guids[guid]~=nil then complete=false end
       if names[nk] ~= nil then names[nk] = false else names[nk] = m end
       if guid then if guids[guid] ~= nil then guids[guid] = false else guids[guid] = m end end
       local alias = WatcherKey(name)
       if alias then if aliases[alias] ~= nil then aliases[alias] = false else aliases[alias] = m end end
-    end
+    else complete=false end
   end
+  completeForReminder=complete and GetNumGuildMembers()==count
   nativeNames, nativeGuids, nativeAliases, nativeAt = names, guids, aliases, time()
 end
 local function Live(name, guid)
@@ -91,7 +95,7 @@ local function Live(name, guid)
 end
 local function Index(v, u, z, now)
   if sourceIndex and sourceIndex.v == v and sourceIndex.u == u and sourceIndex.z == z and now >= sourceIndex.at and now - sourceIndex.at < 5 then return sourceIndex end
-  local ix = { v = v, u = u, z = z, at = now, guids = {}, names = {}, unverified = {}, review = {},
+  local ix = { v = v, u = u, z = z, at = now, guids = {}, names = {}, unverified = {}, unverifiedGuids = {}, review = {}, reviewNames = {},
     ambiguous = #v.members + #u.members + (z and #z.members or 0) > MAX_MEMBERS }
   for i = 1, math.min(#v.members, MAX_MEMBERS) do
     local r = v.members[i]
@@ -104,11 +108,15 @@ local function Index(v, u, z, now)
   for i = 1, math.min(#u.members, MAX_MEMBERS) do
     local r = u.members[i]
     local rn = type(r) == "table" and WatcherKey(r.name)
+    local rg = type(r) == "table" and Text(r.guid,40)
+    if rg then if ix.unverifiedGuids[rg]~=nil then ix.unverifiedGuids[rg]=false else ix.unverifiedGuids[rg]=r end end
     if rn then if ix.unverified[rn] ~= nil then ix.unverified[rn] = false else ix.unverified[rn] = r end end
   end
   for i = 1, math.min(z and #z.members or 0, MAX_MEMBERS) do
     local r = z.members[i]
     local rg = type(r) == "table" and Text(r.guid, 40)
+    local rn = type(r) == "table" and WatcherKey(r.name)
+    if rn then ix.reviewNames[rn]=true end
     if rg then if ix.review[rg] ~= nil then ix.review[rg] = false else ix.review[rg] = r end end
   end
   sourceIndex = ix
@@ -319,6 +327,234 @@ function G.OpenWhisper(name, guid)
   return true -- deliberately no SendChatMessage / Enter / queued send
 end
 API.Roster.OpenWhisper = G.OpenWhisper
+
+-- These are local observations of one officer's attended reminder. A chat API
+-- return is not an outgoing echo, and an outgoing echo is not a member reply.
+local REMINDER_TEXT="Hi! Olympus currently shows this character as unverified. To avoid possible guild removal, use Get my code in Asmongold's Discord #⚡olympus-verify and follow the instructions. Please reply GOT IT to acknowledge this reminder."
+local REMINDER_LIMIT, REMINDER_COOLDOWN, ECHO_WINDOW = 2000, 86400, 60
+local reminderBook,remindersByGuid
+local reminderRevision=0
+local outgoing={}
+
+-- WoW can omit the local realm in whispers. Preserve distinct explicit realms.
+local function SameWhisperRecipient(a,b,realm)
+  if not Text(a) or not Text(b) or not realm then return false end
+  local function parts(value)
+    local base,server=value:match("^([^%-]+)%-(.+)$")
+    return WatcherKey(base or value),(server or realm):lower():gsub("%s","")
+  end
+  local an,ar=parts(a);local bn,br=parts(b)
+  return an==bn and ar==br
+end
+
+local function ReminderOfficer(historical)
+  if changedGuild or Preview() or not OlympusVerifyConfig or OlympusVerifyConfig.membershipOnly~=true
+    or not API.Roster.CurrentScope or not API.Roster.IsEnrolledPrimeGM or not API.Name or not API.Name.Mine then return end
+  local guild,realm=API.Roster.CurrentScope()
+  local nativeGuild,_,rank,nativeRealm=GetGuildInfo("player")
+  local actor=Text(UnitGUID("player"),40)
+  local name=Text(API.Name.Mine())
+  -- An original history entry can still receive a reply after its source
+  -- expired. Only the exact enrolled actor in the original PRIME guild can
+  -- access it. This path can never authorize another outgoing reminder.
+  if historical and not realm and guild=="OLYMPUS PRIME" and GetRealmName()=="" then
+    local book=OlympusVerifyDB and OlympusVerifyDB.initiateReminderHistory
+    if type(book)=="table" and book.actor==actor and book.scope=="OLYMPUS PRIME\nCAMWOW US2 Realm 3 PvE"
+      and (nativeRealm==nil or nativeRealm=="" or nativeRealm=="CAMWOW US2 Realm 3 PvE") then realm="CAMWOW US2 Realm 3 PvE" end
+  end
+  if not actor or not name or WatcherKey(name)~="fern melder" or not IsInGuild() or guild~=nativeGuild
+    or not API.Roster.IsEnrolledPrimeGM(guild,realm,rank,actor) then return end
+  local scope=guild.."\n"..realm
+  if historical then
+    if nativeRealm and nativeRealm~="" and nativeRealm~=realm then return end
+  elseif Identity()~=scope then return end
+  return actor,scope,name,realm
+end
+
+local function ReminderStore(actor,scope,create)
+  if type(OlympusVerifyDB)~="table" then return end
+  local book=OlympusVerifyDB.initiateReminderHistory
+  if book==nil and create then
+    book={version=1,actor=actor,scope=scope,attempts={}}
+    OlympusVerifyDB.initiateReminderHistory=book
+  end
+  if type(book)~="table" or book.version~=1 or book.actor~=actor or book.scope~=scope or type(book.attempts)~="table" then return end
+  if book==reminderBook and remindersByGuid then return book end
+  local index,n={},0
+  for key in pairs(book.attempts) do
+    n=n+1
+    if n>REMINDER_LIMIT or type(key)~="number" or key<1 or key>REMINDER_LIMIT or key~=math.floor(key) then return end
+  end
+  for i=1,n do
+    local row=book.attempts[i]
+    if type(row)~="table" or not Text(row.guid,40) or not row.guid:match("^Player%-%d+%-%x+$") or not Text(row.name)
+      or not Text(row.officer) or WatcherKey(row.officer)~="fern melder" or not OriginalTime(row.at,9007199254740991)
+      or row.sentAt~=nil and (not OriginalTime(row.sentAt,9007199254740991) or row.sentAt<row.at or row.sentAt-row.at>ECHO_WINDOW)
+      or row.failedAt~=nil and (row.sentAt or not OriginalTime(row.failedAt,9007199254740991) or row.failedAt<row.at)
+      or row.acknowledgedAt~=nil and (not row.sentAt or not OriginalTime(row.acknowledgedAt,9007199254740991)
+        or row.acknowledgedAt<row.sentAt or row.acknowledgedAt-row.sentAt>REMINDER_COOLDOWN) then return end
+    local group=index[row.guid] or {}
+    group[#group+1]=row
+    index[row.guid]=group
+  end
+  reminderBook,remindersByGuid=book,index
+  reminderRevision=reminderRevision+1
+  return book
+end
+
+function G.ReminderHistory(guid,sinceRevision)
+  local ok,actor,scope=pcall(ReminderOfficer,true)
+  if not ok or not actor then return {},"The enrolled PRIME officer's local reminder history is unavailable." end
+  local book=ReminderStore(actor,scope,false)
+  if not book then
+    if type(OlympusVerifyDB)~="table" or OlympusVerifyDB.initiateReminderHistory~=nil then return {},"The saved reminder history could not be read." end
+    if sinceRevision==0 then return nil,nil,0 end
+    return {},nil,0
+  end
+  if sinceRevision==reminderRevision then return nil,nil,reminderRevision end
+  local rows=guid and remindersByGuid[guid] or nil
+  if not guid then rows=book.attempts end
+  local result={}
+  for i,row in ipairs(rows or {}) do
+    result[i]={guid=row.guid,name=row.name,officer=row.officer,at=row.at,sentAt=row.sentAt,failedAt=row.failedAt,acknowledgedAt=row.acknowledgedAt}
+  end
+  return result,nil,reminderRevision
+end
+
+-- Comparing the two sources on a click prevents a recycled row, a newly
+-- entered code or an incomplete offline roster from contacting another player.
+local function ReminderTarget(name,guid,rescan)
+  if not Text(guid,40) or not guid:match("^Player%-%d+%-%x+$") or not Text(name) then return nil,"Select an identifiable native guild character." end
+  local lockdown
+  if type(InCombatLockdown)=="function" then lockdown=InCombatLockdown() end
+  local idle=lockdown==false or lockdown==nil and type(UnitAffectingCombat)=="function" and UnitAffectingCombat("player")==false
+  if not idle or Gamepad() then return nil,"Use the reminder out of combat with mouse and keyboard." end
+  local actor,scope,officer,realm=ReminderOfficer()
+  if not actor then return nil,"A current enrolled PRIME officer is required." end
+  if rescan then Scan();sourceIndex=nil end
+  local verified=G.Verification(name,guid)
+  local member=Live(name,guid)
+  local nativeOfficer=nativeGuids[actor]
+  if not API.Roster.VisibilityCurrent or not API.Roster.VisibilityCurrent() then return nil,"Enable Show Offline Members and let the full guild roster populate." end
+  if not completeForReminder or not nativeOfficer or nativeOfficer.rankIndex~=0 or WatcherKey(nativeOfficer.name)~=WatcherKey(officer)
+    or not member or not member.onlineConfirmed or not nativeRankScheme
+    or member.rankIndex~=nativeRankScheme.initiate or member.rankName~=nativeRankScheme.names[nativeRankScheme.initiate+1] then
+    return nil,"Only an online Initiate in the complete current guild roster can be reminded."
+  end
+  local now=time()
+  local q=API.Roster.DisplaySource()
+  if verified.status~="unverified" or verified.guid~=guid or q~=OlympusVerifyLists or not q or q.version~=2
+    or not OriginalTime(verified.snapshotAt,now) or now-verified.snapshotAt>=600 then
+    return nil,"The reminder needs a current unverified Watcher result from the last ten minutes."
+  end
+  local key=WatcherKey(member.name)
+  local negative=sourceIndex and sourceIndex.unverified[key]
+  if not negative or negative.pending~=false or negative.guid~=guid or sourceIndex.unverifiedGuids[guid]~=negative or sourceIndex.reviewNames[key]
+    or rescan and (not ArraySize(q.verified.members) or not ArraySize(q.unverified.members) or not ArraySize(q.unknown.members)) then
+    return nil,"An exact, unambiguous unverified Watcher result is required."
+  end
+  local db=OlympusVerifyDB
+  local notices=db and db.primeInitiateNotices
+  local recent=type(notices)=="table" and notices.actor==actor and type(notices.whispers)=="table" and notices.whispers[guid]
+  if recent and OriginalTime(recent,now) and now-recent<=3600 then return nil,"This Initiate recently submitted a verification whisper." end
+  for _,e in ipairs(db and db.events or {}) do
+    if (e.type=="whisper" or e.type=="mail") and e.ok==true and type(e.ts)=="number" and e.ts>=verified.snapshotAt
+      and (e.guid==guid or not e.guid and SameWhisperRecipient(e.target or e.name,name,realm)) then
+      return nil,"This Initiate has submitted a verification request since the loaded roster."
+    end
+  end
+  if rescan and db and db.intake242 then
+    for _,r in pairs(db.intake242.entries) do
+      if type(r)=="table" and r.type=="verify" and r.status=="pending" and type(r.observedAt)=="number" and r.observedAt>=verified.snapshotAt
+        and (r.locallyValid==true or r.source=="self-addon243" or r.source=="addon-bridge242")
+        and (r.guid==guid or not r.guid and SameWhisperRecipient(r.character,name,realm)) then
+        return nil,"This Initiate already has a pending local verification request."
+      end
+    end
+  end
+  local book=ReminderStore(actor,scope,false)
+  if not db or db.initiateReminderHistory~=nil and not book then return nil,"The local reminder history is unavailable." end
+  local group=book and remindersByGuid[guid]
+  local last=group and group[#group]
+  if last and not last.failedAt and now-last.at<REMINDER_COOLDOWN then return nil,"A reminder was already attempted for this character in the last 24 hours." end
+  return {member=member,actor=actor,scope=scope,officer=officer,realm=realm},nil
+end
+
+function G.ReminderEligibility(name,guid)
+  local ok,subject,why=pcall(ReminderTarget,name,guid,false)
+  if not ok then return false,"The native reminder controls are unavailable." end
+  return subject~=nil,why
+end
+
+function G.SendInitiateReminder(name,guid)
+  local ok,subject,why=pcall(ReminderTarget,name,guid,true)
+  if not ok or not subject then return false,why or "The native reminder controls are unavailable." end
+  local send=C_ChatInfo and C_ChatInfo.SendChatMessage or SendChatMessage
+  if type(send)~="function" then return false,"This client cannot send an addressed whisper." end
+  local book=ReminderStore(subject.actor,subject.scope,true)
+  if not book then return false,"The reminder history could not record this attempt." end
+  local now=time()
+  if #book.attempts==REMINDER_LIMIT then
+    local discard
+    for i,old in ipairs(book.attempts) do
+      local group=remindersByGuid[old.guid]
+      if group[#group]~=old or old.failedAt or now-old.at>=REMINDER_COOLDOWN then discard=i;break end
+    end
+    if not discard then return false,"Reminder history is full of recent attempts. Try again after the 24-hour cooldown." end
+    local old=table.remove(book.attempts,discard)
+    local group=remindersByGuid[old.guid]
+    for i,item in ipairs(group) do if item==old then table.remove(group,i);break end end
+    if #group==0 then remindersByGuid[old.guid]=nil end
+  end
+  local row={name=subject.member.name,guid=guid,officer=subject.officer,at=now}
+  book.attempts[#book.attempts+1]=row
+  local group=remindersByGuid[guid] or {};group[#group+1]=row;remindersByGuid[guid]=group
+  reminderRevision=reminderRevision+1
+  for key,entry in pairs(outgoing) do if entry.row.at>now or now-entry.row.at>ECHO_WINDOW then outgoing[key]=nil end end
+  local key=WatcherKey(row.name)
+  outgoing[key]={row=row,book=book}
+  -- Claim before invoking the client. An exception can follow an actual
+  -- dispatch, so never invoke a fallback sender or retry automatically.
+  local called,result=pcall(send,REMINDER_TEXT,"WHISPER",nil,row.name)
+  if called and result==false and not row.sentAt then
+    row.failedAt=now;outgoing[key]=nil
+    reminderRevision=reminderRevision+1
+    return false,"WoW refused the reminder. The failed attempt was recorded."
+  end
+  return true,row.sentAt and "WoW echoed the outgoing reminder." or "Reminder attempted. Waiting for WoW's outgoing whisper confirmation."
+end
+
+local function RecordReminderChat(event,message,name,guid)
+  local msg=Text(message,255)
+  local echo=event=="CHAT_MSG_WHISPER_INFORM"
+  if echo and msg~=REMINDER_TEXT or not echo and msg~="GOT IT" or not Text(name) then return end
+  local actor,scope,_,realm=ReminderOfficer(true)
+  local book=actor and ReminderStore(actor,scope,false)
+  if not book then return end
+  local now=time()
+  if echo then
+    local key=WatcherKey(name)
+    local claim=outgoing[key]
+    local row=claim and claim.book==book and claim.row
+    if not row or row.sentAt or row.failedAt or not OriginalTime(row.at,now) or now-row.at>ECHO_WINDOW
+      or not SameWhisperRecipient(name,row.name,realm) then return end
+    if guid~=nil and guid~="" and Text(guid,40)~=actor and Text(guid,40)~=row.guid then return end
+    if guid~=row.guid then
+      Scan()
+      local native=Live(row.name,row.guid)
+      if not completeForReminder or not native or nativeAliases[key]~=native then return end
+    end
+    row.sentAt=now;outgoing[key]=nil
+  else
+    local id=Text(guid,40)
+    local group=id and remindersByGuid[id];local row=group and group[#group]
+    if not row or not row.sentAt or row.acknowledgedAt or not OriginalTime(row.sentAt,now) or now-row.sentAt>REMINDER_COOLDOWN then return end
+    if not SameWhisperRecipient(name,row.name,realm) then return end
+    row.acknowledgedAt=now
+  end
+  reminderRevision=reminderRevision+1
+end
+API.Roster.SendInitiateReminder,API.Roster.ReminderEligibility,API.Roster.ReminderHistory=G.SendInitiateReminder,G.ReminderEligibility,G.ReminderHistory
 
 -- Read-only session opt-in. Source inspected: dnl-gentile/olympus-addon 1.2.3,
 -- f60f18814f2426a5c21f97e207611871a06366b4, Olympus/Bridge.lua (MIT).
@@ -616,7 +852,12 @@ end
 local events, elapsed, discoveryElapsed = CreateFrame("Frame"), 0, 0
 events:RegisterEvent("PLAYER_LOGIN"); events:RegisterEvent("ADDON_LOADED"); events:RegisterEvent("GUILD_ROSTER_UPDATE")
 events:RegisterEvent("PLAYER_GUILD_UPDATE"); events:RegisterEvent("PLAYER_REGEN_ENABLED"); events:RegisterEvent("PLAYER_REGEN_DISABLED")
-events:SetScript("OnEvent", function(_, event, unit)
+events:RegisterEvent("CHAT_MSG_WHISPER");events:RegisterEvent("CHAT_MSG_WHISPER_INFORM")
+events:SetScript("OnEvent", function(_, event, unit,...)
+  if event=="CHAT_MSG_WHISPER" or event=="CHAT_MSG_WHISPER_INFORM" then
+    pcall(RecordReminderChat,event,unit,select(1,...),select(11,...))
+    return
+  end
   if event == "PLAYER_LOGIN" then loadedIdentity = Identity()
   elseif event == "PLAYER_GUILD_UPDATE" then
     -- The event also names other units; they cannot invalidate this player's guild scope.

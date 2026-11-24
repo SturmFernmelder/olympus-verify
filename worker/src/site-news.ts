@@ -79,6 +79,11 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".304", date: "2026-11-24", lines: [
+      "Fern can see all online Initiates and whisper verification instructions to an unverified character. Members can reply GOT IT. The officer’s addon records when WoW reports the send and when the character acknowledges it.",
+    ],
+  },
+  {
     build: ".303", date: "2026-11-23", lines: [
       "PRIME officers can receive a private Windows alert when a newly verified Initiate is ready. One safe reload brings the completed checks into WoW, where the officer reviews and clicks each promotion.",
     ],

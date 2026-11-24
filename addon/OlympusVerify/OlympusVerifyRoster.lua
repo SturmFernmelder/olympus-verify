@@ -7,7 +7,7 @@
   Where the data comes from: the client's current native guild roster and the loaded Watcher verification lists.
   Watcher query/roster clocks are shown separately; repainting this window does not load a newer file or renew evidence.
 
-  Reads OlympusVerifyAPI.Roster. A current unverified member's status opens one editable whisper; it never sends it.
+  Reads OlympusVerifyAPI.Roster. The officer can send a tracked reminder to one selected online Initiate.
   Promotion buttons use the existing dated launch queue and recheck one exact GUID per hardware click. Nothing here
   invites, removes or changes verification. Open it with
   /olv members [search], or the Members button on the officer panel. Loads after OlympusVerify.lua (TOC order). Only
@@ -76,7 +76,7 @@ local ACTION_FILTERS = {
 local NEXT_STEP = {
   verified="Use Discord /verify-status to confirm current access; this is a dated display result.",
   pending="Keep the original request; inspect /olv status and Discord /verify-status without resubmitting an unknown outcome.",
-  unverified="Use the normal Discord verification instructions; an online member can receive one editable reminder.",
+  unverified="Use the verification guide in Discord. Select an online Initiate to check reminder eligibility.",
   prior_record="Check Discord /verify-status and ask staff to review the earlier link against the current proof requirement.",
   link_review="Check Discord /verify-status; staff must review the account/identity record. This file does not expose the internal failed account check.",
   linked_dated="The exact earlier link is historical; obtain a fresh authorized display snapshot before claiming current verification.",
@@ -86,6 +86,7 @@ local NEXT_STEP = {
 local ACTION_ORDER = { ready=1, pending=2, expired=3, no_recommendation=4, held=5,
   unavailable=6, duplicate_guid=7, missing_guid=8, wrong_rank=9 }
 local selected, menu, detailText, queueSummary, snapshotText, sortText, actionFilterBtn, copyBox
+local historyBox, reminderLog
 
 local frame, search, statusBtn, rankBtn, classBtn, onlineBtn, initiateBtn, readyBtn, nextBtn, actionInfo, summary, footer, rows, headers
 local offset = 0
@@ -306,7 +307,38 @@ local function CurrentClass()
   return classes[view.class]
 end
 
-local function Visible()
+local function OnlineInitiates()
+  return view.initiates and view.presence==2
+end
+
+local function Column(col)
+  if col.key=="display" and OnlineInitiates() then return "reminder","Last reminder" end
+  return col.key,col.text
+end
+
+local function ReminderResult(entry)
+  if entry.acknowledgedAt then return "Acknowledged",entry.acknowledgedAt end
+  if entry.failedAt then return "Failed",entry.failedAt end
+  if entry.sentAt then return "Sent",entry.sentAt end
+  return "Attempted",entry.at
+end
+local function IsSelected(m)
+  return selected and m and m.guid==selected.guid and m.full==selected.full
+end
+
+-- The roster and the history dialog share one indexed snapshot. The core
+-- rechecks the officer's scope before reusing a previously read revision.
+local function ReadReminders()
+  local events,reason,revision
+  if R.ReminderHistory then
+    events,reason,revision=R.ReminderHistory(nil,reminderLog and reminderLog.revision)
+    if not events and not reason and reminderLog and revision==reminderLog.revision then return reminderLog end
+  else reason="Reminder history is unavailable." end
+  reminderLog={events=events or {},latest={},reason=reason,revision=revision}
+  for _,entry in ipairs(reminderLog.events) do reminderLog.latest[entry.guid]=entry end
+  return reminderLog
+end
+local function Visible(log)
   local list = R.Filter(cache.list, {
     text = view.text,
     status = not STATUS_FILTERS[view.status][3] and STATUS_FILTERS[view.status][1] or nil,
@@ -329,17 +361,31 @@ local function Visible()
       filtered[#filtered + 1] = m
     end
   end
-  if view.sort=="action" then
+  local reminders
+  if OnlineInitiates() then
+    reminders=(log or ReadReminders()).latest
+  elseif view.sort=="reminder" then
+    view.sort,view.desc="name",false
+  end
+  if view.sort=="action" or view.sort=="reminder" then
     table.sort(filtered,function(a,b)
-      local av,bv=ACTION_ORDER[ActionFor(a).state] or 99,ACTION_ORDER[ActionFor(b).state] or 99
+      local av,bv
+      if view.sort=="reminder" then
+        local ar,br=reminders[a.guid],reminders[b.guid]
+        if ar then av=select(2,ReminderResult(ar)) end
+        if br then bv=select(2,ReminderResult(br)) end
+        if (av==nil)~=(bv==nil) then return av~=nil end
+      else
+        av,bv=ACTION_ORDER[ActionFor(a).state] or 99,ACTION_ORDER[ActionFor(b).state] or 99
+      end
       if av~=bv then if view.desc then return av>bv else return av<bv end end
       local an,bn=string.lower(a.full or a.name),string.lower(b.full or b.name)
       if an~=bn then return an<bn end
       return (a.guid or "")<(b.guid or "")
     end)
-    return filtered,candidates,why
+    return filtered,candidates,why,reminders
   end
-  return R.Sort(filtered, view.sort, view.desc), candidates, why
+  return R.Sort(filtered, view.sort, view.desc), candidates, why,reminders
 end
 
 local function PromotionTarget(guid)
@@ -373,8 +419,23 @@ local function DetailLines(m)
     "Next step: "..(NEXT_STEP[m.statusDetail or m.status] or NEXT_STEP.unknown),
   }
 end
-local function ShowDetail(m)
+local function ShowDetail(m, visible, log)
   if not detailText then return end
+  if W.reminderButton then
+    local allowed,reason
+    if visible and m and m.guid and R.ReminderEligibility and R.SendInitiateReminder then
+      allowed,reason=R.ReminderEligibility(m.full,m.guid)
+    end
+    W.reminderButton.target=allowed and m or nil
+    W.reminderButton:SetEnabled(allowed==true)
+    local entry=m and log and log.latest[m.guid]
+    local last=(log and log.reason) or "No tracked reminder."
+    if entry then
+      local result,at=ReminderResult(entry)
+      last=result.." "..date("%Y-%m-%d %H:%M",at)..". Officer: "..Clean(entry.officer).."."
+    end
+    W.reminderDetail:SetText(m and (last.."\n"..(allowed and ("Ready to whisper "..Clean(m.name)..".") or reason or "Select a visible online Initiate.")) or "Select an online Initiate to check reminder eligibility.")
+  end
   if not m then detailText:SetText(GREY.."Select a row for its full verification reason, source dates and promotion readiness. Review labels do not establish current Discord access.|r"); return end
   local lines=DetailLines(m)
   detailText:SetText(WHITE..table.concat(lines,"\n").."|r")
@@ -384,7 +445,8 @@ local function RowTip(r)
   if not m then return end
   local lines=DetailLines(m)
   lines[#lines+1]="Select this row to keep these details visible."
-  if m.status=="unverified" and m.online then lines[#lines+1]="Click the verification cell to open one editable reminder; it does not send it." end
+  if OnlineInitiates() then lines[#lines+1]="Select a character to see their reminder history and whisper eligibility."
+  elseif m.status=="unverified" and m.online then lines[#lines+1]="Click the verification cell to open one editable reminder; it does not send it." end
   Tip(r,m.full or m.name,lines)
 end
 local function CopyTable()
@@ -419,6 +481,89 @@ local function CopyTable()
   copyBox.title:SetText(string.format("Table: %d of %d filtered rows%s. Ctrl+A, Ctrl+C to copy; Escape closes.",included,#list,included<#list and " (size limit)" or ""))
   copyBox.input:SetText(table.concat(lines,"\n"));copyBox:Show();copyBox.input:SetFocus();copyBox.input:HighlightText()
 end
+local function RefreshHistory(log)
+  if not historyBox or not historyBox:IsShown() then return end
+  log=log or ReadReminders()
+  local query=string.lower(historyBox.search:GetText() or "")
+  if historyBox.log~=log or historyBox.query~=query then
+    local matches={}
+    for i=#log.events,1,-1 do
+      local event=log.events[i]
+      if string.find(string.lower(event.name),query,1,true) then matches[#matches+1]=event end
+    end
+    historyBox.log,historyBox.query,historyBox.matches=log,query,matches
+    historyBox.drawnPage=nil
+  end
+  local matches=historyBox.matches
+  local pages=math.max(1,math.ceil(#matches/10))
+  local page=math.min(historyBox.page,pages)
+  if historyBox.drawnPage==page then return end
+  historyBox.drawnPage=page
+  historyBox.page=page
+  for i,row in ipairs(historyBox.rows) do
+    local event=matches[(page-1)*10+i]
+    if event then
+      row[1]:SetText(Clean(event.name))
+      row[2]:SetText(Clean(event.officer))
+      row[3]:SetText(date("%Y-%m-%d %H:%M:%S",event.at))
+      row[4]:SetText(event.sentAt and date("%Y-%m-%d %H:%M:%S",event.sentAt) or (event.failedAt and "Failed" or "Unconfirmed"))
+      row[5]:SetText(event.acknowledgedAt and date("%Y-%m-%d %H:%M:%S",event.acknowledgedAt) or "—")
+    else for _,cell in ipairs(row) do cell:SetText("") end end
+  end
+  historyBox.count:SetText(log.reason or string.format("%d recorded attempts  /  Page %d of %d",#matches,page,pages))
+  historyBox.prev:SetEnabled(page>1)
+  historyBox.next:SetEnabled(page<pages)
+end
+local function OpenHistory()
+  CloseMenu()
+  if not historyBox then
+    local f=CreateFrame("Frame","OlympusVerifyWhisperHistory",frame,BACKDROP_TEMPLATE)
+    f:SetSize(820,386)
+    f:SetPoint("CENTER",frame,"CENTER",0,0)
+    f:SetFrameStrata("FULLSCREEN_DIALOG")
+    f:EnableMouse(true)
+    if f.SetBackdrop then f:SetBackdrop(PANEL_BACKDROP);f:SetBackdropColor(C.bg[1],C.bg[2],C.bg[3],1) end
+    Label(f,"GameFontNormal","Whisper history",20,-18,720)
+    Label(f,"GameFontDisableSmall","Times are local. Sent records WoW’s outgoing whisper echo. Acknowledged records the character’s GOT IT reply.",20,-44,778)
+    Label(f,"GameFontHighlightSmall","Find character",20,-77,110)
+    local searchBox=CreateFrame("EditBox",nil,f,BACKDROP_TEMPLATE)
+    searchBox:SetSize(392,24)
+    searchBox:SetPoint("TOPLEFT",f,"TOPLEFT",126,-69)
+    if searchBox.SetBackdrop then searchBox:SetBackdrop(CHIP_BACKDROP);searchBox:SetBackdropColor(0.04,0.045,0.06,1) end
+    searchBox:SetFontObject(ChatFontNormal or GameFontHighlightSmall)
+    searchBox:SetTextInsets(8,8,0,0)
+    searchBox:SetMaxLetters(100)
+    searchBox:SetAutoFocus(false)
+    searchBox:SetScript("OnEscapePressed",function() f:Hide() end)
+    searchBox:SetScript("OnEnterPressed",function(self) self:ClearFocus() end)
+    searchBox:SetScript("OnTextChanged",function() f.page=1;RefreshHistory() end)
+    f.search=searchBox
+    local titles={"Character","Officer","Attempt","Sent","Acknowledged"}
+    local xs={20,205,363,515,663}
+    local widths={179,152,146,142,143}
+    f.rows={}
+    for j,title in ipairs(titles) do Label(f,"GameFontNormalSmall",title,xs[j],-104,widths[j]) end
+    for i=1,10 do
+      f.rows[i]={}
+      for j,x in ipairs(xs) do f.rows[i][j]=Label(f,"GameFontHighlightSmall","",x,-112-i*20,widths[j]) end
+    end
+    f.count=Label(f,"GameFontDisableSmall","",20,-347,440)
+    f.prev=Button(f,"Previous",95,24,function() f.page=math.max(1,f.page-1);RefreshHistory() end)
+    f.prev:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",-120,22)
+    f.next=Button(f,"Next",88,24,function() f.page=f.page+1;RefreshHistory() end)
+    f.next:SetPoint("LEFT",f.prev,"RIGHT",6,0)
+    local close=CreateFrame("Button",nil,f,"UIPanelCloseButton")
+    close:SetPoint("TOPRIGHT",f,"TOPRIGHT",-4,-4)
+    close:SetScript("OnClick",function() f:Hide() end)
+    f:SetScript("OnHide",function() f.log,f.query,f.matches,f.drawnPage=nil,nil,nil,nil end)
+    if type(UISpecialFrames)=="table" then table.insert(UISpecialFrames,"OlympusVerifyWhisperHistory") end
+    historyBox=f;W.historyBox=f
+  end
+  historyBox.page=1
+  historyBox.search:SetText("")
+  historyBox:Show()
+  RefreshHistory()
+end
 local function SourceLines()
   return { diagnostics.reason or "No supported last-loaded projection is available.",
     string.format("Loaded pages: %d; expired pages: %d; source holds: %d; risk-review rows: %d",diagnostics.pageCount or 0,diagnostics.stalePages or 0,diagnostics.sourceHeld or 0,diagnostics.riskReview or 0),
@@ -431,8 +576,11 @@ function W.Refresh()
   if not frame or not frame:IsShown() or InCombatLockdown and InCombatLockdown() then return end
   local q,err,stale,fetched,snapshot=EvidenceStamp()
   if q~=cache.source or err~=cache.error or stale~=cache.stale or fetched~=cache.fetched or snapshot~=cache.snapshot then Reload() end
-  local list, candidates, why = Visible()
+  local log
+  if OnlineInitiates() or selected or historyBox and historyBox:IsShown() then log=ReadReminders() end
+  local list, candidates, why, reminders = Visible(log)
   local info = cache.info or {}
+  local selectedShown=false
   local maxOffset = math.max(0, #list - ROWS)
   if offset > maxOffset then offset = maxOffset end
   if offset < 0 then offset = 0 end
@@ -440,6 +588,9 @@ function W.Refresh()
     local r, m = rows[i], list[offset + i]
     if m then
       r.member = m
+      local highlighted=IsSelected(m) and true or false
+      r.selection:SetShown(highlighted)
+      if highlighted then selectedShown=true end
       r.cells.name:SetText(classColor(m.class) .. trunc(m.name, 26) .. "|r")
       r.cells.level:SetText(WHITE .. tostring(m.level or "") .. "|r")
       r.cells.rank:SetText(WHITE .. trunc(m.rank, 16) .. "|r")
@@ -447,9 +598,18 @@ function W.Refresh()
       local color = m.historicalLinked == true and YELLOW or m.status == "verified" and GREEN or m.status == "unverified" and RED
         or (m.status == "stale" or m.status == "pending") and YELLOW or GREY
       r.cells.status:SetText(m.statusLabel and (color .. m.statusLabel .. "|r") or STATUS_TEXT[m.status] or m.status)
-      if r.remind then r.remind.member = m; r.remind:SetShown(m.status == "unverified" and m.online) end
+      if r.remind then r.remind.member = m; r.remind:SetShown(not reminders and m.status == "unverified" and m.online) end
       r.cells.discord:SetText(m.discord and (WHITE .. trunc("@" .. m.discord, 20) .. "|r") or (m.status == "verified" and (GREY .. "linked|r") or ""))
-      r.cells.display:SetText(m.display and (WHITE .. trunc(m.display, 18) .. "|r") or "")
+      if reminders then
+        local entry=reminders[m.guid]
+        local last=log.reason and "Unavailable" or "—"
+        if entry then
+          local status,at=ReminderResult(entry)
+          if status=="Acknowledged" then status="Ack" elseif status=="Attempted" then status="Tried" end
+          last=status.." "..date("%d %b %H:%M",at)
+        end
+        r.cells.display:SetText(last)
+      else r.cells.display:SetText(m.display and (WHITE .. trunc(m.display, 18) .. "|r") or "") end
       r.cells.seen:SetText(seenText(m))
       r.cells.sourceAge:SetText(GREY..Age(m.snapshotAt).."|r")
       local action=ActionFor(m)
@@ -466,9 +626,9 @@ function W.Refresh()
     end
   end
   for _, hdr in ipairs(headers) do
-    local col = hdr.col
-    local arrow = (view.sort == col.key) and (view.desc and " v" or " ^") or ""
-    SetButtonText(hdr, (view.sort == col.key and GOLD or GREY) .. col.text .. arrow .. "|r")
+    local key,title=Column(hdr.col)
+    local arrow = (view.sort == key) and (view.desc and " v" or " ^") or ""
+    SetButtonText(hdr, (view.sort == key and GOLD or GREY) .. title .. arrow .. "|r")
   end
   local shown=#list
   summary:SetText(string.format("%s%d members|r  %s%d verified|r  %s%d not verified|r  %s%d verifying|r  %s%d review/unknown|r  %s%d stale|r",
@@ -488,6 +648,7 @@ function W.Refresh()
   SetButtonText(rankBtn,(CurrentRank() or "All ranks").." v")
   SetButtonText(classBtn,(CurrentClass() and className(CurrentClass()) or "All classes").." v")
   SetButtonText(onlineBtn,PRESENCE_FILTERS[view.presence or 1].." v")
+  SetButtonText(W.onlineInitiatesButton,(OnlineInitiates() and GOLD or WHITE).."Online Initiates|r")
   SetButtonText(actionFilterBtn,ACTION_FILTERS[view.action or 1][2].." v")
   SetButtonText(initiateBtn,(view.initiates and GOLD or WHITE).."Initiates|r")
   SetButtonText(readyBtn,(view.initiates and view.status==2 and view.action==4 and GOLD or WHITE).."Verified Initiates|r")
@@ -521,7 +682,7 @@ function W.Refresh()
   actionInfo:SetText(GREY..explanation.."|r")
   W.sourceExplanation=explanation
   local sortLabel=view.sort
-  for _,col in ipairs(COLS) do if col.key==view.sort then sortLabel=col.text end end
+  for _,col in ipairs(COLS) do local key,title=Column(col);if key==view.sort then sortLabel=title end end
   local hint="; equal values use character name. Blank values stay last."
   if view.sort=="discord" or view.sort=="display" then
     local known=0;for _,m in ipairs(list) do if m[view.sort] and m[view.sort]~="" then known=known+1 end end
@@ -534,9 +695,10 @@ function W.Refresh()
   sortText:SetText(GREY.."Sorted by "..sortLabel..(view.desc and " descending" or " ascending")..hint.."|r")
   local match
   if selected then for _,m in ipairs(cache.list) do
-    if selected.guid and m.guid==selected.guid or not selected.guid and m.full==selected.full then match=m;break end
+    if IsSelected(m) then match=m;break end
   end end
-  ShowDetail(match)
+  ShowDetail(match,selectedShown,log)
+  RefreshHistory(log)
   if W.selectButton then W.selectButton:SetEnabled(match~=nil and type(match.guid)=="string" and type(OlympusLaunch229)=="table" and type(OlympusLaunch229.Select)=="function") end
   W.diagnostics,W.summary,W.queueSummary,W.snapshotText,W.actionInfo,W.detailText,W.sortText=diagnostics,summary,queueSummary,snapshotText,actionInfo,detailText,sortText
 
@@ -645,6 +807,18 @@ local function Build()
     OpenMenu(self,"Presence",options,view.presence,function(value) view.presence=value;view.online=false;offset=0;W.Refresh() end)
   end,"Presence","Choose all, online only or offline only.")
   onlineBtn:SetPoint("LEFT",classBtn,"RIGHT",6,0)
+  W.onlineInitiatesButton=Button(frame,"Online Initiates",122,24,function()
+    CloseMenu()
+    selected=nil
+    view.initiates,view.rank,view.class,view.online,view.presence,view.status,view.action,view.text=true,0,0,false,2,1,1,""
+    search:SetText("")
+    offset=0
+    Reload()
+    W.Refresh()
+  end,"Online Initiates","Show every online native Initiate. Select one character to check whether they can receive a verification reminder.")
+  W.onlineInitiatesButton:SetPoint("LEFT",onlineBtn,"RIGHT",6,0)
+  W.historyButton=Button(frame,"Whisper history",120,24,OpenHistory,"Whisper history","Search local reminder attempts and acknowledgments, including characters who have left the guild.")
+  W.historyButton:SetPoint("LEFT",W.onlineInitiatesButton,"RIGHT",6,0)
   actionFilterBtn=Button(frame,"All readiness states v",220,24,function(self)
     local options={};for i,item in ipairs(ACTION_FILTERS) do options[#options+1]={value=i,label=item[2]} end
     OpenMenu(self,"Promotion readiness",options,view.action,function(value) view.action=value;offset=0;W.Refresh() end)
@@ -677,8 +851,25 @@ local function Build()
   queueSummary=Label(frame,"GameFontHighlightSmall","",Layout.PAD,Layout.COLS_Y-Layout.ROWS*Layout.ROW_H-26,Layout.INNER)
   queueSummary:SetWordWrap(true);queueSummary:SetHeight(30)
   sortText=Label(frame,"GameFontDisableSmall","",Layout.PAD,Layout.COLS_Y-Layout.ROWS*Layout.ROW_H-62,Layout.INNER)
-  detailText=Label(frame,"GameFontHighlightSmall","",Layout.PAD,Layout.COLS_Y-Layout.ROWS*Layout.ROW_H-81,Layout.INNER)
+  local detailY=Layout.COLS_Y-Layout.ROWS*Layout.ROW_H-81
+  detailText=Label(frame,"GameFontHighlightSmall","",Layout.PAD,detailY,Layout.INNER-266)
   detailText:SetWordWrap(true);detailText:SetHeight(128)
+  W.reminderButton=Button(frame,"Whisper reminder",170,24,function(self,button,down)
+    if button~="LeftButton" or down or not self.target or not frame:IsShown() or not self:IsEnabled()
+      or IsShiftKeyDown and IsShiftKeyDown() or IsAltKeyDown and IsAltKeyDown() or IsControlKeyDown and IsControlKeyDown() then return end
+    local m=self.target
+    if not selected or selected.guid~=m.guid or selected.full~=m.full then return end
+    local _,message=R.SendInitiateReminder(m.full,m.guid)
+    if message then Say(message) end
+    W.Refresh()
+  end,"Whisper verification reminder","Send one verification reminder to the selected online Initiate and ask them to reply GOT IT.")
+  W.reminderButton:RegisterForClicks("LeftButtonUp")
+  W.reminderButton:SetPoint("TOPLEFT",frame,"TOPLEFT",Layout.PAD+Layout.INNER-253,detailY)
+  W.reminderButton:SetEnabled(false)
+  W.reminderDetail=Label(frame,"GameFontHighlightSmall","",Layout.PAD+Layout.INNER-253,detailY-31,250)
+  W.reminderDetail:SetJustifyV("TOP")
+  W.reminderDetail:SetWordWrap(true)
+  W.reminderDetail:SetHeight(90)
   local refresh=Button(frame,"Refresh view",108,24,function() CloseMenu();Reload();W.Refresh() end,"Refresh view","Reread native rows and the evidence already loaded in this session. This does not run Sync, reload, fetch a disk file or grant verification.")
   refresh:SetPoint("LEFT",clear,"RIGHT",6,0)
   local copy=Button(frame,"Copy table",104,24,CopyTable,"Copy filtered table","Open a read-only tab-separated copy of the current filtered/sorted rows. No codes, request bodies or account IDs are exported.")
@@ -719,10 +910,16 @@ local function Build()
     hdr.label = fs
     hdr.col = col
     hdr:SetScript("OnClick", function()
-      if view.sort == col.key then view.desc = not view.desc else view.sort = col.key; view.desc = false end
+      local key=Column(col)
+      if view.sort == key then view.desc = not view.desc else view.sort = key; view.desc = false end
       offset=0;CloseMenu();W.Refresh()
     end)
-    hdr:SetScript("OnEnter",function(self) Tip(self,"Sort by "..col.text,{"Click to sort; click again to reverse. Blank values stay last; equal values use character name.",(col.key=="discord" or col.key=="display") and "Names are shown only when current loaded evidence supplies them." or ""}) end)
+    hdr:SetScript("OnEnter",function(self)
+      local key,title=Column(col)
+      Tip(self,"Sort by "..title,{"Click to sort; click again to reverse. Blank values stay last; equal values use character name.",
+        key=="reminder" and "Latest outcome for this character’s most recent reminder. Open Whisper history for exact send and acknowledgment times." or
+        (key=="discord" or key=="display") and "Names are shown only when current loaded evidence supplies them." or ""})
+    end)
     hdr:SetScript("OnLeave",HideTip)
     headers[#headers + 1] = hdr
   end
@@ -739,6 +936,9 @@ local function Build()
     local hoverTex = Fill(r, "BORDER", C.gold, 0.09)
     hoverTex:SetAllPoints(r)
     hoverTex:Hide()
+    r.selection=Fill(r,"ARTWORK",C.gold,0.15)
+    r.selection:SetAllPoints(r)
+    r.selection:Hide()
     r.cells = {}
     for _, col in ipairs(COLS) do
       local fs = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -772,7 +972,7 @@ local function Build()
     if r.EnableMouseWheel then r:EnableMouseWheel(true) end
     r:SetScript("OnMouseWheel", Wheel)
     r:SetScript("OnMouseUp",function(self,button)
-      if button=="LeftButton" and self.member then selected={guid=self.member.guid,full=self.member.full};CloseMenu();ShowDetail(self.member) end
+      if button=="LeftButton" and self.member then selected={guid=self.member.guid,full=self.member.full};CloseMenu();W.Refresh() end
     end)
     r:SetScript("OnEnter", function(self) hoverTex:Show(); RowTip(self) end)
     r:SetScript("OnLeave", function() hoverTex:Hide(); HideTip() end)
@@ -786,7 +986,12 @@ local function Build()
     repaint=repaint+(tonumber(elapsed) or 0)
     if repaint>=5 then repaint=0;W.Refresh() end
   end)
-  frame:SetScript("OnHide",function() CloseMenu();if copyBox then copyBox:Hide() end end)
+  frame:SetScript("OnHide",function()
+    CloseMenu()
+    if copyBox then copyBox:Hide() end
+    if historyBox then historyBox:Hide() end
+    reminderLog=nil
+  end)
   footer = Label(frame, "GameFontDisableSmall", "", Layout.PAD, -(Layout.HEIGHT - 26), Layout.INNER)
   W.frame = frame
   W.search = search
@@ -835,7 +1040,7 @@ function W.Hide()
     return
   end
   if frame then frame:Hide() end
-  CloseMenu();if copyBox then copyBox:Hide() end
+  CloseMenu();if copyBox then copyBox:Hide() end;if historyBox then historyBox:Hide() end
   HideTip()
 end
 

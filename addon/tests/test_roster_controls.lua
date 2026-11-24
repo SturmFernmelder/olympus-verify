@@ -187,5 +187,159 @@ do
   check("ready roster offers guarded import without a preceding whisper or a promotion",f.w.importButton:IsShown() and not f.w.batchButton:IsShown()
     and guarded==1 and f.attempts==0)
 end
+do
+  local f=fixture()
+  local w,r=f.w,f.e.OlympusVerifyAPI.Roster
+  local target=f.e.ROSTER[6]
+  target.online=true
+  local attempts={}
+  local calls=0
+  local function recorded(guid)
+    local out={}
+    for _,a in ipairs(attempts) do if not guid or a.guid==guid then out[#out+1]=a end end
+    return out
+  end
+  r.ReminderHistory=recorded
+  r.ReminderEligibility=function(_,guid)
+    return guid==target.guid and #recorded(guid)==0,"No current eligible reminder."
+  end
+  r.SendInitiateReminder=function(full,guid)
+    calls=calls+1
+    check("dispatch uses the selected exact native name and GUID",full==f.e.GetGuildRosterInfo(6) and guid==target.guid)
+    attempts[#attempts+1]={name=full,guid=guid,at=f.e.NOW,officer="Officer"}
+    return true,"Attempt recorded."
+  end
+  w.readyButton:Click()
+  f.search("Zulu")
+  f.choose(w.onlineButton,3)
+  w.onlineInitiatesButton:Click()
+  check("online preset clears conflicting filters and shows verified, pending and unverified native Initiates",f.names()=="Alpha,Pending,Unlinked" and w.view.text=="" and w.view.status==1 and w.view.action==1)
+  local function selectRow(name)
+    for _,row in ipairs(w.rows) do
+      if row.member and row.member.name==name then row:GetScript("OnMouseUp")(row,"LeftButton");return row end
+    end
+    error("missing visible row "..name)
+  end
+  selectRow("Alpha")
+  check("selecting verified Initiate cannot enable a reminder",not w.reminderButton:IsEnabled())
+  selectRow("Pending")
+  check("selecting a pending Initiate cannot enable a reminder",not w.reminderButton:IsEnabled())
+  local row=selectRow("Unlinked")
+  check("eligible selection enables just the dedicated reminder control",w.reminderButton:IsEnabled() and not row.remind:IsShown() and calls==0)
+  f.search("Pending")
+  f.forceClick(w.reminderButton)
+  check("filtered-out selection cannot be whispered by a retained button",not w.reminderButton:IsEnabled() and calls==0)
+  w.onlineInitiatesButton:Click()
+  selectRow("Unlinked")
+  f.forceClick(w.reminderButton,"RightButton")
+  f.forceClick(w.reminderButton,"LeftButton",true)
+  f.e.IsShiftKeyDown=function() return true end
+  f.forceClick(w.reminderButton)
+  f.e.IsShiftKeyDown=function() return false end
+  w.Refresh()
+  check("right, modified and down clicks plus a repaint send nothing",calls==0)
+  w.reminderButton:Click()
+  f.forceClick(w.reminderButton)
+  check("single click records one attempt and disables repeat",calls==1 and not w.reminderButton:IsEnabled() and plain(w.reminderDetail:GetText()):find("Attempted",1,true))
+  check("attempt remains distinct from a sent whisper in online list",plain(row.cells.display:GetText()):find("Tried",1,true))
+  attempts[1].sentAt=f.e.NOW+1
+  w.Refresh()
+  check("outgoing confirmation alone updates list to Sent",plain(row.cells.display:GetText()):find("Sent",1,true) and not plain(w.reminderDetail:GetText()):find("Acknowledged",1,true))
+  attempts[1].acknowledgedAt=f.e.NOW+3
+  w.Refresh()
+  check("an explicit receipt replaces Sent with acknowledgment status",plain(w.reminderDetail:GetText()):find("Acknowledged",1,true) and plain(row.cells.display:GetText()):find("Ack",1,true))
+  f.sort("display")
+  check("last reminder sorts tracked recipients before blank cells",w.view.sort=="reminder" and f.names()=="Unlinked,Alpha,Pending")
+  target.online=false
+  w.refreshButton:Click()
+  check("online view drops members who went offline without erasing their prior reminder",f.names()=="Alpha,Pending" and not w.reminderButton:IsEnabled() and #recorded(target.guid)==1)
+  for i=1,11 do
+    attempts[#attempts+1]={at=f.e.NOW+10+i,failedAt=f.e.NOW+10+i,name="Former"..i,guid="Player-1-X"..i,officer="Officer"}
+  end
+  w.historyButton:Click()
+  local h=w.historyBox
+  check("history includes departed characters with failed attempts",h:IsShown() and h.rows[1][1]:GetText()=="Former11" and h.rows[1][4]:GetText()=="Failed" and h.rows[1][5]:GetText()=="—")
+  h.next:Click()
+  check("prior history accessible via pages",h.page==2 and h.rows[2][1]:GetText()==attempts[1].name and not h.next:IsEnabled())
+  h.search:SetText("UnLiNk")
+  h.search:GetScript("OnTextChanged")(h.search)
+  check("history search finds offline recipient, original sender, attempt, send and acknowledgment times",h.page==1 and h.rows[1][1]:GetText()==attempts[1].name and h.rows[1][2]:GetText()=="Officer"
+    and h.rows[1][3]:GetText()==f.e.date("%Y-%m-%d %H:%M:%S",attempts[1].at) and h.rows[1][4]:GetText()==f.e.date("%Y-%m-%d %H:%M:%S",attempts[1].sentAt)
+    and h.rows[1][5]:GetText()==f.e.date("%Y-%m-%d %H:%M:%S",attempts[1].acknowledgedAt) and h.rows[2][1]:GetText()=="")
+  w.Hide()
+  check("dismissal closes history without another whisper, rank change, or reload",not h:IsShown() and calls==1 and f.attempts==0 and f.reloads==0)
+end
+do
+  local f=reviewFixture()
+  f.w.onlineInitiatesButton:Click()
+  check("a prior linked record remains visible in the online cohort",f.w.rows[1].member.name=="Alpha" and f.w.rows[1].member.status=="unknown" and f.w.rows[1].member.statusDetail=="prior_record")
+  f.e.NOW=f.e.NOW+3601
+  f.w.Refresh()
+  check("expired verification leaves the native online Initiates in view",f.names()=="Alpha,Pending" and not f.w.reminderButton:IsEnabled())
+end
+do
+  local f=fixture(1000)
+  local e,w=f.e,f.w
+  local realm="CAMWOW US2 Realm 3 PvE"
+  local hash=e.OlympusHmac.sha256hex
+  e.OlympusHmac.sha256hex=function(value)
+    if value=="prime-guild-master|1|"..f.actor then return "d0988804294170b3414fcaf60ea77658d3b511bbd0c1ccf4286b04e47d935a16" end
+    return hash(value)
+  end
+  e.ROSTER[1].name,e.ROSTER[1].rankIndex="Fern Melder",0
+  e.GetGuildInfo=function() return "OLYMPUS PRIME","Guild Master",0,realm end
+  e.GetRealmName=function() return realm end
+  for i=2,#e.ROSTER do e.ROSTER[i].rankIndex,e.ROSTER[i].online=9,true end
+  local attempts={}
+  for i=1,2000 do
+    local m=e.ROSTER[(i-1)%1000+1]
+    local at=e.NOW-3000+i
+    attempts[i]={at=at,sentAt=at,name=m.name,guid=m.guid,officer="Fern Melder"}
+  end
+  attempts[1003].acknowledgedAt=e.NOW
+  e.OlympusVerifyDB.initiateReminderHistory={version=1,scope="OLYMPUS PRIME\n"..realm,actor=f.actor,attempts=attempts}
+  local r=e.OlympusVerifyAPI.Roster
+  local read=r.ReminderHistory
+  local probes,copies,copied=0,0,0
+  r.ReminderHistory=function(...)
+    probes=probes+1
+    local records,reason,revision=read(...)
+    if records and #records>0 then copies=copies+1;copied=copied+#records end
+    return records,reason,revision
+  end
+  w.onlineInitiatesButton:Click()
+  w.historyButton:Click()
+  local h=w.historyBox
+  check("1,000-member view and history dialog share one authorized 2,000-attempt snapshot",h.count:GetText():find("2000 recorded attempts",1,true) and copies==1 and copied==2000 and #w.Visible()==999)
+  local firstMatches=h.matches
+  local started=os.clock()
+  for _=1,12 do w.frame:GetScript("OnUpdate")(w.frame,5) end
+  print(string.format("1,000 guild members / 2,000 reminders: 12 visible repaints in %.3fs; %d ledger copies total",os.clock()-started,copies))
+  check("one minute of visible repaints performs no further full ledger copies or history searches",probes>=12 and copies==1 and copied==2000 and firstMatches==h.matches)
+  f.sort("display")
+  local alpha,unlinked
+  for i,m in ipairs(w.Visible()) do
+    if m.name=="Alpha" then alpha=i elseif m.name=="Unlinked" then unlinked=i end
+  end
+  check("a later acknowledgment sorts after a more recent attempt in ascending event-time order",alpha and unlinked and alpha>unlinked)
+  local acknowledged=attempts[#attempts]
+  for _,handler in ipairs(e.FRAMES) do
+    if handler._events and handler._events.CHAT_MSG_WHISPER_INFORM and handler._events.CHAT_MSG_WHISPER then
+      handler:GetScript("OnEvent")(handler,"CHAT_MSG_WHISPER","GOT IT",unpack({[1]=acknowledged.name,[11]=acknowledged.guid},1,11))
+    end
+  end
+  w.Refresh()
+  check("a real matching reply invalidates the shared ledger exactly once and updates history immediately",copies==2 and acknowledged.acknowledgedAt==e.NOW and h.rows[1][5]:GetText()==e.date("%Y-%m-%d %H:%M:%S",e.NOW))
+  local row=w.rows[1]
+  row:GetScript("OnMouseUp")(row,"LeftButton")
+  e.GetGuildInfo=function() return "Other guild","Guild Master",0,realm end
+  w.Refresh()
+  check("lost officer scope clears the last known ledger, row dates and detail copy",h.count:GetText():find("unavailable",1,true) and h.rows[1][1]:GetText()=="" and plain(w.reminderDetail:GetText()):find("unavailable",1,true)
+    and w.rows[1].cells.display:GetText()=="Unavailable" and not w.reminderButton:IsEnabled())
+  w.Hide()
+  local before=probes
+  for _=1,12 do w.frame:GetScript("OnUpdate")(w.frame,5);f.emit("GUILD_ROSTER_UPDATE") end
+  check("closed panel releases the history and performs no reminder reads or sends",not h.log and not h.matches and probes==before and f.attempts==0 and f.reloads==0)
+end
 print(string.format("%d passed, %d failed",passed,failed))
 if failed>0 then error("roster controls failed") end

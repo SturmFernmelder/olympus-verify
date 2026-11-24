@@ -89,6 +89,12 @@ this shortcut. Preview blocks the action without enabling or altering preview mo
 If the exact-recipient editor APIs are unavailable, use the game's whisper UI manually;
 the AddOn does not substitute a slash-parsed partial name or send by another API.
 
+## Online Initiate reminders
+
+Open **Members → Online Initiates** to see every online native Initiate, including verified members. Select a character to see their verification state and previous reminders. **Whisper reminder** sends one private in-game message when fresh Watcher data and the current native roster both support contacting that character. The message directs them to **Get my code** in Discord and explains why verification matters for their guild spot.
+
+**Whisper history** shows the recipient, sending officer, date, time and result on this PC. It includes former members. The attempt time records the officer’s click. The sent time records WoW’s outgoing whisper event. If the same character replies **GOT IT** within 24 hours of that event, the addon records the acknowledgment time. WoW provides no automatic read receipt. A sent or unconfirmed attempt holds repeat reminders to that character for 24 hours. WoW saves up to 2,000 attempts at logout or UI reload.
+
 ## Optional Olympus Guild bridge
 
 The supplied CurseForge link is **Olympus Guild**, project **1708200**, by **dnl_gentile**:

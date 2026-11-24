@@ -62,6 +62,10 @@ Use the qualified, fast-forwarded primary checkout at `C:\Users\vikto\OneDrive\A
 
 The launch scan covers at most 1,000 native roster rows in 50 pages. A scan's original lifetime is at most 600 seconds and never outlives its roster. Each page's Discord role eligibility lasts at most 60 seconds. Examined rows may therefore be stale advisory rows when the scan completes. Reload exports are coalesced only while the same watcher process has a positive trusted receipt for the original complete roster and every native roster field except the export timestamp is byte-identical. The original source date is retained. A valid fresh MAC-bound unseen explicit Scan or selected-character read bypasses this coalescing, passing its newer export through ordinary ingest before its independent witness begins. Any change, missing/uncertain receipt, restart or expiry holds the old scan and follows ordinary ingestion. Whisper/proof and presence ingestion continue normally. No timer promotes, invites, removes a character or sets the MOTD. Native API symbol availability alone does not prove permission or successful hardware behavior.
 
+### Reminding an online Initiate
+
+Open **Members → Online Initiates** and select a character. Check the verification status and **Last reminder** before clicking **Whisper reminder**. The message explains where to verify and invites the recipient to reply **GOT IT**. **Whisper history** keeps dated attempts, outgoing whisper confirmations and matched acknowledgments on the sending PC. This is a separate action from promotion or removal. See the [roster guide](addon-guild-roster-integration.md#online-initiate-reminders).
+
 ## Current operational boundaries
 
 Knight-or-higher means one of the exact nine current Asmongold ladder role IDs; arbitrary higher-position roles confer no entitlement. Linked Knights below Veteran can be recommended for slot 5. Other verified Initiates can be recommended for Member slot 7. Pending, unknown, denied, banned, privacy-held and ambiguous identities are held. Unverified Initiates are a review-only space buffer, ordered by lower level then longer known offline time; there is no automatic purge.
