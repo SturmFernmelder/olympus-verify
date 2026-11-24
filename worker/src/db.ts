@@ -92,17 +92,17 @@ export const getMember = (env: Env, id: string) =>
 export const getCharacter = (env: Env, nameKey: string) =>
   env.DB.prepare("SELECT c.*,s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision FROM characters c LEFT JOIN privacy_subjects s ON s.subject_id=c.discord_id WHERE c.name_key = ?1").bind(nameKey).first<CharacterRow>();
 
-export const openPendingFor = (env: Env, nameKey: string) =>
+export const openPendingFor = (env: Env, nameKey: string, useDatabaseClock = false) =>
   env.DB.prepare(
-    "SELECT p.*,s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision FROM pending p LEFT JOIN privacy_subjects s ON s.subject_id=p.discord_id WHERE p.name_key=?1 AND p.consumed_at IS NULL AND p.expires_at>?2 ORDER BY p.id DESC LIMIT 1",
+    "SELECT p.*,s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision FROM pending p LEFT JOIN privacy_subjects s ON s.subject_id=p.discord_id WHERE p.name_key=?1 AND p.consumed_at IS NULL AND p.expires_at>COALESCE(?2,CAST(strftime('%s','now') AS INTEGER)) ORDER BY p.id DESC LIMIT 1",
   )
-    .bind(nameKey, now())
+    .bind(nameKey, useDatabaseClock ? null : now())
     .first<PendingRow>();
 
 /** The open request code with this nonce (unique among open requests by construction), or null. */
-export const openTicket = (env: Env, nonce: string) =>
-  env.DB.prepare("SELECT p.*,s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision FROM pending p LEFT JOIN privacy_subjects s ON s.subject_id=p.discord_id WHERE p.nonce=?1 AND p.consumed_at IS NULL AND p.expires_at>?2 ORDER BY p.id DESC LIMIT 1")
-    .bind(nonce, now())
+export const openTicket = (env: Env, nonce: string, useDatabaseClock = false) =>
+  env.DB.prepare("SELECT p.*,s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision FROM pending p LEFT JOIN privacy_subjects s ON s.subject_id=p.discord_id WHERE p.nonce=?1 AND p.consumed_at IS NULL AND p.expires_at>COALESCE(?2,CAST(strftime('%s','now') AS INTEGER)) ORDER BY p.id DESC LIMIT 1")
+    .bind(nonce, useDatabaseClock ? null : now())
     .first<PendingRow>();
 
 /** This account's open request code, so pressing Verify twice shows the same code instead of minting another. */

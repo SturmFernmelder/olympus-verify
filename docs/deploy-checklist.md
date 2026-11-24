@@ -8911,3 +8911,7 @@ Ship Verify 0.6.48 and Watcher 0.6.45. Check whisper intake, fresh and expired p
 ## 24 November 2026 — .304 online Initiate verification reminders
 
 Ship Verify 0.6.49 with the existing 0.6.45 Watcher. In Members, check the online Initiate filter against native rank and presence. Verify that the officer can address one currently unverified character, that a dated outgoing whisper and an optional matching GOT IT reply have separate outcomes, and that history survives a normal UI reload. Use a consenting recipient for live acceptance. To roll back, redeploy .303 and restore the 0.6.48 public addon files. Preserve the officer’s SavedVariables, including reminder history.
+
+## 24 November 2026 — .305 automatic whisper verification
+
+Qualify new whisper tickets through the authenticated Watcher route with the Worker clock ahead of and behind D1. Check the acknowledgment, ticket consumption and single character link, including ticket expiry, duplicate delivery and the ten-minute handoff for signed delayed whispers. Verify the deployed Worker and distinguish a new live automatic link from an earlier officer recovery. To roll back, redeploy the accepted .304 Worker. Preserve the original whispers, receipts and D1 records.
