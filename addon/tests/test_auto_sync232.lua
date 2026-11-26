@@ -17,18 +17,37 @@ local function fixture(saved)
   e.OlympusLaunch229={ArmReadyReview=function() return true end,CancelReadyReview=function() end}
   e.OlympusVerifyAPI={AutoSyncFacts=function() return f.valid and {strict=true,exportedAt=f.wall,digest=f.digest} or nil end,
     ExportRoster=function() f.exports=f.exports+1 end,
-    Sync=function() f.reloads=f.reloads+1;e.OlympusVerifyAutoSync.RecordSync();if f.refuse then error("synthetic refusal") end;if f.blocked then f.event("ADDON_ACTION_BLOCKED") end end}
+    FlushAndReload=function() f.reloads=f.reloads+1;e.OlympusVerifyAutoSync.RecordSync();if f.refuse then error("synthetic refusal") end;if f.blocked then f.event("ADDON_ACTION_BLOCKED") end end}
   setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyAutoSync.lua")),e)()
-  f.a=e.OlympusVerifyAutoSync;f.event=function(event) f.a.frame:GetScript("OnEvent")(f.a.frame,event) end
+  f.a=e.OlympusVerifyAutoSync
+  e.OlympusVerifyAPI.Sync=function() return f.a.HardwareSync() end
+  f.event=function(event) f.a.frame:GetScript("OnEvent")(f.a.frame,event) end
   f.event("PLAYER_LOGIN");f.event("PLAYER_ENTERING_WORLD")
   f.advance=function(n) f.wall=f.wall+n;f.clock=f.clock+n end
   return f
 end
 do
+  local f=fixture()
+  local e=f.e
+  setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyWorkspace.lua")),e)()
+  local page=e.CreateFrame("Frame",nil,e.UIParent)
+  page:Hide()
+  e.OlympusVerifyWorkspace.Attach("operations",page)
+  e.OlympusVerifyWorkspace.Activate("operations")
+  f.a.Request("whisper")
+  check("floating Sync appears while the officer workspace is closed",f.a.button:IsShown())
+  page:Show()
+  check("opening the workspace immediately replaces floating Sync with its single tab control",not f.a.button:IsShown() and page.syncButton:GetText()=="Sync" and f.reloads==0)
+  page:Hide()
+  check("closing the workspace restores the pending Sync without taking an action",f.a.button:IsShown() and f.reloads==0)
+  page:Show();page.syncButton:GetScript("OnClick")(page.syncButton,"LeftButton")
+  check("workspace Sync records one requested exchange while the floating action stays hidden",f.a.Status().requested and f.reloads==1 and not f.a.button:IsShown())
+end
+do
   local f=fixture({autoSync232={enabled=true}})
   f.a.Request("whisper");f.advance(120);f.a.Tick();f.advance(10000);f.a.Tick()
   check("retired enabled timer preference never reloads",f.reloads==0 and f.a.Status().mode=="hardware-pending")
-  check("valid pending proof shows compact hardware alert",f.a.Status().pending and f.a.button:IsShown() and f.a.button:GetText():find("Pending Verification Sync",1,true))
+  check("valid pending proof shows compact hardware alert",f.a.Status().pending and f.a.button:IsShown() and f.a.button:GetText():match("^Sync\n"))
   check("pending burst produces one bounded chime",f.chimes==1)
   f.a.Request("whisper");f.a.Tick();check("duplicate pending events do not multiply chimes or reloads",f.chimes==1 and f.reloads==0)
   f.a.button:GetScript("OnClick")(f.a.button,"RightButton");check("right click does not sync",f.reloads==0)
@@ -51,8 +70,14 @@ do
   local point,_,_,x,y=next.a.button:GetPoint();check("movable alert restores reviewed position",point=="CENTER" and x==123 and y==-45)
 end
 do
-  local f=fixture();f.a.RecordSync();f.a.Request("whisper");f.advance(180);f.a.Tick()
-  check("periodic native refresh only signals pending hardware work",f.a.Status().pending and f.reloads==0)
+  local f=fixture();f.a.RecordSavedRoster();local after=fixture(f.e.OlympusVerifyDB)
+  after.advance(1800);after.a.Tick()
+  check("natural logout suppresses an unchanged roster prompt without claiming a Sync request",not after.a.Status().pending and not after.a.Status().lastRequestedAt)
+  after.digest="temporary-rank";after.a.NativeChanged();after.digest="initial";after.a.NativeChanged()
+  check("a reverted rank change clears a roster-only alert",not after.a.Status().pending and after.reloads==0)
+  after.a.Request("whisper");after.digest="different";after.a.NativeChanged();after.digest="initial";after.a.NativeChanged()
+  check("rank reversion cannot clear a real pending whisper",after.a.Status().pending and after.reloads==0)
+  after.a.Request("whisper");check("whisper bursts reuse current native data",after.exports==0)
 end
 for _,event in ipairs({"TRADE_SHOW","MAIL_SHOW","BANKFRAME_OPENED","GUILDBANKFRAME_OPENED","AUCTION_HOUSE_SHOW","MERCHANT_SHOW","CINEMATIC_START","LOADING_SCREEN_ENABLED"}) do
   local f=fixture();f.a.Request("whisper");f.event(event);f.a.Tick()
@@ -105,7 +130,7 @@ do
   local event=e.OlympusVerifyFrame:GetScript("OnEvent");event(e.OlympusVerifyFrame,"ADDON_LOADED","OlympusVerify")
   setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyAutoSync.lua")),e)()
   local a=e.OlympusVerifyAutoSync;a.frame:GetScript("OnEvent")(a.frame,"PLAYER_LOGIN");a.frame:GetScript("OnEvent")(a.frame,"PLAYER_ENTERING_WORLD")
-  e.OlympusVerifyAPI.ExportRoster(true);a.RecordSync();a.frame:GetScript("OnEvent")(a.frame,"PLAYER_LEAVING_WORLD")
+  e.OlympusVerifyAPI.ExportRoster(true);a.RecordSavedRoster();a.frame:GetScript("OnEvent")(a.frame,"PLAYER_LEAVING_WORLD")
   a.frame:GetScript("OnEvent")(a.frame,"PLAYER_ENTERING_WORLD")
   event(e.OlympusVerifyFrame,"CHAT_MSG_WHISPER","!verify AAAAAA","Fresh Member",nil,nil,nil,nil,nil,nil,nil,nil,nil,"Player-1-ABCDEF12")
   check("invalid whisper cannot create a fresh pending proof",not e.OlympusVerifyDB.verificationExchange or e.OlympusVerifyDB.verificationExchange.phase~="sync-needed")
@@ -113,6 +138,8 @@ do
   event(e.OlympusVerifyFrame,"CHAT_MSG_WHISPER","!verify "..code,"Fresh Member",nil,nil,nil,nil,nil,nil,nil,nil,nil,"Player-1-ABCDEF12")
   check("genuine main native proof arms alert without timer reload",a.Status().pending and e.OlympusVerifyDB.verificationExchange.phase=="sync-needed" and reloads==0)
   a.Tick();check("actual main/module timer remains non-dispatching",reloads==0)
+  e.SlashCmdList.OLYMPUSVERIFY("sync");e.OlympusVerifyAPI.Sync();e.OlympusVerify_Sync()
+  check("typed Sync, panel API and keybind coalesce into one real reload",reloads==1 and a.Status().requested)
 end
 do
   local f=fixture()
@@ -138,7 +165,7 @@ for _,bad in ipairs({"yesterday",0,-1,1793935001,math.huge}) do
   check("invalid or future persisted request clocks stay unavailable: "..tostring(bad),f.a.Status().lastRequestedAt==nil and f.a.Status().capturedRosterAt==nil)
 end
 do
-  local f=fixture();f.a.Request("whisper");f.e.OlympusVerifyAPI.Sync=function() return false end
+  local f=fixture();f.a.Request("whisper");f.e.OlympusVerifyAPI.FlushAndReload=function() return false end
   check("explicit Sync refusal is not a successful request",not f.a.HardwareSync() and f.a.Status().held:find("client refused",1,true))
   f=fixture();f.e.OlympusVerifyAPI.Roster={DisplayFacts=function() error("synthetic unreadable display") end}
   check("unavailable display does not fabricate loaded dates",f.a.Status().loadedListAt==nil and f.a.Status().displayState=="unavailable")
@@ -176,13 +203,13 @@ do
   local a=e.OlympusVerifyAutoSync;local on=a.frame:GetScript("OnEvent");on(a.frame,"PLAYER_LOGIN");on(a.frame,"PLAYER_ENTERING_WORLD")
   local code=e.OlympusHmac.codeFor(e.OlympusVerifyConfig.secret,"New Initiate",e.OlympusHmac.utcDay(e.NOW))
   event(core,"CHAT_MSG_WHISPER","!verify "..code,"New Initiate",nil,nil,nil,nil,nil,nil,nil,nil,nil,"Player-1-ABCDEF12")
-  check("normal game whisper enters the private pending path through the real native capture",a.button:GetText():find("Export Initiate verification",1,true)
+  check("normal game whisper enters the private pending path through the real native capture",a.button:GetText():match("^Sync\nInitiate verification waiting")
     and e.OlympusVerifyDB.primeInitiateNotices.whispers["Player-1-ABCDEF12"]==e.NOW and not a.readyButton and reloads==0)
 end
 do
   local f=fixture();f.a.Request("whisper");f.a.OfferInitiateImport()
-  check("local pending notice asks the officer to export before Windows can confirm readiness",f.a.button:GetText():find("Export Initiate verification",1,true)
-    and f.a.button:GetText():find("send the proof",1,true) and table.concat(f.a.Description()," "):find("/olv ready sync",1,true)
+  check("local pending notice asks the officer to export before Windows can confirm readiness",f.a.button:GetText():match("^Sync\nInitiate verification waiting")
+    and f.a.button:GetText():find("Click once when safely idle",1,true) and table.concat(f.a.Description()," "):find("/olv ready sync",1,true)
     and not f.a.readyButton and f.reloads==0)
   f.e.UnitChannelInfo=function() return "Fishing" end
   f.a.button:GetScript("OnClick")(f.a.button,"LeftButton",false)

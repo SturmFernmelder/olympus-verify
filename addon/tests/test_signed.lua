@@ -274,10 +274,14 @@ check("  and /olv unverified says what that means", lastPrint("2 request codes a
 
 print("\n== Sync & reload ==")
 local before = RELOADS
-API.Sync()
-check("Sync exports the roster and reloads, once", RELOADS, before + 1)
+check("Sync holds when its safety module is missing", API.Sync() == false and RELOADS == before, true)
+OlympusVerifyAutoSync = {}
+check("Sync holds when the safety module loaded only partly", API.Sync() == false and RELOADS == before, true)
+assert(loadfile("../OlympusVerify/OlympusVerifyAutoSync.lua"))("OlympusVerify", {})
 SlashCmdList.OLYMPUSVERIFY("sync")
-check("  and so does /olv sync", RELOADS, before + 2)
+check("the supported Sync exports and requests one reload", RELOADS, before + 1)
+API.Sync()
+check("a second button click in the same UI session is coalesced", RELOADS, before + 1)
 
 print(string.format("\n%d/%d passed", tests - fails, tests))
 os.exit(fails == 0 and 0 or 1)

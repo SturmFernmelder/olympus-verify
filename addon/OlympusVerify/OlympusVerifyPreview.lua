@@ -623,7 +623,7 @@ function Fake.Sync()
 end
 
 function Fake.FlushChatLog()
-  Say("would restart chat logging. That does not guarantee a disk flush; Sync & reload is the documented exchange. Chat logging was not touched.")
+  Say("would restart chat logging. That does not guarantee a disk flush; Sync saves pending changes and reloads once. Chat logging was not touched.")
   Refresh()
 end
 

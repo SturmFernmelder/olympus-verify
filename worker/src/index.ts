@@ -66,7 +66,7 @@ import { handleIntros, INTROS, INTROS_COMMAND, parseChannels } from "./intros";
 import { handleSite } from "./site";
 import { apiJson, rateLimited, siteAdmins, siteHost, siteLegacyHosts, securityHeaders } from "./site-core";
 import {botResponse280} from "./bot-response280";
-import { handleLookup, isAsmongoldLookup, LOOKUP_COMMAND } from "./lookup";
+import { handleLookup, handleMemberProfile, isAsmongoldLookup, LOOKUP_COMMAND, PROFILE_COMMAND } from "./lookup";
 import { recordNames, refreshNames, verifiedOnRoster } from "./names";
 import {captureSiteOAuthOrigin,type SiteOAuthOrigin} from './privacy-serving-site-oauth';
 import {captureServingSiteMeOrigin,dispatchServingSiteMe,siteMeServingMode,type SiteMeOrigin} from './privacy-serving-site-me';
@@ -79,7 +79,7 @@ import { runEventReminders } from "./community-event-reminders";
 import { sweepCommunityTrials } from "./community-trials";
 import { sweepCommunityRestrictions } from "./community-restrictions";
 import { departureIntake, sweepCommunityDepartures } from "./community-departures";
-import { openWeeklyObligations, sweepCommunityContributions } from "./community-contributions";
+import { sweepCommunityContributions } from "./community-contributions";
 import { sweepCommunityPrivacy } from "./community-privacy-intake";
 import { runOfficerDigest } from "./community-digest";
 import { communityFeatures } from "./community-context";
@@ -461,8 +461,7 @@ export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionConte
     // .70: departure review items: the intake only while the flag is on, the purge always
     if (communityFeatures(env).has("departures")) deferOriginalServing(ctx,'departureIntake',()=>departureIntake(env).catch((e) => console.error("community departures intake failed", errorRef(e))));
     deferOriginalServing(ctx,'sweepCommunityDepartures',()=>sweepCommunityDepartures(env).catch((e) => console.error("community departures sweep failed", errorRef(e))));
-    // .75: the contribution ledger: this week's obligations only while the flag is on and the ledger writable, the retention purge always
-    if (communityFeatures(env).has("contributions")) deferOriginalServing(ctx,'openWeeklyObligations',()=>openWeeklyObligations(env).catch((e) => console.error("community contributions opener failed", errorRef(e))));
+    // Voluntary contributions retain the existing historical-record expiry sweep.
     deferOriginalServing(ctx,'sweepCommunityContributions',()=>sweepCommunityContributions(env).catch((e) => console.error("community contributions sweep failed", errorRef(e))));
     deferOriginalServing(ctx,'sweepCommunityPrivacy',()=>sweepCommunityPrivacy(env).catch((e) => console.error("community privacy intake sweep failed", errorRef(e)))); // .82: expired private cases, always
     // .115: notices and their operation records past their time, always, whatever the switch says; then the News counts, at
@@ -499,7 +498,7 @@ export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionConte
 const STORED_RESPONSE_MAX = 32 * 1024;
 
 /** Commands with nothing to protect from a repeat: they read and answer. `/olympus-admin lookup` is the one read-only subcommand. */
-const READ_ONLY_COMMANDS: ReadonlySet<string> = new Set(["verify-status", "olympus-status", "olympus-unlink", "olympus-privacy", LOOKUP_COMMAND, USER_MENU_LOOKUP]);
+const READ_ONLY_COMMANDS: ReadonlySet<string> = new Set(["verify-status", "olympus-status", "olympus-unlink", "olympus-privacy", LOOKUP_COMMAND, PROFILE_COMMAND, USER_MENU_LOOKUP]);
 const READ_ONLY_ADMIN: ReadonlySet<string> = new Set(["lookup"]);
 export function isReadOnly(i: Interaction): boolean {
   if (i.type !== 2) return false;
@@ -617,6 +616,7 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
         try{deferOriginalServing(ctx,'interaction_names',()=>registerHandlerInteractionNames(namesOrigin,privacyActor,privacyCapture,body).catch(()=>{}));}catch{}
       }
       // Lookups in Asmongold's server, routed ahead of the "only serves Olympus" guard like the intros (lookup.ts).
+      if (i.type===2 && i.data?.name===PROFILE_COMMAND) return handleMemberProfile(env,i,Number(request.headers.get('X-Signature-Timestamp')),ctx?work=>deferOriginalServing(ctx,'interaction_member_profile',work):undefined);
       if (isAsmongoldLookup(env, i)) return await handleLookup(env, i);
       // Build .39: the channel intros live in INTROS_GUILD_ID (Asmongold's server) while verification still serves
       // GUILD_ID, so this is routed ahead of handleInteraction's "only serves Olympus" guard; intros.ts checks the guild.
@@ -813,7 +813,7 @@ async function freshRegistrationRefused(env: Env, trigger: string): Promise<void
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-11-24.306 Discord handles for verified guild members";
+const BUILD = "2026-11-26.307 Guild rosters and officer workspace";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a

@@ -138,17 +138,17 @@ do
   -- review) made the button check only the first twenty shown rows and keep the view.
   local f=fixture();local requested
   f.q.SelectMany=function(ids) requested=ids;return true end
-  f.w.batchButton:Click()
+  f.w.RequestVerifiedInitiates()
   local seen={};for _,id in ipairs(requested or {}) do seen[id]=true end
   check("batch button checks every shown verified Initiate including unsigned candidates",requested and #requested==3 and seen["Player-1-0000B001"] and seen["Player-1-0000B002"] and seen["Player-1-0000B003"])
-  requested=nil;f.search("Zulu");f.choose(f.w.onlineButton,3);f.w.batchButton:Click()
+  requested=nil;f.search("Zulu");f.choose(f.w.onlineButton,3);f.w.RequestVerifiedInitiates()
   check("batch button checks only the shown rows, keeps the officer's filters and never directly promotes",requested and #requested==1 and requested[1]=="Player-1-0000B001"
     and f.names()=="Zulu" and f.attempts==0 and #f.promotions==0 and f.removals==0 and f.invites==0)
   f=reviewFixture();requested=nil;f.q.SelectMany=function(ids) requested=ids;return true end
-  f.w.batchButton:Click()
+  f.w.RequestVerifiedInitiates()
   check("batch button excludes prior-record and review identities",requested and #requested==1 and requested[1]=="Player-1-0000B003")
   f=fixture();requested=nil;f.q.SelectMany=function(ids) requested=ids;return true end
-  f.e.NOW=f.e.NOW+3601;f.w.batchButton:Click()
+  f.e.NOW=f.e.NOW+3601;f.w.RequestVerifiedInitiates()
   check("stale display cannot request an Initiate batch",requested==nil and f.reloads==0 and f.attempts==0)
 end
 
@@ -182,10 +182,6 @@ do
   f.w.ShowReadyInitiates()
   check("ready alert opens the signed native Initiates view and clears stale filters",f.w.view.initiates and f.w.view.action==2 and f.w.view.text==""
     and f.w.view.presence==1 and f.w.view.class==0 and #f.w.Visible()>0 and f.attempts==0 and f.reloads==0)
-  local guarded=0;f.e.OlympusVerifyAutoSync={HardwareSync=function(guard) if guard==true then guarded=guarded+1 end end}
-  f.w.importButton:Click()
-  check("ready roster offers guarded import without a preceding whisper or a promotion",f.w.importButton:IsShown() and not f.w.batchButton:IsShown()
-    and guarded==1 and f.attempts==0)
 end
 do
   local f=fixture()
@@ -278,7 +274,7 @@ do
   check("expired verification leaves the native online Initiates in view",f.names()=="Alpha,Pending" and not f.w.reminderButton:IsEnabled())
 end
 do
-  local f=fixture(1000)
+  local f=fixture(1000,"Fern Melder")
   local e,w=f.e,f.w
   local realm="CAMWOW US2 Realm 3 PvE"
   local hash=e.OlympusHmac.sha256hex
@@ -340,6 +336,86 @@ do
   local before=probes
   for _=1,12 do w.frame:GetScript("OnUpdate")(w.frame,5);f.emit("GUILD_ROSTER_UPDATE") end
   check("closed panel releases the history and performs no reminder reads or sends",not h.log and not h.matches and probes==before and f.attempts==0 and f.reloads==0)
+end
+do
+  local f=fixture();local w,e=f.w,f.e
+  w.statusButton:Click()
+  w.menu.items[2].tick:Click();w.menu.items[4].tick:Click()
+  check("checkbox states combine within verification and keep the menu open",w.menu:IsShown() and f.names()=="Alpha,NameOnly,Pending,Zulu")
+  f.choose(w.rankButton,"Initiate");f.choose(w.onlineButton,2)
+  check("checkbox union intersects other filters",f.names()=="Alpha,Pending")
+  w.clearButton:Click();f.sort("rank")
+  e.IsShiftKeyDown=function()return true end;f.sort("level")
+  check("shift-click adds an independent secondary sort",w.view.sort=="rank" and w.view.secondary=="level"
+    and f.names()=="Officer,Member,Knight,NameOnly,Unlinked,Zulu,Pending,Alpha")
+  e.IsShiftKeyDown=function()return false end
+  w.ShowInactive()
+  check("inactivity list starts with seven offline days",f.names()=="NameOnly" and w.inactiveFilter:IsShown())
+  f.choose(w.inactiveFilter,3)
+  check("inactivity duration is inclusive and excludes online members",f.names()=="NameOnly,Zulu")
+  local r=w.rows[1];r:GetScript("OnMouseUp")(r,"LeftButton")
+  e.CanGuildRemove=function() return true end
+  local opened
+  e.ChatFrame_OpenChat=function(text)opened=text end
+  check("single eligible current GUID prepares only an unsent native command",w.ReviewRemoval() and opened=="/guildremove NameOnly-Forever" and f.removals==0)
+  opened=nil
+  local officerGuid=e.UnitGUID
+  e.UnitGUID=function() return "" end
+  check("an unreadable officer GUID cannot prepare a removal",not w.ReviewRemoval() and not opened)
+  e.UnitGUID=officerGuid
+  e.CanGuildRemove=function()return false end
+  check("missing removal permission never opens a command",not w.ReviewRemoval() and not opened)
+  e.CanGuildRemove=function()return true end;e.ROSTER[4].onote="hold";opened=nil
+  check("new hold note wins over old selection",not w.ReviewRemoval() and not opened)
+  e.ROSTER[4].onote="";e.ROSTER[4].guid="Player-1-0000CFFF"
+  check("same visible name with a different GUID cannot inherit the removal",not w.ReviewRemoval() and not opened)
+  w.ShowRoster()
+  check("Roster restores the officer's original sort when exiting inactivity",not w.view.inactiveDays and w.view.sort=="rank" and w.view.secondary=="level")
+  check("using the inactivity view makes zero guild or Discord changes",f.removals==0 and f.invites==0 and f.attempts==0)
+end
+do
+  local f=fixture();local e=f.e
+  local function loadPart(name) setfenv(assert(loadfile("../OlympusVerify/"..name..".lua")),e)("OlympusVerify") end
+  loadPart("OlympusVerifyGuildJournal")
+  local j=e.OlympusVerifyGuildJournal
+  e.OlympusVerifyAPI.ExportRoster();j.ObserveRoster()
+  local id=e.ROSTER[3].guid
+  check("first-seen is recorded from the current roster without inventing a join",j.FirstSeen(id)==e.NOW and j.LatestJoin(e.ROSTER[3].name)==nil)
+  local sample={{"invite","Officer","Alpha",""},{"join","Alpha",nil,nil},{"promote","Officer","Alpha","Member"},{"remove",nil,"Former",nil}}
+  e.QueryGuildEventLog=function()end;e.GetNumGuildEvents=function()return #sample end
+  e.GetGuildEventInfo=function(i)local v=sample[i];return v[1],v[2],v[3],v[4],0,0,1,2 end
+  j.Request();f.emit("GUILD_EVENT_LOG_UPDATE")
+  local lines=table.concat(j.Read("Alpha")," / ")
+  check("guild log attributes native actor and keeps join independent",#j.Read("Alpha")==3 and lines:find("Officer invited Alpha",1,true)
+    and lines:find("Officer promoted Alpha",1,true) and lines:find("Alpha joined",1,true) and j.LatestJoin("Alpha") and not j.LatestJoin("Alpha-Elsewhere"))
+  check("absent actor stays unknown on a recorded removal",#j.Read("Former")==1 and j.Read("Former")[1]:find("officer unknown",1,true))
+  e.NOW=e.NOW+120;j.Request();f.emit("GUILD_EVENT_LOG_UPDATE")
+  check("repeated native log with coarse elapsed age keeps original events",#j.Read("")==4)
+  e.GetGuildInfo=function()return "Other Guild","Guild Master",0 end
+  check("another guild cannot read the local PRIME journal",#j.Read("")==0 and j.FirstSeen(id)==nil)
+end
+do
+  local f=fixture();local e=f.e
+  f.w.Hide();e.OlympusVerifyRoster=nil
+  for _,module in ipairs({"OlympusVerifyWorkspace","OlympusVerifyUI","OlympusVerifyGuildJournal","OlympusVerifyRoster"}) do
+    setfenv(assert(loadfile("../OlympusVerify/"..module..".lua")),e)("OlympusVerify")
+  end
+  local w,ui,s=e.OlympusVerifyRoster,e.OlympusVerifyUI,e.OlympusVerifyWorkspace
+  ui.Show();w.Show()
+  check("both officer pages share one shell with only the selected page visible",
+    ui.panel._parent==s.shell and w.frame._parent==s.shell and not ui.panel:IsShown() and w.frame:IsShown())
+  local syncs=0;e.OlympusVerifyAPI.Sync=function() syncs=syncs+1 end
+  check("roster offers the shared Sync and retires duplicate action buttons",s.IsShown() and s.pages.roster.syncButton and not w.selectButton and not w.batchButton and not w.importButton)
+  s.pages.roster.syncButton:Click()
+  check("common roster Sync calls exactly one officer hardware transition",syncs==1 and f.attempts==0)
+  ui.Alert()
+  check("background officer alerts preserve an open working roster",s.active=="roster" and w.frame:IsShown() and not ui.panel:IsShown())
+  w.ShowActivity()
+  check("guild activity view opens inside the roster shell",w.activity._parent==w.frame and w.activity:IsShown())
+  e.InCombatLockdown=function()return true end;ui.Show()
+  check("switching pages cannot hide a protected roster in combat",s.active=="roster" and w.frame:IsShown())
+  e.InCombatLockdown=function()return false end;ui.Show()
+  check("return to Operations hides the roster and preserves a single visible page",s.active=="operations" and ui.panel:IsShown() and not w.frame:IsShown())
 end
 print(string.format("%d passed, %d failed",passed,failed))
 if failed>0 then error("roster controls failed") end

@@ -82,7 +82,7 @@ export const EFFECT_WORST = { promote: 20, note: 22, depart: 7 } as const;
 /** Durable central roles and bot-qualified message custody replace the old direct effects. Root's
  * joined gate must measure these envelopes against the exact composed central source before ON. */
 export const SERVING_EFFECT_WORST = {promote:40,note:42,depart:44} as const;
-export function effectWorst(env:Env){return env.PRIVACY_ERASURE_ENABLED==='true'||membershipTransitionEnabled(env)?SERVING_EFFECT_WORST:EFFECT_WORST;}
+export function effectWorst(env:Env){return env.PRIVACY_ERASURE_ENABLED==='true'||membershipTransitionEnabled(env)||!!env.CANONICAL_RANKS233?SERVING_EFFECT_WORST:EFFECT_WORST;}
 /**
  * The same when the run's Discord-call budget can no longer afford a grant (roles.ts affords(calls, GRANT_CALLS) is false):
  * the writer returns "budget" before any read, writing role.budget_exhausted at most once (counted here each time), and the

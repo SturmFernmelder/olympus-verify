@@ -1,6 +1,5 @@
-/** Event participation only. This never establishes a character or guild rank.
- * Ordinary participant SQL remains unchanged when the production owner is not
- * configured. The exception retains current account, ban and erasure checks. */
+/** Both calendar surfaces exclude retiring participants from rosters and counts.
+ * The production owner's exception still requires current account and ban checks. */
 import type { Env } from './env';
 import { qualifiesSql } from './community-context';
 import { discordCommandOwner225, DISCORD_BOT_OWNER_225 } from './discord-command-owner225';
@@ -11,7 +10,7 @@ export function eventOwnerEnabled226(env: Env): boolean {
 }
 
 export function eventParticipantSql226(env: Env, id: string): string {
-  const member = qualifiesSql(id);
+  const member = `(${qualifiesSql(id)} AND ${privacySubjectWritableSql(id)})`;
   if (!eventOwnerEnabled226(env)) return member;
   return `(((${member}) OR (${id}='${DISCORD_BOT_OWNER_225}'
     AND EXISTS(SELECT 1 FROM site_users eo226 WHERE eo226.discord_id=${id} AND eo226.in_server=1 AND eo226.denied=0)

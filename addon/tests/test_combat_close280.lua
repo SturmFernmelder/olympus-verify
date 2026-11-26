@@ -77,7 +77,7 @@ local function fixture(opts)
   -- A reload during combat: the client loads the addon while lockdown is on.
   if opts.combat then e.MOCK_COMBAT, e.MOCK_LOCKDOWN = true, true end
   -- TOC order: core, roster model, roster window, then the launch module.
-  load("OlympusVerifyNativeRanks.lua"); load("OlympusVerify.lua"); load("OlympusVerifyRosterModel.lua"); load("OlympusVerifyRoster.lua"); load("OlympusVerifyLaunch229.lua")
+  load("OlympusVerifyNativeRanks.lua"); load("OlympusVerify.lua"); load("OlympusVerifyAutoSync.lua"); load("OlympusVerifyRosterModel.lua"); load("OlympusVerifyRoster.lua"); load("OlympusVerifyLaunch229.lua")
   e.MockFireEvent("ADDON_LOADED", "OlympusVerify")
   f.q, f.w = e.OlympusLaunch229, e.OlympusVerifyRoster
   function f.emit(event, ...) e.MockFireEvent(event, ...) end

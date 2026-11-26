@@ -29,6 +29,10 @@ const PUBLIC_ROLE_BINDINGS = [
 ] as const;
 const ENV_KEYS = ['DB', 'COOKIE_SECRET', 'DISCORD_BOT_TOKEN', 'DISCORD_APP_ID', 'SITE_ADMINS', 'GUILD_ID', 'SITE_GUILD_ID', 'CANONICAL_RANKS233', 'QR_NATIVE_ROLE_MAP', 'FULL_RELEASE_ROLES', 'TREASURY_COSMETIC_ROLES', ...PUBLIC_ROLE_BINDINGS.map(r => r[0])] as const;
 const VISIBILITY_KEY = 'discordDirectoryHidden';
+// A character roster must also respect the existing directory opt-outs.
+export function directoryOptOutsSql(): string {
+  return `SELECT ${hiddenValue} AS value FROM site_settings ds WHERE ds.key='${VISIBILITY_KEY}'`;
+}
 const hiddenValue = `CASE WHEN NOT json_valid(ds.value) THEN json_extract('discord_directory_visibility_unconfirmed','$') WHEN json_type(ds.value)<>'object' OR (SELECT COUNT(*) FROM json_each(ds.value))<>(SELECT COUNT(DISTINCT key) FROM json_each(ds.value)) OR EXISTS(SELECT 1 FROM json_each(ds.value) hidden WHERE length(hidden.key) NOT BETWEEN 17 AND 20 OR hidden.key GLOB '*[^0-9]*' OR hidden.type<>'text' OR (hidden.value<>'discord-only-optout-v1' AND (length(hidden.value)<>32 OR hidden.value GLOB '*[^0-9a-f]*'))) THEN json_extract('discord_directory_visibility_unconfirmed','$') ELSE ds.value END`;
 function publicRoles(env: Env): readonly (readonly [string, string])[] {
   const canonical=captureCanonicalRankConfig233(env);

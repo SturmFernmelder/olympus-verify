@@ -2,17 +2,17 @@
 import { membershipSettlementEnabled,membershipTransitionEnabled } from './membership-role-transition';
 import type { Env } from "./env";
 import { audit, linksNotBefore, now,type PrivacyReference } from "./db";
-import { intVar, officerRankNames, rankCheckExempt, staffChannel, staffRoles } from "./env";
+import { intVar, officerRankNames, officerRoles, rankCheckExempt, staffChannel, staffRoles } from "./env";
 import { normalizeCharacter } from "./codes";
 import { recordPrimeBinding, type PrimeRosterBinding } from './prime-realm-binding';
-import { explainDiscordError, guildMember, logLine, postMessage, removeRole, setNickname, staffNotice } from "./discord";
+import { explainDiscordError, guildMember, logLine, postMessage, removeRole, rest, setNickname, staffNotice } from "./discord";
 import { grantMemberRole, callBudget, affords, GRANT_CALLS, type CallBudget, type GrantOutcome } from "./roles";
 import type { OriginalConsumedMembership230 } from './ingest';
 import {captureCanonicalRankConfig233} from './canonical-ranks233';
 import {captureBetaRoleDispatch,betaRoleDispatchHeld,type BetaRoleDispatch} from './beta-reset-policy';
 import type { RemovalDispatch } from './role-settlements';
 import { flushNotices, notify, noticeBatch, type NoticeBatch } from "./dm";
-import { prepareRosterCronNotice,parseRosterCronNotice,settleRosterCronNotice } from './privacy-provider-messages';
+import { prepareRosterCronNotice,parseRosterCronNotice,settleRosterCronNotice,messageOperationId,postPrivacyMessage } from './privacy-provider-messages';
 import { errorRef } from "./log";
 import { PRIVACY_DB_NOW,privacyProviderCustodyDatabase,privacyCaptureFromColumns,privacyGenerationExpressionFenceSql,privacyGenerationFenceSql,privacyGenerationLiteralFenceSql,readPrivacySubject,type PrivacySubject } from './privacy-serving-authority';
 import { ROSTER_INGEST_STATEMENTS, ROSTER_SYNC_STATEMENTS, SCHEDULED_CAPS } from "./scheduled-budget";
@@ -1064,9 +1064,22 @@ async function afterDeparture(env: Env, discordId: string, name: string, how: st
   if(!remaining?.current)return;
   const last = (remaining?.n ?? 0) === 0;
   let removed=false;
+  let canonicalRemoval: 'queued' | 'held' | 'unknown' | null = null;
   let kept: string[] = [];
   if (last) {
-    if (env.ROLE_GUILD_MEMBER) {
+    const canonical = captureCanonicalRankConfig233(env);
+    if (canonical.present) {
+      // The legacy Member target is not the active canonical ladder. This is
+      // scheduling only: the existing issuer rechecks current full-roster absence,
+      // verified alts, generation, owned grants and any spent/unknown operation.
+      canonicalRemoval = 'held';
+      if (canonical.mode === 'enabled' && canonical.current()) {
+        const { requestRoleReconciliation242 } = await import('./role-reconcile242');
+        const request = await requestRoleReconciliation242(env, discordId, 'guild_departure', capture);
+        canonicalRemoval = request.kind === 'created' || request.kind === 'already_pending' ? 'queued'
+          : request.kind === 'unknown' ? 'unknown' : 'held';
+      }
+    } else if (env.ROLE_GUILD_MEMBER) {
       try {
         const central=await import('./roles') as unknown as {settleGuildDepartureRole?:(env:Env,subject:string,capture:{subjectGeneration:string|null},budget?:undefined,removal?:RemovalDispatch)=>Promise<{state:string;reason?:string}>};
         if(!membershipSettlementEnabled(env)){
@@ -1095,7 +1108,8 @@ async function afterDeparture(env: Env, discordId: string, name: string, how: st
       await audit(env, "system", "roles.read_failed", name, { discordId, error: String(e) },reference);
     }
   }
-  await audit(env, "system", opts.space ? "roster.freed_seat" : "roster.left", name, { discordId, how, keptRoles: kept },reference);
+  await audit(env, "system", opts.space ? "roster.freed_seat" : "roster.left", name, { discordId, how, keptRoles: kept,
+    ...(canonicalRemoval ? { roleReconciliation: canonicalRemoval } : {}) },reference);
   if (opts.space) {
     // Removed to make room, not for cause. The binding is left intact, so coming back is one invite rather than a
     // fresh verification, and the person is told that rather than being left to guess why their access vanished.
@@ -1112,11 +1126,17 @@ async function afterDeparture(env: Env, discordId: string, name: string, how: st
   const keptNote = kept.length
     ? ` \u2014 but they still hold ${kept.map((r) => `<@&${r}>`).join(", ")}, which keeps their channel access; remove those by hand if they should lose it`
     : "";
+  const roleNote = !last ? " — another linked guild character remains; role access is retained"
+    : canonicalRemoval === 'queued' ? " — canonical role reconciliation queued; no role removal is confirmed by this notice"
+    : canonicalRemoval === 'unknown' ? " — canonical role reconciliation could not be confirmed; no role removal is claimed"
+    : canonicalRemoval === 'held' ? " — canonical role reconciliation is held; no role removal is claimed"
+    : removed ? " — legacy Guild Member role absence confirmed" : " — Guild Member removal remains held";
+  const account = `Discord account ID \`${discordId}\``;
   await logLine(
     env,
     opts.space
-      ? `\u{1FA91} seat freed: **${name}** (<@${discordId}>) was removed to make room${last ? removed?" \u2014 Guild Member role absent or removed":" \u2014 Guild Member removal remains held" : ""}${keptNote}. Their verification is kept, so a re-invite needs no new code.`
-      : `\u2796 roster: **${name}** (<@${discordId}>) is no longer in the guild (${how})${last ? removed?" \u2014 Guild Member role absent or removed":" \u2014 Guild Member removal remains held" : ""}${keptNote}.`,
+      ? `\u{1FA91} seat freed: **${name}** (${account}) was removed to make room${roleNote}${keptNote}. Their verification is kept, so a re-invite needs no new code.`
+      : `\u2796 roster: **${name}** (${account}) is no longer in the guild (${how})${roleNote}${keptNote}.`,
     [reference],
   );
 }
@@ -1710,7 +1730,7 @@ export function officerRankCheckClosing(env: Env): string {
     ? "With native-rank mapping on, the bot queues the Officer role through the central role writer after the membership checks; this list shows accounts the writer has not yet settled. The role still gates `/olympus-admin` and every member's BattleTag."
     : "The bot does not grant it: that role gates `/olympus-admin` and every member's BattleTag, so it stays a human decision.";
 }
-async function reportRankMismatches(env: Env, members: RosterMemberIn[]): Promise<number> {
+export async function reportRankMismatches(env: Env, members: RosterMemberIn[]): Promise<number> {
   const ranks = officerRankNames(env);
   const channel = staffChannel(env);
   if (!ranks.length || !channel || !env.ROLE_OFFICER) return 0;
@@ -1719,17 +1739,21 @@ async function reportRankMismatches(env: Env, members: RosterMemberIn[]): Promis
   // and the notice becomes something staff learn to scroll past -- which is how a real mismatch would be missed.
   const exempt = rankCheckExempt(env).map(normalizeCharacter);
 
-  const bound = await env.DB.prepare("SELECT name_key, name, discord_id FROM characters WHERE status = 'member'")
-    .all<{ name_key: string; name: string; discord_id: string }>();
+  const bound = await env.DB.prepare(`SELECT c.name_key,c.name,c.discord_id,c.guid,
+    s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision
+    FROM characters c LEFT JOIN privacy_subjects s ON s.subject_id=c.discord_id
+    WHERE c.status='member' AND (s.state IS NULL OR s.state='active')`)
+    .all<{name_key:string;name:string;discord_id:string;guid:string|null;privacy_generation:string|null;privacy_state:string|null;privacy_revision:number|null}>();
   const owner = new Map(bound.results.map((c) => [c.name_key, c] as const));
 
-  const shouldBeOfficer = new Map<string, string[]>(); // discord id -> their characters sitting at an officer rank
+  const shouldBeOfficer = new Map<string, {names:string[];capture:PrivacySubject|null}>();
   for (const m of members) {
     if (!ranks.includes((m.rank ?? "").trim().toLowerCase())) continue;
     if (exempt.includes(normalizeCharacter(m.name))) continue;
     const c = owner.get(normalizeCharacter(m.name));
-    if (!c) continue;
-    shouldBeOfficer.set(c.discord_id, [...(shouldBeOfficer.get(c.discord_id) ?? []), m.name]);
+    if (!c || !c.guid || m.guid !== c.guid) continue;
+    const prior=shouldBeOfficer.get(c.discord_id);
+    shouldBeOfficer.set(c.discord_id, {names:[...(prior?.names??[]),m.name],capture:prior?.capture??privacyCaptureFromColumns(c.discord_id,c)});
   }
   if (!shouldBeOfficer.size) return 0;
 
@@ -1741,30 +1765,41 @@ async function reportRankMismatches(env: Env, members: RosterMemberIn[]): Promis
   const recent = await env.DB.prepare("SELECT ts FROM audit WHERE action = 'rank.mismatch_reported' ORDER BY id DESC LIMIT 1").first<{ ts: number }>();
   if (recent && now() - recent.ts < 20 * 3600) return shouldBeOfficer.size;
 
-  const missing: string[] = [];
-  for (const [discordId, names] of shouldBeOfficer) {
+  // Report-only: Discord's own owner record and the EXISTING command-role policy
+  // suppress a false warning. Neither native rank nor this observation grants staff.
+  let guildOwner: string;
+  try {
+    const guild = await rest<{ id: string; owner_id: string }>(env, "GET", `/guilds/${env.GUILD_ID}`);
+    if (guild?.id !== env.GUILD_ID || !/^[1-9][0-9]{16,19}$/.test(guild.owner_id)) return 0;
+    guildOwner = guild.owner_id;
+  } catch { return 0; } // An unreadable owner cannot truthfully be reported as missing access.
+  const effectiveRoles = new Set(officerRoles(env));
+  const missing: {text:string;reference:PrivacyReference}[] = [];
+  for (const [discordId, account] of shouldBeOfficer) {
+    if (discordId === guildOwner) continue;
     try {
       const m = await guildMember(env, discordId);
-      if (m && !m.roles.includes(env.ROLE_OFFICER)) missing.push(`<@${discordId}> (${names.join(", ")})`);
+      if (m?.user?.id === discordId && Array.isArray(m.roles) && m.roles.every(role => typeof role === "string")
+        && !m.roles.some(role => effectiveRoles.has(role))) missing.push({text:`Discord account ID \`${discordId}\` (${account.names.join(", ")})`,reference:{subject:discordId,capture:account.capture}});
     } catch {
       /* one unreadable member should not stop the report */
     }
   }
   if (!missing.length) return 0;
 
-  const posted = await staffNotice(
-    env,
-    {
-      content:
-        `**Officer rank check** \u2014 these accounts hold an officer rank in game but not the <@&${env.ROLE_OFFICER}> role in Discord:\n` +
-        missing.map((m) => `\u2022 ${m}`).join("\n") +
-        `\n${officerRankCheckClosing(env)}`,
-      allowed_mentions: { parse: [] },
-    },
-    "officer rank check",
-  );
+  let posted=false;
+  // One bounded message, with every affected account's ORIGINAL lifecycle
+  // capture. A changed/erasing subject withholds the entire notice. Never fall
+  // back to an unscoped staff post or put the IDs in an unreferenced audit.
+  if(missing.length<=20)try{
+    const references=missing.map(row=>row.reference),content=(
+        `**Officer rank check** \u2014 these linked accounts hold an officer rank in game but no configured officer-access role in Discord (including <@&${env.ROLE_OFFICER}>):\n` +
+        missing.map(row=>`\u2022 ${row.text}`).join("\n") + `\n${officerRankCheckClosing(env)}`).slice(0,1900);
+    const operation=await messageOperationId('officer_rank_check',JSON.stringify({day:Math.floor(now()/86400),content,subjects:references.map(r=>({id:r.subject,g:r.capture?.subjectGeneration??null}))}));
+    posted=!!await postPrivacyMessage(env,'notice',channel,{content,allowed_mentions:{parse:[]}},references,operation);
+  }catch{/* Withhold rather than disclose an account after a lifecycle race. */}
   // The throttle row is written whether or not the post landed. A failed notice that is retried on every single
   // roster export is how one missing channel permission turned into hundreds of failed Discord calls.
-  await audit(env, "system", "rank.mismatch_reported", undefined, { count: missing.length, posted, who: missing });
+  await audit(env, "system", "rank.mismatch_reported", undefined, { count: missing.length, posted });
   return missing.length;
 }

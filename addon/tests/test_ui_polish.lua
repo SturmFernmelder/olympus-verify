@@ -89,7 +89,7 @@ check("toolbar actions have separate bounds", separated(UI.sendButton, UI.export
 check("Members button fits between Restart chat log and Clear queue", separated(UI.flushButton, UI.membersButton) and separated(UI.membersButton, UI.clearButton), true)
 check("manual logging button describes a restart", UI.flushButton:GetText(), "Restart chat log")
 check("manual logging tooltip does not promise a disk flush", contains(hover(UI.flushButton), "does not guarantee a disk flush"), true)
-check("manual logging tooltip preserves the documented exchange", contains(hover(UI.flushButton), "Sync & reload"), true)
+check("manual logging tooltip preserves the documented exchange", contains(hover(UI.flushButton), "Click Sync"), true)
 check("custom primary action owns its assigned font string", UI.sendButton:GetFontString(), UI.sendButton.label)
 local title = plain(UI.title._text)
 local rows = {}
@@ -273,14 +273,14 @@ check("reopening does not duplicate Escape registration", duplicate, 1)
 check("reopening and refreshing still perform no action", actions, 0)
 state.membershipOnly, state.verificationExchange = true, "sync-needed"
 UI.Refresh()
-check("strict captured proof offers the supported hardware exchange", contains(UI.summary:GetText(), "proof waiting: Sync & reload"), true)
+check("strict captured proof offers one visible Sync control", contains(UI.summary:GetText(), "Changes waiting for Sync") and UI.exportButton:IsShown() and not UI.flushButton:IsShown(), true)
 state.verificationExchange = "sync-requested"
 UI.Refresh()
 -- Evergreen 12 Nov 2026 (CL2-185): fd329ba (.269) reworded this summary. The behaviour that matters is that a
 -- requested exchange reads differently from a waiting one and claims only the local request, never a server result.
 local requested = UI.summary:GetText()
-check("requested exchange says only the local request is recorded", contains(requested, "local request recorded; server result separate"), true)
-check("requested exchange no longer offers the waiting-proof Sync", contains(requested, "proof waiting: Sync & reload"), false)
+check("requested exchange distinguishes the local request from current Discord access", contains(requested, "Local Sync requested") and contains(requested,"check Discord for current access"), true)
+check("requested exchange no longer offers the waiting-proof Sync", contains(requested, "Changes waiting for Sync"), false)
 check("exchange notices never perform a protected or reload action", actions, 0)
 print(string.format("\n%d/%d passed", total - failures, total))
 os.exit(failures == 0 and 0 or 1)

@@ -495,7 +495,7 @@ end
 -- Build is split by section for the same reason as Refresh: one function holding every widget passes Lua 5.1's
 -- limit of 60 upvalues.
 local function BuildShell()
-  panel = CreateFrame("Frame", "OlympusVerifyPanel", UIParent, BACKDROP_TEMPLATE)
+  panel = CreateFrame("Frame", "OlympusVerifyPanel", OlympusVerifyWorkspace and OlympusVerifyWorkspace.Parent() or UIParent, BACKDROP_TEMPLATE)
   panel:SetSize(WIDTH, HEIGHT)
   if panel.SetFrameStrata then panel:SetFrameStrata("DIALOG") end
   if panel.SetToplevel then panel:SetToplevel(true) end
@@ -512,6 +512,7 @@ local function BuildShell()
   -- Esc closes it like any Blizzard window.
   if type(UISpecialFrames) == "table" then table.insert(UISpecialFrames, "OlympusVerifyPanel") end
   UI.panel = panel
+  if OlympusVerifyWorkspace then OlympusVerifyWorkspace.Attach("operations",panel) end
 end
 
 local function BuildHeader()
@@ -616,20 +617,18 @@ local function BuildToolbar()
   UI.sendButton = sendButton
   -- Was "Export roster", which only filled SavedVariables in memory: nothing reached Discord until a /reload anyway.
   -- The reload is the one exchange WoW allows in both directions, so the button does it (27 Sep).
-  local exportBtn = Button(panel, "Sync & reload", 118, 24, function()
-    if API.Sync then API.Sync() else API.ExportRoster(); UI.Refresh() end
-  end, "Sync with Discord (reloads the UI)",
-    "Exports the roster and reloads: the reload writes the roster and the event log for the watcher to send, and loads the newest Discord queue file. The screen reloads for a few seconds.")
-  exportBtn:SetPoint("LEFT", sendButton, "RIGHT", 8, 0)
-  UI.exportButton = exportBtn
+  if not OlympusVerifyWorkspace then
+    UI.exportButton = Button(panel, "Sync", 118, 24, function() if API.Sync then API.Sync() end end,
+      "Sync", "Save pending changes and reload once to load the latest available Watcher result.")
+    UI.exportButton:SetPoint("LEFT", sendButton, "RIGHT", 8, 0)
+  end
   local flushBtn = Button(panel, "Restart chat log", 126, 24, function()
-    if API.Status().membershipOnly then
-      if not UI.preview and OlympusVerifyAutoSync then OlympusVerifyAutoSync.HardwareSync() end
-    else API.FlushChatLog() end
+    if API.Status().membershipOnly then return end
+    API.FlushChatLog()
     UI.Refresh()
   end,
-    "Restart chat logging", "Turns chat logging off and on again. This does not guarantee a disk flush; use Sync & reload for the documented exchange. /olv logtest measures delivery on this client.")
-  flushBtn:SetPoint("LEFT", exportBtn, "RIGHT", 6, 0)
+    "Restart chat logging", "Restarting chat logging does not guarantee a disk flush. Click Sync to save pending changes and reload once. /olv logtest measures delivery on this client.")
+  flushBtn:SetPoint("LEFT", UI.exportButton or sendButton, "RIGHT", 6, 0)
   UI.flushButton = flushBtn
   local clearBtn = Button(panel, "Clear queue", 104, 24, function() API.ClearQueue() end,
     "Clear the queue", "Removes every entry, including invited and joined records. Discord keeps its own copy.", "danger")
@@ -638,7 +637,7 @@ local function BuildToolbar()
   -- 0.6.4: the roster window (OlympusVerifyRoster.lua), in the gap left of Clear queue. Read-only, so it stays live
   -- in /olv preview too.
   local membersBtn = Button(panel, "Members", 76, 24, function()
-      if OlympusVerifyRoster and OlympusVerifyRoster.Toggle then OlympusVerifyRoster.Toggle()
+      if OlympusVerifyRoster and OlympusVerifyRoster.Show then OlympusVerifyRoster.Show()
       elseif DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("|cffc9a86cOlympus Verify|r: the roster window is not loaded yet: restart the game once after updating the addon.") end
     end,
     "Guild roster with Discord names", "Every guild member: verified or not, their Discord username and display name, rank and last seen. Filter and sort it; it changes nothing. Same as /olv members.")
@@ -837,22 +836,28 @@ local function RefreshHeader(s, pc)
   if s.alertUntil and time() < s.alertUntil then UI.newBadge:Show() else UI.newBadge:Hide() end
   if s.membershipOnly then
     UI.newBadge:Hide()
-    local exchange = s.verificationExchange == "sync-needed" and "proof waiting: Sync & reload"
-      or s.verificationExchange == "sync-requested" and "local request recorded; server result separate"
-      or "Guild changes need Sync & reload"
     local pending = s.autoSync
-    UI.summary:SetText(YELLOW .. "Officer verification|r" .. GREY .. "  ·  " .. exchange .. "  ·  " .. (pending and pending.pending and "Pending Sync: hardware required" or "Sync alert clear") .. "|r")
+    local exchange = pending and pending.requested and "Sync requested"
+      or ((pending and pending.pending) or s.verificationExchange=="sync-needed") and "Changes waiting for Sync"
+      or s.verificationExchange=="sync-requested" and "Local Sync requested; check Discord for current access"
+      or "No new local changes waiting"
+    UI.summary:SetText(YELLOW .. "Officer verification|r" .. GREY .. "  ·  " .. exchange .. "|r")
     if UI.sendButton then UI.sendButton:SetText("Next officer action") end
-    if UI.flushButton then
-      UI.flushButton:SetText("Pending Sync")
-      UI.flushButton.tipTitle = "One-click hardware Sync & reload"
-      UI.flushButton.tipText = OlympusVerifyAutoSync and OlympusVerifyAutoSync.Description
+    if UI.flushButton then UI.flushButton:Hide() end
+    if UI.exportButton then
+      UI.exportButton:Show()
+      UI.exportButton.tipTitle = "Sync verification"
+      UI.exportButton.tipText = OlympusVerifyAutoSync and OlympusVerifyAutoSync.Description
         and table.concat(OlympusVerifyAutoSync.Description(), "\n")
         or "Sync exports and reloads. The Watcher processes the export afterward; loaded server dates may still be older."
     end
     return
   end
-  if UI.flushButton then UI.flushButton:SetText("Restart chat log") end
+  if UI.flushButton then UI.flushButton:Show() end
+  if UI.exportButton then
+    UI.exportButton.tipTitle = "Sync with Discord (reloads the UI)"
+    UI.exportButton.tipText = "Exports the roster, saves pending events and loads the newest queue."
+  end
 
   -- The number of key presses still owed, and how long the oldest applicant has been waiting, are the two facts an
   -- officer needs at a glance, so they get the line under the title rather than a place in the list.
@@ -881,9 +886,9 @@ local function RefreshTiles(s)
   if s.chatLogging then
     SetTile(2, "CHAT LOG", GREEN .. "on|r" .. (s.flushLog and "" or (GREY .. " · manual|r")), C.green, "Chat log on",
       "Whispers and guild messages go to Logs\\WoWChatLog.txt, which the watcher reads. " ..
-      (s.flushLog and "The addon requests a logging restart after each whisper and guild join or departure. That does not guarantee a disk flush; /olv logtest measures delivery on this client. Use Sync & reload for the documented exchange." or "Chat may remain buffered until /reload or logout. Use Sync & reload after verification whispers or guild changes. The Watcher must acknowledge the complete roster before forwarding verification; see its role outcome. No automatic reload or immediate delivery is promised."))
+      (s.flushLog and "The addon requests a logging restart after each whisper and guild join or departure. That does not guarantee a disk flush; /olv logtest measures delivery on this client. Click Sync to save pending changes and reload once." or "Chat may remain buffered until /reload or logout. Click Sync to save pending verification or guild changes before logout. The Watcher must acknowledge the complete roster before forwarding verification; see its role outcome. No automatic reload or immediate delivery is promised."))
   else
-    SetTile(2, "CHAT LOG", RED .. "OFF|r", C.red, "Chat log OFF", "Whispers do not reach Discord until chat logging is back on (/chatlog, or /reload: the addon turns it on at login).")
+    SetTile(2, "CHAT LOG", RED .. "OFF|r", C.red, "Chat log OFF", "The Watcher can still pick up saved verification records at logout or reload. Enable /chatlog for the signed chat delivery path.")
   end
   SetTile(3, "GUILD NOTES", s.notes and (GREEN .. "on|r") or (GREY .. "off|r"), s.notes and C.green or C.muted,
     "Guild notes " .. (s.notes and "on" or "off"),
@@ -895,7 +900,7 @@ local function RefreshTiles(s)
       s.rosterCount or 0, rosterAge, s.rosterTotal or 0, s.guildCap or 0))
   if (s.queueFileAt or 0) > 0 then
     SetTile(5, "DISCORD QUEUE", WHITE .. tostring(s.queueFileEntries or 0) .. "|r" .. GREY .. " · " .. ago(s.queueFileAt) .. "|r", C.blue,
-      "Discord queue file", string.format("OlympusQueue.lua from the watcher: %d entr%s, written %s. WoW reads it at login and /reload only; Sync & reload picks up anything newer.",
+      "Discord queue file", string.format("OlympusQueue.lua from the watcher: %d entr%s, written %s. WoW reads it at login and /reload only; Sync loads the latest available file.",
         s.queueFileEntries or 0, (s.queueFileEntries or 0) == 1 and "y" or "ies", ago(s.queueFileAt)))
   else
     SetTile(5, "DISCORD QUEUE", GREY .. "none yet|r", C.muted, "Discord queue file",
@@ -1267,6 +1272,7 @@ end
 
 function UI.Show()
   Build()
+  if OlympusVerifyWorkspace and not OlympusVerifyWorkspace.Activate("operations") then return end
   panel:Show()
   UI.Refresh()
   StartTicker()
@@ -1277,10 +1283,14 @@ function UI.Hide()
 end
 
 function UI.Toggle()
+  if OlympusVerifyWorkspace and OlympusVerifyWorkspace.active=="roster" and OlympusVerifyRoster and OlympusVerifyRoster.frame and OlympusVerifyRoster.frame:IsShown() then
+    OlympusVerifyRoster.Hide();return
+  end
   if panel and panel:IsShown() then UI.Hide() else UI.Show() end
 end
 
 -- a new invite landed: open the panel unless the officer turned that off
 function UI.Alert()
+  if OlympusVerifyRoster and OlympusVerifyRoster.frame and OlympusVerifyRoster.frame:IsShown() then UI.Refresh();return end
   if AUTO_SHOW then UI.Show() else UI.Refresh() end
 end

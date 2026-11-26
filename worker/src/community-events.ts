@@ -1037,6 +1037,17 @@ function parseDecisionEntries(raw: unknown): DecisionEntry[] {
   });
 }
 type DecisionRow = { discord_id: string; ref: string; display_name: string | null; rsvp: RsvpStatus | null; decision: Decision | null; revision: number | null; decided_at: number | null };
+/** Web and Discord provide their own admitted actor, target, and event fences.
+ * The decision itself has one capacity rule and one revision compare-and-set. */
+export function rosterDecisionSql(env:Env, clear:boolean, target:string, open:string, fence:string):string {
+  const change=clear ? 'decision=NULL, decided_by=NULL, decided_at=NULL' : 'decision=?4, decided_by=?5, decided_at=?6';
+  const answer=clear ? 'decision IS NOT NULL' : "(?4<>'accepted' OR status IN ('yes','tentative'))";
+  const capacity=clear ? '' : `AND (?4<>'accepted' OR e.capacity IS NULL OR community_event_signups.decision='accepted' OR ${acceptedHeld(env,"e.id")}<e.capacity)`;
+  return `UPDATE community_event_signups SET ${change}, decision_revision=decision_revision+1
+    WHERE event_id=?1 AND ${target} AND decision_revision=?7 AND ${answer}
+    AND EXISTS(SELECT 1 FROM community_events e WHERE e.id=?1 AND ${open} ${capacity}) AND ${fence}
+    RETURNING discord_id, decision, decision_revision AS revision, decided_at`;
+}
 type DecisionResult = { ref: string; result: "ok" | "invalid" | "unknown_member" | "stale_revision" | "not_signed_up" | "full"; decision: Decision | null; revision: number; displayName?: string | null; withheld?: "target_unqualified" };
 /**
  * POST /api/community/events/decide {eventId, entries:[{ref, decision|null, revision}]} → {event, results}: the organizer
@@ -1090,18 +1101,7 @@ export async function decideRoster(request: Request, env: Env, ctx: CommunityCon
     const valid = entries.filter((x) => x.value !== null);
     for (const x of valid) {
       const v = x.value!;
-      if (v.decision === null) statements.push(env.DB.prepare(
-        `UPDATE community_event_signups SET decision = NULL, decided_by = NULL, decided_at = NULL, decision_revision = decision_revision + 1
-         WHERE event_id = ?1 AND ${target} AND decision_revision = ?7 AND decision IS NOT NULL
-           AND EXISTS (SELECT 1 FROM community_events e WHERE e.id = ?1 AND ${open}) AND ${fence}
-         RETURNING discord_id, decision, decision_revision AS revision, decided_at`).bind(...bind(x.ref, null, v.revision)));
-      else statements.push(env.DB.prepare(
-        `UPDATE community_event_signups SET decision = ?4, decided_by = ?5, decided_at = ?6, decision_revision = decision_revision + 1
-         WHERE event_id = ?1 AND ${target} AND decision_revision = ?7 AND (?4 <> 'accepted' OR status IN ('yes', 'tentative'))
-           AND EXISTS (SELECT 1 FROM community_events e WHERE e.id = ?1 AND ${open}
-             AND (?4 <> 'accepted' OR e.capacity IS NULL OR community_event_signups.decision = 'accepted' OR ${acceptedHeld(env, "e.id")} < e.capacity))
-           AND ${fence}
-         RETURNING discord_id, decision, decision_revision AS revision, decided_at`).bind(...bind(x.ref, v.decision, v.revision)));
+      statements.push(env.DB.prepare(rosterDecisionSql(env,v.decision===null,target,open,fence)).bind(...bind(x.ref,v.decision,v.revision)));
     }
     statements.push(
       env.DB.prepare(`INSERT INTO audit (ts, actor, action, subject, details) SELECT ?6, ?5, 'community.roster_decided', ?1, ?${detailsAt} FROM community_events e WHERE e.id = ?1 AND ${open} AND ${fence}`)

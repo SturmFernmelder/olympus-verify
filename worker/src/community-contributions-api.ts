@@ -75,7 +75,7 @@ async function answer(e: unknown, request: Request, env: Env): Promise<Response>
   }
 }
 
-const policyDto = (p: ContributionPolicy = DEFAULT_CONTRIBUTION_POLICY) => ({ version: p.version, amountCopper: p.amountCopper, anchorWeekday: p.anchorWeekday, anchorHourUtc: p.anchorHourUtc, graceHours: p.graceHours, finalNoticeDays: p.finalNoticeDays, reviewDays: p.reviewDays, newMemberExemptDays: p.newMemberExemptDays });
+const policyDto = (p: ContributionPolicy = DEFAULT_CONTRIBUTION_POLICY) => ({ voluntary: true, historicalSchedule: true, version: p.version, amountCopper: p.amountCopper, anchorWeekday: p.anchorWeekday, anchorHourUtc: p.anchorHourUtc, graceHours: p.graceHours, finalNoticeDays: p.finalNoticeDays, reviewDays: p.reviewDays, newMemberExemptDays: p.newMemberExemptDays });
 
 type View = Awaited<ReturnType<typeof L.ledgerView>>;
 /** The display DTO. The member's own copy omits receipt ids, source ids, payer names and who recorded (minimization); staff see them. */
@@ -235,13 +235,10 @@ export async function adminContributionAction(request: Request, env: Env, ctx: C
     };
     let result: unknown;
     let subject: string | null = null;
-    if (action === "obligation") {
-      keys(["discordId", "periodStart", "eligible"]);
-      subject = target();
-      const start = timeOf(body.periodStart, "invalid_period");
-      if (body.eligible !== undefined && typeof body.eligible !== "boolean") throw new Bad("invalid_request");
-      result = await L.createObligation(env, { guildScope: scope, discordId: subject, periodStart: start, eligible: (body.eligible as boolean | undefined) ?? true, fence }, at);
-    } else if (action === "receipt") {
+    if (action === "obligation" || action === "contact" || action === "removal") {
+      return apiJson({error:"voluntary_contributions",message:"Guild contributions are voluntary. Collection notices and new assessments are closed."}, 409);
+    }
+    if (action === "receipt") {
       keys(["source", "sourceId", "payerName", "amountCopper", "observedAt", "matchedDiscordId", "status"]);
       const matched = (body.matchedDiscordId ?? null) as unknown;
       if (matched !== null && (!text(matched) || !DISCORD_ID.test(matched))) throw new Bad("invalid_discord_id");
@@ -271,25 +268,12 @@ export async function adminContributionAction(request: Request, env: Env, ctx: C
       subject = target();
       if (!["open", "exempt", "disputed", "resolved"].includes(body.state as string)) throw new Bad("invalid_state");
       result = await L.setObligationState(env, { guildScope: scope, discordId: subject, obligationId: obligationId(), state: body.state as "open" | "exempt" | "disputed" | "resolved", expectedRevision: revision(), actor, fence }, at);
-    } else if (action === "contact") {
-      keys(["discordId", "obligationId", "kind", "expectedRevision"]);
-      subject = target();
-      if (!["officer_contact", "final_notice", "final_officer_contact"].includes(body.kind as string)) throw new Bad("invalid_kind");
-      const oid = obligationId();
-      const evidence = await L.obligationEvidence(env, scope, subject, oid, fence);
-      result = await L.recordContact(env, { guildScope: scope, discordId: subject, obligationId: oid, kind: body.kind as L.ContactKind, evidence, expectedRevision: revision(), actor, fence }, at);
     } else if (action === "evidence") {
       keys(["periodStart", "state"]);
       if (!(L.EVIDENCE_STATES as readonly unknown[]).includes(body.state)) throw new Bad("invalid_evidence");
       await L.attestEvidence(env, { guildScope: scope, periodStart: timeOf(body.periodStart, "invalid_period"), state: body.state as EvidenceState, fence }, at);
       await audit(env, me, "community.contribution_evidence", undefined, { state: body.state }).catch(() => {});
       return apiJson({ ok: true, result: { status: "attested" } });
-    } else if (action === "removal") {
-      keys(["discordId", "obligationId", "expectedRevision", "caseId"]);
-      subject = target();
-      const caseId = (body.caseId ?? null) as unknown;
-      if (caseId !== null && (!text(caseId) || !ID22.test(caseId))) throw new Bad("invalid_request");
-      result = await L.recordRemoval(env, { guildScope: scope, discordId: subject, obligationId: obligationId(), expectedRevision: revision(), caseId: caseId as string | null, staffId: me, fence }, at);
     } else throw new Bad("invalid_action");
     const summary = typeof result === "string" ? result : (result as { status?: string }).status ?? ((result as { created?: boolean }).created === false ? "replay" : "created");
     await audit(env, me, `community.contribution_${action}`, subject ?? undefined, { result: summary }).catch(() => {});

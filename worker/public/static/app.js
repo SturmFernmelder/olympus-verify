@@ -1747,7 +1747,7 @@
     if (S.signedIn && !S.denied) {
       add(nav, [["#/", "Home"], ["#/apply", "Apply"], ["#/vote", "Vote"]].map(link));
       // Owner directive, 12 Nov 2026: the top-level menus are Guilds, Community, Resources and Admin.
-      add(nav, group("Guilds", [["#/roles", "Roles"], ["#/governance", "Governance"], ["#/organization", "Organization"], ...treasuryNavLinks218()]));
+      add(nav, group("Guilds", [["#/guild-rosters", "Guild rosters"], ["#/roles", "Roles"], ["#/governance", "Governance"], ["#/organization", "Organization"], ...treasuryNavLinks218()]));
       if (can("applicantWrite") && (anyCommunity() || can("armyRead"))) {
         add(nav, group("Community", visibleCommunitySections().map(({ href, label }) => [href, label])));
       }
@@ -1862,6 +1862,7 @@
       return `Community · ${event || communitySection(sub || "")?.label || "Not here"}`;
     }
     if (head === "talents") { const cls = M().classes.find(c => c.key === dec(sub || "warrior")); return cls ? `${cls.label} talents` : "Talents"; }
+    if (head === "guild-rosters") return "Guild rosters";
     if (head === "resources") return "Class & profession guides";
     if (head === "guides") return guideTitle218(sub, detail);
     if (head === "vote") { const ballot = M().ballots.find(b => b.key === dec(sub || "")); return ballot ? `${ballot.label} · Vote` : "Vote"; }
@@ -2245,7 +2246,7 @@
     ] : [
       // Evergreen 12 Nov 2026 (CL2-040): concrete steps, merged with the Member Quick Guide (Royal Codex RC8).
       ["Sign in with Discord", "Sign in with the Discord account you use in Asmongold's server and complete that server's membership screening. If the site cannot confirm your membership, it says why; fix that in Discord and sign in again.", "#/", "Go to the home page"],
-      ["Read the guild rules", "The Guild Statute sets out your rights and duties and how complaints and appeals work. Dues are one gold a week, and new members are exempt for their first fourteen days. Extra tithes are optional and never buy rank, admission or raid priority.", "#/governance/the-guild-statute-of-olympus", "Read the Guild Statute"],
+      ["Read the guild rules", "The Guild Statute sets out your rights and duties and how complaints and appeals work. Membership is free. In-game contributions are voluntary and confer no raid or rank priority.", "#/governance/the-guild-statute-of-olympus", "Read the Guild Statute"],
       ["Choose a role", "Member, Raider and Artisan are open for applications. Read the role's duties and expectations before you apply.", "#/roles", "Explore roles"],
       ["Apply", "Answer the questions accurately and give the hours you can really play. Your application, any board vote and the in-game invite are separate steps, and officers send the invite in game. You can withdraw your application from its page, which also removes it from the voting board.", "#/apply", "Open my application"],
       ["Link your character", "In Discord, open #⚡olympus-verify and choose Get my code, or type /verify. Send the line it shows from the character you want linked: an officer's addon checks it, and the next roster export confirms your membership. Type /verify-status to see your progress, and keep your code private.", "#/verify", "Verify my character"],
@@ -3035,6 +3036,85 @@
     return box;
   }
 
+  ROUTES["guild-rosters"] = function guildRosters(main) {
+    const guild = h("select", { "aria-label": "Guild" });
+    const search = h("input", { type: "search", maxlength: 80, placeholder: "Character name", "aria-label": "Search characters" });
+    const detail = h("input", { type: "checkbox" });
+    const output = h("div", { "aria-live": "polite" });
+    const controls = h("form", { class: "filters" },
+      h("label", { class: "field" }, h("span", { class: "lab", text: "Guild" }), guild),
+      h("label", { class: "field" }, h("span", { class: "lab", text: "Find a character" }), search),
+      h("button", { class: "btn", type: "submit", text: "Search" }),
+      h("label", null, detail, " Officer details"));
+    let page = 1, sequence = 0;
+
+    async function load() {
+      const current = ++sequence;
+      const selected = guild.value || "OLYMPUS PRIME";
+      const term = search.value.trim();
+      const params = new URLSearchParams({ guild: selected, search: term, page: String(page) });
+      if (detail.checked) params.set("detail", "officer");
+      clear(output);
+      add(output, h("p", { text: "Loading roster…" }));
+      try {
+        const data = await api("GET", "/api/community/guild-rosters?" + params);
+        if (current !== sequence || !main.isConnected) return;
+        if (!guild.options.length) {
+          for (const name of data.guilds) guild.appendChild(h("option", { value: name, text: name }));
+        }
+        guild.value = selected;
+        clear(output);
+        if (detail.checked && !data.officer) {
+          detail.checked = false;
+          add(output, h("p", { text: "Officer details require a current officer role." }));
+        }
+        const roster = data.roster;
+        if (!roster) {
+          add(output, h("p", { text: "A trusted roster for this guild is unavailable." }));
+          return;
+        }
+        add(output, h("p", { text: roster.realm + " · Roster observed " + fmtShort(roster.asOf) }));
+        if (roster.members.length) {
+          const columns = data.officer ? ["Character", "Guild rank", "Class", "Level"] : ["Character", "Guild rank"];
+          const rows = roster.members.map(member => {
+            const values = data.officer ? [member.name, member.rank, member.class, member.level] : [member.name, member.rank];
+            return h("tr", null, ...values.map(value => h("td", { text: String(value ?? "Unknown") })));
+          });
+          add(output, h("div", { class: "table-wrap" }, h("table", { class: "data" },
+            h("thead", null, h("tr", null, ...columns.map(text => h("th", { scope: "col", text })))),
+            h("tbody", null, ...rows))));
+        } else {
+          add(output, h("p", { text: term ? "No matching characters." : "No characters to display." }));
+        }
+        add(output, h("div", { class: "btn-row" },
+          h("button", { class: "btn small", disabled: page === 1, text: "Previous", onclick: () => go(page - 1) }),
+          h("span", { text: "Page " + page }),
+          h("button", { class: "btn small", disabled: !roster.more, text: "Next", onclick: () => go(page + 1) })));
+      } catch (error) {
+        if (current === sequence && main.isConnected) {
+          clear(output);
+          add(output, readFailureBox(error, "The roster could not be read.", load));
+        }
+      }
+    }
+    function go(index) {
+      page = index;
+      load();
+    }
+    controls.addEventListener("submit", event => { event.preventDefault(); go(1); });
+    guild.addEventListener("change", () => go(1));
+    detail.addEventListener("change", () => go(1));
+    add(main, frame("Guild rosters", null, controls, output));
+    load();
+  };
+
+  function contributionCard() {
+    return h("details", { class: "card" },
+      h("summary", null, h("strong", { text: "Contribute to the guild bank" })),
+      h("p", { text: "Gold for the guild bank is a voluntary gift. Choose any amount and send it by in-game mail to Fern Melder. Membership, promotions and raid places are independent of donations." }),
+      S.signedIn && feat("contributions") && can("applicantWrite") ? h("a", {class:"btn small",href:"#/community/dues",text:"View my contribution reference and receipts"}) : null);
+  }
+
   ROUTES[""] = function home(main) {
     const flash = flashBox();
     if (S.signedIn) add(main, h("p", { class: "muted small", "data-ruleset-identity": "current", text: rulesetIdentity() }));
@@ -3049,7 +3129,7 @@
               h("p", { class: "lead", text: "Explore Olympus membership, raiding and artisan roles, and list the friends you are bringing. Leader, High Council and Officer Corps seats are reserved appointments." }),
               signInButton(true),
               h("p", { class: "muted small", text: "For members of Asmongold's Discord server. The site checks that one membership and nothing else: it never sees your password, email, other servers or messages." })))),
-        flash,
+        flash, contributionCard(),
         h("section", { class: "grid three" },
           h("div", { class: "card" }, h("div", { class: "card-head" }, icon("icon-apply"), h("h3", { text: "Apply" })), h("p", { class: "muted", text: "Browse illustrated, collapsible guides for every rank, title and office. Eligible membership, Raider and Artisan roles have application choices; reserved leadership seats have detailed duties and expectations without application buttons." }), h("p", { class: "small" }, h("a", { href: "#/roles", text: "What each role involves" }))),
           h("div", { class: "card" }, h("div", { class: "card-head" }, icon("icon-vote"), h("h3", { text: "Vote" })), h("p", { class: "muted", text: "Historical applications and nominations remain on record. A nomination is a recommendation for leadership review; it does not open a reserved seat to applications. Only the guild's leadership sees vote counts." })),
@@ -3094,7 +3174,7 @@
     const seats = seatsNotice(main);
     add(main, [
       h("section", { class: "welcome mt" }, ownAvatar(S.user), h("h1", { text: `Welcome, ${discordIdentity(S.user)}` })),
-      flash,
+      flash, contributionCard(),
       S.reapply ? h("div", { class: "mt" }, noticeBox("warn", "icon-warning", // .114: a rename Blizzard required (the Worker's rename_holds)
         h("p", null, h("strong", { text: "Apply again. " }), `Blizzard required your character ${S.reapply.from} to be renamed (now ${S.reapply.to}), so Olympus asks you to apply again.`),
         h("p", null, "Open ", h("a", { href: "#/apply", text: "Apply" }), ` and save your application once more, and verify ${S.reapply.to} again in Discord with Get my code in #⚡olympus-verify. Unless another of your characters is in the guild, your Guild Member role is on hold until the leadership approves the new application.`))) : null,
@@ -5208,6 +5288,34 @@
       h("div", { class: "group-label", text: "Leadership" }), quietGrid("leadership"),
       h("div", { class: "group-label", text: "Class leads" }), quietGrid("class"),
       h("div", { class: "btn-row mt" }, save)));
+    // The server independently admits the current application owner/session/standing.
+    if (S.user?.id === "472099715253796864") {
+      const registrationNote = h("p", { class: "muted small", text: "Add the optional member profile command to this server. Existing commands are preserved." });
+      let registrationKnown = false, registrationHeld = false;
+      const runRegistration = async method => {
+        if (!settingsLive()) return;
+        if (method === "POST") registrationHeld = true;
+        registerProfile.disabled = true; checkProfile.disabled = true;
+        try {
+          const result = await api(method, "/api/admin/discord/profile-command", method === "POST" ? { confirm: true } : undefined, { live: settingsLive });
+          if (!settingsLive()) return;
+          registrationKnown = result.registered === true;
+          registrationNote.textContent = registrationKnown ? (result.otherCommandsPreserved === true
+            ? "/olympus-profile is registered and its definition was checked. The before/after comparison confirmed other commands were preserved."
+            : "/olympus-profile is registered and its current definition was checked.")
+            : registrationHeld ? "The command is absent and an earlier attempt needs review. Nothing was sent again."
+            : "The command is absent. Register adds only /olympus-profile if no earlier attempt needs review.";
+        } catch (err) {
+          if (!settingsLive()) return;
+          registrationNote.textContent = err.message;
+        } finally {
+          if (settingsLive()) { checkProfile.disabled = false; registerProfile.disabled = registrationKnown || registrationHeld; }
+        }
+      };
+      const registerProfile = h("button", { class: "btn", text: "Register /olympus-profile", onclick() { runRegistration("POST"); } });
+      const checkProfile = h("button", { class: "btn secondary", text: "Check registration", onclick() { runRegistration("GET"); } });
+      add(body, frame("Discord profile command", null, registrationNote, h("div", { class: "btn-row" }, registerProfile, checkProfile)));
+    }
     const intents = o.discordIntentOperations;
     if (intents && intents.applicationId === "1550176895671341076") add(body, frame("Discord member access & annual renewal", null,
       kv([["Application", intents.applicationId], ["Support request", "#" + intents.supportTicket], ["Required intent", intents.requiredIntent], ["Renewal review before", intents.reviewBefore], ["Responsible owner", "Application owner / guild administrators"]]),
@@ -5788,10 +5896,10 @@
     const field = (text, input) => h("label", { class: "field" }, h("span", { class: "lab small", text }), input);
     add(panel, frame("Treasury · cosmetic recognition", null,
       h("p", { text: royalWritsVisible200() ? "The 90-day recognition tiers are Tithe Payer (25g), Patron of the Treasury (100g), Benefactor of Olympus (500g), Arch-Financier of Olympus (1,000g), and Hand of the Imperial Treasury (2,500g). The two Apex titles are ceremonial. Discord colour eligibility caps at Benefactor of Olympus and requires separate reviewed confirmation. Recognition grants no channel access, votes, office or immunity." : "The Royal Writs schedule and new Patron applications are paused. Existing receipt and operation records remain available for staff review. Discord dispatch has its own gate." }),
-      h("p", { class: "muted small", text: "Ordinary dues do not count. A TITHE- reference identifies a ledger account; it does not prove that gold was received. Verify the in-game mail before recording a receipt. Each role change requires its own reviewed confirmation." }),
+      h("p", { class: "muted small", text: "Only eligible voluntary gifts count. A TITHE- reference identifies a ledger account; it does not prove that gold was received. Verify the in-game mail before recording a receipt. Each role change requires its own reviewed confirmation." }),
       picker({ label: "Treasury member", placeholder: "Search Discord by name or user ID…", allowTyped: false, allowSelf: true, appointmentOnly: true, isCurrent: () => live() && !busy, onPick: person => { target = person.key; targetLabel = person.label; targetGeneration++; selected.textContent = person.label + " · " + person.key; mail.value = ""; preview = null; clear(changes); notice.textContent = ""; evidence.checked = false; consent.checked = false; decline.checked = false; sync(); } }), selected, targetReference,
       field("Immutable receipt reference", reference), field("Additional gold received", amount), field("Received at (your local time)", observed), field("Member's TITHE- reference", mail),
-      h("label", null, evidence, " I verified this additional gold in the in-game mail; it is not ordinary dues."), record,
+      h("label", null, evidence, " I verified this additional gold in the in-game mail; it was a voluntary gift."), record,
       h("label", null, consent, " The member agreed to this cosmetic recognition."),
       h("label", null, decline, " The member declined public recognition. Preview removal only; keep their gold credit."), review, notice, changes,
       field("Original role operation", operation), status));
@@ -7025,8 +7133,8 @@
       description: "Choose whether to show your detailed profile in Member profiles and share any Workshop offers you add. The Discord member list has its own visibility control." },
     { key: "trial", label: "My trial", href: "#/community/trial", visible: () => feat("trials") && can("applicantWrite"), icon: "icon-shield",
       description: "Your trial period as the officers recorded it: the review date and the outcome." },
-    { key: "dues", label: "My dues", href: "#/community/dues", visible: () => feat("contributions") && can("applicantWrite"), icon: "pos-treasurer",
-      description: "The weeks the policy counts for you, what was applied, and the mail reference for paying." },
+    { key: "dues", label: "My contributions", href: "#/community/dues", visible: () => feat("contributions") && can("applicantWrite"), icon: "pos-treasurer",
+      description: "Your voluntary in-game contributions, receipts and mail reference." },
     { key: "directory", label: "Discord member list", href: "#/community/directory", visible: () => feat("directory") && communityReader(), icon: "icon-friends",
       description: "Current holders of an Olympus membership or rank role in Discord. Shows names, portraits and permitted public roles, plus verified characters for eligible website accounts." },
     { key: "workshop", label: "Crafters & Artisans", href: "#/community/workshop", visible: () => feat("crafting") && communityReader(), icon: "pos-professions",
@@ -7209,7 +7317,7 @@
       if (parts[1] && parts[2] === "edit") return organizerEditEvent(body, parts[1]);
       if (parts[1] && parts[2] === "attendance" && feat("attendance")) return organizerAttendance(body, parts[1]);
       if (parts[1] && parts[2] === "discord") return organizerEventDiscord(body, parts[1]);
-      return parts[1] ? communityEvent(body, parts[1]) : communityCalendar(body);
+      return parts[1] ? communityEvent(body, parts[1], parts[2] === "roster") : communityCalendar(body);
     }
     add(body, frame("Not here", null, h("p", { text: "There is no such community page, or it is not switched on." })));
   };
@@ -7981,6 +8089,8 @@
       h("dt", { text: "When" }), h("dd", { text: `${fmtDateTime(start)} · ${plural(e.durationMin, "minute")}` }),
       h("dt", { text: "Organizer" }), h("dd", { text: e.organizer.displayName }),
       h("dt", { text: "Answers" }), h("dd", { text: `${e.counts.yes} yes${e.capacity ? ` of ${e.capacity} places` : ""}, ${e.counts.tentative} tentative, ${e.counts.no} no · ${e.counts.accepted || 0} accepted${e.capacity ? ` of ${e.capacity}` : ""} · tanks ${e.counts.byRole.tank}, healers ${e.counts.byRole.healer}, damage ${e.counts.byRole.damage}` }),
+      e.status === "scheduled" && start > nowSec() ? [h("dt", { text: "Open places" }), h("dd", { text: e.capacity === null ? "No fixed capacity" :
+        `${plural(Math.max(0, e.capacity - e.counts.yes), "signup place")} · ${plural(Math.max(0, e.capacity - (e.counts.accepted || 0)), "unassigned roster place")}` })] : null,
       e.mine && e.mine.decision ? [h("dt", { text: "Roster" }), h("dd", { text: `You are ${DECISION_WORDS[e.mine.decision] || e.mine.decision}.` })] : null,
       e.roleTargets ? [h("dt", { text: "Wanted" }), h("dd", { text: `${e.roleTargets.tank} tanks, ${e.roleTargets.healer} healers, ${e.roleTargets.damage} damage` })] : null,
       e.mine && e.mine.changedSinceRsvp ? [h("dt", { text: "Note" }), h("dd", { text: "The start time changed after you answered; answer again if it no longer suits you." })] : null,
@@ -8021,7 +8131,8 @@
     };
     more.addEventListener("click", () => load(false));
     const shift = (d) => { from += d; to += d; load(true); };
-    add(body, frame("Calendar", h("div", { class: "btn-row" }, h("button", { class: "btn small", type: "button", text: "Earlier", onclick: () => shift(-31 * DAY) }), range, h("button", { class: "btn small", type: "button", text: "Later", onclick: () => shift(31 * DAY) }), scheduleLink),
+    const showWindow = (past) => { const at = nowSec(); from = past ? at - 31 * DAY : at; to = past ? at : at + 31 * DAY; load(true); };
+    add(body, frame("Calendar", h("div", { class: "btn-row" }, h("button", { class: "btn small", type: "button", text: "Upcoming events", onclick: () => showWindow(false) }), h("button", { class: "btn small", type: "button", text: "Recent history", onclick: () => showWindow(true) }), h("button", { class: "btn small", type: "button", text: "Earlier", onclick: () => shift(-31 * DAY) }), range, h("button", { class: "btn small", type: "button", text: "Later", onclick: () => shift(31 * DAY) }), scheduleLink),
       h("p", { class: "muted small", text: "Guild events as the organizers scheduled them, with the answers of confirmed members. Open an event to answer. Times are shown in your own time zone." }),
       status, list, h("div", { class: "btn-row" }, more)));
     if (feat("attendance")) add(body, myAttendancePanel());
@@ -8052,13 +8163,13 @@
     load(true);
     return frame("My attendance", null, h("p", { class: "muted small", text: "What the organizers recorded about you after each event. Only you and the organizers see it; it is informational and changes no role." }), status, table, h("div", { class: "btn-row" }, more));
   }
-  async function communityEvent(body, id) {
+  async function communityEvent(body, id, openRoster = false) {
     const holder = h("div", { class: "stack" });
     add(body, holder);
     const back = () => h("a", { class: "btn small", href: "#/community/calendar", text: "Calendar" });
     const fail = (e) => {
       clear(holder);
-      holder.appendChild(frame("Event", back(), readFailureBox(e, "The event could not be read.", () => { if (!body.isConnected) return; clear(body); communityEvent(body, id); })));
+      holder.appendChild(frame("Event", back(), readFailureBox(e, "The event could not be read.", () => { if (!body.isConnected) return; clear(body); communityEvent(body, id, openRoster); })));
       if (e && (e.status === 403 || e.status === 503)) refreshCommunity();
     };
     const draw = (data, message) => {
@@ -8073,7 +8184,14 @@
       // authoritative event it reads to the header card too. Only the card (no controls inside) is replaced: the answer form, its draft
       // and the focus stay as they are, and nothing is sent again.
       const showEvent = (next) => { if (!card.isConnected) return; const fresh = eventCard(next, false); card.replaceWith(fresh); card = fresh; };
-      holder.appendChild(signupsPanel(id, data.signups || [], data.nextCursor || null, e, showEvent));
+      const roster = signupsPanel(id, data.signups || [], data.nextCursor || null, e, showEvent);
+      roster.id = "event-signups";
+      holder.appendChild(roster);
+      if (openRoster) {
+        openRoster = false;
+        roster.setAttribute("tabindex", "-1");
+        roster.focus();
+      }
     };
     const reload = async (message) => {
       try { draw(await api("GET", `/api/community/event?id=${encodeURIComponent(id)}`), message); } catch (e) { fail(e); }
@@ -8328,6 +8446,10 @@
   function signupsPanel(id, firstPage, firstCursor, e, onEvent) {
     const columns = ["Member", "Answer", "Character", "Role", "Roster"];
     const tbody = h("tbody");
+    const byRow = new WeakMap();
+    const decisionFilter = selectOf([{ key: "all", label: "All signups" }, { key: "undecided", label: "Awaiting assignment" },
+      { key: "accepted", label: "Accepted" }, { key: "bench", label: "Officer waitlist" }, { key: "declined", label: "Declined" }], "all");
+    decisionFilter.setAttribute("aria-label", "Filter roster by officer decision");
     const table = organizerActionTable(columns, tbody, { stacked: e.canManage === true, hidden: true });
     const status = h("p", { class: "muted small" });
     const more = h("button", { class: "btn small", type: "button", text: "Show more", hidden: true });
@@ -8380,7 +8502,7 @@
     const rosterCell = (s) => {
       const word = s.decision ? DECISION_WORDS[s.decision] || s.decision : "—";
       if (!(e.canManage && s.ref)) return h("td", { text: word });
-      const pick = selectOf([{ key: "accepted", label: "Accepted" }, { key: "bench", label: "Bench" }, { key: "declined", label: "Declined" }], s.decision || "", { placeholder: "no decision" });
+      const pick = selectOf([{ key: "accepted", label: "Accepted" }, { key: "bench", label: "Waitlist (bench)" }, { key: "declined", label: "Declined" }], s.decision || "", { placeholder: "no decision" });
       pick.setAttribute("aria-label", "Roster decision");
       const saveBtn = h("button", { class: "btn small", type: "button", text: "Save" });
       const born = generation, owned = () => alive() && born === generation; // this row's controls: the view alive and the rows not replaced since they were drawn
@@ -8402,7 +8524,7 @@
             s.decision = r.decision; s.decisionRevision = r.revision;
             toast(noop ? "No decision to clear." : r.decision ? `Roster: ${DECISION_WORDS[r.decision] || r.decision}.` : "Decision cleared.", "good");
             if (!showEvent(out.event)) recount(); // BROWSER-03: a receipt whose event is missing or unreadable re-reads the counts
-            settle();
+            settle(); finish();
             return;
           }
           await reread("Not decided. ", REFUSED_WORDS[r.result]);
@@ -8416,15 +8538,32 @@
       return h("td", null, pick, " ", saveBtn);
     };
     const put = (rows) => {
-      for (const s of rows) tbody.appendChild(organizerActionRow(columns, [
+      for (const s of rows) {
+        const tr = organizerActionRow(columns, [
         h("td", { text: s.displayName || "(no name)" }),
         h("td", null, RSVP_LABELS[s.status] || s.status, s.changedSinceRsvp ? [" ", h("span", { class: "badge warn", text: "before the time changed" })] : null),
         h("td", { text: s.character || "—" }),
         h("td", null, s.raidRole ? [rrIcon(s.raidRole), " ", RAID_ROLE_LABELS[s.raidRole] || s.raidRole] : "—"),
         rosterCell(s),
-      ], e.canManage === true));
+        ], e.canManage === true);
+        byRow.set(tr, s);
+        tbody.appendChild(tr);
+      }
     };
-    const finish = () => { more.hidden = !cursor; table.hidden = !tbody.firstChild; status.textContent = tbody.firstChild ? "" : "Nobody has answered yet."; };
+    const finish = () => {
+      const choice = decisionFilter.value || "all";
+      let shown = 0;
+      for (const tr of tbody.childNodes) {
+        const signup = byRow.get(tr);
+        tr.hidden = choice !== "all" && choice !== (signup.decision || "undecided");
+        if (!tr.hidden) shown++;
+      }
+      more.hidden = !cursor;
+      table.hidden = shown === 0;
+      status.textContent = choice === "all" ? (shown ? "" : "Nobody has answered yet.")
+        : `${plural(shown, "matching signup")}${cursor ? " among loaded rows. Show more to include the next page." : "."}`;
+    };
+    decisionFilter.addEventListener("change", finish);
     const fetchPage = async (c, live) => api("GET", `/api/community/event?id=${encodeURIComponent(id)}${c ? `&cursor=${encodeURIComponent(c)}` : ""}`, undefined, live ? { live } : {});
     put(firstPage); finish();
     more.addEventListener("click", async () => {
@@ -8449,7 +8588,7 @@
         status.textContent = explain(ex, "The list could not be read.");
       } finally { if (alive()) more.disabled = false; }
     });
-    return frame("Who answered", counts, status, table, h("div", { class: "btn-row" }, more));
+    return frame("Signups, assignments & waitlist", counts, decisionFilter, status, table, h("div", { class: "btn-row" }, more));
   }
   // ---------- the own trial ----------
   async function communityTrial(body) {
@@ -8474,81 +8613,32 @@
   async function communityDues(body) {
     const holder = h("div", { class: "stack dues" });
     add(body, holder);
-    let current = null;
-    // .102 (F96-2): the committed result's receipt lives OUTSIDE the page view (a bar on the document, like the reload notice): a later
-    // refused read clears the private ledger, a changed context redraws the page, and the receipt stays until Dismiss or a navigation
-    const recorded = (o, out) => receiptBar("Recorded. ", `Your acknowledgement for the week of ${fmtShortUtc(sec(o.periodStart))} was saved${out.withheld ? `. The ledger could not be re-read afterwards (${WITHHELD_WORDS[out.withheld] || out.withheld}), so your weeks are not shown; the acknowledgement stands` : ""}.`);
-    const fail = (e) => {
-      clear(holder);
-      holder.appendChild(frame("My dues", null, readFailureBox(e, "Your ledger could not be read.", () => { if (holder.isConnected) reload(); })));
-      if (e && (e.status === 403 || e.status === 503) && codeOf(e) !== "contributions_disabled") refreshCommunity();
-    };
     const reload = async () => {
-      try { current = await api("GET", "/api/community/contributions/me"); draw(current); } catch (e) { fail(e); }
-    };
-    const acknowledge = async (o, button) => {
-      button.disabled = true;
       try {
-        const out = await api("POST", "/api/community/contributions/acknowledge", { obligationId: o.id, kind: o.canAcknowledge, expectedRevision: current.ledger.revision });
-        if (!out || !out.result || typeof out.result.status !== "string") throw new ApiError(200, { error: "unreadable_answer" }); // .104 (F100-1): no receipt, no "Recorded"
-        const st = out.result && out.result.status;
-        if (st === "recorded") { toast("Acknowledged.", "good"); recorded(o, out); } // the durable receipt, whatever the re-read below answers
-        else toast(ACK_WORDS[st] || `Nothing was recorded (${st}).`);
-        if (out.ledger) { current = Object.assign({}, current, { ledger: out.ledger }); draw(current); return; }
-        await reload(); // `ledger: null, withheld`: a fresh read, which may be refused too; the holder then shows the refusal, the receipt stays
-      } catch (ex) {
-        if (uncertain(ex)) { toast("The answer was lost; the ledger is re-read to show what was recorded.", "bad"); await reload(); return; } // .104
-        toast(explain(ex, "The acknowledgement could not be recorded."), "bad");
-        if (ex && (ex.status === 403 || ex.status === 503)) refreshCommunity();
-        await reload();
+        const data = await api("GET", "/api/community/contributions/me");
+        if (holder.isConnected) draw(data);
+      } catch (e) {
+        clear(holder);
+        holder.appendChild(frame("My contributions", null, readFailureBox(e, "Your receipts could not be read.", reload)));
       }
     };
     function draw(data) {
       clear(holder);
-      const L = data.ledger, P = data.policy, M = data.mailReference || {};
-      const weeks = h("tbody");
-      for (const o of L.obligations) {
-        const ack = o.canAcknowledge && data.writable ? h("button", { class: "btn small", type: "button", text: o.canAcknowledge === "final_acknowledged" ? "Acknowledge the final notice" : "Acknowledge" }) : null;
-        if (ack) ack.addEventListener("click", () => acknowledge(o, ack));
-        const contacts = [];
-        if (o.acknowledgedAt) contacts.push(`acknowledged ${fmtShort(sec(o.acknowledgedAt))}`);
-        if (o.officerContactAt) contacts.push(`officer contact ${fmtShort(sec(o.officerContactAt))}`);
-        if (o.finalNoticeAt) contacts.push(`final notice ${fmtShort(sec(o.finalNoticeAt))}`);
-        if (o.finalAcknowledgedAt) contacts.push(`final notice acknowledged ${fmtShort(sec(o.finalAcknowledgedAt))}`);
-        if (o.finalOfficerContactAt) contacts.push(`final officer contact ${fmtShort(sec(o.finalOfficerContactAt))}`);
-        weeks.appendChild(h("tr", null,
-          h("td", { text: fmtShortUtc(sec(o.periodStart)) }),
-          h("td", { text: fmtShortUtc(sec(o.dueAt)) }),
-          h("td", { class: "num", text: gold(o.amountCopper) }),
-          h("td", { class: "num", text: gold(o.paidCopper) }),
-          h("td", { class: "wrap" }, STAGE_WORDS[o.stage] || o.stage, o.eligible ? null : [" ", h("span", { class: "badge muted", text: "exempt as a new member" })], h("span", { class: "muted small", text: ` · ${EVIDENCE_WORDS[o.evidence] || o.evidence}` })),
-          h("td", { class: "wrap" }, contacts.length ? contacts.join(" · ") : "—", o.nextReviewAt ? h("span", { class: "muted small", text: ` · next step ${fmtShort(sec(o.nextReviewAt))}` }) : null, ack ? [" ", ack] : null)));
-      }
+      const L = data.ledger, M = data.mailReference || {};
       const receipts = h("tbody");
       for (const r of L.receipts) receipts.appendChild(h("tr", null, h("td", { text: fmtShort(sec(r.observedAt)) }), h("td", { text: SOURCE_WORDS[r.source] || r.source }), h("td", { class: "num", text: gold(r.amountCopper) }), h("td", { class: "num", text: gold(r.allocatedCopper) }), h("td", { class: "num", text: gold(r.unallocatedCopper) }), h("td", { text: r.voidedAt ? `voided ${fmtShort(sec(r.voidedAt))}` : r.status })));
       add(holder, [
-        // CL2-290 (Evergreen 12 Nov 2026): with no week counted there is nothing to pay; weeks are counted for accounts with
-        // a roster-confirmed character (community-contributions.ts, the weekly cron), so say that instead of "pay now".
-        frame("My dues", h("span", { class: "badge " + (!L.obligations.length ? "muted" : data.writable ? "green" : "muted"), text: !L.obligations.length ? "nothing owed" : data.writable ? "ledger open" : "read-only" }),
-          // A confirmed member already has that character: the weekly count (openWeeklyObligations, in batches) has not reached
-          // them yet. It records exempt weeks too, so the exemption is not why the list is empty.
-          L.obligations.length ? null : noticeBox("info", "icon-clock", h("p", { text: can("confirmedGuildData")
-            ? "You owe nothing. No dues week has been counted for you yet. The weekly count adds each week as a record, and a new member's first weeks are marked exempt."
-            : "You owe nothing. Dues weeks are counted once you have a roster-confirmed character in the guild, and new members start exempt." })),
-          h("div", { class: "grid two" },
-            h("div", { class: "card" }, h("div", { class: "card-head" }, icon("pos-treasurer"), h("h3", { text: "The policy" })),
-              h("p", { class: "small", text: `Weekly dues of ${gold(P.amountCopper)} (policy ${P.version}). A week starts on ${WEEKDAYS[P.anchorWeekday] || "Monday"} at ${String(P.anchorHourUtc).padStart(2, "0")}:00 UTC and is due a week later, with ${plural(P.graceHours, "hour")} of grace. New members are exempt for their first ${plural(P.newMemberExemptDays, "day")}.` }),
-              h("p", { class: "muted small", text: `An unpaid week may get a notice once the officers have attested that week's payment records; ${plural(P.finalNoticeDays, "day")} after a first notice a final notice may follow, and ${plural(P.reviewDays, "day")} after that the officers review it. A review is a conversation with an officer; nothing on this page removes anyone from the guild.` })),
-            h("div", { class: "card gold" }, h("div", { class: "card-head" }, icon("icon-names"), h("h3", { text: "Paying by in-game mail" })),
-              h("p", { class: "small" }, L.obligations.length ? "Send the gold to " : "When a week is due, send the gold to ", h("b", { text: M.recipient || "an officer" }), " with this reference in the subject: ", h("code", { class: "case-value", text: M.reference || "—" })),
-              M.note ? h("p", { class: "muted small", text: M.note }) : null)),
-          data.writable ? null : noticeBox("info", "icon-clock", h("p", { text: "The ledger is read-only right now: the officers record payments; acknowledgements are off." })),
-          L.complete ? null : noticeBox("warn", "icon-warning", h("p", { text: "Some of your records are not shown right now; ask an officer if this persists." }))),
-        frame("Weeks", null,
-          h("p", { class: "muted small", text: "Each week the policy counts for you, what it asks and what was applied to it. Acknowledging a notice only records that you have seen it." }),
-          L.obligations.length ? h("div", { class: "table-wrap" }, h("table", { class: "data" }, h("thead", null, h("tr", null, h("th", { text: "Week of" }), h("th", { text: "Due" }), h("th", { class: "num", text: "Asked" }), h("th", { class: "num", text: "Paid" }), h("th", { text: "Stage" }), h("th", { text: "Contacts" }))), weeks)) : h("p", { text: "No week has been recorded for you yet." })),
+        frame("My contributions", null,
+          h("p", null, "To contribute voluntarily, mail any amount of in-game gold to ", h("strong", {text:"Fern Melder"}), "."),
+          M.reference ? h("p", null, "For a matched receipt, put ", h("code", {text:M.reference}), " in the mail subject.") : null,
+          L.complete ? null : noticeBox("warn", "icon-warning", h("p", {text:"Some receipts are unavailable. Contact an officer for help."}))),
+        L.obligations?.length ? h("details", { class: "card" },
+          h("summary", { text: "Historical ledger entries" }),
+          h("ul", null, ...L.obligations.map(row => h("li", { text:
+            fmtShort(sec(row.periodStart)) + " · Recorded " + gold(row.amountCopper) + " · Paid " + gold(row.paidCopper)
+          })))) : null,
         frame("Payments", L.unallocatedCopper ? h("span", { class: "badge green", text: `credit ${gold(L.unallocatedCopper)}` }) : null,
-          h("p", { class: "muted small", text: "Payments the officers matched to you: the amount, what was applied to your weeks, and what is still credit. Who recorded them and the private details stay with the officers." }),
+          h("p", { class: "muted small", text: "In-game transfers an officer matched to you, including any historical allocations and remaining credit." }),
           L.receipts.length ? h("div", { class: "table-wrap" }, h("table", { class: "data" }, h("thead", null, h("tr", null, h("th", { text: "Seen" }), h("th", { text: "Source" }), h("th", { class: "num", text: "Amount" }), h("th", { class: "num", text: "Applied" }), h("th", { class: "num", text: "Credit" }), h("th", { text: "Status" }))), receipts)) : h("p", { text: "No payments have been recorded for you yet." })),
       ]);
     }
@@ -9259,7 +9349,7 @@
         });
         add(actions, ack);
         if (feat("restrictions")) {
-          const cat = named(selectOf(Object.keys(CATEGORY_WORDS).map((k) => ({ key: k, label: CATEGORY_WORDS[k] })), "", { placeholder: "Open a case as…" }), "Case category");
+          const cat = named(selectOf(Object.keys(CATEGORY_WORDS).filter(k => k !== "tithe_removal").map((k) => ({ key: k, label: CATEGORY_WORDS[k] })), "", { placeholder: "Open a case as…" }), "Case category");
           const openCase = h("button", { class: "btn small danger", type: "button", text: "Open a restriction case" });
           openCase.addEventListener("click", async () => {
             if (!cat.value) { toast("Choose the case's category first.", "bad"); return; }
@@ -9363,7 +9453,7 @@
     // a new case
     let caseId = b64url(16); // .108 (Codex 12:04): retired after a valid receipt or a stored reconciliation; an unknown outcome keeps it (and its frozen body) exactly
     const member = h("input", { type: "text", placeholder: "Discord user ID", inputmode: "numeric" });
-    const cat = selectOf(Object.keys(CATEGORY_WORDS).map((k) => ({ key: k, label: CATEGORY_WORDS[k] })), "conduct_removal", { placeholder: "Category…" });
+    const cat = selectOf(Object.keys(CATEGORY_WORDS).filter(k => k !== "tithe_removal").map((k) => ({ key: k, label: CATEGORY_WORDS[k] })), "conduct_removal", { placeholder: "Category…" });
     const reviewAt = h("input", { type: "date" });
     const expiresAt = h("input", { type: "date" });
     const presets = () => { const d = CATEGORY_DEFAULT_DAYS[cat.value]; if (!d) return; reviewAt.value = dateInput(nowSec() + d.review * 86400); expiresAt.value = d.expiry === null ? "" : dateInput(nowSec() + d.expiry * 86400); };
@@ -9454,14 +9544,6 @@
         const state = named(selectOf(["open", "exempt", "disputed", "resolved"].map((k) => ({ key: k, label: k })), o.state, { placeholder: null }), "Week state");
         acts.appendChild(state);
         acts.appendChild(h("button", { class: "btn small", type: "button", text: "Set state", onclick: () => action({ action: "state", discordId: sub, obligationId: o.id, state: state.value, expectedRevision: rev }, "State set.") }));
-        const kind = named(selectOf([{ key: "officer_contact", label: "officer contact" }, { key: "final_notice", label: "final notice given" }, { key: "final_officer_contact", label: "final officer contact" }], "", { placeholder: "Record a contact…" }), "Contact kind");
-        acts.appendChild(kind);
-        acts.appendChild(h("button", { class: "btn small", type: "button", text: "Record", onclick: () => { if (!kind.value) { toast("Choose the contact kind.", "bad"); return; } action({ action: "contact", discordId: sub, obligationId: o.id, kind: kind.value, expectedRevision: rev }, "Contact recorded."); } }));
-        if (o.stage === "officer_review") {
-          const caseInput = h("input", { type: "text", placeholder: "case id (optional)", "aria-label": "Restriction case id to link" });
-          acts.appendChild(caseInput);
-          acts.appendChild(h("button", { class: "btn small danger", type: "button", text: "Record the removal", onclick: async () => { if (await confirmBox("Record a removal?", "Records that the officers resolved this week after an in-game removal. It links an existing case if you name one; it opens none and touches no role.", "Record", { danger: true })) action({ action: "removal", discordId: sub, obligationId: o.id, expectedRevision: rev, caseId: caseInput.value.trim() || null }, "Removal recorded."); } }));
-        }
         weeks.appendChild(h("tr", null, h("td", { text: `${fmtShortUtc(sec(o.periodStart))} (#${o.id})` }), h("td", { class: "num", text: gold(o.amountCopper) }), h("td", { class: "num", text: gold(o.paidCopper) }), h("td", { class: "wrap" }, `${o.state} · ${STAGE_WORDS[o.stage] || o.stage}`, h("span", { class: "muted small", text: ` · ${EVIDENCE_WORDS[o.evidence] || o.evidence}${o.eligible ? "" : " · exempt (new member)"}` })), h("td", { class: "wrap small", text: [o.acknowledgedAt && `ack ${fmtShort(sec(o.acknowledgedAt))}`, o.officerContactAt && `officer ${fmtShort(sec(o.officerContactAt))}`, o.finalNoticeAt && `final ${fmtShort(sec(o.finalNoticeAt))}`, o.finalAcknowledgedAt && `final ack ${fmtShort(sec(o.finalAcknowledgedAt))}`, o.finalOfficerContactAt && `final officer ${fmtShort(sec(o.finalOfficerContactAt))}`].filter(Boolean).join(" · ") || "—" }), h("td", null, acts)));
       }
       const receipts = h("tbody");
@@ -9476,8 +9558,6 @@
         receipts.appendChild(h("tr", null, h("td", { text: fmtShort(sec(r.observedAt)) }), h("td", { class: "wrap small", text: `${SOURCE_WORDS[r.source] || r.source}${r.sourceId ? ` · ${r.sourceId}` : ""}${r.payerName ? ` · ${r.payerName}` : ""}${r.recordedBy ? ` · by ${r.recordedBy}` : ""}` }), h("td", { class: "num", text: gold(r.amountCopper) }), h("td", { class: "num", text: gold(r.allocatedCopper) }), h("td", { class: "num", text: gold(r.unallocatedCopper) }), h("td", { text: r.voidedAt ? `voided ${fmtShort(sec(r.voidedAt))}` : r.status }), h("td", null, acts)));
       }
       // new week, new receipt, evidence, allocate
-      const weekStart = h("input", { type: "date" });
-      const eligible = h("input", { type: "checkbox", checked: true });
       const src = selectOf(Object.keys(SOURCE_WORDS).map((k) => ({ key: k, label: SOURCE_WORDS[k] })), "officer_manual", { placeholder: null });
       const srcId = h("input", { type: "text", placeholder: "source id" });
       const payer = h("input", { type: "text", placeholder: "payer name as written (optional)" });
@@ -9490,13 +9570,13 @@
       // when its answer is lost, so the same values can be sent again (a stored payment or week is answered, never doubled)
       if (drafts.for !== sub) drafts = { for: sub };
       const keep = (key, el, prop = "value") => { if (drafts[key] !== undefined) el[prop] = drafts[key]; const save = () => { drafts[key] = el[prop]; }; el.addEventListener("input", save); el.addEventListener("change", save); };
-      keep("weekStart", weekStart); keep("eligible", eligible, "checked"); keep("src", src); keep("srcId", srcId); keep("payer", payer); keep("amount", amount); keep("seen", seen); keep("rstatus", rstatus); keep("evWeek", evWeek); keep("evState", evState);
+      keep("src", src); keep("srcId", srcId); keep("payer", payer); keep("amount", amount); keep("seen", seen); keep("rstatus", rstatus); keep("evWeek", evWeek); keep("evState", evState);
       const snap = (rows) => { for (const [k, el, prop] of rows) drafts[k] = el[prop || "value"]; };
       add(view, [
         h("div", { class: "btn-row" }, ynBadge(current.writable, "ledger open", "read-only"), h("span", { class: "muted small", text: `revision ${rev || "—"} · mail reference ${typeof current.mailReference === "string" ? current.mailReference : (current.mailReference && current.mailReference.reference) || "—"}${L.complete ? "" : " · INCOMPLETE: a record is withheld"}` })),
         frame("Weeks", h("button", { class: "btn small", type: "button", text: "Allocate credit", onclick: () => action({ action: "allocate", discordId: sub }, "Allocated.") }),
-          L.obligations.length ? h("div", { class: "table-wrap" }, h("table", { class: "data" }, h("thead", null, h("tr", null, h("th", { text: "Week" }), h("th", { class: "num", text: "Asked" }), h("th", { class: "num", text: "Paid" }), h("th", { text: "State · stage" }), h("th", { text: "Contacts" }), h("th", { text: "" }))), weeks)) : h("p", { text: "No week recorded." }),
-          h("div", { class: "filters" }, fieldBox("lg-week", "New week (its Monday)", weekStart), h("label", { class: "check" }, eligible, " eligible"), h("button", { class: "btn small", type: "button", text: "Record the week", onclick: () => { if (!weekStart.value) { toast(ADMIN_COMMUNITY_ERRORS.invalid_period, "bad"); return; } snap([["weekStart", weekStart], ["eligible", eligible, "checked"]]); action({ action: "obligation", discordId: sub, periodStart: dayIso(weekStart.value), eligible: eligible.checked }, "Week recorded.", ["weekStart", "eligible"]); } }))),
+          L.obligations.length ? h("div", { class: "table-wrap" }, h("table", { class: "data" }, h("thead", null, h("tr", null, h("th", { text: "Week" }), h("th", { class: "num", text: "Asked" }), h("th", { class: "num", text: "Paid" }), h("th", { text: "State · stage" }), h("th", { text: "Contacts" }), h("th", { text: "" }))), weeks)) : h("p", { text: "No week recorded." })),
+
         frame("Payments", L.unallocatedCopper ? h("span", { class: "badge green", text: `credit ${gold(L.unallocatedCopper)}` }) : null,
           L.receipts.length ? h("div", { class: "table-wrap" }, h("table", { class: "data" }, h("thead", null, h("tr", null, h("th", { text: "Seen" }), h("th", { text: "Source" }), h("th", { class: "num", text: "Amount" }), h("th", { class: "num", text: "Applied" }), h("th", { class: "num", text: "Credit" }), h("th", { text: "Status" }), h("th", { text: "" }))), receipts)) : h("p", { text: "No payment recorded." }),
           h("div", { class: "filters" }, fieldBox("lg-src", "Source", src), fieldBox("lg-srcid", "Source id", srcId, { required: true }), fieldBox("lg-payer", "Payer", payer), fieldBox("lg-amount", "Amount (copper)", amount, { required: true }), fieldBox("lg-seen", "Seen", seen), fieldBox("lg-status", "Status", rstatus),

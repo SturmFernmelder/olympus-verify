@@ -74,4 +74,37 @@ class DisplayRefresh268Tests(unittest.TestCase):
         self.assertEqual(calls, ["/ingest/roster"])
         self.assertEqual(self.w._next_strict_display_pull, 0)
 
+    def read_missing_name(self, results, step_times):
+        """Run the real reader and atomic Lua writer with an elapsed server clock."""
+        clock = self.at
+        self.w._next_strict_display_pull = 0
+        self.w.strict_display_file.parent.mkdir(parents=True, exist_ok=True)
+        calls = []
+        def call(method, path, retries):
+            self.assertEqual((method, path, retries), ("GET", watcher.STRICT_DISPLAY_PATH, 1))
+            username = results[len(calls)]
+            calls.append(clock)
+            return True, dict(protocol=watcher.STRICT_DISPLAY_PROTOCOL, fetchedAt=clock,
+                              snapshotAt=self.at, guild="OLYMPUS PRIME", realm="Fixture Realm",
+                              verified=[dict(name="Fixture Member", guid="Player-1234-ABCDEF", status="member",
+                                             username=username, displayName=None)], unverified=[], unknown=[])
+        self.w.worker.call = call
+        for offset in step_times:
+            clock = self.at + offset
+            with patch.object(watcher.time, "time", return_value=clock):
+                self.w.pull_strict_display()
+        return [t-self.at for t in calls]
+
+    def test_name_settled_after_verification_is_projected_without_another_upload(self):
+        calls = self.read_missing_name([None, "fixture_member"], [0, 5, 59, 60, 120])
+        self.assertEqual(calls, [0, 60])
+        text = self.w.strict_display_file.read_text("utf-8")
+        self.assertIn('username = "fixture_member"', text)
+        self.assertIn(f"snapshotAt = {self.at},", text)
+        self.assertIn(f"fetchedAt = {self.at+60},", text)
+
+    def test_persistently_absent_name_has_only_three_extra_reads_on_one_roster(self):
+        calls = self.read_missing_name([None] * 4, [0, 60, 120, 180, 240, 300, 599])
+        self.assertEqual(calls, [0, 60, 120, 180])
+
 if __name__ == "__main__": unittest.main()

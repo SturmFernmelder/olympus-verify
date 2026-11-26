@@ -163,6 +163,7 @@ do
   local fields = 0; for _ in pairs(notice) do fields = fields + 1 end
   check("pending exchange stores only phase and time, no code or identity", fields == 2 and notice.capturedAt == f.e.NOW)
   check("receiving a verification never reloads unattended", reloads == 0)
+  setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyAutoSync.lua")), f.e)()
   f.e.OlympusVerifyAPI.Sync()
   check("explicit Sync makes exactly one reload request", reloads == 1)
   check("a reload request is not claimed as a Worker acknowledgement", f.e.OlympusVerifyAPI.Status().verificationExchange == "sync-requested")

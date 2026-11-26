@@ -64,6 +64,21 @@ class DurableIntake242Tests(unittest.TestCase):
         self.assertEqual((r["body"],r["sha256"]),(body,digest));w.state.save()
         restarted=watcher.Watcher(w.cfg);calls=[];restarted.worker.paused=lambda:None;restarted.worker.call=lambda *a,**k:(calls.append(a) or (False,{}))
         intake242.drain(restarted,False);self.assertEqual(calls,[])
+    def test_display_wakes_only_after_an_exact_confirmed_verification(self):
+        for status, outcome, guid, wake in [
+                ("done", "member", "Player-1-ABCD", True),
+                ("rejected", "source_expired", "Player-1-ABCD", False),
+                ("done", "member", "Player-1-ABCE", False)]:
+            with self.subTest(status=status, guid=guid):
+                row = original()
+                receipt = dict(id="a", character="First Last", guid=guid, status=status, outcome=outcome)
+                w = self.watcher({"a": row}, [(True, dict(version=242, acknowledgements=[receipt]))])
+                w.membership_only = True
+                w._next_strict_display_pull = 999
+                intake242.drain(w, False)
+                self.assertEqual(w._next_strict_display_pull, 0 if wake else 999)
+                self.assertEqual(len(w.worker.calls), 1)
+
     def test_expired_source_goes_to_server_then_explicit_rejected_receipt(self):
         r=original();r["body"]["requestedAt"]=1;r["sha256"]=intake242._canonical_body(r["body"])[1]
         receipt=dict(id="a",character="First Last",guid="Player-1-ABCD",status="rejected",outcome="source_expired")

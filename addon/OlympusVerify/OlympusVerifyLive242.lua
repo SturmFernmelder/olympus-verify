@@ -512,7 +512,7 @@ function V.VerificationReply(sender, senderGuid, fallback)
   end
   state.replies[norm(sender)]=time()
   if newest then return ("Olympus: already verified. Discord role: "..(text(newest.discordRole,70) or "confirmed; refresh Discord")..". Check Discord /verify-status for current access."):sub(1,255) end
-  return "Olympus: code saved; server verification is queued for officer Sync. Check Discord /verify-status for current access. No server role is confirmed yet."
+  return "Olympus: code received. The Watcher checks saved verification records. Check Discord /verify-status for the result."
 end
 local function verificationText(s) return text(s,4096) and s:lower():find("^%s*!verify%s+%w+") end
 local function filter(_, event, message, sender)

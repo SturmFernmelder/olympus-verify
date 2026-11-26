@@ -8923,3 +8923,9 @@ Check first-time whisper links, attended recovery, and existing verified members
 Measure the complete verification request, including its deferred work. Confirm a separate signed role-request continuation fills a missing handle with one spare Discord read. The ordinary names schedule also repairs missing handles when there is no recent roster activity.
 
 For a single signed positive whisper from a Watcher that can retain the original request, check the last five seconds before the ten-minute cutoff. The Worker should defer it before starting a claim, then accept the same original through delayed verification when it qualifies. Check that the direct path remains available earlier and that a lost response to a submitted claim cannot authorize another claim.
+
+## 26 November 2026 — .307 guild rosters and officer workspace
+
+Ship the combined Verify and roster window with addon 0.6.50 and Watcher 0.6.46. Check the ordinary signed whisper path, the current handle on the desktop, safe Sync, filters, and the separately attended promotion and removal controls. First observation is distinct from a recorded join. Check that an existing senior officer satisfies the Discord warning and that the departure notice follows a confirmed role deletion. Preserve protected and manually assigned roles.
+
+Compare the signed-in guild roster and Discord profile responses as a server member and as an officer. Check an unavailable branch, standing and visibility exclusions, raid signup, assignments, waitlist and attendance history. Verify the voluntary contribution call to action and preservation of historical receipts. Register the single new guild command and compare the other definitions. To roll back, redeploy the accepted .306 commit, restore its public addon and Watcher program files, and remove only the newly introduced command if needed. Preserve SavedVariables, local configuration, receipts and all guild records.

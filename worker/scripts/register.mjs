@@ -8,6 +8,7 @@ import { existsSync, readFileSync as _readFileSync } from "node:fs";
 import { fileURLToPath as _fileURLToPath } from "node:url";
 import { dirname as _dirname, join as _join } from "node:path";
 import { introsCommand, lookupCommand } from "./intros-command.mjs";
+import { OLYMPUS_PROFILE_COMMAND307 } from '../src/discord-profile-command-definition307.ts';
 
 // Fall back to worker/.dev.vars (gitignored, the same file `wrangler dev` reads) so the bot token never has to be
 // typed on a command line or pasted into a chat. Values already in the environment win.
@@ -158,6 +159,7 @@ if (INTROS_GUILD === undefined) {
 }
 // Build .41: /olympus-lookup too. The right-click "Olympus linked characters" is already in the list above (same name,
 // same answer since .41), so it is not added a second time: Discord refuses two commands with one name.
+commands.push(OLYMPUS_PROFILE_COMMAND307);
 if (INTROS_GUILD && INTROS_GUILD === GUILD) commands.push(introsCommand, lookupCommand);
 await put(`/applications/${APP}/guilds/${GUILD}/commands`, commands);
 console.log(`registered ${commands.length} guild commands in ${GUILD}`);

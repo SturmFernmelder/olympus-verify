@@ -75,7 +75,7 @@ const content201: Readonly<Record<string, Content201>> = {
   office_07: [
     'An Artisan is a member who contributes craft knowledge and practical skill to the guild. The title recognizes useful work—making an item, teaching a recipe route or solving a materials problem—without implying that every Artisan controls the Workshop.',
     ['Describe the professions and recipes you genuinely offer in an opt-in listing.', 'Agree materials, any permitted in-game charge and delivery expectations before accepting a commission.', 'Correct or remove a listing when the recipe, availability or character changes.'],
-    ['Protect a customer’s materials and explain delays before the promised handover.', 'Treat rare recipe holders and ordinary crafters fairly; do not present tips as compulsory dues.'],
+    ['Protect a customer’s materials and explain delays before the promised handover.', 'Treat rare recipe holders and ordinary crafters fairly. Tips are voluntary.'],
     'Self-chosen commissions and voluntary teaching; no universal weekly quota.', 'Crafters, Profession Coordinator and the Workshop.', 'A directory listing does not prove recipe ownership, guarantee an order or grant bank access.'
   ],
   office_08: [

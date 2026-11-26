@@ -682,7 +682,7 @@ local function PromotionTooltip(button)
     GameTooltip:AddLine("One click requests one native rank step. Another step needs a new click and observed native confirmation; unknown attempts stay held.",0.8,0.8,0.7,true)
   else
     GameTooltip:AddLine((button:GetText()=="Member" or button:GetText()=="Veteran") and "The current native rank is "..button:GetText()..". This rank observation does not confirm an earlier attempt. Any history or source issue above remains recorded; no repeat is enabled."
-      or button:GetText()=="Checking" and "This check is still waiting for the Watcher. Wait for the Watcher, then click Sync & reload to load the result. The addon cannot see whether the Watcher is running."
+      or button:GetText()=="Checking" and "This check is still waiting for the Watcher. The latest available result loads at login or reload. The desktop viewer shows Watcher updates in between."
       or button:GetText()=="Held" and "The reason above says what is blocking promotion. If an earlier attempt is still unresolved, review its history and the member's current rank in the game's guild window. This view cannot clear or repeat that attempt. For other holds, follow the step named above."
       or "No promotion is enabled. Complete normal verification first, or inspect the current native rank and source reason.",0.8,0.8,0.7,true)
   end

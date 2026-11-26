@@ -13,6 +13,8 @@ import {kickRoleWorkGroups266} from '../src/role-reconcile242.ts';
 import {D1_PERFORMANCE_INDEX_NAME, D1_PERFORMANCE_INDEX_DDL} from '../src/d1-performance-index.ts';
 import {readOriginalCompleteSchema} from '../src/privacy-schema-source-plan.ts';
 import {originalCanonicalSmoke280} from './canonical_v1_compat280_smoke.mjs';
+import {raidCalendarReadback} from './raid_calendar307_runtime.mjs';
+import {guildDirectoryReadback} from './guild_directory307_runtime.mjs';
 
 const EPOCH='a'.repeat(32), GUILD='800000000000000001', ROLE='800000000000000010';
 const ALLOWED='800000000000000101', BANNED='800000000000000102', BLOCKED='800000000000000103', PRIVATE='800000000000000104';
@@ -92,6 +94,8 @@ export default {async fetch(request,bindings,ctx){
       check('common role writer refuses a blocking Discord role',await grantMemberRole(env,BLOCKED,'qualification','qualification',undefined,callBudget(env))==='blocked');
       const native=await runNativeSubject232(env,ALLOWED,callBudget(env));
       check('missing original Native authority never reports a settled grant',native.state==='held'&&native.requests===0);
+      await raidCalendarReadback(env,check);
+      await guildDirectoryReadback(env,db,ctx,check);
     }else if(kind==='lease'){
       const now=(await db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS t").first()).t;
       const owner=freshLeaseValue(now+FRESH_LEASE_SECONDS,'d'.repeat(32)),foreign=freshLeaseValue(now+FRESH_LEASE_SECONDS,'e'.repeat(32));

@@ -7,12 +7,13 @@ import { focusedOption, option, subcommand } from './discord';
 import { now } from './db';
 import { destination } from './community-event-delivery';
 import { runEventReminders } from './community-event-reminders';
-import { guildStaffNow219, guildActorBatch219, type GuildActor219 } from './guild-command-authority219';
+import { currentGuildActor219, guildCalendarRolesNow219, guildActorBatch219, type GuildActor219 } from './guild-command-authority219';
 import { DB_NOW, communityFeatures } from './community-context';
-import { readCalendar219, createCalendar219, calendarRoster219, attendanceCalendar219, rsvpCalendar219, eventId219, type CalendarEvent219 } from './guild-calendar219';
+import { readCalendar219, createCalendar219, calendarRoster219, attendanceCalendar219, rsvpCalendar219, eventId219, raidCapacityText, type CalendarEvent219 } from './guild-calendar219';
 import { consentCalendarReminder219 } from './guild-reminder219';
 import { safeDiscordText219, plainDiscordLabel280, type GuildEmbed219 } from './guild-utilities219';
 import { siteMemberLink } from './site-return';
+import { decideRaidSignup307, mayAssignRaid307, raidAssignmentChoices307 } from './guild-roster-decisions307';
 
 type Button222={type:2;style:number;label:string;custom_id?:string;url?:string};
 type Select222={type:3|5;custom_id:string;placeholder:string;min_values:1;max_values:1;options?:{label:string;value:string;description?:string}[]};
@@ -30,7 +31,7 @@ export function isRaidHub222(i:Interaction):boolean {
 }
 function parsed(i:Interaction,a:GuildActor219){
  const m=CID.exec(i.data?.custom_id??'');if(!m||m[1]!==a.id||Number(m[2])<=now()||Number(m[2])>a.deadline||Number(m[6])>100)throw Error('This private control has expired. Open the raid hub again.');
- return {action:m[3]!,id:m[4]!,revision:Number(m[5]),page:Number(m[6]),target:m[7]};
+ return {action:m[3]!,id:m[4]!,revision:Number(m[5]),page:Number(m[6]),target:m[7],until:Number(m[2])};
 }
 function cid(a:GuildActor219,action:string,event?:CalendarEvent219,page=1,target?:string){return ['r222',a.id,a.deadline,action,event?.id??'-',event?.revision??0,page,...(target?[target]:[])].join(':');}
 const button=(label:string,id:string,style=2):Button222=>({type:2,style,label,custom_id:id});
@@ -64,8 +65,10 @@ export async function raidAutocomplete222(env:Env,a:GuildActor219,i:Interaction)
 }
 export async function raidHub222(env:Env,a:GuildActor219,i:Interaction):Promise<HubAnswer222>{
  const find=i.type===2?option<unknown>(i,'find'):undefined;
- const p=i.type===2?{action:'hub',id:typeof find==='string'?eventId219(find):'-',revision:0,page:1,target:undefined}:parsed(i,a);
- const host=destination(env)!.host,staff=await guildStaffNow219(env,a);
+ const p=i.type===2?{action:'hub',id:typeof find==='string'?eventId219(find):'-',revision:0,page:1,target:undefined,until:a.deadline}:parsed(i,a);
+ const host=destination(env)!.host,roles=await guildCalendarRolesNow219(env,a.id,a.guild);
+ if(!await currentGuildActor219(env,a))throw Error('Current guild eligibility could not be confirmed.');
+ const staff=roles.officer;
  let note='',event:CalendarEvent219|undefined;
  if(i.type===5&&p.action==='save'){
   const f=modalFields(i,['title','starts','minutes','capacity','details']);
@@ -85,20 +88,65 @@ export async function raidHub222(env:Env,a:GuildActor219,i:Interaction):Promise<
  if(i.type===5&&p.action==='final'&&event){const f=modalFields(i,['confirm']);if(f.confirm!=='LOCK')throw Error('Nothing changed. Type LOCK to finalize attendance.');const ok=await attendanceCalendar219(env,a,event.id,'lock',undefined,undefined);note=ok?'Attendance locked. Missing observations stay unrecorded.':'Nothing changed. The event must have started and attendance must still be unlocked.';}
  if(p.action==='rsvp'&&event){const choice=selected(i);if(!choices.includes(choice))throw Error('Choose a current signup preference.');const ok=await rsvpCalendar219(env,a,event.id,event.revision,choice);note=ok?'Your preference was saved. Bench is a request, not an organizer decision.':'Nothing changed. This event may have started, filled or changed.';}
  if(p.action==='record'&&event){const state=selected(i);if(!p.target||!['present','absent','excused','unknown'].includes(state))throw Error('Choose an observed attendance state.');const ok=await attendanceCalendar219(env,a,event.id,'record',p.target,state);note=ok?'Observed attendance recorded.':'Nothing changed. Choose an existing signup in a started, unlocked event.';}
- const events=event?[]:await readCalendar219(env,a,undefined,p.page);
+ if(p.action==='decision'&&event){
+  const choice=/^(accepted|bench|clear):(0|[1-9]\d{0,9})$/.exec(selected(i));
+  if (!choice||!p.target||!p.revision) throw Error('Choose a current signup and roster decision.');
+  const decision=choice[1]==='clear'?null:choice[1] as 'accepted'|'bench';
+  const changed=await decideRaidSignup307(env,a,event,p.until,p.target,Number(choice[2]),decision);
+  note=changed ? decision==='accepted'?'Signup accepted.':decision==='bench'?'Signup placed on the officer waitlist.':'Officer decision cleared.'
+   :'No new decision was saved. Check the current assignment, signup, capacity and organizer access.';
+  event=(await readCalendar219(env,a,event.id))[0];
+  if (!event) throw Error('The event is unavailable. Open the raid hub to check its current state.');
+ }
+ const history=p.action==='history';
+ const events=event?[]:await readCalendar219(env,a,undefined,p.page,history);
  const calendarLink=siteMemberLink(host,'community/calendar'+(event?'/'+event.id:''));
- const embeds:GuildEmbed219[]=[{title:event?safeDiscordText219(event.title,80):'Olympus raid & event hub',url:calendarLink,description:event?'<t:'+event.starts_at+':F> · '+event.duration_min+' minutes\n'+safeDiscordText219(event.details,500)+'\nEvent ID: '+event.id:events.length?'Choose an event below to view its roster or set your signup preference.':'No upcoming events are currently scheduled.',footer:{text:'Private controls expire after three minutes. Roles, event revisions and eligibility are checked again on every action.'}}];
+ const embeds:GuildEmbed219[]=[{title:event?safeDiscordText219(event.title,80):history?'Raid attendance & history':'Olympus raid & event hub',url:calendarLink,
+  description:event?'<t:'+event.starts_at+':F> · '+event.duration_min+' minutes'+(event.status==='cancelled'?' · Cancelled':'')+'\n'+raidCapacityText(event)+'\n'+safeDiscordText219(event.details,500)+'\nEvent ID: '+event.id+(event.own_attendance?'\nYour recorded attendance: '+safeDiscordText219(event.own_attendance,20):'')
+   :history?(events.length?'Choose a past event to see its roster and your recorded attendance.':'No past events remain in the calendar history.')
+   :events.length?'Choose an event below to view its roster or set your signup preference.':'No upcoming events are currently scheduled.',
+  footer:{text:'Private controls expire after three minutes. Roles, event revisions and eligibility are checked again on every action.'}}];
  const components:HubRow222[]=[];
  if(event){
-  if(p.action==='roster'){const people=await calendarRoster219(env,a,event.id,p.page);embeds[0]!.description+='\n\n'+(people.slice(0,20).map(r=>safeDiscordText219(r.display_name,50)+' — '+safeDiscordText219(r.preference??r.raid_role??r.status,20)+(r.attendance_visible===1?' · '+safeDiscordText219(r.attendance??'unrecorded',15):'')).join('\n')||'No current eligible signups.');components.push(row(button('Previous roster page',cid(a,'roster',event,Math.max(1,p.page-1))),button('Next roster page',cid(a,'roster',event,Math.min(100,p.page+1)))));}
+  const mayAssign=await mayAssignRaid307(env,a,event,roles);
+  if(p.action==='assign'||p.action==='assignpick'){
+   if (!mayAssign||!p.revision) throw Error('This event requires a current organizer and an open signup.');
+   const target=p.action==='assignpick'?selected(i):undefined;
+   const people=await raidAssignmentChoices307(env,a,event,p.until,target?1:p.page,target);
+   if(target){
+    const signup=people[0];if(!signup||signup.discord_id!==target)throw Error('This signup is unavailable. Open the current assignments.');
+    note=safeDiscordText219(signup.label,64)+' · current assignment: '+(signup.decision==='bench'?'officer waitlist':signup.decision??'undecided');
+    components.push(row({type:3,custom_id:cid(a,'decision',event,1,target),placeholder:'Set this signup’s officer decision',min_values:1,max_values:1,
+     options:[['Accept on roster','accepted'],['Place on officer waitlist','bench'],['Clear decision','clear']].map(([label,value])=>({label:label!,value:value+':'+signup.decision_revision}))}));
+   }else{
+    if(people.length)components.push(row({type:3,custom_id:cid(a,'assignpick',event),placeholder:'Choose a signed-up member',min_values:1,max_values:1,
+     options:people.slice(0,20).map(s=>({label:plainDiscordLabel280(s.label,80)||'Member',value:s.discord_id,description:s.decision==='bench'?'Officer waitlist':s.decision??'Awaiting assignment'}))}));
+    else note='No eligible signups on this page.';
+    const pages:Button222[]=[];
+    if(p.page>1)pages.push(button('Previous signups',cid(a,'assign',event,p.page-1)));
+    if(people.length>20&&p.page<100)pages.push(button('More signups',cid(a,'assign',event,p.page+1)));
+    if(pages.length)components.push(row(...pages));
+   }
+   components.push(row(button('View roster',cid(a,'roster',event)),{type:2,style:5,label:'Website roster',url:siteMemberLink(host,'community/calendar/'+event.id+'/roster')}));
+   return {content:note||undefined,embeds,components};
+  }
+  if(p.action==='roster'){const people=await calendarRoster219(env,a,event.id,p.page);embeds[0]!.description+='\n\n'+(people.slice(0,20).map(r=>safeDiscordText219(r.display_name,50)+' — '+safeDiscordText219(r.preference??r.raid_role??r.status,20)+(r.decision?' · officer: '+safeDiscordText219(r.decision,15):'')+(r.attendance_visible===1?' · '+safeDiscordText219(r.attendance??'unrecorded',15):'')).join('\n')||'No current eligible signups.');
+   const pages:Button222[]=[];if(p.page>1)pages.push(button('Previous roster page',cid(a,'roster',event,p.page-1)));if(people.length>20&&p.page<100)pages.push(button('Next roster page',cid(a,'roster',event,p.page+1)));if(pages.length)components.push(row(...pages));}
   if(p.action==='attend')components.push(row({type:5,custom_id:cid(a,'person',event),placeholder:'Choose a signup whose attendance you observed',min_values:1,max_values:1}));
   else if(p.action==='person'){const target=selected(i,5);if(!/^[0-9]{17,20}$/.test(target))throw Error('Choose one Discord member.');note='Attendance for <@'+target+'>. Choose only what you directly observed.';components.push(row({type:3,custom_id:cid(a,'record',event,1,target),placeholder:'Observed attendance',min_values:1,max_values:1,options:['present','absent','excused','unknown'].map(value=>({label:value,value}))}));}
   else if(event.status==='scheduled'&&event.starts_at>now())components.push(row({type:3,custom_id:cid(a,'rsvp',event),placeholder:'Your signup preference',min_values:1,max_values:1,options:choices.map(value=>({label:value[0]!.toUpperCase()+value.slice(1),value,description:value==='bench'?'Request Bench; does not change the officer roster':'Your preference; the organizer reviews the roster'}))}));
   components.push(row(button('View roster',cid(a,'roster',event)),button('All upcoming events',cid(a,'hub')), {type:2,style:5,label:'Open calendar',url:calendarLink}));
-  if(staff)components.push(row(button('One reminder…',cid(a,'remind',event)),button('Record attendance',cid(a,'attend',event)),button('Lock attendance…',cid(a,'lock',event))));
+  const officer:Button222[]=[];
+  if(mayAssign)officer.push(button('Assignments & waitlist',cid(a,'assign',event)),{type:2,style:5,label:'Website roster',url:siteMemberLink(host,'community/calendar/'+event.id+'/roster')});
+  if(staff)officer.push(button('One reminder…',cid(a,'remind',event)),button('Record attendance',cid(a,'attend',event)),button('Lock attendance…',cid(a,'lock',event)));
+  if(officer.length)components.push(row(...officer));
  }else{
   if(events.length)components.push(row({type:3,custom_id:cid(a,'choose',undefined,p.page),placeholder:'Choose a raid or guild event',min_values:1,max_values:1,options:events.slice(0,5).map(e=>({label:plainDiscordLabel280(e.title,80),value:e.id,description:new Date(e.starts_at*1000).toISOString().slice(0,16)+'Z · '+e.duration_min+' minutes'}))}));
-  const nav:Button222[]=[button('Open event by ID…',cid(a,'find'))];if(p.page>1)nav.push(button('Previous events',cid(a,'hub',undefined,p.page-1)));if(events.length>5&&p.page<100)nav.push(button('More events',cid(a,'hub',undefined,p.page+1)));if(staff)nav.push(button('Schedule an event…',cid(a,'create'),1));components.push(row(...nav));
+  const view=history?'history':'hub';
+  const nav:Button222[]=[button('Open event by ID…',cid(a,'find')),button(history?'Upcoming raids':'Raid history',cid(a,history?'hub':'history'))];
+  if(p.page>1)nav.push(button('Previous events',cid(a,view,undefined,p.page-1)));
+  if(events.length>5&&p.page<100)nav.push(button('More events',cid(a,view,undefined,p.page+1)));
+  if(staff)nav.push(button('Schedule an event…',cid(a,'create'),1));components.push(row(...nav));
   components.push(row({type:2,style:5,label:'Guild calendar',url:calendarLink},{type:2,style:5,label:'Raid preparation',url:siteMemberLink(host,'resources')}));
  }
  if(p.action==='choose'){const id=eventId219(selected(i));return raidHub222(env,a,{...i,type:2,data:{name:'raid',options:[{type:3,name:'find',value:id}]}});}

@@ -114,7 +114,7 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.45"
+WATCHER_VERSION = "0.6.46"
 STRICT_DISPLAY_PROTOCOL = "launch-roster-display-v2"
 STRICT_DISPLAY_PATH = "/queue/unverified?keyVersion=" + STRICT_DISPLAY_PROTOCOL
 STRICT_DISPLAY_MAX_BYTES = 512 * 1024
@@ -707,6 +707,8 @@ class Watcher:
         self.unverified_poll = _seconds(cfg, "unverified_poll_seconds", 1800)
         self._last_unverified_pull = 0.0
         self._next_strict_display_pull = 0.0
+        self._name_followup_snapshot = None
+        self._name_followups = 0
         self.launch_scan = launch_operations229.Scan(lambda: time.time(), discovery235=True)
         self.launch_selected = launch_operations229.SelectedRead(lambda: time.time())
         self.initiate_checks: list[launch_operations229.SelectedRead] = []
@@ -1073,8 +1075,7 @@ class Watcher:
         # the normal read-only pull; never wait another five minutes or redate old data.
         # Only a durably settled original can request this read, including recovery.
         if self.membership_only and item.get("path") in ("/ingest/roster", "/ingest/verify", "/ingest/intake242"):
-            self._next_strict_display_pull = 0.0
-            self._last_queue_pull = 0.0
+            self.wake_strict_display()
         return Delivery.DELIVERED
 
     def _forget_verification_original(self, item: dict[str, Any]) -> None:
@@ -2838,6 +2839,13 @@ class Watcher:
         if changed:
             self.write_launch_operations()
 
+    def wake_strict_display(self) -> None:
+        # Local ACK recovery schedules this before it releases its custody halt.
+        # The actual read rechecks the halt and ordinary presence admission.
+        if self.membership_only:
+            self._next_strict_display_pull = 0.0
+            self._last_queue_pull = 0.0
+
     def pull_strict_display(self) -> None:
         if not self.membership_only or self._custody_halted:
             return
@@ -2854,6 +2862,16 @@ class Watcher:
         path = self.strict_display_file
         if self._write_projection280(path, body, response) is not None:
             self._next_strict_display_pull = at + cadence
+            # A link can be visible before the separate Discord name lookup finishes.
+            # Read the authentic display again, at most three times per fresh roster.
+            snapshot = (response["guild"], response["realm"], response["snapshotAt"])
+            if snapshot != self._name_followup_snapshot:
+                self._name_followup_snapshot = snapshot
+                self._name_followups = 0
+            if (self._name_followups < 3 and at + 60 < response["snapshotAt"] + 600
+                    and any(not member["username"] for member in response["verified"])):
+                self._name_followups += 1
+                self._next_strict_display_pull = at + 60
 
     @staticmethod
     def render_strict_display(report: Any, at: int) -> str | None:

@@ -91,6 +91,7 @@ local historyBox, reminderLog
 local frame, search, statusBtn, rankBtn, classBtn, onlineBtn, initiateBtn, readyBtn, nextBtn, actionInfo, summary, footer, rows, headers
 local offset = 0
 local view = { text = "", status = 1, rank = 0, class = 0, online = false, sort = "name", desc = false, initiates = false, presence = 1, action = 1 }
+view.multi={}
 local cache = { list = {}, info = nil }
 local diagnostics = { byGuid = {}, byRow = {}, reason = "Promotion recommendations not loaded." }
 
@@ -196,7 +197,7 @@ local function Age(value)
   return string.format("%.1fh", age/3600)
 end
 local function CloseMenu() if menu then menu:Hide(); menu.owner=nil end end
-local function OpenMenu(owner, title, options, current, choose)
+local function OpenMenu(owner, title, options, current, choose,category)
   if menu and menu:IsShown() and menu.owner==owner then CloseMenu(); return end
   if not menu then
     menu=CreateFrame("Frame", "OlympusVerifyRosterMenu", frame, BACKDROP_TEMPLATE)
@@ -209,20 +210,46 @@ local function OpenMenu(owner, title, options, current, choose)
       local item=Button(menu,"",316,23,function(self)
         local option=self.option
         if not option or not menu.choose then return end
-        local fn=menu.choose; CloseMenu(); fn(option.value)
+        local fn=menu.choose;if menu.category then view.multi[menu.category]=nil end
+        CloseMenu(); fn(option.value)
       end)
       item:SetPoint("TOPLEFT",menu,"TOPLEFT",8,-29-(i-1)*23)
+      local tick=CreateFrame("CheckButton",nil,item,"UICheckButtonTemplate")
+      tick:SetSize(22,22);tick:SetPoint("RIGHT",item,"RIGHT",-4,0)
+      tick:SetScript("OnClick",function()
+        local category=menu.category
+        if not category or not item.option then return end
+        local all=menu.items[1].option.value
+        local selected=view.multi[category] or {}
+        if view[category]~=all then selected[view[category]]=true end
+        local value=item.option.value
+        if value==all then selected={} else selected[value]=not selected[value] or nil end
+        local n,only=0,nil
+        for k in pairs(selected) do n=n+1;only=k end
+        view.multi[category]=n>1 and selected or nil
+        menu.choose(n==1 and only or all)
+        for _,entry in ipairs(menu.items) do
+          if entry.option then
+            local v=entry.option.value
+            entry.tick:SetChecked(n>0 and selected[v]==true or n==0 and v==all)
+          end
+        end
+      end)
+      item.tick=tick
       item:Hide(); menu.items[i]=item
     end
     if type(UISpecialFrames)=="table" then table.insert(UISpecialFrames,"OlympusVerifyRosterMenu") end
   end
   menu:ClearAllPoints(); menu:SetPoint("TOPLEFT",owner,"BOTTOMLEFT",0,-2)
-  menu.owner,menu.choose=owner,choose
+  menu.owner,menu.choose,menu.category=owner,choose,category
   menu.title:SetText(title); menu:SetSize(332,37+math.min(#options,18)*23)
   for i,item in ipairs(menu.items) do
     local option=options[i]; item.option=option
     if option then
-      SetButtonText(item,(option.value==current and GOLD.."[x] " or WHITE.."    ")..option.label.."|r"); item:Show()
+      local set=category and view.multi[category]
+      local active=set and set[option.value] or not set and option.value==current
+      SetButtonText(item,(active and GOLD or WHITE)..option.label.."|r"); item:Show()
+      if category then item.tick:SetChecked(active==true);item.tick:Show() else item.tick:Hide() end
     else item:Hide() end
   end
   menu:Show(); W.menu=menu
@@ -307,6 +334,13 @@ local function CurrentClass()
   return classes[view.class]
 end
 
+local function readablePlayerGuid(value)
+  local ok,valid=pcall(function()
+    return not (type(issecretvalue)=="function" and issecretvalue(value)) and type(value)=="string"
+      and #value<=40 and value:match("^Player%-%d+%-%x+$")~=nil
+  end)
+  return ok and valid==true
+end
 local function OnlineInitiates()
   return view.initiates and view.presence==2
 end
@@ -349,15 +383,30 @@ local function Visible(log)
   })
   local candidates, why = PromotionCandidates()
   local filtered = {}
+  local multi=view.multi
   for _, m in ipairs(list) do
-    local kind=ACTION_FILTERS[view.action or 1][1]
     local action=ActionFor(m)
-    local matches=kind=="all" or kind=="ready" and Eligible(m,candidates)
+    local function readiness(k)
+      local kind=ACTION_FILTERS[k][1]
+      return kind=="all" or kind=="ready" and Eligible(m,candidates)
       or kind=="not_ready" and not Eligible(m,candidates)
       or kind=="recommended" and action.historical==true
       or kind=="known_verified_initiate" and m.rankIndex==9 and m.status=="verified" and not m.historicalLinked
       or kind==action.state
-    if (not view.initiates or m.rankIndex == 9) and matches then
+    end
+    local matches=readiness(view.action or 1)
+    if multi.action then
+      matches=false;for k in pairs(multi.action) do if readiness(k) then matches=true;break end end
+    end
+    if matches and multi.status then
+      matches=false;for k in pairs(multi.status) do
+        local s=STATUS_FILTERS[k]
+        if (s[3] and m.statusDetail or m.status)==s[1] then matches=true;break end
+      end
+    end
+    if (not view.initiates or m.rankIndex == 9) and matches
+      and (not multi.rank or multi.rank[m.rank]) and (not multi.class or multi.class[m.class])
+      and (not view.inactiveDays or m.online==false and type(m.days)=="number" and m.days>=view.inactiveDays) then
       filtered[#filtered + 1] = m
     end
   end
@@ -367,25 +416,15 @@ local function Visible(log)
   elseif view.sort=="reminder" then
     view.sort,view.desc="name",false
   end
-  if view.sort=="action" or view.sort=="reminder" then
-    table.sort(filtered,function(a,b)
-      local av,bv
-      if view.sort=="reminder" then
-        local ar,br=reminders[a.guid],reminders[b.guid]
-        if ar then av=select(2,ReminderResult(ar)) end
-        if br then bv=select(2,ReminderResult(br)) end
-        if (av==nil)~=(bv==nil) then return av~=nil end
-      else
-        av,bv=ACTION_ORDER[ActionFor(a).state] or 99,ACTION_ORDER[ActionFor(b).state] or 99
-      end
-      if av~=bv then if view.desc then return av>bv else return av<bv end end
-      local an,bn=string.lower(a.full or a.name),string.lower(b.full or b.name)
-      if an~=bn then return an<bn end
-      return (a.guid or "")<(b.guid or "")
-    end)
-    return filtered,candidates,why,reminders
+  if not reminders and view.secondary=="reminder" then view.secondary=nil end
+  if view.sort=="action" or view.sort=="reminder" or view.secondary=="action" or view.secondary=="reminder" then
+    for _,m in ipairs(filtered) do
+      local r=reminders and reminders[m.guid]
+      m.reminderSort=r and select(2,ReminderResult(r))
+      m.actionSort=ACTION_ORDER[ActionFor(m).state] or 99
+    end
   end
-  return R.Sort(filtered, view.sort, view.desc), candidates, why,reminders
+  return R.Sort(filtered,view.sort,view.desc,view.secondary,view.secondaryDesc),candidates,why,reminders
 end
 
 local function PromotionTarget(guid)
@@ -438,6 +477,11 @@ local function ShowDetail(m, visible, log)
   end
   if not m then detailText:SetText(GREY.."Select a row for its full verification reason, source dates and promotion readiness. Review labels do not establish current Discord access.|r"); return end
   local lines=DetailLines(m)
+  local journal=OlympusVerifyGuildJournal
+  local first=journal and m.guid and journal.FirstSeen(m.guid)
+  if first then lines[#lines+1]="First seen on this officer's roster: "..Stamp(first)..". Guild activity lists joins recorded by WoW." end
+  local joined=journal and journal.LatestJoin(m.full)
+  if joined then lines[#lines+1]="Latest native join under this exact name: approximately "..Stamp(joined) end
   detailText:SetText(WHITE..table.concat(lines,"\n").."|r")
 end
 local function RowTip(r)
@@ -641,7 +685,7 @@ function W.Refresh()
   local sync=OlympusVerifyAutoSync and OlympusVerifyAutoSync.Status and OlympusVerifyAutoSync.Status()
   snapshotText:SetText(GREY.."Local Sync request: "..Stamp(sync and sync.lastRequestedAt).." | Loaded server query: "..Stamp(loadedAt).." ("..Age(loadedAt)..") | Server roster: "..Stamp(snapshotAt).." ("..Age(snapshotAt)..")|r")
   local namesHint=info.hasNames and "Refresh view rereads the native roster and loaded evidence; it cannot fetch a changed disk file."
-    or "No current Discord names loaded. Use Sync & reload, then inspect the Watcher result."
+    or "No current Discord names loaded. Use Sync to load the Watcher result."
   footer:SetText(GREY..string.format("Showing %d of %d members%s. ",shown,info.total or 0,
     #list>ROWS and string.format(" | rows %d-%d, scroll",offset+1,math.min(#list,offset+ROWS)) or "")..namesHint.."|r")
   SetButtonText(statusBtn,STATUS_FILTERS[view.status][2].." v")
@@ -650,12 +694,13 @@ function W.Refresh()
   SetButtonText(onlineBtn,PRESENCE_FILTERS[view.presence or 1].." v")
   SetButtonText(W.onlineInitiatesButton,(OnlineInitiates() and GOLD or WHITE).."Online Initiates|r")
   SetButtonText(actionFilterBtn,ACTION_FILTERS[view.action or 1][2].." v")
+  for field,set in pairs(view.multi) do
+    local button=({status=statusBtn,rank=rankBtn,class=classBtn,presence=onlineBtn,action=actionFilterBtn})[field]
+    local n=0;for _ in pairs(set) do n=n+1 end
+    if button then SetButtonText(button,n.." selected · "..field.." v") end
+  end
   SetButtonText(initiateBtn,(view.initiates and GOLD or WHITE).."Initiates|r")
   SetButtonText(readyBtn,(view.initiates and view.status==2 and view.action==4 and GOLD or WHITE).."Verified Initiates|r")
-  if W.importButton then
-    if view.initiates and view.action==2 then W.batchButton:Hide();W.importButton:Show()
-    else W.importButton:Hide();W.batchButton:Show() end
-  end
   local readyCount=0
   for _,m in ipairs(list) do if Eligible(m,candidates) then readyCount=readyCount+1 end end
   local actionTitle=not diagnostics.queueAvailable and "Promote: unavailable"
@@ -692,14 +737,21 @@ function W.Refresh()
     for _,m in ipairs(list) do if first==nil then first=m.snapshotAt elseif first~=m.snapshotAt then same=false end end
     if same then hint="; this view shares one original observation time, so rows tie by character name." end
   end
-  sortText:SetText(GREY.."Sorted by "..sortLabel..(view.desc and " descending" or " ascending")..hint.."|r")
+  sortText:SetText(GREY.."Sorted by "..sortLabel..(view.desc and " descending" or " ascending")..(view.secondary and (" then "..view.secondary..(view.secondaryDesc and " descending" or " ascending")) or "")..hint.."|r")
   local match
   if selected then for _,m in ipairs(cache.list) do
     if IsSelected(m) then match=m;break end
   end end
   ShowDetail(match,selectedShown,log)
   RefreshHistory(log)
-  if W.selectButton then W.selectButton:SetEnabled(match~=nil and type(match.guid)=="string" and type(OlympusLaunch229)=="table" and type(OlympusLaunch229.Select)=="function") end
+  if W.inactiveFilter then
+    if view.inactiveDays then
+      SetButtonText(W.inactiveFilter,"Offline "..view.inactiveDays.."+ days v");W.inactiveFilter:Show()
+      W.removeInactive:Show();W.removeInactive:SetEnabled(selectedShown and match and match.online==false and readablePlayerGuid(match.guid) or false)
+    else
+      W.inactiveFilter:Hide();W.removeInactive:Hide()
+    end
+  end
   W.diagnostics,W.summary,W.queueSummary,W.snapshotText,W.actionInfo,W.detailText,W.sortText=diagnostics,summary,queueSummary,snapshotText,actionInfo,detailText,sortText
 
 end
@@ -712,7 +764,7 @@ end
 -- ---------------------------------------------------------------- building
 local Layout = { WIDTH=WIDTH, HEIGHT=HEIGHT, PAD=PAD, INNER=INNER, FILTER_Y=FILTER_Y, COLS_Y=COLS_Y, ROWS_Y=ROWS_Y, ROW_H=ROW_H, ROWS=ROWS }
 local function Build()
-  frame = CreateFrame("Frame", "OlympusVerifyRosterFrame", UIParent, BACKDROP_TEMPLATE)
+  frame = CreateFrame("Frame", "OlympusVerifyRosterFrame", OlympusVerifyWorkspace and OlympusVerifyWorkspace.Parent() or UIParent, BACKDROP_TEMPLATE)
   frame:SetSize(Layout.WIDTH, Layout.HEIGHT)
   local sw=UIParent and UIParent.GetWidth and UIParent:GetWidth()
   local sh=UIParent and UIParent.GetHeight and UIParent:GetHeight()
@@ -787,30 +839,31 @@ local function Build()
       end
       options[#options+1]={value=i,label=item[2].." ("..count..")"}
     end
-    OpenMenu(self,"Verification state",options,view.status,function(value) view.status=value;offset=0;W.Refresh() end)
+    OpenMenu(self,"Verification state",options,view.status,function(value) view.status=value;offset=0;W.Refresh() end,"status")
   end,"Verification filter","Choose a specific state. Prior records, review cases and dated links remain distinct from current verified records.")
   statusBtn:SetPoint("LEFT",search,"RIGHT",8,0)
   rankBtn=Button(frame,"All ranks v",158,24,function(self)
     local options={{value=0,label="All ranks"}}
     for i,r in ipairs(cache.info and cache.info.ranks or {}) do options[#options+1]={value=r.rank,label=Clean(r.rank).." (slot "..tostring(r.rankIndex)..")"} end
-    OpenMenu(self,"Native rank",options,view.rank,function(value) view.rank=value;view.initiates=false;offset=0;W.Refresh() end)
+    OpenMenu(self,"Native rank",options,view.rank,function(value) view.rank=value;view.initiates=false;offset=0;W.Refresh() end,"rank")
   end,"Rank","Choose a native guild rank directly.")
   rankBtn:SetPoint("LEFT",statusBtn,"RIGHT",6,0)
   classBtn=Button(frame,"All classes v",140,24,function(self)
     local options={{value=0,label="All classes"}}
     for i,c in ipairs(cache.info and cache.info.classes or {}) do options[#options+1]={value=c,label=className(c)} end
-    OpenMenu(self,"Class",options,view.class,function(value) view.class=value;offset=0;W.Refresh() end)
+    OpenMenu(self,"Class",options,view.class,function(value) view.class=value;offset=0;W.Refresh() end,"class")
   end,"Class","Choose a class directly.")
   classBtn:SetPoint("LEFT",rankBtn,"RIGHT",6,0)
   onlineBtn=Button(frame,"Online and offline v",158,24,function(self)
     local options={};for i,label in ipairs(PRESENCE_FILTERS) do options[#options+1]={value=i,label=label} end
-    OpenMenu(self,"Presence",options,view.presence,function(value) view.presence=value;view.online=false;offset=0;W.Refresh() end)
+    OpenMenu(self,"Presence",options,view.presence,function(value) view.presence=value;view.online=false;offset=0;W.Refresh() end,"presence")
   end,"Presence","Choose all, online only or offline only.")
   onlineBtn:SetPoint("LEFT",classBtn,"RIGHT",6,0)
   W.onlineInitiatesButton=Button(frame,"Online Initiates",122,24,function()
     CloseMenu()
     selected=nil
-    view.initiates,view.rank,view.class,view.online,view.presence,view.status,view.action,view.text=true,0,0,false,2,1,1,""
+    view.multi={};view.inactiveDays=nil
+  view.initiates,view.rank,view.class,view.online,view.presence,view.status,view.action,view.text=true,0,0,false,2,1,1,""
     search:SetText("")
     offset=0
     Reload()
@@ -821,16 +874,16 @@ local function Build()
   W.historyButton:SetPoint("LEFT",W.onlineInitiatesButton,"RIGHT",6,0)
   actionFilterBtn=Button(frame,"All readiness states v",220,24,function(self)
     local options={};for i,item in ipairs(ACTION_FILTERS) do options[#options+1]={value=i,label=item[2]} end
-    OpenMenu(self,"Promotion readiness",options,view.action,function(value) view.action=value;offset=0;W.Refresh() end)
+    OpenMenu(self,"Promotion readiness",options,view.action,function(value) view.action=value;offset=0;W.Refresh() end,"action")
   end,"Readiness","Filter signed action readiness separately from display verification.")
   actionFilterBtn:SetPoint("TOPLEFT",frame,"TOPLEFT",Layout.PAD,Layout.FILTER_Y-64)
 
   initiateBtn = Button(frame, "Initiates", 106, 24, function()
-    CloseMenu();view.initiates = not view.initiates; view.rank = 0; offset = 0; W.Refresh()
+    CloseMenu();view.multi.rank=nil;view.initiates = not view.initiates; view.rank = 0; offset = 0; W.Refresh()
   end, "Initiates", "Show native rank-slot 9 Initiates. Other search, status and online filters still apply.")
   initiateBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", Layout.PAD, Layout.FILTER_Y - 32)
   readyBtn = Button(frame, "Verified Initiates", 150, 24, function()
-    CloseMenu();view.initiates = true; view.rank = 0; view.status = 2; view.action = 4; offset = 0; W.Refresh()
+    CloseMenu();view.multi.rank=nil;view.multi.status=nil;view.multi.action=nil;view.inactiveDays=nil;view.initiates = true; view.rank = 0; view.status = 2; view.action = 4; offset = 0; W.Refresh()
   end, "Verified Initiates", "Show native slot-9 Initiates whose current loaded base status is verified, including those without a signed promotion recommendation. These are potential candidates; promotion readiness is separate. Other search, class and presence filters still apply.")
   readyBtn:SetPoint("LEFT", initiateBtn, "RIGHT", 6, 0)
   nextBtn = Button(frame, "Promote next (0)", 150, 24, nil,
@@ -838,13 +891,11 @@ local function Build()
   BindPromotion(nextBtn,function() return PromotionTarget() end)
   nextBtn:SetPoint("LEFT", readyBtn, "RIGHT", 6, 0)
   local clear = Button(frame, "Clear filters", 108, 24, function()
-    CloseMenu();view.status, view.rank, view.class, view.online, view.initiates, view.text, view.presence, view.action = 1, 0, 0, false, false, "", 1, 1
+    CloseMenu();view.multi={};view.inactiveDays=nil;view.secondary=nil
+    view.status, view.rank, view.class, view.online, view.initiates, view.text, view.presence, view.action = 1, 0, 0, false, false, "", 1, 1
     search:SetText(""); offset = 0; W.Refresh()
   end, "Clear filters", "Show everyone again; keep the chosen sort order.")
   clear:SetPoint("LEFT", nextBtn, "RIGHT", 6, 0)
-  W.selectButton=Button(frame,"Recheck selected + reload",216,24,function() W.RequestSelected() end,
-    "Recheck selected GUID", "Request one current selected-page read for the highlighted native GUID. This never promotes; use a separate hardware click after loading its dated result.")
-  W.selectButton:SetEnabled(false)
   actionInfo=Label(frame,"GameFontDisableSmall","",Layout.PAD+230,Layout.FILTER_Y-69,Layout.INNER-230)
   actionInfo:SetWordWrap(true);actionInfo:SetHeight(26)
   snapshotText=Label(frame,"GameFontDisableSmall","",Layout.PAD,-49,Layout.INNER)
@@ -874,14 +925,15 @@ local function Build()
   refresh:SetPoint("LEFT",clear,"RIGHT",6,0)
   local copy=Button(frame,"Copy table",104,24,CopyTable,"Copy filtered table","Open a read-only tab-separated copy of the current filtered/sorted rows. No codes, request bodies or account IDs are exported.")
   copy:SetPoint("LEFT",refresh,"RIGHT",6,0)
-  W.selectButton:SetPoint("LEFT",copy,"RIGHT",6,0)
-  W.batchButton=Button(frame,"Recheck up to 20 shown",176,24,function() W.RequestVerifiedInitiates() end,
-    "Recheck shown Initiates", "Complete roster exports automatically request checks for all native Initiates. Use this optional recheck for up to twenty verified members in these filters. Each promotion requires its own officer click.")
-  W.batchButton:SetPoint("LEFT",W.selectButton,"RIGHT",6,0)
-  W.importButton=Button(frame,"Import Watcher results",176,24,function()
-    if OlympusVerifyAutoSync then OlympusVerifyAutoSync.HardwareSync(true) end
-  end,"Import Watcher results","After Windows reports a ready Initiate, click once while safely idle to reload the dated results. This does not promote a member.")
-  W.importButton:SetPoint("LEFT",W.selectButton,"RIGHT",6,0);W.importButton:Hide()
+  W.inactiveFilter=Button(frame,"Offline 7+ days v",216,24,function(self)
+    local options={}
+    for _,days in ipairs({1,3,7,14,30,60,90}) do options[#options+1]={value=days,label="Offline at least "..days.." days"} end
+    OpenMenu(self,"Days offline",options,view.inactiveDays,function(days) view.inactiveDays=days;selected=nil;offset=0;W.Refresh() end)
+  end,"Inactivity","Filter by the native offline duration.")
+  W.inactiveFilter:SetPoint("LEFT",copy,"RIGHT",6,0);W.inactiveFilter:Hide()
+  W.removeInactive=Button(frame,"Review removal",176,24,function() W.ReviewRemoval() end,
+    "Review one removal","Check the selected character's native identity, inactivity and officer protections. Review the prepared guild command and press Enter yourself to send it.")
+  W.removeInactive:SetPoint("LEFT",W.inactiveFilter,"RIGHT",6,0);W.removeInactive:Hide()
   W.refreshButton,W.copyButton=refresh,copy
   local sourceTip=CreateFrame("Frame",nil,frame)
   sourceTip:SetSize(Layout.INNER-230,24);sourceTip:SetPoint("TOPLEFT",frame,"TOPLEFT",Layout.PAD+230,Layout.FILTER_Y-64);sourceTip:EnableMouse(true)
@@ -911,12 +963,17 @@ local function Build()
     hdr.col = col
     hdr:SetScript("OnClick", function()
       local key=Column(col)
-      if view.sort == key then view.desc = not view.desc else view.sort = key; view.desc = false end
+      if IsShiftKeyDown and IsShiftKeyDown() and view.sort~=key then
+        if view.secondary==key then view.secondaryDesc=not view.secondaryDesc else view.secondary,view.secondaryDesc=key,false end
+      else
+        if view.sort == key then view.desc = not view.desc else view.sort = key; view.desc = false end
+        if view.secondary==key then view.secondary=nil end
+      end
       offset=0;CloseMenu();W.Refresh()
     end)
     hdr:SetScript("OnEnter",function(self)
       local key,title=Column(col)
-      Tip(self,"Sort by "..title,{"Click to sort; click again to reverse. Blank values stay last; equal values use character name.",
+      Tip(self,"Sort by "..title,{"Click to sort, click again to reverse. Shift-click another column to break ties. Blank values stay last; equal values use character name.",
         key=="reminder" and "Latest outcome for this character’s most recent reminder. Open Whisper history for exact send and acknowledgment times." or
         (key=="discord" or key=="display") and "Names are shown only when current loaded evidence supplies them." or ""})
     end)
@@ -972,7 +1029,12 @@ local function Build()
     if r.EnableMouseWheel then r:EnableMouseWheel(true) end
     r:SetScript("OnMouseWheel", Wheel)
     r:SetScript("OnMouseUp",function(self,button)
-      if button=="LeftButton" and self.member then selected={guid=self.member.guid,full=self.member.full};CloseMenu();W.Refresh() end
+      if button=="LeftButton" and self.member then
+        local guild,realm
+        if view.inactiveDays and R.CurrentScope then guild,realm=R.CurrentScope() end
+        selected={guid=self.member.guid,full=self.member.full,guild=guild,realm=realm}
+        CloseMenu();W.Refresh()
+      end
     end)
     r:SetScript("OnEnter", function(self) hoverTex:Show(); RowTip(self) end)
     r:SetScript("OnLeave", function() hoverTex:Hide(); HideTip() end)
@@ -994,6 +1056,7 @@ local function Build()
   end)
   footer = Label(frame, "GameFontDisableSmall", "", Layout.PAD, -(Layout.HEIGHT - 26), Layout.INNER)
   W.frame = frame
+  if OlympusVerifyWorkspace then OlympusVerifyWorkspace.Attach("roster",frame) end
   W.search = search
   W.rows, W.headers = rows, headers
   W.initiateButton, W.readyButton, W.nextButton = initiateBtn, readyBtn, nextBtn
@@ -1007,10 +1070,109 @@ local function Build()
   W.combatGuarded=type(launch)=="table" and type(launch.CloseInCombat)=="function" and launch.CloseInCombat(frame,W.Hide)==true
 end
 
+function W.ShowRoster()
+  W.Show()
+end
+function W.ShowInactive()
+  if not InCombatLockdown or InCombatLockdown()~=false then return end
+  if not view.inactiveDays then
+    W.previousRosterView={}
+    for key,value in pairs(view) do W.previousRosterView[key]=value end
+  end
+  view.multi={};view.initiates=false;view.status,view.rank,view.class,view.presence,view.action=1,0,0,3,1
+  view.online=false;view.inactiveDays=7;view.sort,view.desc,view.secondary="seen",true,nil
+  selected=nil;view.text="";if search then search:SetText("") end
+  W.Show(nil,true)
+end
+function W.ReviewRemoval()
+  if not view.inactiveDays or not selected or not frame or not frame:IsShown() then return false end
+  local can=(C_GuildInfo and C_GuildInfo.CanGuildRemove) or CanGuildRemove
+  local ok,allowed=pcall(can)
+  if not ok or allowed~=true or not InCombatLockdown or InCombatLockdown()~=false
+    or not IsInGuild or IsInGuild()~=true or (OlympusVerifyUI and OlympusVerifyUI.preview)
+    or not ChatFrame_OpenChat or not API.Candidates then Say("Current native removal permission or the chat editor is unavailable.");return false end
+  local target=selected
+  local found,actor=pcall(UnitGUID,"player")
+  if not found or not readablePlayerGuid(actor) or not readablePlayerGuid(target.guid) or actor==target.guid then
+    Say("A readable, distinct native player GUID is required for the officer and selected character.");return false
+  end
+  local guild,realm=R.CurrentScope()
+  if not target.guild or not target.realm or guild~=target.guild or realm~=target.realm then
+    Say("The selected guild changed or its realm is unavailable. Select the character again.");return false end
+  Reload()
+  local visible=false
+  for _,m in ipairs(Visible()) do if m.full==target.full and m.guid==target.guid then visible=true end end
+  local permitted=visible and API.Candidates(1000,true) or {}
+  local candidate
+  for _,m in ipairs(permitted) do
+    if m.guid==target.guid and m.full==target.full and type(m.days)=="number" and m.days>=view.inactiveDays then
+      if candidate then Say("Ambiguous inactive member.");return false end
+      candidate=m
+    end
+  end
+  if not candidate or not target.full
+    or target.full=="" or target.full:find("[%c|;/\\]") or target.full:match("^%s") or target.full:match("%s$") then
+    Say("This character no longer meets the guild inactivity policy and identity checks.");return false end
+  local read,unchanged=pcall(function()
+    local native={GetGuildRosterInfo(candidate.index)}
+    local g,r=R.CurrentScope()
+    return readablePlayerGuid(native[17]) and native[1]==target.full and native[17]==target.guid and native[9]==false
+      and UnitGUID("player")==actor
+      and g==guild and r==realm and can()==true
+  end)
+  if not read or unchanged~=true then
+    Say("The selected native row changed or its offline state is unknown.");return false end
+  ChatFrame_OpenChat("/guildremove "..target.full)
+  Say("Review the character in the chat box. Enter sends the removal; Escape cancels.")
+  return true
+end
+function W.ShowActivity()
+  W.ShowRoster()
+  if not frame or not frame:IsShown() or InCombatLockdown and InCombatLockdown() then return end
+  local journal=OlympusVerifyGuildJournal
+  if not journal then Say("The local guild journal is unavailable.");return end
+  if not W.activity then
+    local box=CreateFrame("Frame",nil,frame,BACKDROP_TEMPLATE)
+    W.activity=box;box:SetAllPoints(frame);box:EnableMouse(true);box:SetFrameLevel((frame:GetFrameLevel() or 1)+10)
+    if box.SetBackdrop then box:SetBackdrop(PANEL_BACKDROP);box:SetBackdropColor(C.bg[1],C.bg[2],C.bg[3],1) end
+    Label(box,"GameFontNormalLarge","Guild activity",20,-20,300)
+    box.help=Label(box,"GameFontHighlightSmall","",20,-51,Layout.INNER-24)
+    box.search=CreateFrame("EditBox",nil,box,"InputBoxTemplate");box.search:SetAutoFocus(false);box.search:SetSize(310,26)
+    box.search:SetPoint("TOPLEFT",box,"TOPLEFT",24,-87);box.search:SetMaxLetters(80)
+    Label(box,"GameFontDisableSmall","Filter by character or officer",347,-93,280)
+    box.body=Label(box,"GameFontHighlight","",22,-133,Layout.INNER-28);box.body:SetJustifyV("TOP");box.body:SetWordWrap(false)
+    local function paint()
+      local lines=journal.Read(box.search:GetText() or "")
+      local perPage=14
+      local pages=math.max(1,math.ceil(#lines/perPage));box.page=math.max(1,math.min(box.page or 1,pages))
+      local visible={}
+      for i=(box.page-1)*perPage+1,math.min(box.page*perPage,#lines) do visible[#visible+1]=lines[i] end
+      box.body:SetText(#visible>0 and table.concat(visible,"\n\n") or "No native guild events recorded for this search.")
+      box.help:SetText("Native guild log · approximate event times · up to 500 events from the last 90 days · "..box.page.."/"..pages)
+    end
+    box.paint=paint
+    box.search:SetScript("OnTextChanged",function() box.page=1;paint() end)
+    local back=Button(box,"Roster",110,24,function() W.ShowRoster() end);back:SetPoint("TOPRIGHT",box,"TOPRIGHT",-14,-15)
+    local prev=Button(box,"Previous",100,24,function() box.page=box.page-1;paint() end);prev:SetPoint("BOTTOMLEFT",box,"BOTTOMLEFT",22,18)
+    local nextPage=Button(box,"Next",100,24,function() box.page=box.page+1;paint() end);nextPage:SetPoint("LEFT",prev,"RIGHT",8,0)
+    journal.OnChanged=function() if box:IsVisible() then paint() end end
+  end
+  journal.ObserveRoster();local supported=journal.Request()
+  W.activity:Show();W.activity.paint()
+  if not supported then W.activity.help:SetText("Native guild history is unavailable here. Local first-seen times appear in roster details when supported.") end
+end
+
 -- ---------------------------------------------------------------- public
-function W.Show(text)
+function W.Show(text,inactive)
   if InCombatLockdown and InCombatLockdown() then Say("Leave combat before opening the promotion roster.");return end
   if not frame then Build() end
+  if OlympusVerifyWorkspace and not OlympusVerifyWorkspace.Activate("roster") then return end
+  if W.activity then W.activity:Hide() end
+  if not inactive and view.inactiveDays then
+    for key in pairs(view) do view[key]=nil end
+    for key,value in pairs(W.previousRosterView) do view[key]=value end
+    W.previousRosterView=nil;search:SetText(view.text or "")
+  end
   Reload()
   if type(text) == "string" and text ~= "" then
     view.text = text
@@ -1026,6 +1188,7 @@ function W.ShowReadyInitiates()
   if not InCombatLockdown or InCombatLockdown()~=false then return end
   if not frame then Build() end
   CloseMenu()
+  view.multi={};view.inactiveDays=nil
   view.initiates,view.rank,view.class,view.online,view.presence,view.status,view.action,view.text=true,0,0,false,1,1,2,""
   search:SetText("")
   W.Show()

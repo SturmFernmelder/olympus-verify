@@ -581,8 +581,7 @@ async function followupChecks(cdp) {
     const route = `community/calendar/${eventId}`;
     // Both visible counts, the RSVP draft and the focus, read in one go.
     const state = `(() => {
-      const frames = [...document.querySelectorAll('main section.frame')];
-      const who = frames.find(f => f.querySelector('.plaque h1, .plaque h2')?.textContent === 'Who answered');
+      const who = document.querySelector('main #event-signups');
       const kv = document.querySelector('main .card.event dl.kv');
       const dt = kv && [...kv.querySelectorAll('dt')].find(d => d.textContent === 'Answers');
       const header = dt ? dt.nextElementSibling.textContent : '';

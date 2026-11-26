@@ -79,6 +79,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".307", date: "2026-11-26", lines: [
+      "Browse guild rosters and look up linked characters. Raid views show capacity and signups. Guild bank contributions are voluntary.",
+      "The officer workspace brings guild activity, roster filters and verification sync together. Promotions require an officer click.",
+    ],
+  },
+  {
     build: ".306", date: "2026-11-24", lines: [
       "Fern’s verified list can show a member’s Discord handle even when the member first requested a code before their profile existed. A missing handle can be filled after verification without another whisper.",
       "Near the ten-minute cutoff, the Watcher can carry the original signed whisper into delayed verification. Members can keep the code they already sent.",

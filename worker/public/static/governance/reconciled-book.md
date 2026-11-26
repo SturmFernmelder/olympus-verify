@@ -14,7 +14,7 @@ Adoption makes the community rules current; it does not fill vacancies, issue wa
 
 The complete unexecuted appointment instruments specify every required real acceptance and permission record; no synthetic signature fills a vacancy. The constitutional instruments govern authority, the Statute governs common obligations, the Bylaws govern procedure, and the Ordinances govern delivery. Appointment templates stay incomplete until real parties complete them. Ceremonial language creates no real-world sovereignty. Historical R6 PDFs and the old news issue are preserved as dated archives; the current R7 source and reader are the governing edition.
 
-The one-gold weekly dues rule, fourteen-day new-member exemption, ninety-day ledger retention, working-day privacy inbox duty and thirty-day privacy-conversation inactivity period remain. The adopted rules also describe term, quorum, review and accounting procedures. Actual personal-data processing must follow the published privacy policy and implemented controls; this book supplies no claim that every technical retention, export or erasure path is operational.
+Guild contributions are voluntary. Treasury keeps its private ledger for ninety days. The working-day privacy inbox duty and thirty-day privacy-conversation inactivity period remain in effect.
 
 # 1 Guild Charter of Olympus
 
@@ -74,7 +74,7 @@ A member facing a consequential sanction receives notice, an intelligible accoun
 
 ## 1.7 Resources, records, and boundaries
 
-The established dues policy is one gold weekly, a 14-day exemption for new members, and 90-day ledger retention. Officers record actual receipts manually. No bot collects gold, assumes payment, or applies automatic sanctions. Proposed spending requires a purpose and an authorized approver. The Treasurer may not conceal a withdrawal behind an audit entry.
+Members choose whether to contribute in-game gold and how much to give. Officers record actual receipts manually. Proposed spending requires a purpose and an authorized approver. The Treasurer accounts for each withdrawal.
 
 An independent auditor must not hold or retain withdrawal, custody or transaction-approval rights over the assets they audit, including rights held before the audit appointment. Reconcile or remove incompatible access before the audit starts. Audit access is read-only and limited to the relevant logs and records. No person may approve and independently audit the same transaction. Necessary confidential records use role-limited access and published retention; office is not permission to browse them out of curiosity. Privacy requests are monitored each working day by the designated reader, with the established 30-day inactivity retention. Erasure requires ownership checks and the applicable authorized process. Because the documented High Council preset grants Withdraw Gold and Modify Bank Tabs to all holders, an auditor retaining those actual rights cannot be described as read-only merely by a different appointment title. An unconflicted operator must establish a compatible real access arrangement before the audit. This book does not appoint an auditor, demote anyone or change any bank permission.
 
@@ -218,7 +218,7 @@ These five entries keep the titles and grouping of the original R7 chart; Sectio
 
 **War Head for Raiding.** Coordinates shared raid preparation, published activity standards and Raiding Emissaries. Akafoxslayer is the charted name, pending an individual warrant. The head develops raid support and training with class specialists. Local Raid Leaders run their named events; the portfolio does not grant automatic invitation, loot, bank or demotion powers.
 
-**Federal Treasurer.** Coordinates dues accounting, approved budgets, receipt reconciliation and Finance Emissaries. Fernmelder is the charted name and holds the existing website Treasurer appointment retained by the owner's reset choice. The governance warrant remains pending rather than issued by this book; its unissued state does not cancel the existing website appointment. The Treasurer protects financial records, reports suitable aggregates and refers unexplained discrepancies for independent review. Withdrawal custody and final audit are separated. The appointment does not merge every guild's resources into one private bank. The Treasury office is an accepted High Council appointment, within the Leader / High Council tier and not a separate native rank. A financial appointment, the character's native rank, the approved bank preset and the actual custody/approval rights must be recorded separately. The audit conflict is resolved before examination.
+**Federal Treasurer.** Coordinates contribution accounting, approved budgets, receipt reconciliation and Finance Emissaries. Fernmelder is the charted name and holds the existing website Treasurer appointment retained by the owner's reset choice. The governance warrant remains pending rather than issued by this book; its unissued state does not cancel the existing website appointment. The Treasurer protects financial records, reports suitable aggregates and refers unexplained discrepancies for independent review. Withdrawal custody and final audit are separated. The appointment does not merge every guild's resources into one private bank. The Treasury office is an accepted High Council appointment, within the Leader / High Council tier and not a separate native rank. A financial appointment, the character's native rank, the approved bank preset and the actual custody/approval rights must be recorded separately. The audit conflict is resolved before examination.
 
 **Minister of Artisanry.** Coordinates crafting, professions, supply requests and Artisanry Emissaries. The reference chart leaves the office vacant. The minister works with willing crafters, War and Treasury on needs and approved procurement. They do not own members' materials, force free labour or obtain bank access by title.
 
@@ -262,7 +262,7 @@ These five entries keep the titles and grouping of the original R7 chart; Sectio
 
 **Emissary of War for Raiding.** One correspondent per guild communicates preparation needs and event plans with the raiding head. It coordinates Raid Leaders and assistants but does not replace their event command or the Guild Master's local decisions.
 
-**Emissary of Finance.** One correspondent per guild supplies approved financial summaries and coordinates dues, budget requests and custody with Treasury. It supervises or liaises with the local Quartermaster under the actual delegation. Audit remains independent.
+**Emissary of Finance.** One correspondent per guild supplies approved financial summaries and coordinates contributions, budget requests and custody with Treasury. It supervises or liaises with the local Quartermaster under the actual delegation. Audit remains independent.
 
 **Emissary of Artisanry.** One correspondent per guild brings crafting and material needs to the Association and coordinates willing suppliers. It does not requisition private resources or infer consent from membership.
 
@@ -288,7 +288,7 @@ These five entries keep the titles and grouping of the original R7 chart; Sectio
 
 **Social and Casual.** A voluntary play-preference tag. A full Member retains community standing without compulsory raids or PvP. Access follows the existing verified membership and actual permissions, not an inferior Social rank.
 
-**Alt.** Alt is a native rank in Article S3 and also describes the verified relationship between an alternate character, its owner and a designated main. The native slot does not create another person, vote or presumed duplicate account. It does not authorize automatic roster purges or arbitrary loss of resources. Officer Alt is the separate current Rank 4 / zero-based Slot 3 for an officer's verified alternate; ordinary Alt is Rank 9 / Slot 8. Neither creates an additional person or vote. The adopted account-level dues interpretation counts a verified member once in their designated home guild, without duplicate assessment solely for linked alts.
+**Alt.** Alt is a native rank in Article S3 and also describes the verified relationship between an alternate character, its owner and a designated main. The native slot does not create another person, vote or presumed duplicate account. It does not authorize automatic roster purges or arbitrary loss of resources. Officer Alt is the separate current Rank 4 / zero-based Slot 3 for an officer's verified alternate; ordinary Alt is Rank 9 / Slot 8. Neither creates an additional person or vote. Members may contribute from a main or an alt.
 
 **Trial Member Pledge and Trialist.** Aliases for the introductory status normally associated with Initiate. A raid trial is an activity status and preserves an established member's native rank. Every review has criteria, support, owner and date.
 
@@ -353,7 +353,7 @@ The Chief Strategist coordinates tested plans and encounter knowledge. The Head 
 
 The Federal Treasurer keeps the common budget, reconciles receipts and supports local Finance Emissaries. Each guild's resources remain under its own authorized custody unless a specific transfer is approved. The Treasurer publishes suitable aggregate balances and commitments, explains differences between available stock and earmarked resources, and does not conceal a withdrawal behind an accounting entry.
 
-The established dues rule is one gold weekly, a fourteen-day new-member exemption and ninety-day ledger retention. The adopted accounting rule counts a verified member once in their designated home guild, without duplicate assessments solely for linked alts. Authorized people receive and record actual gold; the website neither debits a game balance nor proves an unobserved payment. Corrections preserve a reason and the original receipt reference. A disputed assessment is reviewed before a decision, and hardship handling remains confidential.
+Members may contribute any amount of in-game gold to the guild bank. Authorized officers record observed transfers. Corrections preserve a reason and the original receipt reference. Finance reviews disputed receipts privately.
 
 A requisition names the purpose, item or amount, event or beneficiary category, responsible requester and required date. The approver checks the budget and applicable threshold. The custodian records the actual transfer, and a different person reconciles it where independence is required. Related transfers are considered together so a substantial request cannot be split to evade review. No officer pays a private expense from the common bank merely because they hold a senior rank.
 
@@ -435,9 +435,9 @@ The authorized guild administration directed publication of these responsibility
 
 Discord: `fernmelder`
 
-Fernmelder leads treasury and guild-bank administration: recording receipts, reconciling dues and fees against the adopted schedule, maintaining a clear ledger, and preparing understandable reports of balances, outstanding entries and discrepancies. Treasury records should distinguish money actually received in game from a promise, a proposed charge or an unconfirmed entry. Corrections must preserve an explanation of what changed and why. Fernmelder supplies records for independent audits and follows up their findings; independent review of funds in the Treasurer's custody belongs to a separate reviewer.
+Fernmelder leads treasury and guild-bank administration: recording receipts, reconciling donations and approved service fees, maintaining a clear ledger, and preparing understandable reports of balances, outstanding entries and discrepancies. Treasury records should distinguish money actually received in game from a promise, a proposed charge or an unconfirmed entry. Corrections must preserve an explanation of what changed and why. Fernmelder supplies records for independent audits and follows up their findings; independent review of funds in the Treasurer's custody belongs to a separate reviewer.
 
-Fernmelder coordinates collection of approved dues and fees through the existing attended process and checks and reconciles those records. This responsibility creates no new charge or automatic collection mechanism.
+Fernmelder coordinates receipt of voluntary gifts and approved service fees through the existing attended process and checks and reconciles those records. This responsibility creates no new charge or automatic collection mechanism.
 
 Fernmelder coordinates with the AddOn and website developers on a reliable way to match in-game gold records to the website ledger. That work must make the origin and freshness of each record clear, allow an officer to resolve an unmatched receipt, and avoid representing a planned integration as an automatic transfer of gold.
 
@@ -570,11 +570,11 @@ A subject may appeal within fourteen calendar days of receiving the written deci
 
 The appeal may uphold, vary or return the matter for reconsideration. No automatic increase in sanction follows an appeal. Restore removed privileges through separately authorized operators after reinstatement; do not assume a case record changes actual permissions.
 
-## Article S10 — Treasury, dues and procurement
+## Article S10 — Treasury, contributions and procurement
 
-The adopted operating policy is one gold weekly, a fourteen-day new-member exemption and ninety-day ledger retention. Receipts are recorded manually; neither the ledger nor this statute automatically collects gold or imposes sanctions. The adopted rule establishes one obligation per verified member in the designated home guild, without duplicate obligations for linked alts. That accounting interpretation is part of the adopted rule; it does not authorize automatic collection or sanctions.
+Guild contributions are voluntary at every rank. The Treasurer records observed payments and keeps the private ledger for ninety days. A member can join, stay in the guild and raid without contributing.
 
-Hardship relief is confidential: the Treasurer and one independent authorized reviewer may defer or waive an obligation with a limited record, without a public list of recipients. Donating more does not purchase rank, votes, preferential case outcomes or loot entitlement.
+The Treasurer and an independent authorized reviewer handle disputes about receipts privately. Rank, votes, case decisions and loot are independent of donations.
 
 The custodian records receipts, purpose, recipient and authorization. The auditor independently reconciles balances and exceptions and must not hold or retain withdrawal, custody or transaction-approval rights over the assets examined, including pre-existing rights. Incompatible actual access is resolved before examination; a title alone cannot enforce this separation. Procurement compares reasonable alternatives, discloses related-party interests and confirms receipt. Reversals preserve a traceable correction rather than disguising the original entry. Shared-resource permissions and any game-bank capabilities require separate verification and approval.
 
@@ -596,7 +596,7 @@ This table summarizes only the named owner-selected purposes below: the 7 Octobe
 
 | Record or purpose | Selected term and conditions |
 |---|---|
-| Dues ledger | One gold weekly; fourteen-day new-member exemption; ninety-day ledger retention. Authorized people record actual receipts. No automatic gold collection or debtor sanction. The adopted per-member/home-guild treatment avoids duplicate assessment solely for verified alts. |
+| Contribution ledger | Voluntary in-game gifts. Authorized officers record actual receipts and retain them for ninety days. |
 | Privacy receipt conversations | New intake remains closed. Existing retained conversations use their original private credentials and thirty-day inactivity policy, with designated reading and ownership checks for attended help. Their separate purpose does not retain an erased ordinary account profile. |
 | Core roster and departed-member records | Balanced base: roster snapshots ninety days; departed members' rows and character links twelve months after they leave. Apply the later qualified conditions below where relevant, without retaining a deleted ordinary profile under a new operational exception. |
 | Sign-in records and audit log | Ordinary retention uses the selected twelve-month clock where applicable. Serving-account erasure removes attributable ordinary sign-in and operational data; it does not keep every audit row as a blanket exception. Original unresolved-effect, safety and recovery receipts retain only their separate published purposes, original dates and expiry limits. |
@@ -698,11 +698,11 @@ The verification operator uses the preferred website and the current in-game cod
 
 ## ORD 04 Initiation and mentorship
 
-A Trial Member, Pledge or Trialist entering the community uses the native Initiate rank and a recorded probation status; no additional trial native rank is created. The initial review window is fourteen days, extendable once with written reasons and a new review date. The Guild Recruiter explains chat rules, security, privacy choices and the dues exemption. A willing Veteran serves as Mentor. Class specialists may assist without gaining disciplinary authority. A review considers conduct, communication and willingness to learn; a casual member need not raid to qualify. At conclusion the responsible officer confirms full Member status, records the permitted extension, or issues a reasoned membership decision with its review route. The member may ask for correction or independent review of an inaccurate record. Existing members trying a raid remain in their existing guild rank with a separate raid-trial tag.
+A Trial Member, Pledge or Trialist entering the community uses the native Initiate rank and a recorded probation status; no additional trial native rank is created. The initial review window is fourteen days, extendable once with written reasons and a new review date. The Guild Recruiter explains chat rules, security, privacy choices and voluntary contributions. A willing Veteran serves as Mentor. Class specialists may assist without gaining disciplinary authority. A review considers conduct, communication and willingness to learn; a casual member need not raid to qualify. At conclusion the responsible officer confirms full Member status, records the permitted extension, or issues a reasoned membership decision with its review route. The member may ask for correction or independent review of an inaccurate record. Existing members trying a raid remain in their existing guild rank with a separate raid-trial tag.
 
-## ORD 05 Treasury receipts and weekly dues
+## ORD 05 Treasury receipts and voluntary contributions
 
-The Federal Treasurer coordinates the established one-gold weekly dues policy, the fourteen-day new-member exemption and ninety-day ledger retention. Gold is received and recorded by an authorized person; the website does not debit a game balance. A receipt identifies the relevant week, amount, payer's permitted reference and recorder. Payments may be allocated or corrected using the ledger's supported procedures, preserving an explanation for reversal or voiding. The adopted accounting interpretation is one obligation per verified member in their designated home guild, without duplicate obligations solely for linked alts; actual receipts and exceptions remain recorded by authorized people. A disputed join date or duplicate assessment goes to finance review before any decision. Unpaid dues are not an automatic kick, ban, demotion or public shame list. Any hardship arrangement is handled confidentially and recorded only to the extent necessary.
+The Federal Treasurer coordinates voluntary contributions and the ninety-day private receipt ledger. A receipt records the observed transfer date, amount, permitted payer reference and recorder. Officers preserve the reason for a correction, reversal or void and review disputed attributions privately.
 
 ## ORD 06 Bank custody and independent audit
 
@@ -800,11 +800,11 @@ The Minister of Artisanry coordinates shared projects and keeps an intake list w
 
 ## RC6 Treasury Tiers and Tithe Payers
 
-Cosmetic Tithe Roles recognize **additional, voluntary in-game gold**, separately from ordinary weekly dues and hardship decisions. No real money, tokens, purchases outside the game or automatic debit is part of this system. Members mail the additional gold to Fern Melder with a TITHE reference. The admitted Treasurer or an independently authorized reviewer verifies the actual receipt and records its purpose in the existing contribution process. A player's mail reference or claim alone is not payment proof. Ordinary dues, a waived obligation and an unclassified historical receipt do not become cosmetic credit automatically.
+Cosmetic Tithe Roles recognize **additional, voluntary in-game gold**, within the published Treasury season. No real money, tokens, purchases outside the game or automatic debit is part of this system. Members mail the additional gold to Fern Melder with a TITHE reference. The admitted Treasurer or an independently authorized reviewer verifies the actual receipt and records its purpose in the existing contribution process. A player's mail reference or claim alone is not payment proof. Cosmetic credit requires a qualifying, classified receipt.
 
 The owner’s chosen schedule applies to verified additional contributions within each ninety-day season: Tithe Payer requires at least 25 additional gold, Patron of the Treasury at least 100, and Benefactor of Olympus at least 500. At most the highest currently qualified tier is shown, as cosmetic colour only, and every award lapses at that season’s end. There is no permanent donor rank or rolling lifetime credit; a new season needs its own eligible receipts. The title identifies the tier without publishing a balance. The website never publishes a member's exact amount, receipt, hardship status, private ledger or payment correspondence. A person may decline public recognition without losing credit or guild standing. The owner's direction of 25 October 2026 adds the reference-only seasonal Apex Patron tiers Arch-Financier of Olympus at 1,000g and Hand of the Imperial Treasury at 2,500g, with the latter the capped Patron tier. Titles III–V and the shared Royal Writ schedule give the current terms. Existing provider tier configuration is not expanded or activated by this publication; cosmetic dispatch remains OFF.
 
-Recognition is cosmetic only. It gives no channels, native rank, Council seat or vote, bank right, raid/loot priority, admission preference, exemption from rules or access to confidential information. The existing one-gold weekly dues rule, fourteen-day exemption, hardship review and ninety-day ledger retention remain separate. Staff must not retain a private receipt longer merely to keep an expired cosmetic award visible.
+Recognition is cosmetic only. It gives no channels, native rank, Council seat or vote, bank right, raid/loot priority, admission preference, exemption from rules or access to confidential information. The private contribution ledger has a ninety-day retention period. Staff must not retain a private receipt longer merely to keep an expired cosmetic award visible.
 
 An award decision requires a recorded qualifying period, current holder consent and an identified reviewer. Independent conflict review and a correction/review date are manual governance duties: the current website does not enforce a second approver or provide a correction-date field, and the recording actor may also be the target. The admitted controls record the original recording actor and target, receipt reference, reviewed tier/season/consent preview and accepted operation confirmation; provider outcome remains in the original role-operation custody. Refused requests are not promised a separate audit record. Staff must keep any further required independent approval and correction record through the established governance process before acting. An administrator selects only a configured cosmetic Discord role whose permission bits and channel allow/deny overwrites are zero, which is neither managed, hoisted nor mentionable, and which is below the bot; this is separate from membership or staff roles. This publication neither creates a Discord role nor activates live dispatch. The ninety-day season start is bound when live tier dispatch is actually activated, rather than invented from publication time. Display no claimed provider effect until the original operation acknowledges it. A lost PUT or DELETE answer remains spent and held under that operation, without a blind retry or an absence-based acknowledgement. Website tier labels lapse at season end; bounded removal can defer, so no exact Discord cleanup deadline is promised.
 
@@ -1046,13 +1046,13 @@ Module names identify the intended divisions of work in the wider Olympus addon 
 
 (b) Report suspected loss to an unconflicted authority with preserved sources, a bounded estimate and the affected period. A discrepancy is not proof of theft. The custodian may take an authorized narrow protective step, but may not seize a member's property or publish accusations as a substitute for Title II. A handover identifies open obligations and original unresolved operations so that a successor does not duplicate an uncertain transfer.
 
-## Article III.2 — Ordinary dues, receipts and hardship
+## Article III.2 — Voluntary contributions and receipts
 
-### Section III.2.1 — One obligation per verified member
+### Section III.2.1 — Recording a contribution
 
-(a) Ordinary dues remain one gold weekly with the fourteen-day new-member exemption. One verified member has one obligation in the designated home guild; linked alts do not multiply it. A receipt records the actual eligible transfer, period and authorized reviewer through the existing manual process. An officer's estimate, player-entered mail reference or a row prepared before transfer is a claim, not proof that gold arrived.
+(a) Each member chooses whether and how much to contribute. A receipt records an observed transfer, its date and the authorized reviewer. The Treasurer verifies in-game receipt before recording a payment.
 
-(b) Hardship and a disputed attribution receive private, respectful review without public balance lists. Record the necessary outcome and applicable period, not an intrusive story about a member's circumstances. Neither a missed entry nor an unpaid ledger automatically removes membership, changes a rank or proves misconduct. A material dispute is reconciled with the member and, where necessary, a second reviewer before any separate conduct process is considered.
+(b) The Treasurer handles disputed attributions privately and asks a second authorized reviewer when needed. A member's decision about donating has no bearing on guild standing.
 
 ### Section III.2.2 — Retention and correction of the ledger
 
@@ -1080,7 +1080,7 @@ Module names identify the intended divisions of work in the wider Olympus addon 
 
 (a) Seasonal tithe recognition marks additional, voluntary in-game gold within each published ninety-day season. Three tiers are Discord colour roles: **Tithe Payer — 25 gold**, **Patron of the Treasury — 100 gold** and **Benefactor of Olympus — 500 gold**. Two tiers are attended ceremonial titles with no Discord role of their own: **Arch-Financier of Olympus — 1,000 gold** and **Hand of the Imperial Treasury — 2,500 gold**, the capped Patron tier. A member who qualifies for a ceremonial title is shown at most the Benefactor of Olympus colour. At most the highest currently qualified tier is displayed. Contributions are mailed to Fern Melder with a TITHE reference and verified against the actual receipt by the admitted Treasurer or an independently authorized reviewer. The reference alone is not payment proof.
 
-(b) Ordinary weekly dues, a waived obligation and an unclassified historical receipt do not automatically become cosmetic credit. Publish the season's exact start and end before an award; no invented season is inferred from a deployment date. An award expires at that season's end and a new season requires its own eligible receipts. No lifetime donor balance, permanent rank, real-money payment, token purchase, outside-game consideration or automatic debit is part of this schedule.
+(b) Cosmetic credit requires a qualifying, classified receipt. Publish the season's exact start and end before an award; no invented season is inferred from a deployment date. An award expires at that season's end and a new season requires its own eligible receipts. No lifetime donor balance, permanent rank, real-money payment, token purchase, outside-game consideration or automatic debit is part of this schedule.
 
 ### Section III.4.2 — Consent, zero privilege and implementation gates
 
@@ -1390,7 +1390,7 @@ Historical statement in archived 2 October 2026 editorial draft: The proposed go
 
 ## Treasury and privacy reminders
 
-The selected dues policy is one gold per week, with a fourteen-day new-member exemption and ninety-day ledger retention. Authorized officers record receipts; there is no automatic gold collection or debtor sanction. Members can raise a genuine privacy request through the site's private receipt process. The designated reader is assigned to check the staff inbox each working day, and receipt conversations use thirty-day inactivity retention; this is the agreed duty, not an audit of completed daily checks. A request must still establish ownership before an account-specific action.
+Guild contributions are voluntary. Authorized officers record observed receipts in the private ninety-day ledger. Members can raise a genuine privacy request through the site's private receipt process. The designated reader is assigned to check the staff inbox each working day, and receipt conversations use thirty-day inactivity retention; this is the agreed duty, not an audit of completed daily checks. A request must still establish ownership before an account-specific action.
 
 ## Looking toward launch
 
