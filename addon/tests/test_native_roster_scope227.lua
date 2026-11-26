@@ -327,6 +327,38 @@ do
   assert(g.export()==2)
   check("unowned Alt cannot start a blank-realm promotion",not qq.Select(alt.guid) and not g.syncs)
 end
+do
+  local f,e,q,row=selectedFixture()
+  row.rankIndex,row.rank=8,"Member"
+  assert(f.export()==2 and q.Select(row.guid))
+  local rows={{name=row.name,guid=row.guid,rankIndex=8,rank="Member",status="verified"}}
+  local function state()
+    local _,result=e.OlympusVerifyRosterModel.Promotions(rows,q,e.NOW)
+    return result.byGuid[row.guid].state
+  end
+  check("a pending Member read cannot be replaced",state()=="checking")
+  local data=f.publish(6,8)
+  local page=data.page
+  local positive=page.promotions
+  page.promotions={}
+  check("a checked Member without a Knight role can be checked again",state()=="check")
+  page.held={{name=row.name,guid=row.guid,reason="discord-entitlement-unknown"}}
+  check("a completed Member check with unknown Discord entitlement stays held",state()=="held")
+  page.held={}
+  page.promotions=positive
+  check("a current positive Member read still shows a separate promotion button",state()=="ready")
+  page.expiresAt=e.NOW
+  check("a Member can request a new read after the positive recommendation expires",state()=="check")
+  page.promotions={}
+  check("an expired negative Member result can be checked again",state()=="check")
+  data.completed=false
+  data.stoppedReason="source-unknown"
+  check("an indeterminate stopped Member request stays held",state()=="held")
+  data.stoppedReason="native-roster-changed-or-expired"
+  check("an explicitly refreshable Member read failure offers a new check",state()=="check")
+  e.OlympusVerifyDB.launchPromotionSaveHolds={[row.guid]=true}
+  check("a stopped Member check cannot hide unresolved native custody",state()~="check" and f.selectedCount()==0 and f.syncs==1)
+end
 for _,final in ipairs({8,6}) do
   local f,e,q,row=selectedFixture()
   check("blank selected check waits for the enrolled native capture",not q.SelectMany({row.guid}) and not f.syncs)
