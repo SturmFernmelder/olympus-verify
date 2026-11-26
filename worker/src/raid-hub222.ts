@@ -95,6 +95,10 @@ export async function raidHub222(env:Env,a:GuildActor219,i:Interaction):Promise<
   const changed=await decideRaidSignup307(env,a,event,p.until,p.target,Number(choice[2]),decision);
   note=changed ? decision==='accepted'?'Signup accepted.':decision==='bench'?'Signup placed on the officer waitlist.':'Officer decision cleared.'
    :'No new decision was saved. Check the current assignment, signup, capacity and organizer access.';
+ }
+ if(event&&(p.action==='rsvp'||p.action==='decision')){
+  // Both actions change the counts shown on this same response. Read the
+  // current event even after a refusal, since another signup may have filled it.
   event=(await readCalendar219(env,a,event.id))[0];
   if (!event) throw Error('The event is unavailable. Open the raid hub to check its current state.');
  }

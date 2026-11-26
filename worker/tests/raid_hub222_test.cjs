@@ -165,6 +165,27 @@ async function checks222(){
  const website=await call('POST','/api/community/events',{opId:'w'.repeat(22),title:'Website offset',startsAt:offsetStart(start,2),durationMin:60},ORG,over219);
  check('the website event contract still rejects non-Z timestamps without writing',website.status===400&&website.body.error==='invalid_starts_at'&&one('SELECT COUNT(*) n FROM community_events').n===eventCount);
  check('offset and timezone checks leave reminder and public delivery custody untouched',one('SELECT COUNT(*) n FROM community_event_reminders').n===0&&publicEffects219().length===0);
+ const retiringEvent=one('SELECT id FROM community_events WHERE title=?','Positive offset').id;
+ await fixtureRun('UPDATE community_events SET capacity=1 WHERE id=?',retiringEvent);
+ const beforeRemoval=await send222({options:hubOptions([{type:3,name:'find',value:retiringEvent}]),who:MEMBER});
+ const selectPreference=async(answer,choice)=>send222({type:3,custom:control(answer,'Your signup preference'),values:[choice],who:MEMBER});
+ const signupStatus=()=>one('SELECT status FROM community_event_signups WHERE event_id=? AND discord_id=?',retiringEvent,MEMBER)?.status;
+ const lastPlace=await selectPreference(beforeRemoval.answer,'healer');
+ check('the immediate signed RSVP reply shows that taking the last signup place filled it',
+  lastPlace.answer.content.includes('Your preference was saved')&&lastPlace.answer.embeds[0].description.includes('0 open signup places · 1 unassigned roster place')&&signupStatus()==='yes');
+ const withdrawn=await selectPreference(lastPlace.answer,'absent');
+ check('the immediate signed withdrawal reply shows that a signup place reopened',
+  withdrawn.answer.content.includes('Your preference was saved')&&withdrawn.answer.embeds[0].description.includes('1 open signup place · 1 unassigned roster place')&&signupStatus()==='no');
+ let observedSave=false;
+ hooks.afterStatement=async(sql,params)=>{
+  if(!sql.includes('INSERT INTO community_event_changes')||!params.includes(retiringEvent))return;
+  hooks.afterStatement=null;
+  observedSave=signupStatus()==='yes';
+  await fixtureRun('DELETE FROM community_events WHERE id=?',retiringEvent);
+ };
+ const gone=await selectPreference(withdrawn.answer,'tank');
+ check('an event removed between the committed RSVP and its readback closes the private controls',
+  observedSave&&gone.answer.content.includes('event is unavailable')&&gone.answer.embeds.length===0&&controls(gone.answer).length===0);
  console.log('\n'+passed+'/'+total+' signed raid hub checks passed');process.exit(passed===total?0:1);
 }
 const inherited=parent222.slice(pre222,end222).replace('async function guildCommands219(){','async function run222(){');
