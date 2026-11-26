@@ -114,7 +114,7 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.46"
+WATCHER_VERSION = "0.6.47"
 STRICT_DISPLAY_PROTOCOL = "launch-roster-display-v2"
 STRICT_DISPLAY_PATH = "/queue/unverified?keyVersion=" + STRICT_DISPLAY_PROTOCOL
 STRICT_DISPLAY_MAX_BYTES = 512 * 1024
@@ -707,6 +707,7 @@ class Watcher:
         self.unverified_poll = _seconds(cfg, "unverified_poll_seconds", 1800)
         self._last_unverified_pull = 0.0
         self._next_strict_display_pull = 0.0
+        self._initiate_priority: tuple[str, int, frozenset[str]] | None = None
         self._name_followup_snapshot = None
         self._name_followups = 0
         self.launch_scan = launch_operations229.Scan(lambda: time.time(), discovery235=True)
@@ -2783,7 +2784,19 @@ class Watcher:
         if self.launch_scan.phase == 'idle':
             if getattr(self, '_sweep_publish_retry', None) is not None and at >= self._sweep_publish_retry:
                 self.write_initiate_checks()  # Retry local publication alone; reads keep their original outcomes.
-            selected = next((page for page in getattr(self, 'initiate_checks', ()) if page.running), None)
+            priority = getattr(self, '_initiate_priority', None)
+            def read_order(page):
+                # Finish a started read on its original retry schedule. For
+                # new reads, favor signed pages with the most linked Initiates
+                # on this exact roster. Ties retain the original page order.
+                record = page.record
+                if record['attempts']:
+                    return 21
+                if priority and (record['scopeHash'], record['snapshotAt']) == priority[:2]:
+                    return sum(guid in priority[2] for guid in record['targetGuids'])
+                return 0
+            selected = max((page for page in getattr(self, 'initiate_checks', ()) if page.running),
+                           key=read_order, default=None)
             if selected is not None:
                 self._pull_launch_selected(selected)
             return
@@ -2862,6 +2875,8 @@ class Watcher:
         path = self.strict_display_file
         if self._write_projection280(path, body, response) is not None:
             self._next_strict_display_pull = at + cadence
+            scope = hashlib.sha256(('native-scope|1|' + response['guild'] + '|' + response['realm']).encode()).hexdigest()[:16]
+            self._initiate_priority = (scope, response['snapshotAt'], frozenset(row['guid'] for row in response['verified']))
             # A link can be visible before the separate Discord name lookup finishes.
             # Read the authentic display again, at most three times per fresh roster.
             snapshot = (response["guild"], response["realm"], response["snapshotAt"])

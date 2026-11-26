@@ -2,7 +2,7 @@
 ## Title: Olympus Verify
 ## Notes: Guild roster, promotion checks, inactivity review and Discord verification. /olv opens the officer workspace.
 ## Author: Olympus
-## Version: 0.6.52
+## Version: 0.6.53
 ## OptionalDeps: Olympus
 ## SavedVariables: OlympusVerifyDB
 

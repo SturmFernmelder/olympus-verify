@@ -153,5 +153,69 @@ open(); review(); click("Start reviewed queue")
 C_GuildInfo.CanViewOfficerNote = function() return false end
 event()
 check("losing officer-note access withdraws an unchanged draft", editor:GetText() == "" and status("Access to officer notes"))
+
+actorSlot, self.rankIndex = 0, 0
+guild, realm = "OLYMPUS PRIME", ""
+C_GuildInfo.CanViewOfficerNote = function() return true end
+local mage, druid, warrior = row("Mage Week", 100, 9, 7), row("Druid Month", 101, 9, 31), row("Warrior Week", 102, 9, 8)
+mage.class, druid.class, warrior.class = "MAGE", "DRUID", "WARRIOR"
+local otherRank, short, online = row("Member Week", 103, 8, 7), row("Almost Week", 104, 9, 6.99), row("Online", 105, 9, 10)
+local unknown = row("Class unavailable", 106, 9, 7)
+online.online, unknown.class = true, ""
+ROSTER = {self, mage, druid, warrior, otherRank, short, online, held, unknown}
+local function classOption(token)
+  for _, f in ipairs(FRAMES) do
+    if f._kind == "CheckButton" and f.caption and f:IsVisible() and f.token == token then return f end
+  end
+  error("Missing class option " .. tostring(token))
+end
+open()
+click("7d+")
+check("ordinary seven-day filter still respects the higher level policy", not activeRows()[mage.guid] and activeRows()[druid.guid])
+click("Initiates 7d+")
+rows = activeRows()
+check("explicit Initiate week includes the exact seven-day boundary at every level", rows[mage.guid] and rows[warrior.guid] and rows[druid.guid]
+  and rows[mage.guid].days:GetText() == "7d / 7d")
+check("week scope still excludes other ranks, online members, held notes and under seven days", not rows[otherRank.guid]
+  and not rows[short.guid] and not rows[online.guid] and not rows[held.guid])
+click("Select all matches")
+click("All classes v"); classOption("MAGE"):Click()
+rows = activeRows()
+check("a specific class selection discards hidden selections and matches only its native class", rows[mage.guid]
+  and rows[mage.guid].class:GetText() == "Mage" and not rows[druid.guid] and not rows[unknown.guid] and not btn("Review selected"):IsEnabled())
+classOption("DRUID"):Click()
+check("two checked classes combine and still exclude the third and unreadable classes", activeRows()[mage.guid] and activeRows()[druid.guid]
+  and not activeRows()[warrior.guid] and not activeRows()[unknown.guid])
+classOption("DRUID"):Click(); classOption("MAGE"):Click()
+check("unchecking the last class shows zero candidates until an officer selects a class or All classes", not next(activeRows())
+  and not btn("Select all matches"):IsEnabled())
+classOption("MAGE"):Click(); classOption("DRUID"):Click()
+click("2 classes v"); review()
+check("review contains exactly the matching named characters and locks filter controls", activeRows()[mage.guid] and activeRows()[druid.guid]
+  and not activeRows()[warrior.guid] and not btn("2 classes v"):IsEnabled() and not btn("Initiates 7d+"):IsEnabled())
+click("Start reviewed queue")
+check("first staged command belongs to the reviewed filtered set", editor:GetText() == "/guildremove Druid Month-Forever")
+druid.class = "WARRIOR"; event()
+check("a changed class cancels the reviewed queue and withdraws the pending command", editor:GetText() == "" and status("staged character"))
+druid.class = "DRUID"; event()
+click("2 classes v"); classOption(nil):Click(); click("All classes v")
+check("All classes explicitly restores candidates without selecting any", activeRows()[unknown.guid]
+  and activeRows()[warrior.guid] and not btn("Review selected"):IsEnabled())
+click("Policy")
+check("returning to Policy drops every below-floor Initiate and restores the original threshold", not activeRows()[mage.guid]
+  and activeRows()[druid.guid].days:GetText() == "31d / 30d")
+click("60d+"); click("Initiates 7d+"); open()
+check("reopening in PRIME preserves the explicitly selected seven-day mode", activeRows()[mage.guid]
+  and activeRows()[mage.guid].days:GetText() == "7d / 7d" and not btn("Initiates 7d+"):IsEnabled())
+click("Select all matches")
+guild, realm = "Other Guild", "Actual Realm"; event("PLAYER_GUILD_UPDATE")
+check("a confirmed guild change resets the PRIME preset to Policy and clears selections", not btn("Policy"):IsEnabled()
+  and not btn("Review selected"):IsEnabled() and not activeRows()[mage.guid] and activeRows()[druid.guid]
+  and activeRows()[druid.guid].days:GetText() == "31d / 30d")
+guild, realm = "OLYMPUS PRIME", ""; open(); click("Initiates 7d+"); OlympusVerifyWorkspace.Close()
+guild, realm = "Other Guild", "Actual Realm"; open()
+click("Initiates 7d+")
+check("the PRIME seven-day exception does not change other guilds' level policies", not btn("Initiates 7d+"):IsEnabled()
+  and not activeRows()[mage.guid] and activeRows()[druid.guid].days:GetText() == "31d / 30d")
 check("no protected call, whisper, export or UI reload took place", effects == 0 and OlympusVerifyDB.roster == originalRoster and not originalRoster.members)
 print(passed .. " inactive desk checks passed")

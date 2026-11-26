@@ -110,7 +110,8 @@ for _,blank in ipairs({false,true}) do
     not ready[other] and details.byGuid[other].state=="held" and details.byGuid[other].label=="Verification required")
   check(mode.." distinguishes a loaded running check from one awaiting its first result",
     details.byGuid[envelope.controls[2].targetGuids[1]].label=="Watcher check in progress"
-    and details.byGuid[envelope.controls[3].targetGuids[1]].label=="Awaiting Watcher result" and f.promote==0)
+    and details.byGuid[envelope.controls[3].targetGuids[1]].label=="Awaiting Watcher result"
+    and details.verifiedAwaitingResult==23 and f.promote==0)
   e.NOW=e.NOW+75
   local second=record(envelope.controls[2],102,false)
   e.OlympusInitiateChecks.records[2]=second
@@ -130,6 +131,25 @@ for _,blank in ipairs({false,true}) do
   ready,details=readiness()
   check(mode.." expired negative results no longer describe current eligibility",
     not next(ready) and details.byGuid[other].state=="expired" and details.byGuid[other].label=="Eligibility check expired")
+end
+do
+  local f,e,prepare=client(201,true)
+  local hints={}
+  local priority={}
+  for _,i in ipairs({39,83,117,149,189}) do
+    local guid=e.ROSTER[i].guid
+    hints[#hints+1]={guid=guid}
+    priority[guid]=true
+  end
+  e.OlympusVerifyAPI.Roster.DisplaySource=function() return nil,"stale",true,hints end
+  local envelope=prepare()
+  local prioritized=0
+  for _,guid in ipairs(envelope.controls[1].targetGuids) do if priority[guid] then prioritized=prioritized+1 end end
+  local current=f.q.Current()
+  check("five dated links across 201 native Initiates all reach the first signed page",
+    #envelope.controls==11 and prioritized==5 and current.backgroundChecks.total==201)
+  check("dated hints alone leave every row awaiting the Worker",current.backgroundChecks.checked==0
+    and #current.promotions==0 and not f.click(hints[1].guid) and f.promote==0)
 end
 do
   local f,e,prepare,record,verified=client(41,false)

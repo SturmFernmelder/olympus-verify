@@ -1643,10 +1643,14 @@ function Q.PrepareInitiateChecks(roster)
   local ledger=AttemptLedger()
   if not ranks or not ledger or db.launchPromotionCustodyConflict or db.launchPromotionSaveHolds~=nil and not SaveHolds() then return end
   local known={}
-  local display=OlympusVerifyAPI and OlympusVerifyAPI.Roster and OlympusVerifyAPI.Roster.DisplaySource and OlympusVerifyAPI.Roster.DisplaySource()
-  if display then for _,row in ipairs(display.verified.members) do
-    if type(row)=="table" and Text(row.guid,40) then known[row.guid]=true end
-  end end
+  local displaySource=OlympusVerifyAPI and OlympusVerifyAPI.Roster and OlympusVerifyAPI.Roster.DisplaySource
+  if displaySource then
+    local display,_,_,datedMembers=displaySource()
+    local hints=display and display.verified.members or datedMembers
+    for _,row in ipairs(hints or {}) do
+      if type(row)=="table" and Text(row.guid,40) then known[row.guid]=true end
+    end
+  end
   local first,rest,seen,actor,missing,order={},{},{},nil,0,{}
   for _,row in ipairs(roster.members) do
     if type(row)~="table" or not Number(row.rankIndex,0,9) or row.rank~=ranks.names[row.rankIndex+1] then return end

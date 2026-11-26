@@ -8939,3 +8939,9 @@ With a blank realm and an expired export, open Inactive as the enrolled PRIME gu
 ## 26 November 2026 — .309 guild activity journal
 
 Check addon 0.6.52 against the public download manifest. In Guild activity, verify that several individual events are visible, advance a page, search for a known officer or character and return to Members. Check that the member search survives and that reversing the sort changes the button between asc and desc. Use the native journal as the readback for event descriptions and approximate times. The deployment checks and database backup follow the current release qualification. To roll back, redeploy .308 at `236c4554` and restore its public addon files while preserving private configuration, exchange files and SavedVariables.
+
+## 26 November 2026 — .310 Initiate promotion checks and inactive class filters
+
+Check the first results and the completed automatic scan against a signed roster with verified Initiates on different pages. Compare the verified count, promotion recommendations and final coverage. Confirm that each issued promotion has a fresh recommendation and a current matching native rank. Check expired checks and unresolved prior attempts separately.
+
+In the officer desk, combine class selections with the PRIME Initiates seven-day cutoff. Verify exact rank, days offline and hold-note exclusions against the current roster. Check filter changes clear selected rows and that preparation rechecks the exact character. For a reviewed live set, keep the existing individual named removal confirmation and verify each departure. Qualify and deploy by the current release procedure. For rollback, redeploy .309 at `3fd3a958` and restore the prior public addon and Watcher files while preserving configuration, history and exchange data.

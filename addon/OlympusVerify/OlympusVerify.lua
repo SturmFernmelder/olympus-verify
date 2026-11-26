@@ -41,7 +41,7 @@ local SECRET = cfg.secret
 -- 0.6.12: the example's placeholder is public, so a Config.lua copied without replacing it must not accept codes made from it.
 if type(SECRET) ~= "string" or SECRET == "" or string.find(SECRET, "^REPLACE_WITH_") then SECRET = nil end
 local secretWarned = false  -- 0.6.12: say once per session, not on every whisper, that codes cannot be checked
-local SOURCE_VERSION = "0.6.52" -- Keep this source fallback and OlympusVerify.toc aligned.
+local SOURCE_VERSION = "0.6.53" -- Keep this source fallback and OlympusVerify.toc aligned.
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
   or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or SOURCE_VERSION
 local SET_NOTES = cfg.setNotes == true  -- SetNote is forbidden for addons on the Forever beta; leave false there
@@ -1274,8 +1274,13 @@ function Roster.DisplaySource()
   end
   local fetched, snapshot, now = v.fetchedAt, v.snapshotAt, time()
   if type(fetched) ~= "number" or type(snapshot) ~= "number" or fetched ~= math.floor(fetched) or snapshot ~= math.floor(snapshot)
-    or snapshot < 1 or snapshot > fetched or fetched > now or snapshot < now - 3600 then
+    or snapshot < 1 or snapshot > fetched or fetched > now then
     return nil, "The strict Watcher lists or native roster are stale. Refresh the Watcher exchange and reload.", true
+  end
+  if snapshot < now - 3600 then
+    -- Same-scope historical GUIDs can order independent eligibility reads. They
+    -- cannot make the display current or supply a promotion or removal decision.
+    return nil, "The strict Watcher lists or native roster are stale. Refresh the Watcher exchange and reload.", true, v.members
   end
   return q
 end
