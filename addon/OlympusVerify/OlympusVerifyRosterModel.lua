@@ -111,7 +111,7 @@ function M.Promotions(list, launchAPI, now)
   local candidates = {}
   local diagnostics = { nativeInitiates = 0, knownVerifiedInitiates = 0,
     recommendations = 0, ready = 0, readyInitiates = 0, held = 0, notReadyInitiates = 0,
-    knownVerifiedNotReady = 0, duplicateGuids = 0, partial = false,
+    knownVerifiedNotReady = 0, verifiedAwaitingResult = 0, duplicateGuids = 0, partial = false,
     stalePages = 0, pageCount = 0, queueAvailable = false, legacyUnsupported = false,
     sourceHeld = 0, riskReview = 0, heldReasonCounts = {}, riskReasonCounts = {},
     pageStatusCounts = { ready = 0, partial = 0 },
@@ -321,6 +321,7 @@ function M.Promotions(list, launchAPI, now)
     diagnostics.counts[info.state] = (diagnostics.counts[info.state] or 0) + 1
     if initiate(row) and id and seen[id] == 1 and verified(row) and not candidates[id] then
       diagnostics.knownVerifiedNotReady = diagnostics.knownVerifiedNotReady + 1
+      if info.state=="checking" then diagnostics.verifiedAwaitingResult=diagnostics.verifiedAwaitingResult+1 end
     end
   end
   diagnostics.historicalRecommendations=0;for _ in pairs(historicalPages) do diagnostics.historicalRecommendations=diagnostics.historicalRecommendations+1 end

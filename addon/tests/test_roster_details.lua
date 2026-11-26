@@ -124,9 +124,14 @@ do
   f.now=f.now+3601
   local stale=f.api.DisplayFacts()
   check("Sync request history cannot refresh expired actual display evidence",stale.state=="stale" and not stale.current and stale.queriedAt==before.queriedAt and stale.rosterObservedAt==before.rosterObservedAt)
+  local current,_,_,hints=f.api.DisplaySource()
+  check("expired same-scope links supply dated read-order hints alone",current==nil and hints==f.q.verified.members)
   for _,section in ipairs({f.q.verified,f.q.unverified,f.q.unknown}) do section.fetchedAt=f.now+1 end
+  check("invalid source clocks cannot supply read-order hints",select(4,f.api.DisplaySource())==nil)
   check("future loaded source clocks are unavailable rather than fresh",f.api.DisplayFacts().state=="unavailable" and f.api.DisplayFacts().queriedAt==nil)
   f.q.realm="Other Realm"
+  for _,section in ipairs({f.q.verified,f.q.unverified,f.q.unknown}) do section.fetchedAt=before.queriedAt end
+  check("expired foreign scope cannot supply read-order hints",select(4,f.api.DisplaySource())==nil)
   check("foreign native scope cannot supply display clocks",f.api.DisplayFacts().state=="unavailable" and f.api.DisplayFacts().queriedAt==nil and f.effects==0)
 end
 print("roster_details: " .. passed .. " passed, " .. failed .. " failed")

@@ -7,6 +7,7 @@ local native = OlympusVerifyAPI.Inactive
 local panel, listRows, ui, openParent
 local scope, snapshot, selection, review, draft
 local cutoff, search, page, message, unavailable = 0, "", 1, nil, nil
+local initiateWeek, classes = false, nil
 local dirty, elapsed = false, 0
 
 local function sameScope(a, b)
@@ -41,6 +42,28 @@ local function canReadOfficerNotes(owner)
   return owner and owner.rank == 0
 end
 
+local function classKey(token)
+  token = native.ReadText(token)
+  return token and token:match("^[A-Z]+$") and token or nil
+end
+
+local function className(token)
+  return token and ((LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[token])
+    or (token:sub(1, 1) .. token:sub(2):lower())) or "Unknown"
+end
+
+local function primeGuild(owner)
+  return owner and owner.guild == "OLYMPUS PRIME" and owner.realm == "CAMWOW US2 Realm 3 PvE"
+end
+
+local function minimumDays(row)
+  if initiateWeek then
+    if row.weekEligible then return 7 end
+    return math.huge
+  end
+  return math.max(cutoff, row.need)
+end
+
 local function readSnapshot()
   local owner = nativeScope()
   if not owner then return nil, "Current guild and native removal permission are required. Check again out of combat." end
@@ -56,10 +79,10 @@ local function readSnapshot()
   if owner.observer and not OlympusVerifyNativeRanks.Qualified(ranks) then
     return nil, "WoW must confirm the enrolled guild master's native rank table."
   end
-  local data = {owner = owner, members = {}, names = {}, eligible = {}, rows = {}}
+  local data = {owner = owner, members = {}, names = {}, eligible = {}, rows = {}, classes = {}}
   local leaders = 0
   for i = 1, count do
-    local name, title, slot, level, _, _, note, officerNote, online, _, _, _, _, _, _, _, guid = GetGuildRosterInfo(i)
+    local name, title, slot, level, _, _, note, officerNote, online, _, token, _, _, _, _, _, guid = GetGuildRosterInfo(i)
     name, title, guid = native.ReadText(name), native.ReadText(title), native.ReadText(guid)
     if not safeName(name) or not guid or not guid:match("^Player%-%d+%-%x+$")
       or data.members[guid] or data.names[name:lower()] or type(slot) ~= "number" or slot < 0 or slot > 9
@@ -67,14 +90,18 @@ local function readSnapshot()
       return nil, "Waiting for a complete roster with unique, readable characters and ranks."
     end
     data.members[guid], data.names[name:lower()] = slot, guid
+    token = classKey(token)
+    if token then data.classes[token] = true end
     if slot == 0 then leaders = leaders + 1 end
     if online == false and guid ~= owner.actor and slot > owner.rank and not native.ProtectedRank(slot)
       and type(level) == "number" and level >= 1 and level <= 255 and level == math.floor(level) then
       note, officerNote = native.ReadText(note), native.ReadText(officerNote)
       local days, need = native.DaysOffline(i, false), native.RequiredDays(level)
+      local weekEligible = slot == 9 and title == "Initiate" and primeGuild(owner)
       if note and officerNote and not native.HeldNote(note) and not native.HeldNote(officerNote)
-        and type(days) == "number" and days >= need and days < math.huge then
-        local row = {guid = guid, name = name, rank = title, slot = slot, days = days, need = need, level = level, index = i}
+        and type(days) == "number" and days < math.huge and (days >= need or (weekEligible and days >= 7)) then
+        local row = {guid = guid, name = name, rank = title, slot = slot, class = token, days = days, need = need,
+          level = level, index = i, weekEligible = weekEligible}
         data.eligible[guid], data.rows[#data.rows + 1] = row, row
       end
     end
@@ -99,13 +126,14 @@ local function observe()
 end
 
 local function matches(row)
-  return row.days >= cutoff and (search == "" or row.name:lower():find(search, 1, true))
+  return row.days >= minimumDays(row) and (not classes or classes[row.class])
+    and (search == "" or row.name:lower():find(search, 1, true))
 end
 
 local function stillEligible(original, data)
   local row = data and data.eligible[original.guid]
   return row and row.name == original.name and row.slot == original.slot and row.rank == original.rank
-    and row.level == original.level and row.days >= cutoff
+    and row.level == original.level and row.class == original.class and matches(row)
 end
 
 local function clearDraft()
@@ -123,6 +151,9 @@ end
 local function refresh(rosterEvent)
   local data, why = observe()
   unavailable = why
+  if data and initiateWeek and not primeGuild(data.owner) then
+    initiateWeek, cutoff = false, 0
+  end
   if not data then
     cancel()
   elseif scope and not sameScope(scope, data.owner) then
@@ -185,7 +216,19 @@ local function paint()
   ui.prev:SetEnabled(page > 1); ui.next:SetEnabled(page < pages)
   ui.search:SetShown(not review)
   ui.hint:SetShown(not review and search == "")
-  for _, item in ipairs(ui.filters) do item:SetEnabled(not review and cutoff ~= item.days) end
+  for _, item in ipairs(ui.filters) do item:SetEnabled(not review and (initiateWeek or cutoff ~= item.days)) end
+  ui.initiate:SetEnabled(not review and not initiateWeek and primeGuild(scope))
+  ui.help:SetText(initiateWeek and "PRIME Initiates offline at least 7 days at any level. Protected ranks and hold notes are excluded."
+    or "Eligible offline members by level policy. Protected ranks and hold notes are excluded.")
+  local count, only = 0, nil
+  for token in pairs(classes or {}) do count, only = count + 1, token end
+  local caption = not classes and "All classes" or (count == 1 and className(only) or count .. " classes")
+  ui.classes:SetText(caption .. " v")
+  ui.classes:SetEnabled(not review and snapshot ~= nil)
+  if review or not snapshot then ui.classMenu:Hide() end
+  for _, choice in ipairs(ui.classOptions) do
+    choice:SetChecked(choice.token and classes ~= nil and classes[choice.token] == true or not choice.token and not classes)
+  end
   ui.select:SetShown(not review); ui.clear:SetShown(not review)
   ui.select:SetEnabled(#rows > 0); ui.clear:SetEnabled(selected > 0)
   ui.cancel:SetShown(review ~= nil)
@@ -201,7 +244,8 @@ local function paint()
       widget.check:SetEnabled(not review)
       widget.name:SetText(row.name)
       widget.rank:SetText(row.rank)
-      widget.days:SetText(string.format("%dd / %dd", math.floor(row.days), row.need))
+      widget.class:SetText(className(row.class))
+      widget.days:SetText(string.format("%dd / %dd", math.floor(row.days), minimumDays(row)))
       local status = review and (index < review.index and "Left guild" or index == review.index and review.started and "Current" or "Reviewed") or ""
       widget.mark:SetText(status)
     end
@@ -251,7 +295,7 @@ local function action()
       if selection[row.guid] then
         -- Freeze a private copy, independent of the changing native cache.
         targets[#targets + 1] = {guid = row.guid, name = row.name, rank = row.rank, slot = row.slot,
-          level = row.level, days = row.days, need = row.need}
+          class = row.class, level = row.level, days = row.days, need = row.need, weekEligible = row.weekEligible}
       end
     end
     if #targets > 0 then
@@ -266,12 +310,13 @@ local function stagedRowStillMatches()
   -- Validate the live draft immediately on roster events. A full read for the
   -- view and the departure receipt is coalesced even during an event storm.
   local target, i = review.targets[review.index], draft.rowIndex
-  local name, rank, slot, level, _, _, note, officerNote, online, _, _, _, _, _, _, _, guid = GetGuildRosterInfo(i)
+  local name, rank, slot, level, _, _, note, officerNote, online, _, token, _, _, _, _, _, guid = GetGuildRosterInfo(i)
   note, officerNote = native.ReadText(note), native.ReadText(officerNote)
   local days = online == false and native.DaysOffline(i, false)
   return native.ReadText(name) == target.name and native.ReadText(guid) == target.guid
     and native.ReadText(rank) == target.rank and slot == target.slot and level == target.level
-    and type(days) == "number" and days >= math.max(cutoff, target.need) and days < math.huge
+    and classKey(token) == target.class
+    and type(days) == "number" and days >= minimumDays(target) and days < math.huge
     and note and officerNote and not native.HeldNote(note) and not native.HeldNote(officerNote)
     and canReadOfficerNotes(scope)
     and native.VisibilityCurrent() and sameScope(scope, nativeScope())
@@ -291,14 +336,52 @@ local function button(parent, text, x, y, width, onClick)
   return b
 end
 
+local function toggleClassMenu()
+  local menu = ui.classMenu
+  if menu:IsShown() or review or not snapshot then menu:Hide(); return end
+  local choices = {}
+  for token in pairs(snapshot.classes) do choices[#choices + 1] = token end
+  for token in pairs(classes or {}) do
+    if not snapshot.classes[token] then choices[#choices + 1] = token end
+  end
+  table.sort(choices, function(a, b) return className(a) < className(b) end)
+  local count = #choices + 1
+  menu:SetSize(264, 12 + math.ceil(count / 2) * 26)
+  for i = 1, math.max(count, #ui.classOptions) do
+    local item = ui.classOptions[i]
+    if not item then
+      item = CreateFrame("CheckButton", nil, menu, "UICheckButtonTemplate")
+      item:SetSize(23, 23); item:SetHitRectInsets(0, -100, 0, 0)
+      item:SetPoint("TOPLEFT", 6 + (i - 1) % 2 * 129, -6 - math.floor((i - 1) / 2) * 26)
+      item.caption = label(item, "GameFontHighlightSmall", 25, -5)
+      item:SetScript("OnClick", function(self)
+        if review or not menu:IsVisible() then return end
+        if self.token then
+          classes = classes or {}
+          classes[self.token] = not classes[self.token] or nil
+        else
+          classes = nil
+        end
+        selection, page, message = {}, 1, nil
+        paint()
+      end)
+      ui.classOptions[i] = item
+    end
+    item.token = choices[i - 1]
+    item.caption:SetText(item.token and className(item.token) or "All classes")
+    item:SetShown(i <= count)
+  end
+  menu:Show()
+  paint()
+end
+
 local function build(parent)
   panel = CreateFrame("Frame", nil, parent)
   panel:SetAllPoints(parent)
-  listRows, ui = {}, {filters = {}}
+  listRows, ui = {}, {filters = {}, classOptions = {}}
   local heading = label(panel, "GameFontNormalLarge", 22, -16)
   heading:SetText("Inactive members")
-  local help = label(panel, "GameFontHighlightSmall", 22, -43)
-  help:SetText("Eligible offline members \194\183 Protected ranks and hold notes are excluded.")
+  ui.help = label(panel, "GameFontHighlightSmall", 22, -43)
   ui.search = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
   ui.search:SetSize(168, 24); ui.search:SetPoint("TOPLEFT", 26, -72); ui.search:SetAutoFocus(false)
   ui.hint = label(ui.search, "GameFontDisableSmall", 6, -5); ui.hint:SetText("Search character")
@@ -311,15 +394,29 @@ local function build(parent)
   for i, days in ipairs({0, 7, 14, 30, 60, 90}) do
     local b = button(panel, days == 0 and "Policy" or days .. "d+", 210 + (i - 1) * 67, -72, 63, function()
       if review then return end
-      cutoff, page, selection, message = days, 1, {}, nil; paint()
+      initiateWeek, cutoff, page, selection, message = false, days, 1, {}, nil
+      ui.classMenu:Hide(); paint()
     end)
     b.days = days; ui.filters[#ui.filters + 1] = b
   end
+  ui.initiate = button(panel, "Initiates 7d+", 618, -72, 115, function()
+    if review or not primeGuild(scope) then return end
+    initiateWeek, page, selection, message = true, 1, {}, nil
+    ui.classMenu:Hide(); paint()
+  end)
+  ui.classes = button(panel, "All classes v", 741, -72, 150, toggleClassMenu)
+  ui.classMenu = CreateFrame("Frame", nil, panel)
+  ui.classMenu:SetPoint("TOPRIGHT", ui.classes, "BOTTOMRIGHT", 0, -2)
+  ui.classMenu:SetFrameStrata("TOOLTIP"); ui.classMenu:EnableMouse(true)
+  local menuBackground = ui.classMenu:CreateTexture(nil, "BACKGROUND")
+  menuBackground:SetAllPoints(); menuBackground:SetColorTexture(.06, .11, .13, 1)
+  ui.classMenu:Hide()
   ui.status = label(panel, "GameFontHighlight", 22, -114)
   ui.status:SetWidth(math.max(480, (parent:GetWidth() or 1060) - 48))
   label(panel, "GameFontNormalSmall", 59, -153):SetText("CHARACTER")
-  label(panel, "GameFontNormalSmall", 355, -153):SetText("RANK")
-  label(panel, "GameFontNormalSmall", 525, -153):SetText("OFFLINE / POLICY")
+  label(panel, "GameFontNormalSmall", 350, -153):SetText("CLASS")
+  label(panel, "GameFontNormalSmall", 510, -153):SetText("RANK")
+  label(panel, "GameFontNormalSmall", 685, -153):SetText("OFFLINE / MINIMUM")
   local pageHeight = parent:GetHeight() or 0
   local maxRows = math.max(4, math.min(20, math.floor(((pageHeight > 0 and pageHeight or 600) - 253) / 24)))
   for i = 1, maxRows do
@@ -332,9 +429,10 @@ local function build(parent)
     r.check = CreateFrame("CheckButton", nil, r, "UICheckButtonTemplate")
     r.check:SetPoint("LEFT", 0, 0); r.check:SetSize(23, 23)
     r.name = label(r, "GameFontHighlight", 39, -4)
-    r.rank = label(r, "GameFontHighlight", 335, -4)
-    r.days = label(r, "GameFontHighlight", 505, -4)
-    r.mark = label(r, "GameFontNormalSmall", 680, -4)
+    r.class = label(r, "GameFontHighlight", 330, -4)
+    r.rank = label(r, "GameFontHighlight", 490, -4)
+    r.days = label(r, "GameFontHighlight", 665, -4)
+    r.mark = label(r, "GameFontNormalSmall", 845, -4)
     local function toggle()
       if review or not r.guid or not snapshot then return end
       local id = r.guid
@@ -383,6 +481,7 @@ local function build(parent)
     if elapsed >= 1 then dirty, elapsed = false, 0; refresh(true); paint() end
   end)
   panel:SetScript("OnHide", function()
+    ui.classMenu:Hide()
     cancel(); openParent, snapshot, scope, dirty, elapsed = nil, nil, nil, false, 0
   end)
 end

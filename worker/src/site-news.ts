@@ -79,6 +79,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".310", date: "2026-11-26", lines: [
+      "Known verified Initiates get priority in promotion checks. Officers can review the recommended in-game rank and promote each character with one click.",
+      "Filter the inactive roster by one or more classes. The Initiates 7d+ option lists OLYMPUS PRIME Initiates who have been offline for at least seven days and are eligible for removal.",
+    ],
+  },
+  {
     build: ".309", date: "2026-11-26", lines: [
       "Guild activity now shows one event per row. Officers can page through the journal, search for a character or officer, and return to their filtered member list.",
       "The roster sort button shows asc or desc for the selected column.",

@@ -101,6 +101,50 @@ class InitiateChecks300Tests(unittest.TestCase):
             self.assertIsNone(self.w.valid_initiate_checks(dict(self.f.db, primeInitiateChecks=trial)), mutation)
         self.assertIsNone(self.w.valid_initiate_checks(dict(self.f.db, primeInitiateChecks=self.controls[0])))
 
+    def display_for_second(self, realm=None, snapshot_offset=0):
+        guid = self.targets[1]
+        response = dict(protocol=watcher.STRICT_DISPLAY_PROTOCOL, guild=self.roster['nativeGuild'],
+                        realm=realm or watcher.PRIME_REALM_LABEL, fetchedAt=self.f.at,
+                        snapshotAt=self.roster['exportedAt'] + snapshot_offset,
+                        verified=[dict(name='Second Initiate', guid=guid, status='member',
+                                       username='second', displayName=None)], unverified=[], unknown=[])
+        with patch.object(self.w.worker, 'call', return_value=(True, response)) as get:
+            self.w.pull_strict_display()
+        get.assert_called_once_with('GET', watcher.STRICT_DISPLAY_PATH, retries=1)
+
+    def test_current_verified_page_runs_first_without_reordering_or_skipping_originals(self):
+        self.start()
+        self.display_for_second()
+        with patch.object(self.w.worker, 'call', side_effect=self.answer) as calls:
+            self.w.pull_launch_operations()
+            self.assertEqual([p.running for p in self.w.initiate_checks], [True, False])
+            self.assertIsNone(self.w._notice_check_at)
+            self.f.at += 6
+            self.w.pull_launch_operations()
+            self.assertEqual(calls.call_count, 2)
+        records = watcher.savedvars.parse_file(self.w.initiate_checks_file)['OlympusInitiateChecks']['records']
+        self.assertEqual([r['controlId'] for r in records], [c['id'] for c in self.controls])
+        self.assertTrue(all(r['attempts'] == 1 and r['completed'] and r['expiresAt'] == self.at + 599 for r in records))
+        self.assertEqual(self.w._notice_check_at, 0)
+
+    def test_other_realm_or_snapshot_cannot_prioritize_a_page(self):
+        self.start()
+        for realm, offset in [('Other Realm', 0), (None, -1)]:
+            self.w._next_strict_display_pull = 0
+            self.display_for_second(realm, offset)
+            with patch.object(self.w, '_pull_launch_selected') as dispatched:
+                self.w.pull_launch_operations()
+                dispatched.assert_called_once_with(self.w.initiate_checks[0])
+
+    def test_in_progress_page_keeps_precedence_after_display_refresh(self):
+        self.start()
+        self.display_for_second()
+        first = self.w.initiate_checks[0]
+        first.record['attempts'] = 1
+        with patch.object(self.w, '_pull_launch_selected') as dispatched:
+            self.w.pull_launch_operations()
+            dispatched.assert_called_once_with(first)
+
     def test_unknown_source_or_transport_cannot_retry_or_borrow(self):
         self.start()
         with patch.object(self.w.worker, 'call', return_value=(False, None)) as calls:

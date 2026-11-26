@@ -803,8 +803,10 @@ function W.Refresh(scrolling)
     if not W.showSources then
       snapshotText:SetText(GREY.."Discord list: "..(loadedAt and (Age(loadedAt).." ago") or "unavailable")
         .."   ·   Roster observation: "..(snapshotAt and (Age(snapshotAt).." ago") or "unavailable").."|r")
-      queueSummary:SetText(string.format("%s%d ready to promote|r   ·   %d verified Initiates   ·   %d shown",
-        readyCount>0 and GREEN or GREY,readyCount,diagnostics.knownVerifiedInitiates or 0,shown))
+      local waiting=diagnostics.verifiedAwaitingResult or 0
+      queueSummary:SetText(string.format("%s%d ready to promote|r   ·   %d verified Initiates%s   ·   %d shown",
+        readyCount>0 and GREEN or GREY,readyCount,diagnostics.knownVerifiedInitiates or 0,
+        waiting>0 and string.format("   ·   %d awaiting Watcher results",waiting) or "",shown))
     end
     actionInfo:SetShown(W.showSources==true); W.sourceTip:SetShown(W.showSources==true)
     sortText:SetShown(W.showSources==true)
