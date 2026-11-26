@@ -797,7 +797,7 @@ function W.Refresh(scrolling)
     if same then hint="; this view shares one original observation time, so rows tie by character name." end
   end
   sortText:SetText(GREY.."Sorted by "..sortLabel..(view.desc and " descending" or " ascending")..(view.secondary and (" then "..view.secondary..(view.secondaryDesc and " descending" or " ascending")) or "")..hint.."|r")
-  if W.sortButton then SetButtonText(W.sortButton,"Sort: "..sortLabel..(view.desc and " ↓" or " ↑")) end
+  if W.sortButton then SetButtonText(W.sortButton,"Sort: "..sortLabel..(view.desc and " (desc)" or " (asc)")) end
   if W.sourceButton then
     SetButtonText(W.sourceButton,W.showSources and "Hide source details" or "Source details")
     if not W.showSources then
@@ -1299,27 +1299,56 @@ function W.ShowActivity()
     box.search=CreateFrame("EditBox",nil,box,"InputBoxTemplate");box.search:SetAutoFocus(false);box.search:SetSize(310,26)
     box.search:SetPoint("TOPLEFT",box,"TOPLEFT",24,-87);box.search:SetMaxLetters(80)
     Label(box,"GameFontDisableSmall","Filter by character or officer",347,-93,280)
-    box.body=Label(box,"GameFontHighlight","",22,-133,Layout.INNER-28);box.body:SetJustifyV("TOP");box.body:SetWordWrap(false)
+    local listTop,footerRoom,rowHeight=128,55,24
+    box.rows={}
+    box.empty=Label(box,"GameFontHighlight","",22,-134,Layout.INNER-28)
+    local function eventRow(index)
+      local row=CreateFrame("Frame",nil,box)
+      row:SetPoint("TOPLEFT",box,"TOPLEFT",18,-listTop-(index-1)*rowHeight)
+      row:SetPoint("TOPRIGHT",box,"TOPRIGHT",-18,-listTop-(index-1)*rowHeight)
+      row:SetHeight(rowHeight)
+      if index%2==0 then Fill(row,"BACKGROUND",C.band,.72):SetAllPoints(row) end
+      row.text=row:CreateFontString(nil,"OVERLAY","GameFontHighlight")
+      row.text:SetPoint("LEFT",row,"LEFT",7,0);row.text:SetPoint("RIGHT",row,"RIGHT",-7,0)
+      row.text:SetHeight(rowHeight);row.text:SetJustifyH("LEFT");row.text:SetWordWrap(false)
+      row:EnableMouse(true)
+      row:SetScript("OnEnter",function(self) if self.event then Tip(self,"Guild activity",{self.event}) end end)
+      row:SetScript("OnLeave",HideTip)
+      box.rows[index]=row
+      return row
+    end
     local function paint()
       local lines=journal.Read(box.search:GetText() or "")
-      local perPage=14
+      local height=box:GetHeight()
+      if not height or height<=0 then height=frame:GetHeight() end
+      local perPage=math.max(1,math.floor((height-listTop-footerRoom)/rowHeight))
       local pages=math.max(1,math.ceil(#lines/perPage));box.page=math.max(1,math.min(box.page or 1,pages))
-      local visible={}
-      for i=(box.page-1)*perPage+1,math.min(box.page*perPage,#lines) do visible[#visible+1]=lines[i] end
-      box.body:SetText(#visible>0 and table.concat(visible,"\n\n") or "No native guild events recorded for this search.")
-      box.help:SetText("Native guild log · approximate event times · up to 500 events from the last 90 days · "..box.page.."/"..pages)
+      local first=(box.page-1)*perPage+1
+      local count=math.min(perPage,#lines-first+1)
+      for i=1,count do
+        local row=box.rows[i] or eventRow(i)
+        row.event=lines[first+i-1];row.text:SetText(row.event);row:Show()
+      end
+      for i=count+1,#box.rows do box.rows[i].event=nil;box.rows[i]:Hide() end
+      box.empty:SetShown(count==0)
+      if count==0 then box.empty:SetText(box.search:GetText()~="" and "No guild events match this search." or "No native guild events recorded.") end
+      box.prev:SetEnabled(box.page>1);box.nextPage:SetEnabled(box.page<pages)
+      local source=box.supported and "Native guild log · approximate event times" or "Native log unavailable · showing saved events"
+      box.help:SetText(string.format("%s · %d events · Page %d of %d",source,#lines,box.page,pages))
     end
     box.paint=paint
     box.search:SetScript("OnTextChanged",function() box.page=1;paint() end)
-    local back=Button(box,"Roster",110,24,function() W.ShowRoster() end);back:SetPoint("TOPRIGHT",box,"TOPRIGHT",-14,-15)
+    local back=Button(box,"Members",110,24,function() W.ShowRoster() end);back:SetPoint("TOPRIGHT",box,"TOPRIGHT",-14,-15)
     local prev=Button(box,"Previous",100,24,function() box.page=box.page-1;paint() end);prev:SetPoint("BOTTOMLEFT",box,"BOTTOMLEFT",22,18)
     local nextPage=Button(box,"Next",100,24,function() box.page=box.page+1;paint() end);nextPage:SetPoint("LEFT",prev,"RIGHT",8,0)
+    box.back,box.prev,box.nextPage=back,prev,nextPage
+    box:SetScript("OnSizeChanged",function(self) if self:IsVisible() then paint() end end)
+    box:SetScript("OnHide",function() box.search:ClearFocus();HideTip() end)
     journal.OnChanged=function() if box:IsVisible() then paint() end end
   end
-  journal.ObserveRoster();local supported=journal.Request()
+  journal.ObserveRoster();W.activity.supported=journal.Request()
   W.activity:Show();W.activity.paint()
   if OlympusVerifyWorkspace then OlympusVerifyWorkspace.Highlight("activity") end
-  if not supported then W.activity.help:SetText("Native guild history is unavailable here. Local first-seen times appear in roster details when supported.") end
 end
 
 -- ---------------------------------------------------------------- public

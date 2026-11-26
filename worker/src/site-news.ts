@@ -79,6 +79,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".309", date: "2026-11-26", lines: [
+      "Guild activity now shows one event per row. Officers can page through the journal, search for a character or officer, and return to their filtered member list.",
+      "The roster sort button shows asc or desc for the selected column.",
+    ],
+  },
+  {
     build: ".308", date: "2026-11-26", lines: [
       "Officers can open the roster, see when a verified Initiate is ready for a promotion, and review inactive members together using the in-game roster.",
     ],
