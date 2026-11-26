@@ -62,6 +62,13 @@ local function client(count,blank)
 end
 for _,blank in ipairs({false,true}) do
   local f,e,prepare,record=client(43,blank)
+  setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyRosterModel.lua")),e)("OlympusVerify")
+  local rows={}
+  for i=2,#e.ROSTER do
+    local member=e.ROSTER[i]
+    rows[#rows+1]={name=member.name,guid=member.guid,rank="Initiate",rankIndex=9,status="verified"}
+  end
+  local function readiness() return e.OlympusVerifyRosterModel.Promotions(rows,f.q,e.NOW) end
   local envelope=prepare()
   local mode=blank and "bound blank realm" or "observed realm"
   check(mode.." automatically prepares all 43 Initiates in three pages",envelope and #envelope.controls==3)
@@ -77,11 +84,33 @@ for _,blank in ipairs({false,true}) do
   check(mode.." no forced Sync or promotion",not f.syncs and f.promote==0 and f.restricted==0
     and e.OlympusVerifyDB.launchControl==f.discovery and e.OlympusLaunchSelected==nil)
   check(mode.." unchanged export reuses existing controls",prepare()==envelope)
+  local ready,details=readiness()
+  check(mode.." verified characters await a loaded result without requeueing or promoting",
+    not next(ready) and details.byGuid[f.id].state=="checking" and details.byGuid[f.id].label=="Awaiting Watcher result"
+    and details.state=="pending" and not f.syncs and f.promote==0 and e.OlympusVerifyDB.primeInitiateChecks==envelope)
   local first=record(envelope.controls[1],101,true)
   e.OlympusInitiateChecks={version=1,id=envelope.id,records={first}}
   local current=f.q.Current()
   check(mode.." partial read only covers the 20 completed targets",current.backgroundChecks.checked==20 and current.backgroundChecks.pending==23
     and current.freshness[f.id].snapshotId==101 and current.backgroundChecks.total==43 and f.promote==0)
+  ready,details=readiness()
+  local other=envelope.controls[1].targetGuids[1]
+  if other==f.id then other=envelope.controls[1].targetGuids[2] end
+  check(mode.." a completed read offers Promote immediately only for the recommended character",
+    ready[f.id] and details.byGuid[f.id].state=="ready" and not ready[other]
+    and details.byGuid[other].label=="No promotion available" and not f.syncs and f.promote==0)
+  local name
+  for _,row in ipairs(rows) do if row.guid==other then name=row.name end end
+  first.page.held={{guid=other,name=name,reason="unverified-initiate"}}
+  local secondPending=record(envelope.controls[2],102,false)
+  secondPending.running,secondPending.completed=true,false
+  e.OlympusInitiateChecks.records[2]=secondPending
+  ready,details=readiness()
+  check(mode.." shows the returned verification hold even for a locally Verified display",
+    not ready[other] and details.byGuid[other].state=="held" and details.byGuid[other].label=="Verification required")
+  check(mode.." distinguishes a loaded running check from one awaiting its first result",
+    details.byGuid[envelope.controls[2].targetGuids[1]].label=="Watcher check in progress"
+    and details.byGuid[envelope.controls[3].targetGuids[1]].label=="Awaiting Watcher result" and f.promote==0)
   e.NOW=e.NOW+75
   local second=record(envelope.controls[2],102,false)
   e.OlympusInitiateChecks.records[2]=second
@@ -98,6 +127,9 @@ for _,blank in ipairs({false,true}) do
   e.OlympusInitiateChecks.records[3]=stillRunning
   current=f.q.Current()
   check(mode.." initial signed deadline holds incomplete and complete pages",current.backgroundChecks.held==43 and current.backgroundChecks.checked==0)
+  ready,details=readiness()
+  check(mode.." expired negative results no longer describe current eligibility",
+    not next(ready) and details.byGuid[other].state=="expired" and details.byGuid[other].label=="Eligibility check expired")
 end
 do
   local f,e,prepare,record,verified=client(41,false)

@@ -53,12 +53,14 @@ local function recommendation(row,page)
   return ranks and type(row)=="table" and guid(row.guid) and whole(row.currentSlot,0,9) and ((row.reason=="verified-initiate" and (row.currentSlot==ranks.initiate or row.currentSlot>ranks.member and type(row.intent)=="table" and row.intent.startSlot==ranks.initiate and row.intent.acknowledgedSteps==ranks.initiate-row.currentSlot) and row.targetSlot==ranks.member and row.targetName=="Member")
     or (row.reason=="knight-veteran" and whole(row.currentSlot,ranks.veteran+1,ranks.initiate) and row.targetSlot==ranks.veteran and row.targetName=="Veteran"))
 end
-local heldLabels = {
-  ["native-rank-unconfirmed"] = "The source could not confirm the native rank; no promotion was recommended.",
-  ["pending-verification"] = "The source recorded verification as pending; no promotion was recommended.",
-  ["verification-unknown"] = "The source recorded verification as unknown; no promotion was recommended.",
-  ["discord-entitlement-unknown"] = "The source could not establish the Discord entitlement; no promotion was recommended.",
-  ["directive-rank-policy-held"] = "Rank suggestions from the scan are on hold. If the active server policy supports Initiate to Member, select the character and click Check for a separate current result. Other scan promotions stay on hold.",
+local rowHolds = {
+  ["native-rank-unconfirmed"] = {"Guild rank unconfirmed", "The server could not confirm the character's in-game rank. Check the guild roster."},
+  ["selected-rank-changed"] = {"Guild rank changed", "The checked roster lists a different rank. The next complete export can pick up the new rank."},
+  ["pending-verification"] = {"Verification in progress", "The server is still processing verification for this character. Check Discord /verify-status."},
+  ["verification-unknown"] = {"Verification unconfirmed", "The server could not confirm this character's verification. Check Discord /verify-status."},
+  ["unverified-initiate"] = {"Verification required", "The promotion check found this Initiate unverified. They can check My status in Discord."},
+  ["discord-entitlement-unknown"] = {"Discord role unconfirmed", "The server could not confirm the Discord entitlement needed to choose the target rank."},
+  ["directive-rank-policy-held"] = {"Promotion policy held", "The current rank policy withheld this promotion. Review the guild's configured ranks."},
 }
 -- Held-row reason text is not validated by Current. Count only fixed codes and
 -- use fixed display text; never copy an arbitrary source reason into the UI.
@@ -69,7 +71,7 @@ local function sourceRows(rows, maximum, byGuid, counts, risk)
     local row = rows[index]
     if type(row) ~= "table" or not guid(row.guid) then return nil end
     local code = readable(row.reason) and type(row.reason) == "string" and row.reason or "other"
-    code = risk and code == "unverified-initiate" and code or not risk and heldLabels[code] and code or "other"
+    code = risk and code == "unverified-initiate" and code or not risk and rowHolds[code] and code or "other"
     counts[code] = (counts[code] or 0) + 1
     if byGuid[row.guid] ~= nil then byGuid[row.guid] = false
     else byGuid[row.guid] = code end
@@ -225,6 +227,7 @@ function M.Promotions(list, launchAPI, now)
     local id = guid(row.guid) and row.guid or nil
     local selected=current and (current.selectedByGuid and current.selectedByGuid[id] or
       not current.selectedByGuid and current.selection and current.selection.covered[id] and current.selection)
+    local checkedWithoutPromotion=selected and selected.completed and not recommendations[id]
     local rankScheme=pageRanks(id and originalPages[id] and originalPages[id].page) or displayRanks
     local attemptStatus=id and type(launchAPI)=="table" and type(launchAPI.PromotionStatus)=="function"
       and launchAPI.PromotionStatus(id,current,row.rankIndex) or nil
@@ -250,27 +253,36 @@ function M.Promotions(list, launchAPI, now)
       info=detail("held","Further steps need the native realm","The first step was confirmed. WoW must report the player realm before the addon can check another step for this character.")
     elseif attemptStatus=="recheck" then info=detail("recheck","Check next original step","The last owned step was confirmed. Check this GUID against a fresh complete roster before a separate next promotion click; the original intent and expiry stay fixed.")
     elseif selected and not selected.completed then
-      if selected.state=="pending" then info=detail("checking","Check pending",selected.reason)
-      elseif selected.refreshable==true and initiate(row) and verified(row) then info=detail("check","Check again",selected.reason)
+      if selected.state=="pending" then
+        local label = selected.code=="awaiting-result" and "Awaiting Watcher result"
+          or selected.code=="rate-limited-wait" and "Watcher rate limited" or "Watcher check in progress"
+        info=detail("checking",label,selected.reason)
+      elseif selected.refreshable==true and initiate(row) and verified(row) then info=detail("check","Fresh check needed",selected.reason)
       else info=detail("held",selected.code=="directive-rank-policy-held" and "Promotion policy held"
         or selected.code=="native-rank-scheme-unconfirmed" and "Guild rank table unconfirmed" or "Selected read held",selected.reason) end
     elseif current.identity and current.identity.primeInitiates and initiate(row) and verified(row)
       and not selected then
-      info=detail("check","Check eligibility","The current PRIME Guild Master roster supports a fresh eligibility check for this Initiate. Each promotion needs its own officer click.")
+      info=detail("check","Awaiting roster export","The next complete PRIME roster export automatically requests eligibility for this Initiate. Once a current result is ready, click Promote on their row.")
     elseif freshRead and initiate(row) and verified(row)
       and (sourceHeld[id]==nil or current.rankHeldReason=="directive-rank-policy-held" and sourceHeld[id]=="directive-rank-policy-held") and riskReview[id]==nil
       and not selected
       and (current.freshness[id]==nil or type(current.freshness[id])=="table" and current.freshness[id].kind=="discovery") then
       info=detail("check","Check eligibility","The scan's old results do not authorize a promotion. Click Check to request a separate current result for this character. Check does not restart the old scan, change its dates or clear promotion history.")
-    elseif current.actionHeld and not (current.freshness[id] and current.freshness[id].kind=="selected" and current.freshness[id].actionHeld==false) then info = detail("held", diagnostics.loadedScan and diagnostics.loadedScan.label or "Projection stopped or held",
+    elseif checkedWithoutPromotion and selected.page and whole(selected.page.expiresAt,1,2147483647) and now>=selected.page.expiresAt then
+      info=detail("expired","Eligibility check expired","This character's last completed check has expired. The next complete roster export can request a fresh result.")
+    elseif current.actionHeld and not checkedWithoutPromotion
+      and not (current.freshness[id] and current.freshness[id].kind=="selected" and current.freshness[id].actionHeld==false) then info = detail("held", diagnostics.loadedScan and diagnostics.loadedScan.label or "Projection stopped or held",
       diagnostics.loadedScan and (diagnostics.loadedScan.summary.." Next step: "..diagnostics.loadedScan.nextStep)
         or "The loaded projection is stopped or superseded. No promotion is ready; review its original control state.")
     elseif not recommendations[id] then
       if sourceHeld[id] then
-        info = detail("held", "Source eligibility held", heldLabels[sourceHeld[id]]
-          or "The original source held this character without a supported promotion recommendation. Review the source; display verification cannot clear its hold.")
+        local hold=rowHolds[sourceHeld[id]]
+        info = detail("held", hold and hold[1] or "Eligibility on hold", hold and hold[2]
+          or "The server withheld this promotion. Review the current check with an officer.")
       elseif riskReview[id] then
         info = detail("no_recommendation", "Source risk review only", "The source lists this Initiate for unverified risk review only. This is not a promotion recommendation or permission to remove a member.")
+      elseif checkedWithoutPromotion then
+        info = detail("no_recommendation", "No promotion available", "The Watcher checked this character and returned no eligible promotion. A later complete roster export can pick up changes to verification or rank.")
       else
         info = detail("no_recommendation", "No loaded recommendation", verified(row)
           and "The base display is verified, but no supported Initiate-to-Member recommendation is loaded for this GUID. Display verification alone is not promotion authority."
@@ -318,6 +330,10 @@ function M.Promotions(list, launchAPI, now)
   elseif diagnostics.ready>0 then diagnostics.state,diagnostics.reason="ready",tostring(diagnostics.ready).." fresh supported recommendation(s); each hardware click rechecks the exact native target."
   elseif current.selection and current.selection.completed and (diagnostics.counts.expired or 0)>0 then diagnostics.state,diagnostics.reason="expired","The selected recommendation has expired; its original clocks remain unchanged. Recheck the selected GUID for a new read."
   elseif current.selection then diagnostics.state,diagnostics.reason=current.selection.state=="pending" and "pending" or "held",current.selection.reason
+  elseif current.backgroundChecks and current.backgroundChecks.pending>0 then diagnostics.state,diagnostics.reason="pending",
+    "Some eligibility checks are still awaiting a Watcher result. Results load at login or reload."
+  elseif current.backgroundChecks and current.backgroundChecks.held>0 then diagnostics.state,diagnostics.reason="held",
+    "Some eligibility checks are held or expired. Select a character to see the reason."
   elseif current.identity and current.identity.primeInitiates then diagnostics.state,diagnostics.reason="no_recommendation",
     "The next complete PRIME roster export checks Initiates in the background. A separate officer click promotes an eligible member."
   elseif current.actionHeld then diagnostics.state, diagnostics.reason = "held", diagnostics.loadedScan

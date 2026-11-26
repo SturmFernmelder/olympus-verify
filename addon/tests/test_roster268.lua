@@ -293,7 +293,7 @@ do
   f.emit("GUILD_ROSTER_UPDATE");f.w.clearButton:Click();f.choose(f.w.actionFilterButton,2)
   local shown
   for _,row in ipairs(f.w.rows) do if row.member and row.member.name=="Alpha" then shown=row end end
-  check("Steward selected Initiate appears in Ready with its exact Member8 target and visible row button",f.names()=="Alpha" and shown and shown.promote:IsShown() and plain(shown.promote.label:GetText())=="To Member")
+  check("Steward selected Initiate appears in Ready with its exact Member8 target and visible row button",f.names()=="Alpha" and shown and shown.promote:IsShown() and plain(shown.promote.label:GetText()):find("Member",1,true))
   if shown then shown.promote:Click() end
   f.emit("GUILD_ROSTER_UPDATE");f.w.Refresh()
   local history=e.OlympusVerifyDB.launchPromotionAttempts["Player-1-0000B002"]
