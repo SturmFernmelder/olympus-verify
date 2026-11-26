@@ -485,6 +485,7 @@ def drain(watcher, collect_inputs=True):
     if not isinstance(receipts, list):
         _save_state(watcher)
         return
+    membership_changed = False
     for receipt in receipts:
         if not isinstance(receipt, dict) or type(receipt.get("id")) is not str or receipt.get("status") not in ("done", "rejected"):
             continue
@@ -496,7 +497,12 @@ def drain(watcher, collect_inputs=True):
         original["state"] = receipt["status"]
         original["receipt"] = {k:receipt.get(k, "") for k in ("id","status","character","guid","discordRole","outcome")}
         original["acknowledgedAt"] = int(time.time())
+        if (original["body"].get("type") == "verify" and receipt["status"] == "done"
+                and receipt.get("outcome") in ("verified", "member", "resumed", "already_verified")):
+            membership_changed = True
     _save_state(watcher)
+    if membership_changed:
+        watcher.wake_strict_display()
 
 def receipts(watcher):
     source_privacy = _privacy_source280(watcher)

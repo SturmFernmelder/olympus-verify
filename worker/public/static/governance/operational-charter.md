@@ -50,7 +50,7 @@ The Chief Strategist coordinates tested plans and encounter knowledge. The Head 
 
 The Federal Treasurer keeps the common budget, reconciles receipts and supports local Finance Emissaries. Each guild's resources remain under its own authorized custody unless a specific transfer is approved. The Treasurer publishes suitable aggregate balances and commitments, explains differences between available stock and earmarked resources, and does not conceal a withdrawal behind an accounting entry.
 
-The established dues rule is one gold weekly, a fourteen-day new-member exemption and ninety-day ledger retention. The adopted accounting rule counts a verified member once in their designated home guild, without duplicate assessments solely for linked alts. Authorized people receive and record actual gold; the website neither debits a game balance nor proves an unobserved payment. Corrections preserve a reason and the original receipt reference. A disputed assessment is reviewed before a decision, and hardship handling remains confidential.
+Members may contribute any amount of in-game gold to the guild bank. Authorized officers record observed transfers. Corrections preserve a reason and the original receipt reference. Finance reviews disputed receipts privately.
 
 A requisition names the purpose, item or amount, event or beneficiary category, responsible requester and required date. The approver checks the budget and applicable threshold. The custodian records the actual transfer, and a different person reconciles it where independence is required. Related transfers are considered together so a substantial request cannot be split to evade review. No officer pays a private expense from the common bank merely because they hold a senior rank.
 
@@ -132,9 +132,9 @@ The authorized guild administration directed publication of these responsibility
 
 Discord: `fernmelder`
 
-Fernmelder leads treasury and guild-bank administration: recording receipts, reconciling dues and fees against the adopted schedule, maintaining a clear ledger, and preparing understandable reports of balances, outstanding entries and discrepancies. Treasury records should distinguish money actually received in game from a promise, a proposed charge or an unconfirmed entry. Corrections must preserve an explanation of what changed and why. Fernmelder supplies records for independent audits and follows up their findings; independent review of funds in the Treasurer's custody belongs to a separate reviewer.
+Fernmelder leads treasury and guild-bank administration: recording receipts, reconciling donations and approved service fees, maintaining a clear ledger, and preparing understandable reports of balances, outstanding entries and discrepancies. Treasury records should distinguish money actually received in game from a promise, a proposed charge or an unconfirmed entry. Corrections must preserve an explanation of what changed and why. Fernmelder supplies records for independent audits and follows up their findings; independent review of funds in the Treasurer's custody belongs to a separate reviewer.
 
-Fernmelder coordinates collection of approved dues and fees through the existing attended process and checks and reconciles those records. This responsibility creates no new charge or automatic collection mechanism.
+Fernmelder coordinates receipt of voluntary gifts and approved service fees through the existing attended process and checks and reconciles those records. This responsibility creates no new charge or automatic collection mechanism.
 
 Fernmelder coordinates with the AddOn and website developers on a reliable way to match in-game gold records to the website ledger. That work must make the origin and freshness of each record clear, allow an officer to resolve an unmatched receipt, and avoid representing a planned integration as an automatic transfer of gold.
 

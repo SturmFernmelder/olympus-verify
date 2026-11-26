@@ -12,7 +12,7 @@ import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-
 import {captureBetaConfiguration,assertBetaConfiguration,BETA_SIGNER_CURRENT,betaMembershipEffectSql,type BetaConfiguration} from './qr-beta-fern';
 import type { Env } from './env';
 import { membershipSettlementEnabled,membershipTransitionEnabled,membershipTargets,membershipTargetsCurrent } from './membership-role-transition';
-import { rest, DiscordError, type AttemptBudget } from './discord';
+import { rest, DiscordError, logLine, type AttemptBudget } from './discord';
 import { DB_NOW, randomGeneration, sha256 } from './account-generation-contracts';
 import { requireQr, type QrEnv } from './qr-phase1';
 import { parseNativeRoleMap,mappedNativeRole,identifyNativeProfile,identifyConfiguredNativeProfile,privilegedNativeMap } from './native-rank-adapter';
@@ -39,6 +39,17 @@ type Member={roles:string[];user:{id:string}};
 type Intent={beta_window_id?:string|null;id:string;subject:string;purpose:string;proof_id:string|null;guild_id:string;role_id:string;desired:number;state:string;attempts:number;expires_at:number;roster_id:number|null;native_guid:string|null;native_profile:string|null;native_rank:number|null;native_rank_name:string|null;subject_generation:string|null;claim_nonce:string|null;created_at:number;request_digest:string|null;reason:string;checked_at:number|null};
 export type Settlement=Readonly<{state:'settled'|'held'|'unknown';reason:string;operationId:string|null;checkedAt:number|null}>;
 const result=(state:Settlement['state'],reason:string,operationId:string|null=null,checkedAt:number|null=null):Settlement=>({state,reason,operationId,checkedAt});
+/** Called only by the original acknowledged canonical DELETE + confirming member
+ * read + successful durable receipt below. Logging cannot turn a proved effect
+ * back into an unknown effect, mint custody, or retry a DELETE. */
+async function confirmedDepartureNotice(env:Env,f:{subject:string;subjectGeneration:string|null;cause:string},role:string,operation:string):Promise<void>{
+ try{
+  if(f.cause!=='departure'||!env.CHANNEL_SERVER_LOG)return;
+  const capture=await readPrivacySubject(env,f.subject);
+  if(capture&&capture.state!=='active'||(capture?.subjectGeneration??null)!==f.subjectGeneration)return;
+  await logLine(env,`➖ roles: Discord account ID \`${f.subject}\` — <@&${role}> removal acknowledged and confirmed after guild departure. Receipt \`${operation}\`.`,[{subject:f.subject,capture}]);
+ }catch{/* A notice failure never alters the original completed role receipt. */}
+}
 const ID=/^\d{17,20}$/;const TOKEN=/^[0-9a-f]{32}$/;
 /** Item 15 (17 Oct 2026): restriction-only fence for central removals of the twelve fixed beta roles in the fixed guild.
  * The mode and additive source-epoch descriptor are captured with captureBetaRoleDispatch (no policy read, SQL or request) before the
@@ -2378,7 +2389,11 @@ async function settleRoutineTarget232(env:Env,cap:RoutineMembership232,venue:Run
      WHERE ${receiptTuple} RETURNING *,NULL AS beta_window_id`)
      .bind(...ownedValues,reason,c.intent.created_at,c.intent.proof_id,c.intent.checked_at),originalIntegrity);
     originalIntegrity();receipt.check();
-    if(receipt.intent?.id===id&&receipt.intent.state==='settled')return result('settled',reason,id,now());
+    if(receipt.intent?.id===id&&receipt.intent.state==='settled'){
+     const settled=result('settled',reason,id,now());
+     await confirmedDepartureNotice(env,f,role,id);
+     return settled;
+    }
    }catch{/* An uncertain Native answer stays spent; never try this receipt again. */}
    try{await env.DB.prepare(`UPDATE role_settlements SET state='unknown',reason='native232_receipt_unknown',checked_at=${DB_NOW} WHERE ${owned} AND state IN('dispatching','settled')`).bind(...ownedValues).run();}catch{}
    return result('unknown','native232_receipt_unknown',id);

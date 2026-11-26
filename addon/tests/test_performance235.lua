@@ -114,6 +114,10 @@ for _,size in ipairs({920,1000}) do
   check(size.." unchanged five-second ticks do not rehash full roster",f.hashes==0 and f.hashBytes==0)
   check(size.." unchanged synchronized digest does not invent new pending work",not f.a.Status().pending)
   check(size.." normal ticks dispatch no automatic native effect",f.noActions())
+  f.e.ROSTER[2].note="updated note";f.e.ROSTER[2].level=59;f.e.ROSTER[2].online=false
+  f.api.ExportRoster()
+  check(size.." updated notes, levels and activity export without a membership reload prompt",
+    f.facts().digest==f.initial.digest and not f.a.Status().pending and f.e.OlympusVerifyDB.roster.members[2].level==59)
   local old=f.facts();f.e.ROSTER[2].rank="Veteran";f.e.ROSTER[2].rankIndex=6
   f.reset();f.api.ExportRoster()
   local fresh=f.facts()

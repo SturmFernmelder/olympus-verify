@@ -88,9 +88,12 @@ export const WAR_HEAD_OFFICES = Object.freeze(["office_94", "office_97", "office
 export interface WarHeadProof { condition: (firstParameter: number) => { sql: string; values: readonly string[] } }
 export async function eventWarHeadNow(env: Env, ctx: CommunityContext): Promise<WarHeadProof | null> {
   if (!ctx.subject || !ctx.capabilities.confirmedGuildData) return null;
+  return eventWarHeadForAccount(env,ctx.subject.discordId);
+}
+export async function eventWarHeadForAccount(env: Env, account: string): Promise<WarHeadProof | null> {
   try {
     const { capturePublishedOfficeAuthority, publishedOfficeAuthorityCondition } = await import("./site-appointed-identities");
-    const authority = await capturePublishedOfficeAuthority(env, ctx.subject.discordId, WAR_HEAD_OFFICES);
+    const authority = await capturePublishedOfficeAuthority(env, account, WAR_HEAD_OFFICES);
     if (!authority) return null;
     return Object.freeze({ condition: (first: number) => publishedOfficeAuthorityCondition(authority, first) });
   } catch { return null; }

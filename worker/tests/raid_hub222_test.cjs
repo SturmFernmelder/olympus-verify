@@ -31,6 +31,8 @@ async function checks222(){
  const form=r.initial.data.custom_id,fields=[['title','Synthetic private hub raid'],['starts',new Date((at()+1800)*1000).toISOString()],['minutes','120'],['capacity','10'],['details','Prepare locally.']];
  r=await send222({type:5,custom:form,fields});const savedId=r.id,event=one('SELECT * FROM community_events ORDER BY created_at DESC LIMIT 1'),detail=r.answer;
  check('modal creates the existing guarded calendar object and reads it back',r.initial.type===5&&event.title==='Synthetic private hub raid'&&detail.content.includes('No public announcement'));
+ check('officer hub has a deep link to this event’s assignments and waitlist',
+   controls(detail).some(c=>c.label==='Website roster'&&new URL(c.url).searchParams.get('to')==='community/calendar/'+event.id+'/roster')&&!!control(detail,'Assignments & waitlist'));
  check('one saved event does not arm or send a reminder implicitly',one('SELECT COUNT(*) n FROM community_event_reminders').n===0&&publicEffects219().length===0);
  r=await send222({type:5,custom:form,fields,id:savedId});
  check('replayed modal submits cannot create a second event',r.initial.type===5&&one('SELECT COUNT(*) n FROM community_events').n===1);
@@ -55,8 +57,32 @@ async function checks222(){
  check('signed raid details and their calendar button carry the same server-visible return',
   memberDetail.embeds[0].url===returnUrl&&memberDetail.components.flatMap(row=>row.components).some(c=>c.label==='Open calendar'&&c.url===returnUrl));
  const signup=control(memberDetail,'Your signup preference');
+ check('member hub shows open roster places without offering staff edits',memberDetail.embeds[0].description.includes('open signup place')&&!controls(memberDetail).some(c=>c.label==='Assignments & waitlist'));
  r=await send222({type:3,custom:signup,values:['bench'],who:MEMBER});
  check('signup dropdown stores the member preference without an officer decision',r.answer.content.includes('Bench is a request')&&one('SELECT COUNT(*) n FROM community_event_signups WHERE event_id=? AND discord_id=?',event.id,MEMBER).n===1);
+ const assignment=control(detail,'Assignments & waitlist'),picker=await send222({type:3,custom:assignment}),selectSignup=control(picker.answer,'Choose a signed-up member');
+ check('private organizer menu lists the member who actually signed up',!!selectSignup&&controls(picker.answer).find(c=>c.custom_id===selectSignup).options.some(o=>o.value===MEMBER));
+ const selectDecision=async()=>control((await send222({type:3,custom:selectSignup,values:[MEMBER]})).answer,'Set this signup’s officer decision');
+ let decision=await selectDecision(),decided=await send222({type:3,custom:decision,values:['accepted:0']});
+ const assigned=()=>one('SELECT decision,decision_revision FROM community_event_signups WHERE event_id=? AND discord_id=?',event.id,MEMBER);
+ check('signed organizer component accepts a real signup in Discord',decided.answer.content==='Signup accepted.'&&assigned().decision==='accepted'&&assigned().decision_revision===1);
+ await send222({type:3,custom:decision,values:['bench:0']});
+ check('a stale Discord menu cannot replace a more recent assignment',assigned().decision==='accepted'&&assigned().decision_revision===1);
+ decision=await selectDecision();decided=await send222({type:3,custom:decision,values:['bench:1']});
+ check('signed officer waitlist persists independently from the member’s bench request',decided.answer.content==='Signup placed on the officer waitlist.'&&assigned().decision==='bench'&&assigned().decision_revision===2);
+ decision=await selectDecision();decided=await send222({type:3,custom:decision,values:['clear:2']});
+ check('signed clear removes only the decision and the member remains signed up',decided.answer.content==='Officer decision cleared.'&&assigned().decision===null&&assigned().decision_revision===3);
+ decision=await selectDecision();
+ const memberRef=one('SELECT ref FROM community_refs WHERE discord_id=?',MEMBER).ref;
+ const webChange=await call('POST','/api/community/events/decide',{eventId:event.id,entries:[{ref:memberRef,decision:'bench',revision:3}]},ORG,over219);
+ await send222({type:3,custom:decision,values:['accepted:3']});
+ check('a newer decision through the real website endpoint wins over an already-open Discord picker',webChange.status===200&&assigned().decision==='bench'&&assigned().decision_revision===4);
+ const copied=await send222({type:3,custom:decision,values:['clear:4'],who:MEMBER});
+ check('another member cannot operate an officer’s private assignment control',assigned().decision==='bench'&&assigned().decision_revision===4&&copied.initial?.type!==9);
+ staff219.add(OTHER);
+ const foreign=await send222({options:[{type:3,name:'find',value:event.id}],who:OTHER});
+ check('an ordinary officer cannot manage an event created by another officer',!control(foreign.answer,'Assignments & waitlist'));
+ staff219.delete(OTHER);
  const before=JSON.stringify(db.prepare('SELECT * FROM community_event_signups').all());
  r=await send222({type:3,custom:signup,values:['tank'],who:OTHER});
  check('a copied private control cannot act for a different person',JSON.stringify(db.prepare('SELECT * FROM community_event_signups').all())===before);
@@ -92,6 +118,10 @@ async function checks222(){
  r=await send222({options:[{type:3,name:'find',value:attended222.id}],who:MEMBER});
  await send222({type:3,custom:control(r.answer,'Your signup preference'),values:['healer'],who:MEMBER});
  await fixtureRun('UPDATE community_events SET starts_at=?,ends_at=? WHERE id=?',at()-60,at()-60+3600,attended222.id);
+ const hubHistory=await send222({options:hubOptions(),who:MEMBER});
+ const history=await send222({type:3,custom:control(hubHistory.answer,'Raid history'),who:MEMBER});
+ check('private hub history lists the retained started event and returns to upcoming',history.answer.embeds[0].title==='Raid attendance & history'&&
+   controls(history.answer).some(c=>c.options?.some(o=>o.value===attended222.id))&&!!control(history.answer,'Upcoming raids'));
  r=await send222({options:[{type:3,name:'find',value:attended222.id}]});
  r=await send222({type:3,custom:control(r.answer,'Record attendance')});
  const userSelect222=control(r.answer,'Choose a signup whose attendance you observed');
@@ -135,6 +165,27 @@ async function checks222(){
  const website=await call('POST','/api/community/events',{opId:'w'.repeat(22),title:'Website offset',startsAt:offsetStart(start,2),durationMin:60},ORG,over219);
  check('the website event contract still rejects non-Z timestamps without writing',website.status===400&&website.body.error==='invalid_starts_at'&&one('SELECT COUNT(*) n FROM community_events').n===eventCount);
  check('offset and timezone checks leave reminder and public delivery custody untouched',one('SELECT COUNT(*) n FROM community_event_reminders').n===0&&publicEffects219().length===0);
+ const retiringEvent=one('SELECT id FROM community_events WHERE title=?','Positive offset').id;
+ await fixtureRun('UPDATE community_events SET capacity=1 WHERE id=?',retiringEvent);
+ const beforeRemoval=await send222({options:hubOptions([{type:3,name:'find',value:retiringEvent}]),who:MEMBER});
+ const selectPreference=async(answer,choice)=>send222({type:3,custom:control(answer,'Your signup preference'),values:[choice],who:MEMBER});
+ const signupStatus=()=>one('SELECT status FROM community_event_signups WHERE event_id=? AND discord_id=?',retiringEvent,MEMBER)?.status;
+ const lastPlace=await selectPreference(beforeRemoval.answer,'healer');
+ check('the immediate signed RSVP reply shows that taking the last signup place filled it',
+  lastPlace.answer.content.includes('Your preference was saved')&&lastPlace.answer.embeds[0].description.includes('0 open signup places · 1 unassigned roster place')&&signupStatus()==='yes');
+ const withdrawn=await selectPreference(lastPlace.answer,'absent');
+ check('the immediate signed withdrawal reply shows that a signup place reopened',
+  withdrawn.answer.content.includes('Your preference was saved')&&withdrawn.answer.embeds[0].description.includes('1 open signup place · 1 unassigned roster place')&&signupStatus()==='no');
+ let observedSave=false;
+ hooks.afterStatement=async(sql,params)=>{
+  if(!sql.includes('INSERT INTO community_event_changes')||!params.includes(retiringEvent))return;
+  hooks.afterStatement=null;
+  observedSave=signupStatus()==='yes';
+  await fixtureRun('DELETE FROM community_events WHERE id=?',retiringEvent);
+ };
+ const gone=await selectPreference(withdrawn.answer,'tank');
+ check('an event removed between the committed RSVP and its readback closes the private controls',
+  observedSave&&gone.answer.content.includes('event is unavailable')&&gone.answer.embeds.length===0&&controls(gone.answer).length===0);
  console.log('\n'+passed+'/'+total+' signed raid hub checks passed');process.exit(passed===total?0:1);
 }
 const inherited=parent222.slice(pre222,end222).replace('async function guildCommands219(){','async function run222(){');

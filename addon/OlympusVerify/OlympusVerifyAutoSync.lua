@@ -1,7 +1,7 @@
 -- .233 pending file-exchange alert. Timers never call Sync/ReloadUI or a guild action.
 local API = OlympusVerifyAPI
 if type(API) ~= "table" then return end
-local A = { REFRESH_INTERVAL = 180, CHIME_INTERVAL = 30 }
+local A = { CHIME_INTERVAL = 30 }
 OlympusVerifyAutoSync = A
 local f, state = CreateFrame("Frame"), { active = false, contexts = {}, held = "off", attempted = false, timerReady = false }
 local function pref(create)
@@ -58,7 +58,9 @@ local function submittingImport(focus)
   local name=type(focus.GetName)=="function" and focus:GetName()
   if not readable(name) or type(name)~="string" or not name:match("^ChatFrame%d+EditBox$") or _G[name]~=focus or type(focus.GetText)~="function" then return false end
   local text=focus:GetText()
-  return readable(text) and type(text)=="string" and (text=="" or text:lower():match("^%s*/olv%s+ready%s+sync%s*$")~=nil)
+  if not readable(text) or type(text)~="string" then return false end
+  local cmd=text:lower()
+  return text=="" or cmd:match("^%s*/olv%s+ready%s+sync%s*$")~=nil or cmd:match("^%s*/olv%s+sync%s*$")~=nil
 end
 local function contextHeld(hardware,submittedSlash)
   if not state.active then return "loading" end
@@ -143,8 +145,8 @@ local function UpdateAlert()
   local detail=status.lastRequestedAt and ("Requested "..stamp(status.lastRequestedAt,"%H:%M")
     .."; loaded "..stamp(status.loadedListAt,"%H:%M")..(status.displayState=="stale" and " (stale)" or ""))
     or "Click or press Sync (right-drag to move)"
-  if state.initiateImport and not state.requested then detail="Click once when safely idle to send the proof" end
-  A.button:SetText((state.requested and "Sync requested: confirm the UI reload" or state.initiateImport and "Export Initiate verification" or "Pending Verification Sync").."\n"..detail)
+  if state.initiateImport and not state.requested then detail="Initiate verification waiting. Click once when safely idle." end
+  A.button:SetText((state.requested and "Sync requested" or "Sync").."\n"..detail)
   A.button:SetScript("OnEnter",function(self)
     if not GameTooltip then return end
     GameTooltip:SetOwner(self,"ANCHOR_RIGHT");GameTooltip:SetText("Sync request and loaded server data")
@@ -152,7 +154,11 @@ local function UpdateAlert()
     GameTooltip:Show()
   end)
   A.button:SetScript("OnLeave",function() if GameTooltip then GameTooltip:Hide() end end)
-  if state.pendingAt and state.active then A.button:Show() else A.button:Hide() end
+  local workspace=OlympusVerifyWorkspace
+  if state.pendingAt and state.active and not (workspace and workspace.IsShown and workspace.IsShown()) then A.button:Show() else A.button:Hide() end
+end
+function A.RefreshAlert()
+  if A.button then UpdateAlert() end
 end
 local function Chime()
   local p, clock = pref(false), mono()
@@ -179,11 +185,11 @@ end
 function A.Description()
   local s=A.Status()
   return {
-    state.initiateImport and "Click to export the whisper for the Watcher. After Windows reports a ready member, use /olv ready sync once to load the result." or "Pending Verification Sync",
+    state.initiateImport and "A new Initiate whispered. Sync once to save the proof. After Windows reports a ready member, /olv ready sync can open the in-game result." or "Verification Sync",
     "Last Sync requested: "..stamp(s.lastRequestedAt)..". This is a local request, not a server confirmation.",
     "Loaded server list queried: "..stamp(s.loadedListAt).."; server roster observed: "..stamp(s.loadedRosterAt).." ("..s.displayState..").",
     "Sync exports pending data and reloads once. The Watcher processes that export afterward; the reload can still load the older result.",
-    "Wait for the Watcher result, then use Sync once more to load its newer file. If dates still do not advance, check the Watcher; repeated clicks do not confirm success.",
+    "The Watcher refreshes the desktop list automatically. Reload only if you need its newer results inside WoW before your next login.",
     "WoW loads the Watcher's dated results at login or reload. Check current access in Discord /verify-status.",
     s.held,
   }
@@ -192,30 +198,41 @@ function A.OfferInitiateImport()
   if state.pendingAt and not state.requested then state.initiateImport=true; UpdateAlert() end
 end
 local function RequestWithFacts(reason, source)
-  if reason~="whisper" and reason~="native-change" and reason~="periodic" and reason~="queue-check" then return false end
+  if reason~="whisper" and reason~="native-change" and reason~="queue-check" then return false end
   if not pref() then return false end
   if reason~="whisper" and not source then return false end
   local first=state.pendingAt==nil
   state.pendingAt=state.pendingAt or mono() or 0
-  state.reason=state.reason=="whisper" and state.reason or reason
+  if reason=="whisper" or not state.reason or state.reason=="native-change" then state.reason=reason end
   if not state.requested then state.held="hardware click or keybind required" end
   if first then Chime() end
   UpdateAlert()
   return true
 end
 function A.Request(reason)
-  if reason~="whisper" and reason~="native-change" and reason~="periodic" and reason~="queue-check" then return false end
+  if reason~="whisper" and reason~="native-change" and reason~="queue-check" then return false end
   if not pref() then return false end
-  if reason=="whisper" then pcall(API.ExportRoster); return RequestWithFacts(reason) end
+  if reason=="whisper" then
+    if not state.pendingAt and not facts() then pcall(API.ExportRoster) end
+    return RequestWithFacts(reason)
+  end
   return RequestWithFacts(reason, facts())
 end
 local function NativeChangedWithFacts(source)
   if not source then return end
   local p=pref(false)
-  if source.digest~=(state.digest or p and p.lastSyncedDigest) then RequestWithFacts("native-change", source) end
+  if state.digest~=source.digest then
+    if p and source.digest==p.lastSyncedDigest then
+      if state.reason=="native-change" and not state.requested then state.reason=nil;state.pendingAt=nil;UpdateAlert() end
+    else RequestWithFacts("native-change", source) end
+  end
   state.digest=source.digest
 end
 function A.NativeChanged() return NativeChangedWithFacts(facts()) end
+function A.RecordSavedRoster()
+  local source,p=facts(),pref(false)
+  if source and p then p.lastSyncedDigest=source.digest end
+end
 function A.RecordSync()
   local p,source=pref(),facts()
   if not p then return end
@@ -241,7 +258,8 @@ function A.HardwareSync(guardImport,submittedSlash)
     UpdateAlert(); return false
   end
   if state.requested then state.held="request unconfirmed; use the normal /reload command if needed"; UpdateAlert(); return false end
-  if type(API.Sync)~="function" or not ((C_UI and type(C_UI.Reload)=="function") or type(ReloadUI)=="function") then
+  local flush=API.FlushAndReload
+  if type(flush)~="function" or not ((C_UI and type(C_UI.Reload)=="function") or type(ReloadUI)=="function") then
     state.held="reload API unavailable; type /reload in normal chat"; UpdateAlert(); return false
   end
   if guardImport==true and (not OlympusLaunch229 or not OlympusLaunch229.ArmReadyReview or not OlympusLaunch229.ArmReadyReview()) then
@@ -250,7 +268,7 @@ function A.HardwareSync(guardImport,submittedSlash)
     return false
   end
   state.requested=true
-  local success,result=pcall(API.Sync)
+  local success,result=pcall(flush)
   if not success or result==false then
     if guardImport==true and OlympusLaunch229 then OlympusLaunch229.CancelReadyReview() end
     state.held="client refused Sync; use the normal /reload command"
@@ -295,12 +313,7 @@ function A.Tick()
   -- Throttled request only; its native roster event publishes the complete export.
   -- No timer dispatches Sync, ReloadUI, invite, promote, purge or MOTD.
   if type(API.RefreshRosterForPending235)=="function" then pcall(API.RefreshRosterForPending235) end
-  local source,p=facts(),pref(false)
-  if source then
-    NativeChangedWithFacts(source)
-    local last=p and p.lastSyncAt or state.wallBoot
-    if type(last)=="number" and time()>=last and time()-last>=A.REFRESH_INTERVAL then RequestWithFacts("periodic", source) end
-  end
+  NativeChangedWithFacts(facts())
   if state.pendingAt then state.held=state.requested and state.held or contextHeld(false) or "hardware click or keybind required" end
   if OlympusLaunch229 and OlympusLaunch229.PollInitiateAlerts then
     local function safe() return not contextHeld(true) end
@@ -317,7 +330,7 @@ local close={TRADE_CLOSED="TRADE_SHOW",MAIL_CLOSED="MAIL_SHOW",BANKFRAME_CLOSED=
 f:SetScript("OnEvent",function(_,event)
   if event=="PLAYER_LOGIN" then
     if state.started then return end
-    state.started=true; state.wallBoot=time(); pref()
+    state.started=true; pref()
     if C_Timer and type(C_Timer.NewTicker)=="function" then pcall(C_Timer.NewTicker,5,function() pcall(A.Tick) end) end
   elseif event=="PLAYER_ENTERING_WORLD" then state.active=true
   elseif event=="PLAYER_LEAVING_WORLD" then state.active=false;if A.readyButton then A.readyButton:Hide() end

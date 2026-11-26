@@ -57,6 +57,11 @@ jobs:
       - name: TypeScript, targeted genuine Workerd D1 behavior, D1 statement ceilings and query plans
         run: npm run qualify -- --target lease --target treasury --target reconciliation --target promotions
         working-directory: worker
+      - name: Verify the guild profile registration and raid calendar
+        working-directory: worker
+        run: |
+          node tests/profile_command307_workerd_test.cjs
+          node tests/raid_calendar307_frontend_test.cjs
       - name: Verify blank-realm PRIME rosters and selected Initiate checks
         working-directory: worker
         run: node tests/prime_realm_binding_workerd_test.cjs

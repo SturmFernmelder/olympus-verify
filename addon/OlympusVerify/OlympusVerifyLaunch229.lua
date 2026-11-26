@@ -335,16 +335,16 @@ local SELECT_HOLDS={
   ["source-unknown"]="The selected response was unknown. Keep this request stopped and inspect Watcher/status before any new explicit read.",
   ["source-refused"]="The selected source was refused. Ask staff to review the current source and access; no promotion is ready.",
   ["source-held"]="The selected source held eligibility. Review the current target with staff; display verification cannot clear that hold.",
-  ["directive-rank-policy-held"]="The server's rank settings do not allow this promotion. Verify and Sync & reload cannot change that; only a change to the server's rank settings can.",
-  ["native-rank-scheme-unconfirmed"]="The server could not confirm the guild's full list of ranks, so no promotion is ready. Click Sync & reload to send a fresh roster, wait for the Watcher, then click Check again. If this message stays, compare the guild's rank names and order with the server settings.",
+  ["directive-rank-policy-held"]="The server's rank settings do not allow this promotion. An administrator must update those rank settings.",
+  ["native-rank-scheme-unconfirmed"]="The server could not confirm the guild's full list of ranks, so no promotion is ready. Click Sync for a fresh roster. The Watcher refreshes readiness automatically. If this message stays, compare the guild's rank names and order with the server settings.",
   ["flagship-native-scope-unconfirmed"]="The server could not confirm which guild and realm it is set up for. Check the server's guild and realm settings; this view cannot change them.",
   ["native-secret-unconfigured"]="The server's verification key is missing or unusable. This cannot be fixed in the addon; the key must be corrected in the server settings.",
-  ["selection-source-not-current"]="This check does not match the current guild setup. Click Sync & reload to send the current roster, wait for the Watcher, then click Check again.",
-  ["native-snapshot-unavailable"]="The server has no complete, current guild roster. Click Sync & reload to send it, wait for the Watcher, then click Check again.",
-  ["promotion-actor-unconfirmed"]="The current guild roster does not show you with a rank that may do this promotion. Check your own rank in the game's guild window; if it has changed, click Sync & reload, then Check again.",
-  ["native-identity-ambiguous"]="The guild roster does not identify this character uniquely (for example, two entries look the same). Check the character in the game's guild window, then click Sync & reload.",
+  ["selection-source-not-current"]="This check does not match the current guild setup. Click Sync for a current roster. The Watcher refreshes readiness automatically.",
+  ["native-snapshot-unavailable"]="The server has no complete, current guild roster. Click Sync to send a complete roster. The Watcher refreshes readiness automatically.",
+  ["promotion-actor-unconfirmed"]="The current guild roster does not show you with a rank that may do this promotion. Check your own rank in the game's guild window; if it has changed, click Sync.",
+  ["native-identity-ambiguous"]="The guild roster does not identify this character uniquely (for example, two entries look the same). Check the character in the game's guild window, then click Sync.",
   ["entitlement-expired"]="This check result is too old to use. Click Check again to request a current result.",
-  ["native-snapshot-changed"]="The guild roster changed while this check was running. Click Sync & reload to send the new roster, wait for the Watcher, then click Check again.",
+  ["native-snapshot-changed"]="The guild roster changed while this check was running. Click Sync to send the new roster. The Watcher refreshes readiness automatically.",
   ["launch-page-verification-changed"]="The member's verification changed while this check was running. Click Check again to request the current state.",
   ["selection-read-expired"]="This check ran out of time before it finished. Click Check again.",
   ["launch-read-window-exhausted"]="This check ran out of its allowed time. Click Check again; the old result is not used.",
@@ -373,7 +373,7 @@ local function SelectedCurrent(identity, now, control, data, automaticRead)
   local targets,batch,encoded=ValidSelect(control,identity,now)
   if not targets then return nil end
   local requested={};for _,id in ipairs(targets) do requested[id]=true end
-  local held={targetGuid=targets[1],targetGuids=batch and targets or nil,covered=requested,state="pending",code="awaiting-result",reason="This check is waiting for its result. Wait for the Watcher, then click Sync & reload to load it. Do not click Check again while it is waiting."}
+  local held={targetGuid=targets[1],targetGuids=batch and targets or nil,covered=requested,state="pending",code="awaiting-result",reason="This check is waiting for its result. The Watcher refreshes the list. Its latest result loads at login or reload."}
   if automaticRead then held.reason="The Watcher checks these Initiates automatically. The next normal reload loads its latest dated results." end
   if now>=control.observedAt+(automaticRead and 600 or 60) then
     held.state,held.code,held.refreshable="held","selection-admission-expired",true
@@ -1547,7 +1547,7 @@ function Q.Control(action, offset)
     scopeHash = identity.scopeHash, guid = identity.guid, offset = offset }
   value.mac = H.hmacSha256hex(cfg.secret, table.concat({ "launch-control", "1", action, value.id, tostring(now), identity.scopeHash, identity.guid, tostring(offset) }, "|")):sub(1, 32)
   db.launchControl = value -- immediately invalidates the loaded old projection, including Stop before reload.
-  Say("Local " .. action .. " request saved. The watcher reads it after this reload; use Sync & reload later to load its dated results.")
+  Say("Local " .. action .. " request saved. The Watcher reads it after this reload. Its dated results load at the next login or reload.")
   OlympusVerifyAPI.Sync()
   return true
 end
@@ -1791,7 +1791,6 @@ function Q.Show()
     end
     button("Scan + reload",18,-134,125,function() Q.Control("scan") end)
     button("Stop + reload",150,-134,125,function() Q.Control("stop") end)
-    button("Sync & reload",282,-134,125,function() if OlympusVerify_Sync then OlympusVerify_Sync() elseif OlympusVerifyAPI then OlympusVerifyAPI.Sync() end end)
     -- Round 5 item 1: in lockdown the Close and X buttons defer to the end of combat instead of calling Hide.
     local function close() if Read(InCombatLockdown)==false then frame:Hide() else Q.DeferCombatClose(frame) end end
     Q.windowClose=button("Close",414,-134,125,close)

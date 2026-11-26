@@ -984,7 +984,7 @@ async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: N
           await audit(env, "watcher", "roster.left_pending", e.name, { detail: e.detail, origin: e.origin, discordId: c.discord_id },reference);
           await logLine(
             env,
-            `\u23f3 roster: **${c.name}** (<@${c.discord_id}>) looks like they left the guild (${e.detail || "chat log"}). ` +
+            `\u23f3 roster: **${c.name}** (Discord account ID \`${c.discord_id}\`) looks like they left the guild (${e.detail || "chat log"}). ` +
               `The role stays until a roster export confirms it.`,
             [reference!],
           );

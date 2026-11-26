@@ -335,7 +335,7 @@ async function createCase(request: Request, env: Env, ctx: CommunityContext, bod
   for (const k of Object.keys(body)) if (!["action", "caseId", "discordId", "category", "reviewAt", "expiresAt"].includes(k)) throw new Bad("invalid_request");
   const { discordId, category } = body;
   if (!text(discordId) || !DISCORD_ID.test(discordId) || discordId === me) throw new Bad("invalid_request");
-  if (!text(category) || !(RESTRICTION_CATEGORIES as readonly string[]).includes(category)) throw new Bad("invalid_request");
+  if (!text(category) || category === "tithe_removal" || !(RESTRICTION_CATEGORIES as readonly string[]).includes(category)) throw new Bad("invalid_request");
   const reviewAt = timeOf(body.reviewAt, "invalid_review_date");
   const expiresAt = body.expiresAt === null || body.expiresAt === undefined ? null : timeOf(body.expiresAt, "invalid_expiry");
   validateDates(category as Category, reviewAt, expiresAt, at);

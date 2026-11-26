@@ -14,11 +14,69 @@ import type { Env } from "./env";
 import { bnetFresh } from "./bnet-retention";
 import { likeArg, now } from "./db";
 import { normalizeCharacter } from "./codes";
-import { autocomplete, focusedOption, option, reply, type Interaction } from "./discord";
+import { API, autocomplete, credentialFetch, focusedOption, json, option, reply, type Interaction } from "./discord";
 import { mayManageIntros } from "./intros";
 import { currentPosition, roleKeyOf, roleLabel } from "./site-data";
+import { guildRosterStatements, liveRosterReader, readRosterResult, rosterReaderAllowed, rosterReaderProbe } from "./guild-roster-directory";
+import { captureLaunchVerification } from "./launch-verification227";
+import { officerRoles } from "./env";
+import { safeDiscordText219 } from "./guild-utilities219";
 
 export const LOOKUP_COMMAND = "olympus-lookup";
+export const PROFILE_COMMAND = "olympus-profile";
+
+/** Server members can read character and rank for a linked member. Private staff
+ * records retain the existing, separately authorized officer lookup. */
+async function profileText(env:Env, viewer:string,target:string,signedOfficer:boolean,lookupHint:boolean):Promise<string> {
+  const launch=captureLaunchVerification(env);
+  const viewerRead=liveRosterReader(env,viewer);
+  const [role,targetRole]=await Promise.all([viewerRead,viewer===target ? viewerRead : liveRosterReader(env,target)]);
+  if (!role) return "Current server membership could not be confirmed.";
+  if (!targetRole) return "This account has no guild characters available to display.";
+  const officer=role==='officer' && signedOfficer;
+  const [viewerState,...results]=await env.DB.batch([rosterReaderProbe(env,viewer),...guildRosterStatements(env,{officer,account:target})]);
+  if (!rosterReaderAllowed(viewerState)) return "Current access could not be confirmed.";
+  const snapshot=readRosterResult(launch,results);
+  if (!snapshot) return "The guild has no trusted roster available for this profile.";
+  if (!snapshot.members.length) return "This account has no guild characters available to display.";
+  const label=(s:string|null|undefined)=>safeDiscordText219(s??"Unknown",64);
+  const heading=`**${snapshot.guild}** · roster as of <t:${snapshot.asOf}:f>`;
+  const lines=snapshot.members.map(r=>`${label(r.name)} · ${label(r.rank)}${officer ? ' · '+label(r.class)+' · level '+(r.level??'unknown') : ''}`);
+  const extra=officer && lookupHint ? "\nUse /olympus-lookup for officer records." : "";
+  const omitted="\nAdditional linked characters are omitted.";
+  let content=heading;
+  for (const line of lines) {
+    if (content.length+1+line.length+omitted.length+extra.length>2000) return content+omitted+extra;
+    content+="\n"+line;
+  }
+  return content+(snapshot.more ? omitted : "")+extra;
+}
+
+export function handleMemberProfile(env:Env,i:Interaction,signedAt:number,defer?:(work:()=>Promise<void>)=>void):Response {
+  const viewer=i.member?.user?.id, target=option<string>(i,"member"), guild=i.guild_id, app=i.application_id;
+  if (!viewer || !/^\d{17,20}$/.test(viewer) || guild!==env.GUILD_ID || app!==env.DISCORD_APP_ID) return reply("Open a member profile in the Olympus Discord server.");
+  if (!target || !/^[1-9]\d{16,19}$/.test(target)) return reply("Choose a server member.");
+  const token=i.token, deadline=signedAt+120;
+  if (!defer || !Number.isSafeInteger(signedAt) || signedAt>now()+5 || now()>=deadline ||
+    typeof token!=="string" || !/^[A-Za-z0-9_.-]{20,2048}$/.test(token)) return reply("Start a fresh member profile command.");
+  const signedOfficer=Array.isArray(i.member?.roles) && i.member.roles.some(r=>officerRoles(env).includes(r));
+  const lookupHint=signedOfficer && mayManageIntros(env,i);
+  const current=()=>guild===env.GUILD_ID && guild===env.SITE_GUILD_ID && app===env.DISCORD_APP_ID && now()<deadline;
+  defer(async()=>{
+    if (!current()) return;
+    let content:string;
+    try { content=await profileText(env,viewer,target,signedOfficer,lookupHint); }
+    catch { content="The current roster could not be confirmed. Try a fresh profile command."; }
+    if (!current()) return;
+    try {
+      const result=await credentialFetch(API+"/webhooks/"+app+"/"+token+"/messages/@original",{
+        method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({content,allowed_mentions:{parse:[]}})
+      },()=>{if (!current()) throw Error("profile_response_expired");});
+      await result.body?.cancel();
+    } catch { /* The original private reply has no public fallback or automatic retry. */ }
+  });
+  return json({type:5,data:{flags:64}});
+}
 /** The user command's name. The Olympus server has one with the same name (interactions.ts USER_MENU_LOOKUP). */
 export const LOOKUP_USER_MENU = "Olympus linked characters";
 

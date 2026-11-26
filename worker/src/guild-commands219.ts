@@ -12,7 +12,7 @@ import { runEventReminders } from './community-event-reminders';
 import { captureGuildActor219, currentGuildActor219, guildActorBatch219, type GuildActor219 } from './guild-command-authority219';
 import { GUILD_COMMAND_NAMES_228 } from './guild-command-definitions228';
 import { workshopOrderDraft221 } from './guild-workshop-order221';
-import { createCalendar219, readCalendar219, calendarRoster219, rsvpCalendar219, attendanceCalendar219, eventId219, type CalendarEvent219, ROSTER_PAGE_219 } from './guild-calendar219';
+import { createCalendar219, readCalendar219, calendarRoster219, rsvpCalendar219, attendanceCalendar219, eventId219, raidCapacityText, type CalendarEvent219, ROSTER_PAGE_219 } from './guild-calendar219';
 import { consentCalendarReminder219 } from './guild-reminder219';
 import { RSVP_CHOICES_219 } from './guild-calendar-metadata219';
 import { guideLookup219, workshopLookup219, referenceLookup219, safeDiscordText219, type GuildEmbed219 } from './guild-utilities219';
@@ -47,7 +47,7 @@ export function assertGuildAnswer219(answer:Answer219):void {
  assertHubRows222(answer.components??[]);
  if(chars>6000)throw Error('This result exceeds Discord limits. Open the complete website view.');
 }
-const eventEmbed219=(e:CalendarEvent219,host:string):GuildEmbed219=>({title:safeDiscordText219(e.title,80),url:siteMemberLink(host,'community/calendar/'+e.id),description:`<t:${e.starts_at}:F> · <t:${e.starts_at}:R>\n${e.duration_min} minutes · ${e.capacity??'No fixed'} signup cap\nID: \`${e.id}\`\n${safeDiscordText219(e.details,500)}`,footer:{text:'Signup preferences are not an organizer roster acceptance. Bench is a request, not a staff decision.'}});
+const eventEmbed219=(e:CalendarEvent219,host:string):GuildEmbed219=>({title:safeDiscordText219(e.title,80),url:siteMemberLink(host,'community/calendar/'+e.id),description:`<t:${e.starts_at}:F> · ${e.duration_min} minutes${e.status==='cancelled'?' · Cancelled':''}\n${raidCapacityText(e)}\nID: \`${e.id}\`\n${safeDiscordText219(e.details,500)}${e.own_attendance?'\nYour recorded attendance: '+safeDiscordText219(e.own_attendance,20):''}`,footer:{text:'Your signup preference and the officer’s roster decision are shown separately.'}});
 export async function executeGuildCommand219(env:Env,a:GuildActor219,i:Interaction):Promise<Answer219> {
  if(isOlympusHub224(i))return olympusHub224(env,a,i);
  if(isRaidHub222(i))return raidHub222(env,a,i);
@@ -73,7 +73,18 @@ export async function executeGuildCommand219(env:Env,a:GuildActor219,i:Interacti
  const id=eventId219(v.id),event=(await readCalendar219(env,a,id))[0];if(!event)throw Error('This calendar event is unavailable.');
  if(sub==='roster'){
   const rows=await calendarRoster219(env,a,id,page219(v.page));
-  return {embeds:[{title:safeDiscordText219(event.title,80)+' · roster',url:siteMemberLink(host,'community/calendar/'+id),description:rows.length?rows.slice(0,ROSTER_PAGE_219).map(row=>safeDiscordText219(row.display_name,60)+(row.character_name?' / '+safeDiscordText219(row.character_name,40)+' (declared)':'')+' — '+safeDiscordText219(row.preference??row.raid_role??row.status,20)+(row.decision?' · officer: '+safeDiscordText219(row.decision,15):'')+(row.attendance_visible===1?' · own attendance: '+safeDiscordText219(row.attendance??'unrecorded',15):' · attendance private')).join('\n'):'No current eligible signups.',footer:{text:(rows.length>ROSTER_PAGE_219?'More rows: use the next roster page. ':'')+'Tentative / requested Bench / Absent are preferences. Missing attendance stays unrecorded; it is never inferred as absence.'}}],components:event.status==='scheduled'&&event.starts_at>now()?rsvpComponents219(event,host):[]};
+  const rosterUrl=siteMemberLink(host,'community/calendar/'+id+'/roster');
+  const components=event.status==='scheduled'&&event.starts_at>now()?rsvpComponents219(event,host):[];
+  components.push({type:1,components:[{type:2,style:5,label:'Roster assignments & waitlist',url:rosterUrl}]});
+  const people=rows.slice(0,ROSTER_PAGE_219).map(row=>safeDiscordText219(row.display_name,60)
+   +(row.character_name?' / '+safeDiscordText219(row.character_name,40)+' (declared)':'')
+   +' — '+safeDiscordText219(row.preference??row.raid_role??row.status,20)
+   +(row.decision?' · officer: '+safeDiscordText219(row.decision,15):'')
+   +(row.attendance_visible===1?' · own attendance: '+safeDiscordText219(row.attendance??'unrecorded',15):''));
+  return {embeds:[{title:safeDiscordText219(event.title,80)+' · roster',url:rosterUrl,
+   description:people.join('\n')||'No current eligible signups.',
+   fields:[{name:'Roster places',value:raidCapacityText(event)}],
+   footer:{text:(rows.length>ROSTER_PAGE_219?'More rows: use the next roster page. ':'')+'Signup preferences and officer decisions are shown separately. Only your own recorded attendance appears here.'}}],components};
  }
  if(sub==='rsvp'){
   const ok=await rsvpCalendar219(env,a,id,event.revision,String(v.choice));

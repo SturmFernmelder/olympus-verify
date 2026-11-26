@@ -608,7 +608,7 @@
       "relation": "accountability",
       "kind": "core portfolio",
       "icon": "treasurer",
-      "remit": "Dues accounting, approved budgets, receipts and Finance Emissaries.",
+      "remit": "Contribution accounting, approved budgets, receipts and Finance Emissaries.",
       "limits": "Treasurer is a High Council appointment associated with zero-based slot 1, not an extra native rank; bank permissions, custody and approval remain separate.",
       "coordinates": [],
       "chapter": "organisation-and-offices"
@@ -784,7 +784,7 @@
       "relation": "coordination",
       "kind": "liaison appointment",
       "icon": "treasurer",
-      "remit": "Approved financial summaries, dues and custody liaison.",
+      "remit": "Approved financial summaries, donations and custody liaison.",
       "limits": "Bank custody and audit remain separate.",
       "coordinates": [
         "treasury"

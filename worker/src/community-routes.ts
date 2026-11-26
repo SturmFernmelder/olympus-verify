@@ -5,6 +5,7 @@
  */
 import type { Env } from "./env";
 import { apiJson, readJson, type SiteUser } from "./site-core";
+import { guildRosterDirectory } from "./guild-roster-directory";
 import { communityContext, contextDto, refusal } from "./community-context";
 import "./community-refs"; // registers its erasure and export
 import { adminAltDecision, adminDirectory, craftingSearch, directoryList, profileGet, profilePut } from "./community-directory";
@@ -27,6 +28,7 @@ export async function handleCommunity(request: Request, env: Env, path: string):
   const m = request.method;
   const reader = m === "GET" && ["/api/community/context", "/api/community/profile", "/api/community/directory", "/api/community/discord-directory", "/api/community/crafting", "/api/community/events", "/api/community/event", "/api/community/attendance/me"].includes(path);
   const ctx = await communityContext(env, request, { guildRoleRead: reader });
+  if (m === "GET" && path === "/api/community/guild-rosters") return guildRosterDirectory(request,env,ctx);
   if ((m === "GET" || m === "PUT") && path === "/api/community/discord-directory/visibility") return discordDirectoryVisibility(request, env, ctx, m === "PUT" ? (await readJson(request) ?? undefined) : {});
   if (m === "POST" && path === "/api/community/census/preview") return censusPreview(request, env, ctx);
   if (m === "GET" && path === "/api/community/context") return apiJson(contextDto(ctx));

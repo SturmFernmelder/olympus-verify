@@ -1,13 +1,13 @@
 /** Same-origin member landing pages carried by the site's ordinary Discord sign-in. */
 const ROUTES = new Set([
   "apply", "army", "community/calendar", "community/workshop", "governance",
-  "guides/tools/attunements", "organization", "resources", "roles", "vote",
+  "guild-rosters", "guides/tools/attunements", "organization", "resources", "roles", "vote",
 ]);
-const CALENDAR_EVENT = /^community\/calendar\/[A-Za-z0-9_-]{22}$/;
+const CALENDAR_EVENT = /^community\/calendar\/[A-Za-z0-9_-]{22}(?:\/roster)?$/;
 const CALENDAR_EVENT_LENGTH = "community/calendar/".length + 22;
 
 function safeReturn(value: unknown): string | null {
-  return typeof value === "string" && (ROUTES.has(value) || (value.length === CALENDAR_EVENT_LENGTH && CALENDAR_EVENT.test(value))) ? value : null;
+  return typeof value === "string" && (ROUTES.has(value) || ((value.length === CALENDAR_EVENT_LENGTH || value.length === CALENDAR_EVENT_LENGTH + "/roster".length) && CALENDAR_EVENT.test(value))) ? value : null;
 }
 
 function oneReturn(params: URLSearchParams, key: string): string | null {

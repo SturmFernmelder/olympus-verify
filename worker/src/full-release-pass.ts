@@ -129,7 +129,10 @@ type FreshState={r:string;d:string;g:string;s:string;p:string;k:0|1;h:number|nul
 export type FreshPassCounts={visits:number;removed:number;settled:number;confirmed:number;unknown:number;held:number;failed:number;linkMissing:number;requests:number;statements:number};
 export type NativeSweep249=Readonly<{id:string;n:number}>;
 export type FreshPassResult=Readonly<{state:'skipped'|'held'|'done'|'failed';reason:string;counts:Readonly<FreshPassCounts>;continuation?:boolean;nativeSweep?:NativeSweep249}>;
-export const NATIVE_SUBJECT232_STATEMENTS=180;
+// Up to two confirmed departure DELETE notices: current privacy capture2 +
+// existing one-use guild-log custody10 each. The850-statement/40-call caps and
+// the15-statement close reserve remain unchanged.
+export const NATIVE_SUBJECT232_STATEMENTS=204;
 export const NATIVE_SWEEP249_PROGRESS_STATEMENTS=2; // One physical progress read plus its Native read admission.
 export const NATIVE_OPEN232_STATEMENTS=13; // four protocol reads (2 each) plus one lease write (5).
 export const NATIVE_CLOSE232_STATEMENTS=15; // state audit, refused-state fallback audit, owned lease release: 5 each.

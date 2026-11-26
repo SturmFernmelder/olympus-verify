@@ -2,7 +2,7 @@
  * reservation, ownership and unknown-effect fences; a queued ID proves nothing. */
 import type {Env} from './env';
 import {audit,now} from './db';
-import {readPrivacySubject,admittedPrivacySubjectWrite,privacyBoundSubjectEnv,privacyGenerationExpressionFenceSql} from './privacy-serving-authority';
+import {readPrivacySubject,admittedPrivacySubjectWrite,privacyBoundSubjectEnv,privacyGenerationExpressionFenceSql,type PrivacySubject} from './privacy-serving-authority';
 import {countStatements} from './roster-effects';
 import {callBudget} from './roles';
 import {errorRef} from './log';
@@ -34,13 +34,15 @@ export type RoleRequestReceipt280=Readonly<{kind:'created';requestId:number}|{ki
 /** Only a known creation wakes the user-enqueue lane. A lost original reply is
  * unknown, never retried or described as no effect. This is scheduling, not an
  * identity/role capability; every visit retains the original Native issuer. */
-export async function requestRoleReconciliation242(env:Env,subject:string,reason:string):Promise<RoleRequestReceipt280>{
+export async function requestRoleReconciliation242(env:Env,subject:string,reason:string,originalCapture?:PrivacySubject|null):Promise<RoleRequestReceipt280>{
  if(!ID.test(subject))throw Error('role242_subject_invalid');
  try{
-  const capture=await readPrivacySubject(env,subject);if(capture&&capture.state!=='active')return Object.freeze({kind:'held'});
+  const capture=originalCapture===undefined?await readPrivacySubject(env,subject):originalCapture;
+  if(capture&&(capture.subject!==subject||capture.state!=='active'))return Object.freeze({kind:'held'});
   const generation=capture?.subjectGeneration??null,details=JSON.stringify({schema:REQUEST_SCHEMA280,reason:reason.slice(0,64),generation,_privacySubjectIds:[subject]});
   const out=await admittedPrivacySubjectWrite(env,subject,capture,[env.DB.prepare(`INSERT INTO audit(ts,actor,action,subject,details)
-   SELECT ${DB_NOW280},'system','${REQUEST}',?1,?3 WHERE NOT EXISTS(SELECT 1 FROM audit q WHERE ${requestScope280('q','?1','?2')} AND NOT(${finished280('q','?2')})) RETURNING id`).bind(subject,generation,details)]);
+   SELECT ${DB_NOW280},'system','${REQUEST}',?1,?3 WHERE ${privacyGenerationExpressionFenceSql('?1','?2')}
+   AND NOT EXISTS(SELECT 1 FROM audit q WHERE ${requestScope280('q','?1','?2')} AND NOT(${finished280('q','?2')})) RETURNING id`).bind(subject,generation,details)]);
   const row=out[0];if(out.length!==1||row?.success!==true||!Array.isArray(row.results)||row.results.length>1||!row.meta||row.meta.changes!==row.results.length)return Object.freeze({kind:'unknown'});
   if(row.results.length===0)return Object.freeze({kind:'already_pending'});
   const id=(row.results[0] as {id?:unknown}).id;if(typeof id!=='number'||!Number.isSafeInteger(id)||id<1)return Object.freeze({kind:'unknown'});

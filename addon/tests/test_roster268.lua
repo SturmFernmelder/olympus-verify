@@ -11,7 +11,7 @@ local function check(label, yes)
   else failed = failed + 1; print("FAIL " .. label) end
 end
 local function plain(s) return (tostring(s or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end
-local function fixture(size)
+local function fixture(size, officerName)
   local e = setmetatable({}, { __index = _G }); e._G = e
   setfenv(assert(loadfile("wow_mock.lua")), e)()
   local f = { e = e, promotions = {}, attempts = 0, directCalls = 0, reads = 0, removals = 0, invites = 0, reloads = 0 }
@@ -24,7 +24,7 @@ local function fixture(size)
   e.InCombatLockdown = function() return f.combat == true end
   e.issecretvalue = function() return false end
   e.ROSTER = {
-    { name = "Officer", guid = "Player-1-0000AAAA", rank = "High Council", rankIndex = 1, level = 60, online = true },
+    { name = officerName or "Officer", guid = "Player-1-0000AAAA", rank = "High Council", rankIndex = 1, level = 60, online = true },
     { name = "Zulu", guid = "Player-1-0000B001", rank = "Initiate", rankIndex = 9, level = 10, away = 3 },
     { name = "Alpha", guid = "Player-1-0000B002", rank = "Initiate", rankIndex = 9, level = 20, online = true },
     { name = "NameOnly", guid = "Player-1-0000B003", rank = "Initiate", rankIndex = 9, level = 1, away = 10 },
@@ -76,7 +76,7 @@ local function fixture(size)
     local chunk=override and assert(loadstring(override)) or assert(loadfile("../OlympusVerify/"..name))
     setfenv(chunk,e)("OlympusVerify",{})
   end
-  load("Libs/OlympusHmac.lua"); f.names = D.ranks(e); load("OlympusVerify.lua"); load("OlympusVerifyGuild.lua"); load("OlympusVerifyRosterModel.lua"); load("OlympusVerifyRoster.lua")
+  load("Libs/OlympusHmac.lua"); f.names = D.ranks(e); load("OlympusVerify.lua"); load("OlympusVerifyAutoSync.lua"); load("OlympusVerifyGuild.lua"); load("OlympusVerifyRosterModel.lua"); load("OlympusVerifyRoster.lua")
   local h = e.OlympusHmac
   f.actor, f.scope = "Player-1-0000AAAA", D.scope(e, "OLYMPUS PRIME", "Native Realm")
   f.page = D.stamp(e, { status = "ready", fetchedAt = e.NOW, expiresAt = e.NOW + 60,
@@ -130,6 +130,8 @@ local function fixture(size)
   -- window's own Check wrote (Q.Select); otherwise one is signed here exactly as
   -- Q.SelectMany would for those GUIDs. o.specs are the sealed promotion rows.
   f.publish = function(o)
+    -- Loading a newly written Watcher projection starts a new UI session.
+    if e.OlympusVerifyAutoSync.Status().requested then load("OlympusVerifyAutoSync.lua") end
     local data, page = D.publish(e, { guild = "OLYMPUS PRIME", realm = "Native Realm", actor = f.actor, scopeHash = f.scope, control = o.control,
       specs = o.specs, held = o.held, snapshotId = o.snapshotId or 12, snapshotAt = o.snapshotAt or e.NOW - 10, ttl = o.ttl,
       total = o.total or #e.ROSTER, context = o.context })
@@ -187,7 +189,7 @@ do
   check("another separate row click requests the remaining Initiate",#f.promotions==2 and f.attempts==2 and f.promotions[2].guid=="Player-1-0000B001")
   f.w.clearButton:Click()
   for _, row in ipairs(f.w.rows) do if row.member and row.member.name == "Knight" then row:GetScript("OnMouseUp")(row, "LeftButton") end end
-  f.w.Refresh(); f.w.selectButton:Click()
+  f.w.Refresh(); f.w.RequestSelected()
   f.publish({ control = f.e.OlympusVerifyDB.launchControl, snapshotId = 13, specs = { { guid = "Player-1-0000B007", name = "Knight", start = 7, final = 5 } } })
   f.w.Refresh(); f.choose(f.w.actionFilterButton, 2)
   check("a separate selected Knight read makes only the Knight ready", f.names() == "Knight" and f.reloads == 1 and #f.promotions == 2)

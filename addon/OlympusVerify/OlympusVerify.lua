@@ -41,7 +41,7 @@ local SECRET = cfg.secret
 -- 0.6.12: the example's placeholder is public, so a Config.lua copied without replacing it must not accept codes made from it.
 if type(SECRET) ~= "string" or SECRET == "" or string.find(SECRET, "^REPLACE_WITH_") then SECRET = nil end
 local secretWarned = false  -- 0.6.12: say once per session, not on every whisper, that codes cannot be checked
-local SOURCE_VERSION = "0.6.49" -- Keep this source fallback and OlympusVerify.toc aligned.
+local SOURCE_VERSION = "0.6.50" -- Keep this source fallback and OlympusVerify.toc aligned.
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
   or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or SOURCE_VERSION
 local SET_NOTES = cfg.setNotes == true  -- SetNote is forbidden for addons on the Forever beta; leave false there
@@ -403,13 +403,13 @@ local function HandleCode(source, sender, text, guid, lineId, mailObservation)
         end
       end
       -- .227: a valid code proves control, not current guild membership. Keep the old invite workflow opt-in.
-      Print(string.format("%s from %s: code confirmed locally. Use /olv sync (Sync & reload) to send the proof and current roster; then check the Watcher result. No invite queued.", source, base))
+      Print(string.format("%s from %s: code confirmed locally. The Watcher checks signed evidence when WoW writes it. To save pending records now, use /olv sync.", source, base))
       if source == "whisper" then
         if (lastReply[key] or 0) + REPLY_RATE <= time() then
           lastReply[key] = time()
           local reply = "Olympus: code received; a current approved Olympus roster could not be confirmed. No role or invite was granted. Retry once the roster is available or use your sister guild's QR verification."
           if nativeMembership and nativeMembership.member then
-            reply = "Olympus: code and current guild membership observed. The officer must Sync & reload to send the proof and roster. Discord access awaits the Worker's account/access checks; no role or invite is confirmed here."
+            reply = "Olympus: code and current guild membership observed. The Watcher forwards saved evidence for account checks. Check Discord /verify-status for the result."
           elseif nativeMembership and nativeMembership.member == false then
             reply = "Olympus: you are not on this officer's current guild roster. No role or invite was granted. A Knight invite needs an officer's explicit fresh unguilded WHO/unit check. Sister guilds use QR verification."
           end
@@ -663,6 +663,9 @@ end
 -- so mutating an exported table cannot reuse its cached digest.
 do
   local fields = { "name", "full", "guid", "rank", "rankIndex", "level", "class", "note", "onote", "lastOnline" }
+  -- All fields still belong to the validated export. Only membership and rank
+  -- changes warrant interrupting the officer to flush verification data.
+  local membershipFields = { name=true, full=true, guid=true, rank=true, rankIndex=true }
   local rowKeys, rosterKeys = {}, { exportedAt=true, members=true, total=true, online=true, nativeGuild=true, nativeRealm=true, nativeRankTable=true }
   rosterKeys.nativeScopeBinding = true
   for _, key in ipairs(fields) do rowKeys[key] = true end
@@ -787,7 +790,7 @@ do
         local value = values[key]
         local text = value == nil and "nil" or type(value) .. ":" .. tostring(value)
         if #text > 1024 then return hold() end
-        encoded[#encoded + 1] = tostring(#text) .. ":" .. text
+        if membershipFields[key] then encoded[#encoded + 1] = tostring(#text) .. ":" .. text end
       end
       parts[#parts + 1] = "M" .. table.concat(encoded)
     end
@@ -916,7 +919,7 @@ local function RemovalCandidates(limit, cachedOnly)
   local total = GetNumGuildMembers()
   local out, enumerated = {}, 0
   for i = 1, (total or 0) do
-    local name, rank, rankIndex, level, _, _, note, onote, online, _, classFile = GetGuildRosterInfo(i)
+    local name, rank, rankIndex, level, _, _, note, onote, online, _, classFile, _, _, _, _, _, guid = GetGuildRosterInfo(i)
     if name then
       enumerated = enumerated + 1
       local base = BaseName(name)
@@ -934,7 +937,7 @@ local function RemovalCandidates(limit, cachedOnly)
         and not Unverified.ProtectedRank(rankIndex)
       then
         out[#out + 1] = { name = base, full = name, rank = rank, rankIndex = rankIndex, level = level or 0,
-                          class = classFile, days = days, need = need, note = note, index = i }
+                          class = classFile, days = days, need = need, note = note, index = i, guid = Presence.Readable(guid) }
       end
     end
   end
@@ -1411,9 +1414,9 @@ end
 
 -- sourceAge uses only the original native roster clock. Missing/invalid clocks sort last.
 -- Blanks sort last either way; ascending native name/full name/GUID breaks every tie.
-function Roster.Sort(list, key, desc)
+function Roster.Sort(list, key, desc, secondary, secondaryDesc)
   local now = time()
-  local function val(m)
+  local function val(m,key)
     if key == "level" then return m.level or 0
     elseif key == "rank" then return m.rankIndex or 99
     elseif key == "status" then
@@ -1425,17 +1428,27 @@ function Roster.Sort(list, key, desc)
       return type(at) == "number" and at == math.floor(at) and at > 0 and at <= now and now - at or nil
     elseif key == "discord" then return m.discord and string.lower(m.discord) or nil
     elseif key == "display" then return m.display and string.lower(m.display) or nil
-    elseif key == "seen" then return m.online and -1 or (m.days or 1e9)
+    elseif key == "seen" then return m.online and -1 or m.days
+    elseif key == "reminder" then return m.reminderSort
+    elseif key == "action" then return m.actionSort
     end
     return string.lower(m.name)
   end
-  table.sort(list, function(a, b)
-    local va, vb = val(a), val(b)
+  local function compare(a,b,k,descending)
+    local va, vb = val(a,k), val(b,k)
     if va == nil and vb ~= nil then return false end
     if vb == nil and va ~= nil then return true end
     if va ~= nil and va ~= vb then
-      if desc then return va > vb end
+      if descending then return va > vb end
       return va < vb
+    end
+  end
+  table.sort(list, function(a, b)
+    local primary=compare(a,b,key,desc)
+    if primary~=nil then return primary end
+    if secondary then
+      local nextOrder=compare(a,b,secondary,secondaryDesc)
+      if nextOrder~=nil then return nextOrder end
     end
     local an, bn = string.lower(a.name), string.lower(b.name)
     if an ~= bn then return an < bn end
@@ -3452,17 +3465,26 @@ OlympusVerifyAPI = {
   FlushChatLog = function() local was = FLUSH_LOG; FLUSH_LOG = true; FlushChatLog(); FLUSH_LOG = was end,
   -- Export the roster and reload: the reload writes SavedVariables (roster, events) for the watcher to send, and loads
   -- the newest OlympusQueue.lua (Discord approvals) -- the two things WoW only exchanges at a reload. From a click only.
-  Sync = function()
+  Sync = function(submittedSlash)
+    if type(OlympusVerifyAutoSync) ~= "table" or type(OlympusVerifyAutoSync.HardwareSync) ~= "function" then
+      Print("Sync is unavailable. Check that the full OlympusVerify addon is installed.")
+      return false
+    end
+    return OlympusVerifyAutoSync.HardwareSync(false, submittedSlash == true)
+  end,
+  FlushAndReload = function()
+    local reload = (C_UI and C_UI.Reload) or rawget(_G, "ReloadUI")
+    if type(reload) ~= "function" then Print("this client offers no reload call — type /reload."); return false end
     if OlympusVerifyLive242 then OlympusVerifyLive242.Flush("hardware-sync") end
     ExportRoster(true)
     if OlympusVerifyAutoSync then OlympusVerifyAutoSync.RecordSync() end
     if cfg.membershipOnly == true and OlympusVerifyDB.verificationExchange then
       OlympusVerifyDB.verificationExchange = { phase = "sync-requested", capturedAt = OlympusVerifyDB.verificationExchange.capturedAt, requestedAt = time() }
     end
-    local reload = (C_UI and C_UI.Reload) or rawget(_G, "ReloadUI")
-    if reload then reload() else Print("this client offers no reload call — type /reload.") end
+    reload()
+    return true
   end,
-  Candidates = function(n) return RemovalCandidates(n) end,
+  Candidates = function(n,cachedOnly) return RemovalCandidates(n,cachedOnly) end,
   RemoveMember = function(name, reason) return OlympusVerify_RemoveMember(name, reason) end,
   -- The roster window's reads (0.6.4). A table for the same reason as Text and Name: nothing here acts, so /olv
   -- preview has nothing to stand in for.
@@ -3918,10 +3940,14 @@ frame:SetScript("OnEvent", function(self, event, ...)
   elseif event == "PLAYER_LOGOUT" then
     if OlympusVerifyLive242 then OlympusVerifyLive242.Flush("logout") end
     local count = ExportRoster(true)
+    if count and OlympusVerifyAutoSync and OlympusVerifyAutoSync.RecordSavedRoster then OlympusVerifyAutoSync.RecordSavedRoster() end
     if OlympusVerifyDB and OlympusLaunch229 and OlympusLaunch229.PrepareInitiateChecks then
       Presence.Safely("preparing automatic Initiate checks", OlympusLaunch229.PrepareInitiateChecks, count and OlympusVerifyDB.roster)
     end
     local db = OlympusVerifyDB
+    if db and type(db.verificationExchange)=="table" and db.verificationExchange.phase=="sync-needed" then
+      db.verificationExchange.phase="saved"
+    end
     if db then db.lastCharacter = Presence.MyName() or db.lastCharacter end
     Presence.Safely("recording what this client calls you", Diag.Name)
   elseif event == "CHAT_MSG_SYSTEM" then
@@ -4122,7 +4148,7 @@ OlympusVerifySlash234.Register("OLYMPUSVERIFY", {"/olv"}, function(msg)
   elseif cmd == "clear" then
     if OlympusVerifyAPI.ClearQueue() ~= false then Print("queue cleared.") end
   elseif cmd == "sync" then
-    OlympusVerifyAPI.Sync() -- the typed command is itself the hardware event
+    OlympusVerifyAPI.Sync(true) -- the typed command is itself the hardware event
   elseif cmd == "flushlog" then
     if not LoggingChat then Print("LoggingChat is not available on this client.") return end
     local was = FLUSH_LOG; FLUSH_LOG = true
@@ -4222,7 +4248,9 @@ OlympusVerifySlash234.Register("OLYMPUSVERIFY", {"/olv"}, function(msg)
     end
   elseif cmd == "ready" then
     local arg=(msg or ""):match("^%s*%S+%s+(.-)%s*$") or ""
-    if arg:lower()=="sync" and OlympusVerifyAutoSync then OlympusVerifyAutoSync.HardwareSync(true,true)
+    if arg:lower()=="sync" then
+      if type(OlympusVerifyAutoSync)=="table" and type(OlympusVerifyAutoSync.HardwareSync)=="function" then OlympusVerifyAutoSync.HardwareSync(true,true)
+      else Print("Sync is unavailable. Check that the full OlympusVerify addon is installed.") end
     elseif arg=="" and OlympusVerifyRoster and OlympusVerifyRoster.ShowReadyInitiates then OlympusVerifyRoster.ShowReadyInitiates()
     else Print("Use /olv ready to review promotion-ready Initiates, or /olv ready sync after the Windows alert to import its results.") end
   elseif cmd == "members" or cmd == "who" then

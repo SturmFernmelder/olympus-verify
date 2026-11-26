@@ -6,10 +6,9 @@
  * THE DIGEST. Once a day, after 15:00 UTC (the cron runs every 15 minutes), the bot posts to the keeper's staff channel
  * (`staffChannel`: CHANNEL_MOD_ALERTS, else the review channel) HOW MANY things wait for an officer, as counts and nothing
  * else: invites queued or written, trial reviews due, departure items open, restriction cases due for review, private
- * requests open, character claims to review, dues weeks past their final review date; each only while its feature is on
+ * requests open and character claims to review; each only while its feature is on
  * (a feature that is off contributes nothing and is not mentioned). It names nobody and carries no mention, id, link or
- * timestamp. Every count is COUNT(*) over the module's own live predicate by the database clock; the dues count is by the
- * recorded contact dates alone (a week paid after its final contact still counts here; the ledger page shows its stage).
+ * timestamp. Every count is COUNT(*) over the module's own live predicate by the database clock.
  * Delivery follows the donor's fenced discipline on the keeper's `site_settings` row `officer_digest`: a run claims a
  * five-minute lease by compare-and-set on the EXACT previous value, every later write compares the value this run last
  * wrote (a concurrent or superseded run changes nothing), the post's channel, nonce and text are frozen in the state
@@ -65,7 +64,7 @@ export interface DigestCounts {
   claimsToReview: number | null;
   duesPastReview: number | null;
 }
-/** The seven counts, in this order; ?1 is the invocation's time where a stored date is compared with it, every lifetime is judged by the database clock (each module's own predicate, restated). */
+/** The current counts, in this order; ?1 is the invocation's time where a stored date is compared with it, every lifetime is judged by the database clock (each module's own predicate, restated). */
 const COUNTS: ReadonlyArray<{ key: keyof DigestCounts; feature: CommunityFeature | null; sql: string; binds: boolean }> = [
   { key: "invitesWaiting", feature: null, binds: false, sql: "SELECT COUNT(*) AS n FROM invite_queue WHERE status IN ('queued', 'written')" },
   { key: "trialsDue", feature: "trials", binds: true, sql: `SELECT COUNT(*) AS n FROM community_trials t WHERE t.status IN ('active', 'extended') AND t.review_due_at <= ?1 AND t.retain_until > ${DB_NOW}` },
@@ -73,8 +72,7 @@ const COUNTS: ReadonlyArray<{ key: keyof DigestCounts; feature: CommunityFeature
   { key: "casesReviewDue", feature: "restrictions", binds: true, sql: `SELECT COUNT(*) AS n FROM community_restriction_cases c WHERE c.resolved_at IS NULL AND c.appeal_status <> 'overturned' AND (c.category = 'ban' OR c.expires_at > ${DB_NOW}) AND (c.retain_until IS NULL OR c.retain_until > ${DB_NOW}) AND c.review_at <= ?1` },
   { key: "privateRequestsOpen", feature: "privacy_intake", binds: false, sql: `SELECT COUNT(*) AS n FROM community_privacy_cases c WHERE c.closed_at IS NULL AND c.retain_until > ${DB_NOW}` },
   { key: "claimsToReview", feature: "directory", binds: false, sql: "SELECT COUNT(*) AS n FROM community_alt_claims WHERE status = 'claimed'" },
-  // the earliest recorded final contact plus the policy's review days has passed (the policy module's officer_review clock, by stored dates only)
-  { key: "duesPastReview", feature: "contributions", binds: true, sql: `SELECT COUNT(*) AS n FROM community_contribution_obligations o JOIN community_contribution_policies p ON p.version = o.policy_version WHERE o.state = 'open' AND o.eligible = 1 AND o.final_notice_at IS NOT NULL AND COALESCE(MIN(o.final_acknowledged_at, o.final_officer_contact_at), o.final_acknowledged_at, o.final_officer_contact_at) + p.review_days * 86400 <= ?1 AND o.retain_until > ${DB_NOW}` },
+
 ];
 export const countStatements = (env: Env, at: number): D1PreparedStatement[] => COUNTS.map((c) => (c.binds ? env.DB.prepare(c.sql).bind(at) : env.DB.prepare(c.sql)));
 /** The counts from the statements' results, in order; a feature that is off reads as null whatever its rows say. */
@@ -82,7 +80,7 @@ export function countsFrom(env: Env, results: D1Result[]): DigestCounts {
   const f = communityFeatures(env);
   const n = (i: number) => (results[i]?.results[0] as { n?: number } | undefined)?.n ?? 0;
   const gated = (i: number) => (COUNTS[i].feature !== null && !f.has(COUNTS[i].feature) ? null : n(i));
-  return { invitesWaiting: n(0), trialsDue: gated(1), departuresOpen: gated(2), casesReviewDue: gated(3), privateRequestsOpen: gated(4), claimsToReview: gated(5), duesPastReview: gated(6) };
+  return { invitesWaiting: n(0), trialsDue: gated(1), departuresOpen: gated(2), casesReviewDue: gated(3), privateRequestsOpen: gated(4), claimsToReview: gated(5), duesPastReview: null };
 }
 export async function digestCounts(env: Env, at = now()): Promise<DigestCounts> {
   return countsFrom(env, await env.DB.batch(countStatements(env, at)));
@@ -98,7 +96,6 @@ export function digestContent(c: DigestCounts): string {
     ...some(c.casesReviewDue, "restriction case is due for review", "restriction cases are due for review"),
     ...some(c.privateRequestsOpen, "private request is open", "private requests are open"),
     ...some(c.claimsToReview, "character claim waits for review", "character claims wait for review"),
-    ...some(c.duesPastReview, "dues week has passed its final review date", "dues weeks have passed their final review date"),
   ];
   if (parts.length === 0) return "**Officer digest:** nothing is waiting for an officer today.";
   // CL2-136 (Evergreen 12 Nov 2026): say who acts. These items are handled by site administrators on the admin pages.

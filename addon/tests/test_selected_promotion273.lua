@@ -152,25 +152,22 @@ end
 do
  ROSTER_FIXTURE_ONLY=true;local uiFixture=assert(loadfile("test_roster268.lua"))();ROSTER_FIXTURE_ONLY=nil
  local f=uiFixture();f.e.OlympusLaunchSelected=nil;f.e.NOW=f.e.NOW+700;f.emit("GUILD_ROSTER_UPDATE");f.w.Show()
- check("same roster window exposes a disabled selected-read button before selection",f.w.selectButton and not f.w.selectButton:IsEnabled())
+ check("no separate selected-read control is shown",not f.w.selectButton)
  local function pick(name)
   for _,row in ipairs(f.w.rows) do if row.member and row.member.name==name then row:GetScript("OnMouseUp")(row,"LeftButton");f.w.Refresh();return end end
   error("missing roster row "..name)
  end
  pick("Alpha")
- local anchor,relative,relativePoint,gap=f.w.selectButton:GetPoint()
- check("selected-read button follows Copy without sharing Refresh anchor",anchor=="LEFT" and relative==f.w.copyButton and relativePoint=="RIGHT" and gap==6 and relative~=select(2,f.w.refreshButton:GetPoint()))
- check("selecting one row enables its GUID-only read control",f.w.selectButton:IsEnabled())
- local history=copy(f.page);f.w.selectButton:Click()
+ local history=copy(f.page);f.w.RequestSelected()
  local c=f.e.OlympusVerifyDB.launchControl
- check("actual selected button sends read control and exactly one reload, never promotion",c.version==4 and #c.targetGuids==1 and c.targetGuids[1]=="Player-1-0000B002" and c.guid=="Player-1-0000AAAA" and f.reloads==1 and f.attempts==0 and #f.promotions==0)
+ check("manual GUID-only request sends read control and exactly one reload, never promotion",c.version==4 and #c.targetGuids==1 and c.targetGuids[1]=="Player-1-0000B002" and c.guid=="Player-1-0000AAAA" and f.reloads==1 and f.attempts==0 and #f.promotions==0)
  f.w.Refresh();check("pending selected request has explicit state instead of stale-history label",f.w.nextButton.label:GetText()=="Promote: awaiting read")
  f.publish({control=c,snapshotId=44,specs={{guid="Player-1-0000B002",name="Alpha",start=9,final=7}}})
  f.w.Refresh();f.choose(f.w.actionFilterButton,2)
  -- v273 covered the whole roster in one selected page; a v4 read is the exact
  -- GUID set the officer chose, so only that GUID becomes ready.
  check("fresh selected page makes only its exact GUID ready while history stays dated",f.names()=="Alpha" and f.page.fetchedAt==history.fetchedAt and f.w.diagnostics.ready==1)
- f.w.clearButton:Click();pick("Knight");f.w.selectButton:Click();c=f.e.OlympusVerifyDB.launchControl
+ f.w.clearButton:Click();pick("Knight");f.w.RequestSelected();c=f.e.OlympusVerifyDB.launchControl
  f.publish({control=c,snapshotId=45,specs={{guid="Player-1-0000B007",name="Knight",start=7,final=5}}})
  f.w.Refresh();f.choose(f.w.actionFilterButton,2)
  check("Veteran-ready Members do not reduce the separate not-ready Initiate count",f.names()=="Knight" and f.w.diagnostics.ready==1 and f.w.diagnostics.readyInitiates==0 and f.w.diagnostics.nativeInitiates==5 and f.w.diagnostics.notReadyInitiates==5)

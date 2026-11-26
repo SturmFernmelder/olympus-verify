@@ -15,6 +15,7 @@ import {callBudget} from '../src/roles.ts';
 import {NEUTRAL_IDENTITY_PURPOSE280,NEUTRAL_IDENTITY_REASON280} from '../src/consumed-identity280.ts';
 import {NATIVE_SCOPE232} from '../src/native-rank-reconciliation232.ts';
 import {parseLaunchNativeScope} from '../src/launch-verification227.ts';
+import {officerDeparture307} from './officer_departure307_runtime.mjs';
 
 const hex=b=>Array.from(new Uint8Array(b),n=>n.toString(16).padStart(2,'0')).join('');
 const hash=async value=>hex(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)));
@@ -22,7 +23,7 @@ const policy=(version,profile,enabled=true)=>JSON.stringify({version,enabled,pro
 export const CANONICAL_V1_SMOKE_SUBJECT280='800000000000000399';
 const LIVE_NAMES280=Object.freeze(['Guild Master','Steward','High Council','Officer','Officer Alt','Raid Leader','Veteran','Alt','Member','Initiate']);
 const LIVE_MEMBER280='800000000000000400',LIVE_OFFICER280='800000000000000401',LIVE_ALT280='800000000000000402';
-async function liveOriginalTableSmoke280(env,writer,venue,check){
+async function liveOriginalTableSmoke280(env,writer,venue,check,rawDb){
  const now=async()=>(await writer.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS at").first()).at;
  // The actual serving v1 policy must keep working on the guild's REAL table.
  // Observation recognition never changes its original name-qualified mapping.
@@ -132,6 +133,7 @@ async function liveOriginalTableSmoke280(env,writer,venue,check){
    else await writer.prepare("UPDATE roster_members SET rank='Officer' WHERE snapshot_id=?1 AND guid='Player-4613-ABCDEF14'").bind(snapshot.id).run();
   }
  }
+ await officerDeparture307(env,writer,check,publish,members,rawDb);
 }
 export async function originalCanonicalSmoke280(db,base,check){
  const at=(await db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS at").first()).at,epoch='b'.repeat(32);
@@ -202,6 +204,6 @@ export async function originalCanonicalSmoke280(db,base,check){
  check('actual control and provider ACK retain their original consumed fingerprint and source facts',control?.native_profile===CANONICAL_PROFILE233&&control.attempts===0&&control.native_guid===guid&&control.roster_id===snapshot.id&&/^[0-9a-f]{64}$/.test(grant.request_digest)&&control.request_digest===grant.request_digest);
  const cap=await captureRoutineMembership232(env,CANONICAL_V1_SMOKE_SUBJECT280);
  try{const facts=cap&&routineMembership232Facts(cap);check('original policy retains separate captured profile and never sets Directive rankQualified',facts?.canonicalRankProfile===CANONICAL_PROFILE233&&facts.rankQualified===false);}finally{if(cap)closeRoutineMembership232(cap);}
- await liveOriginalTableSmoke280(env,writer,venue,check);
+ await liveOriginalTableSmoke280(env,writer,venue,check,db);
  return {...base,DB:writer,PRIVACY_WRITE_ADMISSION_EPOCH:epoch};
 }
