@@ -410,8 +410,42 @@ do
   check("common roster Sync calls exactly one officer hardware transition",syncs==1 and f.attempts==0)
   ui.Alert()
   check("background officer alerts preserve an open working roster",s.active=="roster" and w.frame:IsShown() and not ui.panel:IsShown())
-  w.ShowActivity()
-  check("guild activity view opens inside the roster shell",w.activity._parent==w.frame and w.activity:IsShown())
+  local events={}
+  for i=1,55 do events[i]={"invite",i%2==0 and "Officer Amber" or "Officer Blue",string.format("Recruit %03d",i),""} end
+  e.QueryGuildEventLog=function() end;e.GetNumGuildEvents=function() return #events end
+  e.GetGuildEventInfo=function(i) local v=events[i];return v[1],v[2],v[3],v[4],0,0,0,i%24 end
+  w.Show("Alpha");w.ShowActivity();f.emit("GUILD_EVENT_LOG_UPDATE")
+  local a=w.activity;local current=e.OlympusVerifyGuildJournal.Read("")
+  check("guild activity view opens inside the roster shell",a._parent==w.frame and a:IsShown())
+  local function shownEvents()
+    local lines={}
+    for _,r in ipairs(a.rows) do if r:IsShown() then lines[#lines+1]=r.text:GetText() end end
+    return lines
+  end
+  local shown=shownEvents()
+  local firstPage=#shown;local firstRow=a.rows[1]
+  check("the first page gives each native event a visible independent row",#current==55 and firstPage>14 and
+    shown[1]==current[1] and shown[firstPage]==current[firstPage] and a.rows[2].text~=firstRow.text and firstRow.text:GetHeight()>0 and
+    a.rows[2]._point[5]<firstRow._point[5] and not a.prev:IsEnabled() and a.nextPage:IsEnabled())
+  a.nextPage:Click()
+  check("next page reuses the same rows beginning at the next actual event",a.rows[1]==firstRow and shownEvents()[1]==current[firstPage+1])
+  a.nextPage:Click()
+  shown=shownEvents()
+  check("the short last page hides unused rows and disables Next",shown[#shown]==current[55] and #shown==55-2*firstPage and not a.nextPage:IsEnabled())
+  a.prev:Click()
+  check("previous page restores its first event",shownEvents()[1]==current[firstPage+1])
+  a:SetHeight(390);a:GetScript("OnSizeChanged")(a)
+  check("page capacity adapts when the content area becomes shorter",#shownEvents()<firstPage and #shownEvents()>1)
+  a.search:SetText("Officer Amber");a.search:GetScript("OnTextChanged")(a.search)
+  local matched=e.OlympusVerifyGuildJournal.Read("Officer Amber")
+  shown=shownEvents()
+  check("actor search resets to the first page and renders the matching original descriptions",a.page==1 and #matched==27 and shown[1]==matched[1] and shown[#shown]==matched[#shown])
+  a.search:SetText("Recruit 054");a.search:GetScript("OnTextChanged")(a.search)
+  check("character search retains the recorded officer and action",#shownEvents()==1 and shownEvents()[1]:find("Officer Amber invited Recruit 054",1,true))
+  a.search:SetText("absent fixture");a.search:GetScript("OnTextChanged")(a.search)
+  check("empty search has a visible explanation and no stale event rows",#shownEvents()==0 and a.empty:IsShown() and not a.nextPage:IsEnabled())
+  a.back:Click()
+  check("back returns to Members, retaining its search and removing the overlay",w.frame:IsShown() and s.section=="roster" and w.view.text=="Alpha" and not a:IsShown())
   e.InCombatLockdown=function()return true end;ui.Show()
   check("switching pages cannot hide a protected roster in combat",s.active=="roster" and w.frame:IsShown())
   e.InCombatLockdown=function()return false end;ui.Show()
@@ -421,6 +455,9 @@ do
     s.chrome:IsShown() and s.section=="roster" and w.frame:IsShown() and ui.panel.syncButton==w.frame.syncButton)
   w.sortButton:Click()
   for _,item in ipairs(w.menu.items) do if item.option and item.option.value=="level" then item:Click();break end end
+  check("sort control spells out the ascending direction in the native font",plain(w.sortButton.label:GetText()):find("(asc)",1,true))
+  w.headers[2]:Click()
+  check("sort control indicates reversed direction with plain ASCII",plain(w.sortButton.label:GetText()):find("(desc)",1,true))
   w.Show("Alpha")
   s.tabs.promotions:Click()
   check("Promotions displays verified Initiates without issuing a write or a Sync",
