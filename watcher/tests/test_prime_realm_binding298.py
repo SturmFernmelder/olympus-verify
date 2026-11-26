@@ -95,6 +95,53 @@ class PrimeRealmBinding298Tests(unittest.TestCase):
         self.roster['nativeRealm'] = watcher.PRIME_REALM_LABEL
         self.assertIsNone(self.w.valid_launch_control(self.f.db))
 
+    def test_bound_single_member_uses_own_signed_scope_and_only_current_native_ack(self):
+        control = self.selected_initiates()
+        scheme = watcher.native_rank_attestation.PROFILES[1]
+        self.roster['nativeRankTable']['names'] = list(scheme['names'])
+        self.roster['members'][1].update(rankIndex=8, rank='Member')
+        self.roster['exportedAt'] -= 1
+        control.update(version=6, action=launch.PRIME_MEMBER_ACTION)
+        control['mac'] = launch.selected_control_mac(sources.SECRET, control)
+        args = (sources.SECRET, control, self.f.at, sources.OFFICER_GUID, 'OLYMPUS PRIME', watcher.PRIME_REALM_LABEL)
+        self.assertTrue(launch.validate_selected_control(*args, prime_binding=True))
+        self.assertFalse(launch.validate_selected_control(*args, prime_binding=True, automatic_initiates=True))
+        self.assertFalse(launch.validate_selected_control(*args, prime_binding=False))
+        self.w.launch_selected_file.parent.mkdir(parents=True)
+        self.f.write()
+        self.w.check_savedvars()
+        self.assertTrue(self.w.launch_selected.running)
+        self.assertIsNone(self.w._launch_accepted_roster)
+
+        def answer(method, path, retries):
+            self.assertEqual((method, retries), ('GET', 1))
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(path).query)
+            self.assertEqual(query['primeBinding'], ['prime-guild-master-member'])
+            self.assertEqual(query['targetGuids'], ['["'+sources.GUID+'"]'])
+            self.assertNotIn('autoInitiates', query)
+            fixture = directive.DirectiveTransition()
+            fixture.at, fixture.actor, fixture.target, fixture.scope = self.f.at, sources.OFFICER_GUID, sources.GUID, control['scopeHash']
+            page = fixture.page()
+            page.update(realm=watcher.PRIME_REALM_LABEL, snapshotId=7, rankProfile=scheme['profile'],
+                        rankSchemeDigest=scheme['digest'], rankNames=list(scheme['names']))
+            row = page['promotions'][0]
+            row.update(name=sources.NAME, currentSlot=8, targetSlot=6, targetName='Veteran', reason='knight-veteran')
+            row['intent'].update(name=sources.NAME, startSlot=8, finalSlot=6, reason='knight-veteran',
+                                 originSnapshotId=7, lastSnapshotId=7, rankProfile=scheme['profile'], rankSchemeDigest=scheme['digest'])
+            return True, dict(version=2, protocol=launch.DIRECTIVE_PROTOCOL, controlId=control['id'],
+                              actorGuid=control['guid'], coverageKind='selected-guids', targetGuids=control['targetGuids'],
+                              targetsDigest=launch.targets_digest276(control['targetGuids']), coveredGuids=control['targetGuids'], page=page)
+
+        with patch.object(self.w.worker, 'call', side_effect=answer) as get:
+            self.w.pull_launch_operations()
+            self.assertEqual(get.call_count, 1)
+        self.assertTrue(self.w.launch_selected.record['completed'])
+        self.assertFalse(self.w.launch_selected.record['page']['actions']['automatic'])
+        self.roster['members'][1].update(rankIndex=7, rank='Alt')
+        ack = dict(self.w._verification_roster, digest=launch.roster_content_digest(self.roster))
+        self.w.launch_selected.request(control, ack, self.roster, self.f.at)
+        self.assertEqual(self.w.launch_selected.record['stoppedReason'], 'selected-target-unavailable')
+
     def test_selection_holds_when_original_ack_is_unknown(self):
         self.selected_initiates()
         self.f.unknown_roster = True

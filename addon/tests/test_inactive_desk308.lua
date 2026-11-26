@@ -17,7 +17,7 @@ local function row(name, serial, rank, days)
   return {name = name, guid = string.format("Player-9-%08X", serial), rank = names[rank+1],
     rankIndex = rank, level = 60, online = false, away = days}
 end
-local self, first, second = row("Officer One", 1, 0, 0), row("Ñò Example", 2, 9, 70), row("Candidate Two", 3, 8, 48)
+local self, first, second = row("Officer One", 1, 0, 0), row("Hakuho Shö", 2, 9, 70), row("Candidate Two", 3, 8, 48)
 self.online, PLAYER_GUID = true, self.guid
 local protected, held, recent = row("Staff One", 4, 2, 100), row("Hold One", 5, 9, 100), row("Recent One", 6, 8, 7)
 held.onote = "HOLD for school."
@@ -35,11 +35,12 @@ OlympusVerifyFrame:GetScript("OnEvent")(OlympusVerifyFrame, "ADDON_LOADED", "Oly
 assert(loadfile("../OlympusVerify/OlympusVerifyInactiveDesk.lua"))("OlympusVerify", {})
 local editor = CreateFrame("EditBox", nil, UIParent)
 editor:SetText("")
-local active = editor
+local active = CreateFrame("EditBox", nil, UIParent)
 DEFAULT_CHAT_FRAME.editBox = editor
 ChatEdit_GetActiveWindow = function() return active end
 local opened = 0
-ChatFrame_OpenChat = function(text) opened = opened + 1; editor:SetText(text) end
+ChatFrame_OpenChat = function(text) opened = opened + 1; active:SetText(text) end
+ChatFrameUtil = {OpenChat = ChatFrame_OpenChat, GetActiveWindow = ChatEdit_GetActiveWindow}
 assert(loadfile("../OlympusVerify/OlympusVerifyWorkspace.lua"))("OlympusVerify", {})
 local function open()
   if OlympusVerifyWorkspace.IsShown() then OlympusVerifyWorkspace.Close() end
@@ -68,6 +69,42 @@ local function event(ev)
   panel:GetScript("OnUpdate")(panel, 1)
 end
 local function review() click("Select all matches"); click("Review selected") end
+local card = CreateFrame("Frame", nil, UIParent)
+card:Hide()
+card.RemoveButton = CreateFrame("Button", nil, card)
+card.RemoveButton:SetScript("OnClick", forbidden)
+card.IsProtected = function() return false end
+local openedCards, lookups, guildClub, clubOverride = 0, 0, 17, nil
+C_Club = {
+  GetGuildClubId = function() return guildClub end,
+  GetClubMembers = function()
+    local ids = {}; for _, member in ipairs(ROSTER) do ids[#ids+1] = member.guid:sub(-8) end; return ids
+  end,
+  GetMemberInfo = function(id, memberId)
+    lookups = lookups + 1
+    if id == guildClub then
+      for _, member in ipairs(ROSTER) do if member.guid:sub(-8) == memberId then
+        return {memberId=memberId,name=member.name,guid=clubOverride or member.guid,guildRankOrder=member.rankIndex+1}
+      end end
+    end
+  end,
+}
+CommunitiesFrame = CreateFrame("Frame",nil,UIParent)
+CommunitiesFrame.GuildMemberDetailFrame = card
+COMMUNITIES_FRAME_DISPLAY_MODES = {ROSTER=2}
+CommunitiesFrame.GetSelectedClubId = function(self) return self.clubId end
+CommunitiesFrame.SelectClub = function(self,id) self.clubId=id end
+CommunitiesFrame.SetDisplayMode = function(self,mode) self.mode=mode end
+CommunitiesFrame.OpenGuildMemberDetailFrame = function(self,id,info)
+  openedCards=openedCards+1; card.clubId,card.memberId=id,info.memberId; card:Show()
+end
+card.GetMemberInfo = function(self) return C_Club.GetMemberInfo(self.clubId,self.memberId) end
+card.GetClubId = function(self) return self.clubId end
+ShowUIPanel = function(frame) frame:Show() end
+local function onCard(row)
+  return card:IsVisible() and card:GetClubId()==guildClub and card:GetMemberInfo()
+    and card:GetMemberInfo().guid==row.guid and card:GetMemberInfo().name==row.name
+end
 local passed = 0
 local function check(label, ok) assert(ok, label); print("PASS " .. label); passed = passed + 1 end
 open()
@@ -88,53 +125,76 @@ click("Cancel review"); review()
 local later = row("Late Arrival", 9, 8, 90)
 table.insert(ROSTER, later); event()
 check("post-review arrivals cannot join the reviewed set", not activeRows()[later.guid] and opened == 0)
-editor:SetText("guild chat draft"); click("Start reviewed queue")
-check("an existing chat draft is preserved", opened == 0 and editor:GetText() == "guild chat draft")
-active = CreateFrame("EditBox", nil, UIParent)
-active:SetText("another chat tab"); editor:SetText(""); click("Prepare next removal")
-check("another active chat tab is preserved", opened == 0 and active:GetText() == "another chat tab")
-active:SetText(""); editor:SetText("default draft"); click("Prepare next removal")
-check("a default chat draft cannot be overwritten from another empty tab", opened == 0 and editor:GetText() == "default draft")
-active = editor; editor:SetText(""); click("Prepare next removal")
-local firstCommand = "/guildremove " .. first.name .. "-Forever"
-check("first explicit action prepares exactly one named native command", opened == 1 and editor:GetText() == firstCommand and effects == 0)
+active:SetText("")
+card.RemoveButton:Show()
+for _, b in ipairs(FRAMES) do
+  if b._kind == "Button" and (b:GetText()=="Open member details" or b:GetText()=="Start reviewed queue") then b:Click(); break end
+end
+check("accented reviewed member opens on the native guild card with another active chat tab",
+  onCard(first) and CommunitiesFrame.mode==2 and openedCards==1 and opened==0 and effects==0
+  and editor:GetText()=="" and active:GetText()=="")
 OlympusVerifyWorkspace.OpenInactive()
-check("clicking the active tab keeps the draft and cannot prepare it twice", btn("Awaiting departure")._enabled == false and opened == 1 and editor:GetText() == firstCommand)
+check("selecting the active desk tab cannot repeat or advance the native action", openedCards==1 and onCard(first))
+editor:SetText("guild chat draft"); active:SetText("another chat tab"); card:Hide(); click("Reopen member details")
+check("cancelling native navigation allows revisiting the same member without changing either chat draft", openedCards==2
+  and onCard(first) and effects==0 and editor:GetText()=="guild chat draft" and active:GetText()=="another chat tab")
+local beforeBurst=lookups
 local totalReads, rowReads = 0, 0
 local countMembers, inspect = GetNumGuildMembers, GetGuildRosterInfo
 GetNumGuildMembers = function() totalReads = totalReads + 1; return countMembers() end
 GetGuildRosterInfo = function(i) rowReads = rowReads + 1; return inspect(i) end
 for _ = 1, 160 do panel:GetScript("OnEvent")(panel, "GUILD_ROSTER_UPDATE") end
-check("160 events immediately validate only the named draft without re-enumerating the guild", totalReads == 0 and rowReads == 160)
+check("160 events immediately validate just the named row without re-enumerating either roster", totalReads == 0 and rowReads == 160 and lookups==beforeBurst)
 panel:GetScript("OnUpdate")(panel, 1)
 check("a burst causes one full roster read on the visible page", totalReads == 2 and rowReads == 160 + #ROSTER)
 GetNumGuildMembers, GetGuildRosterInfo = countMembers, inspect
-editor:SetText(""); event()
-check("closing chat and receiving a roster update is not proof of removal", btn("Awaiting departure")._enabled == false and opened == 1)
-table.remove(ROSTER, 2); event()
-check("confirmed named departure offers next without sending or opening it", status("left the guild") and btn("Prepare next removal")._enabled and opened == 1)
-click("Prepare next removal")
-check("second name remains the original reviewed target", opened == 2 and editor:GetText() == "/guildremove Candidate Two-Forever")
+card:Hide(); active:SetText(""); event()
+check("closing native UI and receiving a roster event is not proof of removal", btn("Reopen member details"):IsEnabled() and openedCards==2)
+click("Reopen member details"); table.remove(ROSTER,2); panel:GetScript("OnEvent")(panel,"GUILD_ROSTER_UPDATE")
+check("a changed native index withdraws the matching card before full readback", not card:IsShown())
+panel:GetScript("OnUpdate")(panel,1)
+check("confirmed named departure offers the next member without opening or removing them", status("left the guild") and btn("Open next member"):IsEnabled() and openedCards==3)
+click("Open next member")
+check("second native card belongs to the original reviewed member", onCard(second) and openedCards==4)
+clubOverride="Player-9-11111111"; click("Reopen member details")
+check("same name with a different club GUID cannot open a card and withdraws the previous card",
+  not card:IsShown() and openedCards==4 and status("show offline members and left-click Candidate Two"))
+clubOverride=nil; click("Reopen member details")
+local priorMembers = C_Club.GetClubMembers
+C_Club.GetClubMembers = function() local ids={}; for i=1,1001 do ids[i]=i end; return ids end
+local countBefore=lookups; click("Reopen member details")
+check("an oversized club list makes no member lookups and offers manual roster navigation", not card:IsShown()
+  and lookups==countBefore and status("show offline members and left-click Candidate Two"))
+C_Club.GetClubMembers=priorMembers; click("Reopen member details")
+card.memberId=self.guid:sub(-8); click("Cancel review")
+check("cancelling leaves a different native member card opened by the officer alone", onCard(self))
+card:Hide(); activeRows()[second.guid].check:Click(); click("Review selected"); click("Open member details")
+ROSTER[2],ROSTER[3]=ROSTER[3],ROSTER[2]; event()
+check("a roster reorder needs a fresh look at the same GUID", not card:IsShown() and btn("Reopen member details"):IsEnabled())
+click("Reopen member details")
+check("reopening after the reorder selects the same member", onCard(second))
+ROSTER[2],ROSTER[3]=ROSTER[3],ROSTER[2]; event(); click("Reopen member details")
 second.online = true; event()
-check("newly online member cancels and clears an unchanged prepared command", editor:GetText() == "" and status("staged character") and not activeRows()[second.guid])
-second.online = false; table.remove(ROSTER); open(); review(); click("Start reviewed queue")
+check("newly online member withdraws their card without touching native chat",
+  not card:IsShown() and editor:GetText()=="guild chat draft" and not activeRows()[second.guid])
+second.online = false; table.remove(ROSTER); open(); review(); click("Open member details")
 editor:SetText("unrelated player text"); click("Cancel review")
 check("cancel never deletes another chat draft", editor:GetText() == "unrelated player text")
-editor:SetText(""); review(); click("Start reviewed queue")
+editor:SetText(""); review(); click("Open member details")
 permission = false; event()
-check("permission loss clears prepared removal", editor:GetText() == "" and status("removal permission"))
-permission = true; open(); review(); click("Start reviewed queue"); inCombat = true; event("PLAYER_REGEN_DISABLED")
-check("combat cancels even without a native roster event", editor:GetText() == "" and status("out of combat"))
-inCombat = false; open(); review(); click("Start reviewed queue"); host:Hide()
-check("closing the actual Escape target clears its child's prepared command", editor:GetText() == "" and not panel:IsShown())
-open(); review(); second.onote = "hold"; click("Start reviewed queue")
+check("permission loss withdraws the native card", not card:IsShown() and status("removal permission"))
+permission = true; open(); review(); click("Open member details"); inCombat = true; event("PLAYER_REGEN_DISABLED")
+check("combat cancels even without a native roster event", not card:IsShown() and status("out of combat"))
+inCombat = false; open(); review(); click("Open member details"); host:Hide()
+check("closing the actual Escape target clears its child's command", not card:IsShown() and not panel:IsShown())
+open(); review(); second.onote = "hold"; click("Open member details")
 check("a hold added between review and confirmation prevents staging", editor:GetText() == "" and status("no longer qualifies"))
-second.onote = nil; open(); review(); click("Start reviewed queue")
+second.onote = nil; open(); review(); click("Open member details")
 ROSTER[2] = row(second.name, 90, 8, 48); event()
-check("same-name replacement cannot be confirmed as a departure", editor:GetText() == "" and status("staged character"))
-ROSTER[2] = second; open(); review(); click("Start reviewed queue"); editor:SetText(""); table.remove(ROSTER, 2); event()
+check("same-name replacement cannot be confirmed as a departure", not card:IsShown() and status("no longer qualifies"))
+ROSTER[2] = second; open(); review(); click("Open member details"); editor:SetText(""); table.remove(ROSTER, 2); event()
 check("all departures require a complete native observation", status("all reviewed characters have left") and effects == 0)
-table.insert(ROSTER, second); open(); review(); click("Start reviewed queue")
+table.insert(ROSTER, second); open(); review(); click("Open member details")
 local num = GetNumGuildMembers
 GetNumGuildMembers = function() return num() + 1 end
 event()
@@ -149,7 +209,7 @@ table.insert(ROSTER, row("Guild Master", 94, 0, 0))
 open()
 check("an officer cannot trust masked empty officer notes without permission proof", status("Access to officer notes") and not next(activeRows()))
 C_GuildInfo.CanViewOfficerNote = function() return true end
-open(); review(); click("Start reviewed queue")
+open(); review(); click("Open member details")
 C_GuildInfo.CanViewOfficerNote = function() return false end
 event()
 check("losing officer-note access withdraws an unchanged draft", editor:GetText() == "" and status("Access to officer notes"))
@@ -193,10 +253,10 @@ classOption("MAGE"):Click(); classOption("DRUID"):Click()
 click("2 classes v"); review()
 check("review contains exactly the matching named characters and locks filter controls", activeRows()[mage.guid] and activeRows()[druid.guid]
   and not activeRows()[warrior.guid] and not btn("2 classes v"):IsEnabled() and not btn("Initiates 7d+"):IsEnabled())
-click("Start reviewed queue")
-check("first staged command belongs to the reviewed filtered set", editor:GetText() == "/guildremove Druid Month-Forever")
+click("Open member details")
+check("first copyable member card belongs to the reviewed filtered set", onCard(druid))
 druid.class = "WARRIOR"; event()
-check("a changed class cancels the reviewed queue and withdraws the pending command", editor:GetText() == "" and status("staged character"))
+check("a changed class cancels the reviewed queue and withdraws the member card", not card:IsShown() and status("changed"))
 druid.class = "DRUID"; event()
 click("2 classes v"); classOption(nil):Click(); click("All classes v")
 check("All classes explicitly restores candidates without selecting any", activeRows()[unknown.guid]
@@ -217,5 +277,5 @@ guild, realm = "Other Guild", "Actual Realm"; open()
 click("Initiates 7d+")
 check("the PRIME seven-day exception does not change other guilds' level policies", not btn("Initiates 7d+"):IsEnabled()
   and not activeRows()[mage.guid] and activeRows()[druid.guid].days:GetText() == "31d / 30d")
-check("no protected call, whisper, export or UI reload took place", effects == 0 and OlympusVerifyDB.roster == originalRoster and not originalRoster.members)
+check("no native chat opening, protected call, whisper, export or UI reload took place", opened == 0 and effects == 0 and OlympusVerifyDB.roster == originalRoster and not originalRoster.members)
 print(passed .. " inactive desk checks passed")

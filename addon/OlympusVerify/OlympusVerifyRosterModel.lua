@@ -231,13 +231,17 @@ function M.Promotions(list, launchAPI, now)
     local rankScheme=pageRanks(id and originalPages[id] and originalPages[id].page) or displayRanks
     local attemptStatus=id and type(launchAPI)=="table" and type(launchAPI.PromotionStatus)=="function"
       and launchAPI.PromotionStatus(id,current,row.rankIndex) or nil
+    local boundMember=current and current.identity and current.identity.primeInitiates and row.rankIndex==8
+      and row.rank=="Member" and verified(row)
     if initiate(row) and id and seen[id] == 1 and verified(row) then
       diagnostics.knownVerifiedInitiates = diagnostics.knownVerifiedInitiates + 1
     end
     if not id then info = detail("missing_guid", "Native GUID unavailable", "No unique native character GUID is available; a name match cannot enable promotion.")
     elseif seen[id] ~= 1 then info = detail("duplicate_guid", "Duplicate native GUID", "This GUID occurs more than once in the native list; no promotion is ready.")
     elseif not whole(row.rankIndex, 0, 9) then info = detail("unavailable", "Native rank unavailable", "The current native rank slot is unreadable; promotion readiness is unknown.")
-    elseif attemptStatus=="settled" or attemptStatus=="confirmed" then info=detail("wrong_rank","Target rank observed (history retained)","A complete native roster previously confirmed this original target. Its command history is retained; this historical fact never enables a repeat.")
+    elseif boundMember and not selected and (attemptStatus=="clear" or attemptStatus=="settled") then
+      info=detail("check","Check Veteran eligibility","Check this Member’s current Discord Knight rank. The officer reviews each promotion separately.")
+    elseif (attemptStatus=="settled" and not (boundMember and selected) or attemptStatus=="confirmed") then info=detail("wrong_rank","Target rank observed (history retained)","A complete native roster previously confirmed this original target. Its command history is retained; this historical fact never enables a repeat.")
     elseif rankScheme and readable(row.rank)
       and (row.rankIndex==rankScheme.member and row.rank=="Member" or row.rankIndex==rankScheme.veteran and row.rank=="Veteran")
       and (attemptStatus=="pending" or attemptStatus=="blocked" or current and launchAPI.pending[id]~=nil) then
@@ -249,8 +253,6 @@ function M.Promotions(list, launchAPI, now)
     elseif attemptStatus=="blocked" then info=detail("held","Client promotion action blocked","The client reported a blocked promotion API. Original attempt history is retained; this view cannot clear the block or send a fallback.")
     elseif launchAPI.pending[id] ~= nil or attemptStatus=="pending"
       or not attemptStatus and type(launchAPI.AttemptHeld)=="function" and launchAPI.AttemptHeld(id,current,row.rankIndex) then info = detail("pending", "Prior attempt pending", "An earlier promotion attempt for this member is pending or unconfirmed. The addon does not repeat it. Review that attempt's unresolved history and check the member's current rank in the game's guild window. Only if staff review confirms a promotion is still due, do it there by hand. The earlier attempt and its uncertainty stay on record.")
-    elseif attemptStatus=="recheck" and current.identity and current.identity.primeInitiates then
-      info=detail("held","Further steps need the native realm","The first step was confirmed. WoW must report the player realm before the addon can check another step for this character.")
     elseif attemptStatus=="recheck" then info=detail("recheck","Check next original step","The last owned step was confirmed. Check this GUID against a fresh complete roster before a separate next promotion click; the original intent and expiry stay fixed.")
     elseif selected and not selected.completed then
       if selected.state=="pending" then

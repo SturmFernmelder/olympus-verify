@@ -710,7 +710,11 @@ function W.Refresh(scrolling)
       r.cells.seen:SetText(seenText(m))
       r.cells.sourceAge:SetText(GREY..Age(m.snapshotAt).."|r")
       local action=ActionFor(m)
-      r.cells.action:SetText(Eligible(m,candidates) and "" or GREY..trunc(action.label or action.state,28).."|r")
+      local check=diagnostics.current and diagnostics.current.identity and diagnostics.current.identity.primeInitiates
+        and (action.state=="check" and m.rankIndex==8 and m.rank=="Member" or action.state=="recheck")
+      r.cells.action:SetText((check or Eligible(m,candidates)) and "" or GREY..trunc(action.label or action.state,28).."|r")
+      r.check:SetShown(check==true)
+      if check then SetButtonText(r.check,action.state=="recheck" and "Check next step" or "Check Veteran eligibility") end
       r.promote.member = m
       SetButtonText(r.promote,action.targetName and ("Promote to "..action.targetName) or "Promote")
       r.promote:SetShown(Eligible(m, candidates))
@@ -718,7 +722,7 @@ function W.Refresh(scrolling)
     else
       r.member = nil
       if r.remind then r.remind.member = nil; r.remind:Hide() end
-      r.promote.member = nil; r.promote:Hide()
+      r.promote.member = nil; r.promote:Hide(); r.check:Hide()
       r:Hide()
     end
   end
@@ -1180,6 +1184,13 @@ local function Build()
     end)
     r.promote:SetPoint("LEFT", r, "LEFT", 962, 0)
     r.promote:Hide()
+    r.check=Button(r,"Check Veteran eligibility",160,Layout.ROW_H-2,function()
+      local row=r.member
+      if not row or not r.check:IsShown() then return end
+      local launch=OlympusLaunch229
+      if launch and type(launch.Select)=="function" then launch.Select(row.guid) end
+    end,"Check this character","Request current Knight eligibility for the selected native character.")
+    r.check:SetPoint("LEFT",r,"LEFT",962,0);r.check:Hide()
     if r.EnableMouseWheel then r:EnableMouseWheel(true) end
     r:SetScript("OnMouseWheel", Wheel)
     r:SetScript("OnMouseUp",function(self,button)
@@ -1251,7 +1262,7 @@ function W.ReviewRemoval()
   local ok,allowed=pcall(can)
   if not ok or allowed~=true or not InCombatLockdown or InCombatLockdown()~=false
     or not IsInGuild or IsInGuild()~=true or (OlympusVerifyUI and OlympusVerifyUI.preview)
-    or not ChatFrame_OpenChat or not API.Candidates then Say("Current native removal permission or the chat editor is unavailable.");return false end
+    or not API.Candidates then Say("Current native removal permission or the roster is unavailable.");return false end
   local target=selected
   local found,actor=pcall(UnitGUID,"player")
   if not found or not readablePlayerGuid(actor) or not readablePlayerGuid(target.guid) or actor==target.guid then
@@ -1283,8 +1294,7 @@ function W.ReviewRemoval()
   end)
   if not read or unchanged~=true then
     Say("The selected native row changed or its offline state is unknown.");return false end
-  ChatFrame_OpenChat("/guildremove "..target.full)
-  Say("Review the character in the chat box. Enter sends the removal; Escape cancels.")
+  Say("Open the guild roster, select "..target.full..", and click Remove on their WoW member card. Review the name on the confirmation.")
   return true
 end
 function W.ShowActivity()

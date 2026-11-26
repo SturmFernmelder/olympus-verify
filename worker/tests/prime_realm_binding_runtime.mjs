@@ -67,6 +67,32 @@ async function checkSelected(check,env,writer,snapshot,ctx,refreshNamed) {
   const confirmation=await read({targetGuids:JSON.stringify([members[3].guid]),confirmations:JSON.stringify([{
     guid:members[3].guid,token:page.promotions.find(r=>r.guid===members[3].guid).intentToken,from:9,to:8,observedAt:at}])});
   check('Blank initial check cannot continue officer rank steps',confirmation.status===400,confirmation);
+  const onlyMember={primeBinding:'prime-guild-master-member',targetGuids:JSON.stringify([members[5].guid])};
+  const knight=await read(onlyMember),memberPromotion=knight.body.page?.promotions[0];
+  check('Attended Member check binds one fresh Knight entitlement to the enrolled GM and exact current Member',
+    knight.status===200&&knight.body.coveredGuids.join()===members[5].guid&&knight.body.page.promotions.length===1&&
+    memberPromotion.currentSlot===8&&memberPromotion.targetSlot===6&&memberPromotion.reason==='knight-veteran'&&
+    memberPromotion.intent.startSlot===8&&memberPromotion.intent.acknowledgedSteps===0&&memberPromotion.intent.actorGuid===members[0].guid&&
+    memberPromotion.intent.originSnapshotId===snapshot.id&&!!memberPromotion.intentToken&&!knight.body.page.actions.automatic,knight);
+  for(const [label,params] of [['automatic',{...onlyMember,autoInitiates:'1'}],['bulk',{primeBinding:onlyMember.primeBinding}]]){
+    const refused=await read(params);
+    check('Single Member protocol refuses '+label,refused.status===400,refused);
+  }
+  for(const [label,params] of [['another observer',{...onlyMember,actorGuid:members[1].guid}],
+    ['an Initiate',{...onlyMember,targetGuids:JSON.stringify([members[2].guid])}]]){
+    const refused=await read(params);
+    check('Single Member protocol holds '+label,refused.body.page?.status==='held'&&!refused.body.page.promotions.length,refused);
+  }
+  const swap=await read({...onlyMember,cursor:page.pageCursor});
+  check('Bulk and single Member cursors cannot be exchanged',swap.status===400,swap);
+  const stripped=await read({...onlyMember,primeBinding:null});
+  check('Stripping the binding cannot borrow a blank roster through a named attended read',stripped.body.page?.status==='held'&&
+    !stripped.body.page.promotions.length,stripped);
+  selectedEnv.DISCORD_BOT_TOKEN='synthetic-without-knight';
+  const ordinaryMember=await read(onlyMember);
+  check('Member without live Knight standing receives no recommendation',ordinaryMember.body.coveredGuids.join()===members[5].guid&&
+    !ordinaryMember.body.page.promotions.length,ordinaryMember);
+  selectedEnv.DISCORD_BOT_TOKEN='synthetic-blank-selected';
   const discovery=await read({keyVersion:DISCOVERY_OPERATIONS_PROTOCOL235});
   check('The marker grants no discovery read',discovery.status===400,discovery);
   const beforeNamed=await writer.DB.prepare('UPDATE roster_snapshots SET exported_at=exported_at+1 WHERE id=?1').bind(snapshot.id).run();
@@ -145,6 +171,20 @@ async function checkSelected(check,env,writer,snapshot,ctx,refreshNamed) {
     addedMarker.body.page?.status==='held'&&!addedMarker.body.page.promotions.length,addedMarker);
   check('Automatic eligibility never changes the native character links',
     JSON.stringify((await writer.DB.prepare('SELECT name_key,guid,status FROM characters ORDER BY name_key').all()).results)===JSON.stringify(before.results));
+  return async next=>{
+    const params={...onlyMember,snapshotId:String(next.id),snapshotAt:String(next.exported_at)};
+    const noOwner=await read(params);
+    check('Current Alt cannot start a Knight promotion',noOwner.body.page?.heldReasons.includes('selected-target-unavailable')&&
+      !noOwner.body.page.promotions.length,noOwner);
+    const prior={guid:members[5].guid,token:memberPromotion.intentToken,from:8,to:7,observedAt:memberPromotion.intent.issuedAt};
+    const bad=await read({...params,confirmations:JSON.stringify([{...prior,token:prior.token.slice(0,-64)+'0'.repeat(64)}])});
+    check('A different seal cannot carry an Alt to Veteran',!bad.body.page?.promotions.length&&
+      bad.body.page?.held.some(r=>r.reason==='same-intent-continuation-held'),bad);
+    const nextStep=await read({...params,confirmations:JSON.stringify([prior])}),row=nextStep.body.page?.promotions[0];
+    check('Only the signed original Knight step continues after the newer native Alt observation',row?.currentSlot===7&&
+      row.targetSlot===6&&row.intent.id===memberPromotion.intent.id&&row.intent.acknowledgedSteps===1&&
+      row.intent.expiresAt===memberPromotion.intent.expiresAt&&row.intent.lastSnapshotId===next.id,nextStep);
+  };
 }
 
 async function install(db,layout) {
@@ -262,7 +302,7 @@ export default {async fetch(request,bindings,ctx) {
     const retry=await call(again);
     check('Identical replay preserves clocks and does not duplicate the binding audit',retry.status===200&&
       (await latest()).exported_at===again.exportedAt&&(await audit()).results.length===2,retry);
-    await checkSelected(check,env,writer,current,ctx,async()=>{
+    const checkNextMemberStep=await checkSelected(check,env,writer,current,ctx,async()=>{
       const response=await call({...named,members:changed,exportedAt:current.exported_at+1});
       check('Named background fixture uploads through the native ingestion route',response.status===200,response);
       return latest();
@@ -297,6 +337,9 @@ export default {async fetch(request,bindings,ctx) {
     const recovered=await call(recovery),recoveryRow=await latest();
     check('Ordinary export rebuilds an interrupted snapshot after its grace',recovered.status===200&&recoveryRow.id>incomplete&&
       recoveryRow.complete===1&&recoveryRow.trusted===1&&recoveryRow.exported_at===recovery.exportedAt,recovered);
+    const updated=await call({...body,exportedAt:Math.floor(Date.now()/1000),members:members.map((m,i)=>i===5?{...m,rank:'Alt',rankIndex:7}:m)});
+    check('Attended Member step test uses a newly accepted current blank-realm roster',updated.status===200,updated);
+    await checkNextMemberStep(await latest());
     return Response.json({checks});
   } catch(error) { return Response.json({checks,error:String(error?.stack??error)},{status:500}); }
 }};

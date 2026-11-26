@@ -1,11 +1,10 @@
--- Membership decisions here use only the current WoW roster. The Forever
--- client accepts the officer's named chat command; opening the editor cannot
--- tell us whether the officer pressed Enter, escaped, or the server refused.
+-- The officer uses Blizzard's own member card and removal confirmation.
+-- This desk only navigates to the character and observes their departure.
 local D = {}
 OlympusVerifyInactiveDesk = D
 local native = OlympusVerifyAPI.Inactive
 local panel, listRows, ui, openParent
-local scope, snapshot, selection, review, draft
+local scope, snapshot, selection, review, waiting
 local cutoff, search, page, message, unavailable = 0, "", 1, nil, nil
 local initiateWeek, classes = false, nil
 local dirty, elapsed = false, 0
@@ -136,19 +135,31 @@ local function stillEligible(original, data)
     and row.level == original.level and row.class == original.class and matches(row)
 end
 
-local function clearDraft()
-  if draft then
-    if draft.box:GetText() == draft.text then draft.box:SetText("") end
-    draft = nil
+local function withdrawCard()
+  if not waiting or not waiting.card then return end
+  local card = waiting.card
+  waiting.card = nil
+  -- A member the officer subsequently opened belongs to the officer.
+  pcall(function()
+    if card:GetClubId() == waiting.clubId and card.memberId == waiting.memberId and card:IsShown()
+      and (not InCombatLockdown() or card.IsProtected and not card:IsProtected()) then card:Hide() end
+  end)
+end
+
+local function finishMember()
+  withdrawCard()
+  if waiting and waiting.layers then
+    for frame, layer in pairs(waiting.layers) do frame:SetFrameStrata(layer) end
   end
+  waiting = nil
 end
 
 local function cancel(reason)
-  clearDraft()
+  finishMember()
   selection, review, page, message = {}, nil, 1, reason
 end
 
-local function refresh(rosterEvent)
+local function refresh()
   local data, why = observe()
   unavailable = why
   if data and initiateWeek and not primeGuild(data.owner) then
@@ -160,15 +171,15 @@ local function refresh(rosterEvent)
     cancel("Guild or officer changed. Make a new selection.")
   elseif review then
     local target = review.targets[review.index]
-    if draft and rosterEvent and draft.sawRoster and not data.members[target.guid] and not data.names[target.name:lower()] then
+    if waiting and waiting.sawRoster and not data.members[target.guid] and not data.names[target.name:lower()] then
       -- A partial read that drops more than this member isn't an unambiguous
       -- departure. Names/GUIDs are also unique throughout the complete roster.
       local intact = true
-      for id in pairs(draft.before) do
+      for id in pairs(waiting.before) do
         if id ~= target.guid and not data.members[id] then intact = false; break end
       end
       if intact then
-        clearDraft()
+        finishMember()
         review.index = review.index + 1
         if review.index > #review.targets then
           cancel("WoW confirmed all reviewed characters have left the guild.")
@@ -186,6 +197,11 @@ local function refresh(rosterEvent)
           cancel(review.targets[i].name .. " changed or no longer qualifies. Review the current list.")
           break
         end
+      end
+      if waiting then
+        waiting.rowIndex = data.eligible[target.guid].index
+        if waiting.checking then message = target.name .. " is still eligible. Reopen their member details to continue." end
+        waiting.checking = false
       end
     end
   else
@@ -210,7 +226,8 @@ local function paint()
   for _ in pairs(selection) do selected = selected + 1 end
   local pages = math.max(1, math.ceil(#rows / #listRows))
   page = math.max(1, math.min(page, pages))
-  ui.status:SetText(unavailable or message or (review and "Review every name before starting. WoW requires Enter for each removal."
+  ui.status:SetText(unavailable or (waiting and waiting.checking and "Roster changed. Waiting for the complete list before continuing.")
+    or message or (review and "Review each name. Remove each character from their own WoW guild member card."
     or string.format("%d eligible \194\183 %d selected", #rows, selected)))
   ui.pages:SetText(page .. " / " .. pages)
   ui.prev:SetEnabled(page > 1); ui.next:SetEnabled(page < pages)
@@ -232,8 +249,8 @@ local function paint()
   ui.select:SetShown(not review); ui.clear:SetShown(not review)
   ui.select:SetEnabled(#rows > 0); ui.clear:SetEnabled(selected > 0)
   ui.cancel:SetShown(review ~= nil)
-  ui.action:SetText(review and (review.started and (draft and "Awaiting departure" or "Prepare next removal") or "Start reviewed queue") or "Review selected")
-  ui.action:SetEnabled(review and not draft or not review and selected > 0)
+  ui.action:SetText(review and (waiting and "Reopen member details" or review.started and "Open next member" or "Open member details") or "Review selected")
+  ui.action:SetEnabled(review and not (waiting and waiting.checking) or not review and selected > 0)
   for i, widget in ipairs(listRows) do
     local index = (page - 1) * #listRows + i
     local row = rows[index]
@@ -252,43 +269,101 @@ local function paint()
   end
 end
 
-local function preferredBox()
-  return (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox) or ChatFrame1EditBox
-    or (ChatEdit_ChooseBoxForSend and ChatEdit_ChooseBoxForSend(DEFAULT_CHAT_FRAME))
-    or (ChatEdit_GetActiveWindow and ChatEdit_GetActiveWindow())
+local function currentRowStillMatches()
+  -- nil means the index moved or the target left. Withdraw the card until
+  -- the complete coalesced roster can distinguish those cases.
+  local target, i = review.targets[review.index], waiting.rowIndex
+  local name, rank, slot, level, _, _, note, officerNote, online, _, token, _, _, _, _, _, guid = GetGuildRosterInfo(i)
+  if native.ReadText(name) ~= target.name or native.ReadText(guid) ~= target.guid then return nil end
+  note, officerNote = native.ReadText(note), native.ReadText(officerNote)
+  local days = online == false and native.DaysOffline(i, false)
+  return native.ReadText(rank) == target.rank and slot == target.slot and level == target.level
+    and classKey(token) == target.class
+    and type(days) == "number" and days >= minimumDays(target) and days < math.huge
+    and note and officerNote and not native.HeldNote(note) and not native.HeldNote(officerNote)
+    and canReadOfficerNotes(scope)
+    and native.VisibilityCurrent() and sameScope(scope, nativeScope())
+end
+
+local function sameMember(info, row)
+  if not info or native.ReadText(info.guid) ~= row.guid then return false end
+  local name = native.ReadText(info.name)
+  if not safeName(name) then return false end
+  if name == row.name then return true end
+  -- The club card can omit the local realm. Never equate two explicit realms.
+  if not name:find("-", 1, true) then return name == row.name:match("^([^%-]+)%-") end
+  return row.name == name:match("^([^%-]+)%-")
+end
+
+local function openMember(row, handoff)
+  if not CommunitiesFrame then
+    if type(Communities_LoadUI) == "function" then Communities_LoadUI()
+    elseif C_AddOns and type(C_AddOns.LoadAddOn) == "function" then C_AddOns.LoadAddOn("Blizzard_Communities") end
+  end
+  local frame, club = CommunitiesFrame, C_Club
+  if not frame or type(frame.OpenGuildMemberDetailFrame) ~= "function" or not frame.GuildMemberDetailFrame
+    or not club or type(club.GetGuildClubId) ~= "function" or type(club.GetClubMembers) ~= "function"
+    or type(club.GetMemberInfo) ~= "function" then return end
+  local clubId = club.GetGuildClubId()
+  local ids = clubId and club.GetClubMembers(clubId)
+  if type(ids) ~= "table" or #ids < 1 or #ids > 1000 then return end
+  local member
+  for _, id in ipairs(ids) do
+    local item = club.GetMemberInfo(clubId, id)
+    if sameMember(item, row) and item.memberId == id then member = item; break end
+  end
+  if not member then return end
+  if not frame:IsVisible() then ShowUIPanel(frame) end
+  if not frame:IsVisible() then return end
+  if frame:GetSelectedClubId() ~= clubId then frame:SelectClub(clubId) end
+  if frame:GetSelectedClubId() ~= clubId or not (COMMUNITIES_FRAME_DISPLAY_MODES and COMMUNITIES_FRAME_DISPLAY_MODES.ROSTER) then return end
+  frame:SetDisplayMode(COMMUNITIES_FRAME_DISPLAY_MODES.ROSTER)
+  if waiting ~= handoff or not sameScope(scope, nativeScope()) or club.GetGuildClubId() ~= clubId then return end
+  member = club.GetMemberInfo(clubId, member.memberId)
+  if not sameMember(member, row) then return end
+  if not currentRowStillMatches() then
+    cancel("The reviewed character changed. Review the current guild roster.")
+    return
+  end
+  local card = frame.GuildMemberDetailFrame
+  handoff.card, handoff.clubId, handoff.memberId = card, clubId, member.memberId
+  frame:OpenGuildMemberDetailFrame(clubId, member)
+  if waiting ~= handoff or not card:IsVisible() or card:GetClubId() ~= clubId or card.memberId ~= member.memberId or not sameMember(card:GetMemberInfo(), row)
+    or not card.RemoveButton or not card.RemoveButton:IsVisible() or not card.RemoveButton:IsEnabled() then
+    return
+  end
+  return true
 end
 
 local function prepare()
   local row = review.targets[review.index]
-  local editor = preferredBox()
-  if not editor or type(ChatFrame_OpenChat) ~= "function" or type(editor.GetText) ~= "function"
-    or type(editor.SetText) ~= "function" then
-    message = "The native chat editor is unavailable."
-    return
+  waiting = waiting or {before = snapshot.members, rowIndex = snapshot.eligible[row.guid].index}
+  local handoff = waiting
+  local ok, opened = pcall(openMember, row, handoff)
+  if waiting ~= handoff then return end
+  if ok and opened then
+    message = "Check " .. row.name .. " on the WoW member card, click Remove and review WoW's confirmation."
+  else
+    withdrawCard()
+    message = "Open the guild roster, show offline members and left-click " .. row.name .. ". Check the name on the card before clicking Remove."
   end
-  local active = ChatEdit_GetActiveWindow and ChatEdit_GetActiveWindow()
-  if (editor:GetText() or "") ~= "" or (active and active ~= editor and (active:GetText() or "") ~= "") then
-    message = "Finish or clear your current chat draft, then prepare the removal."
-    return
+  -- Keep Blizzard's window in front of this desk. Only the two unprotected
+  -- inactive-page surfaces change layers; the secure roster parent stays put.
+  if not handoff.layers then
+    handoff.layers = {}
+    for _, surface in ipairs({openParent, OlympusVerifyWorkspace and OlympusVerifyWorkspace.chrome}) do
+      handoff.layers[surface] = surface:GetFrameStrata() or "DIALOG"
+      surface:SetFrameStrata("LOW")
+    end
   end
-  local command = "/guildremove " .. row.name
-  local ok = pcall(ChatFrame_OpenChat, command, DEFAULT_CHAT_FRAME)
-  active = (ChatEdit_GetActiveWindow and ChatEdit_GetActiveWindow()) or editor
-  if not ok or active ~= editor or editor:GetText() ~= command then
-    if editor:GetText() == command then editor:SetText("") end
-    message = "WoW did not open the expected named command. Review it directly in the guild roster."
-    return
-  end
-  draft = {box = active, text = command, before = snapshot.members, rowIndex = snapshot.eligible[row.guid].index}
-  message = "Review " .. row.name .. " in chat and press Enter. Cancel review to stop."
 end
 
 local function action()
-  local prior = review
-  refresh(false)
-  if not snapshot or prior ~= review then paint(); return end
+  local prior, index = review, review and review.index
+  refresh()
+  if not snapshot or prior ~= review or review and review.index ~= index then paint(); return end
   if review then
-    if not draft then review.started = true; prepare() end
+    review.started = true; prepare()
   else
     local targets = {}
     for _, row in ipairs(filtered()) do
@@ -304,22 +379,6 @@ local function action()
     end
   end
   paint()
-end
-
-local function stagedRowStillMatches()
-  -- Validate the live draft immediately on roster events. A full read for the
-  -- view and the departure receipt is coalesced even during an event storm.
-  local target, i = review.targets[review.index], draft.rowIndex
-  local name, rank, slot, level, _, _, note, officerNote, online, _, token, _, _, _, _, _, guid = GetGuildRosterInfo(i)
-  note, officerNote = native.ReadText(note), native.ReadText(officerNote)
-  local days = online == false and native.DaysOffline(i, false)
-  return native.ReadText(name) == target.name and native.ReadText(guid) == target.guid
-    and native.ReadText(rank) == target.rank and slot == target.slot and level == target.level
-    and classKey(token) == target.class
-    and type(days) == "number" and days >= minimumDays(target) and days < math.huge
-    and note and officerNote and not native.HeldNote(note) and not native.HeldNote(officerNote)
-    and canReadOfficerNotes(scope)
-    and native.VisibilityCurrent() and sameScope(scope, nativeScope())
 end
 
 local function label(parent, font, x, y)
@@ -462,13 +521,17 @@ local function build(parent)
     if event == "PLAYER_LEAVING_WORLD" or event == "PLAYER_REGEN_DISABLED" then
       cancel("Review closed. Return when safely out of combat."); snapshot, scope, unavailable = nil, nil, nil; paint()
     elseif event == "PLAYER_GUILD_UPDATE" then
-      refresh(false); paint()
+      refresh(); paint()
     else
-      if draft and event == "GUILD_ROSTER_UPDATE" then draft.sawRoster = true end
-      if draft and draft.box:GetText() == draft.text then
-        local ok, same = pcall(stagedRowStillMatches)
-        if not ok or not same then
-          cancel("The staged character or guild changed. Review the current list.")
+      if waiting and event == "GUILD_ROSTER_UPDATE" then
+        waiting.sawRoster = true
+        local ok, same = pcall(currentRowStillMatches)
+        if not ok or same == false then
+          cancel("The reviewed character or guild changed. Cancel any open removal and review the current list.")
+          paint()
+        elseif same == nil and not waiting.checking then
+          waiting.checking = true
+          withdrawCard()
           paint()
         end
       end
@@ -478,7 +541,7 @@ local function build(parent)
   panel:SetScript("OnUpdate", function(_, dt)
     if not dirty then return end
     elapsed = elapsed + dt
-    if elapsed >= 1 then dirty, elapsed = false, 0; refresh(true); paint() end
+    if elapsed >= 1 then dirty, elapsed = false, 0; refresh(); paint() end
   end)
   panel:SetScript("OnHide", function()
     ui.classMenu:Hide()
@@ -495,7 +558,7 @@ function D.Show(parent)
   openParent = parent
   panel:Show()
   if InCombatLockdown and InCombatLockdown() == false and not (OlympusVerifyUI and OlympusVerifyUI.preview) then native.RequestRoster() end
-  refresh(false); paint()
+  refresh(); paint()
 end
 
 function D.Hide()

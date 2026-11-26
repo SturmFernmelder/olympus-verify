@@ -30,12 +30,13 @@ const {Miniflare,Log,LogLevel,convertV4MiniflareOptions} = require('miniflare');
         isolatedResourcePersistencePath:path.join(temp,'isolated'),outboundService:async request=>{
           const url=new URL(request.url),id=url.pathname.split('/').pop();
           outbound.push(request.method+' '+url.pathname);
-          if(request.method==='GET'&&url.hostname==='discord.com'&&['800000000000000012','800000000000000013'].includes(id)){
+          if(request.method==='GET'&&url.hostname==='discord.com'&&['800000000000000012','800000000000000013','800000000000000015'].includes(id)){
             if(request.headers.get('Authorization')==='Bot synthetic-advance-roster-during-discord'){
               const advanced=await mf.dispatchFetch('http://fixture.invalid/fixture-advance/'+scenario);
               assert.equal(advanced.status,204);
             }
-            return Response.json({user:{id},roles:id.endsWith('13')?['1299841745550311535']:[]});
+            const knight=(id.endsWith('13')||id.endsWith('15'))&&request.headers.get('Authorization')!=='Bot synthetic-without-knight';
+            return Response.json({user:{id},roles:knight?['1299841745550311535']:[]});
           }
           return new Response(null,{status:503});
         }}));
@@ -45,8 +46,8 @@ const {Miniflare,Log,LogLevel,convertV4MiniflareOptions} = require('miniflare');
         assert.equal(response.status,200,JSON.stringify(payload));
         // Count what actually reached the external transport. Any lookup for a pending
         // Initiate or changed rank, or any role mutation, fails this assertion.
-        const attended=[12,13,12,13,12],background=[12,13,12,13,12,13];
-        assert.deepEqual(outbound,productionPin?[]:[...attended,...background].map(id=>
+        const attended=[12,13,12,13,15,15,12],background=[12,13,12,13,12,13];
+        assert.deepEqual(outbound,productionPin?[]:[...attended,...background,15,15].map(id=>
           'GET /api/v10/guilds/236932545793490944/members/8000000000000000'+id));
         for (const row of payload.checks)console.log('PASS ['+scenario+'] '+row);
       } finally { await mf.dispose(); }

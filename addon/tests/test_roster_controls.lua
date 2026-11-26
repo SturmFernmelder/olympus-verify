@@ -357,7 +357,10 @@ do
   e.CanGuildRemove=function() return true end
   local opened
   e.ChatFrame_OpenChat=function(text)opened=text end
-  check("single eligible current GUID prepares only an unsent native command",w.ReviewRemoval() and opened=="/guildremove NameOnly-Forever" and f.removals==0)
+  local instruction
+  e.DEFAULT_CHAT_FRAME.AddMessage=function(_,text) instruction=text end
+  check("single eligible current GUID directs the officer to the named native card without opening chat",w.ReviewRemoval()
+    and instruction:find("select NameOnly-Forever,",1,true) and not opened and f.removals==0)
   opened=nil
   local officerGuid=e.UnitGUID
   e.UnitGUID=function() return "" end
