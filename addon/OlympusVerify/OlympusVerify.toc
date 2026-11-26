@@ -1,8 +1,8 @@
 ## Interface: 16001, 16000, 11509
 ## Title: Olympus Verify
-## Notes: Discord verification, native guild roster status and officer whisper reminders. /olv opens the panel.
+## Notes: Guild roster, promotion checks, inactivity review and Discord verification. /olv opens the officer workspace.
 ## Author: Olympus
-## Version: 0.6.50
+## Version: 0.6.51
 ## OptionalDeps: Olympus
 ## SavedVariables: OlympusVerifyDB
 
@@ -16,6 +16,7 @@ OlympusVerifyNativeRankConstants.lua
 OlympusVerifyNativeRanks.lua
 OlympusVerifyLocalPrivacy280.lua
 OlympusVerify.lua
+OlympusVerifyInactiveDesk.lua
 OlympusVerifyWorkspace.lua
 OlympusVerifyUI.lua
 OlympusVerifyAutoSync.lua

@@ -397,7 +397,7 @@ end
 do
   local f=fixture();local e=f.e
   f.w.Hide();e.OlympusVerifyRoster=nil
-  for _,module in ipairs({"OlympusVerifyWorkspace","OlympusVerifyUI","OlympusVerifyGuildJournal","OlympusVerifyRoster"}) do
+  for _,module in ipairs({"OlympusVerifyWorkspace","OlympusVerifyUI","OlympusVerifyGuildJournal","OlympusVerifyInactiveDesk","OlympusVerifyRoster"}) do
     setfenv(assert(loadfile("../OlympusVerify/"..module..".lua")),e)("OlympusVerify")
   end
   local w,ui,s=e.OlympusVerifyRoster,e.OlympusVerifyUI,e.OlympusVerifyWorkspace
@@ -416,6 +416,72 @@ do
   check("switching pages cannot hide a protected roster in combat",s.active=="roster" and w.frame:IsShown())
   e.InCombatLockdown=function()return false end;ui.Show()
   check("return to Operations hides the roster and preserves a single visible page",s.active=="operations" and ui.panel:IsShown() and not w.frame:IsShown())
+  s.Close(); ui.Toggle()
+  check("default desk opens Members, reusing the same header and single Sync button",
+    s.chrome:IsShown() and s.section=="roster" and w.frame:IsShown() and ui.panel.syncButton==w.frame.syncButton)
+  w.sortButton:Click()
+  for _,item in ipairs(w.menu.items) do if item.option and item.option.value=="level" then item:Click();break end end
+  w.Show("Alpha")
+  s.tabs.promotions:Click()
+  check("Promotions displays verified Initiates without issuing a write or a Sync",
+    s.section=="promotions" and w.view.action==4 and w.view.status==2 and f.attempts==0 and syncs==1)
+  s.tabs.roster:Click()
+  check("returning to Members restores search and sort",w.view.text=="Alpha" and w.view.sort=="level")
+  local alpha=w.rows[1]
+  alpha:GetScript("OnMouseUp")(alpha,"LeftButton")
+  e.ROSTER[3].note="Public sample";e.ROSTER[3].onote="Officer sample"
+  e.CanViewOfficerNote=function()return false end
+  w.noteButton:Click()
+  local tip=table.concat(e.GameTooltip._lines," ")
+  check("local notes use the selected native member and redact the officer note without permission",
+    tip:find("Public sample",1,true) and not tip:find("Officer sample",1,true))
+  e.CanViewOfficerNote=function()return true end
+  w.noteButton:Click()
+  check("native permission exposes the selected officer note",table.concat(e.GameTooltip._lines," "):find("Officer sample",1,true))
+  e.ROSTER[3].onote=""
+  w.noteButton:Click()
+  check("a readable empty officer note is known empty",table.concat(e.GameTooltip._lines," "):find("Officer note: None",1,true))
+  e.ROSTER[3].onote="restricted fixture"
+  local oldSecret=e.issecretvalue
+  e.issecretvalue=function(value) return value=="restricted fixture" end
+  w.noteButton:Click()
+  tip=table.concat(e.GameTooltip._lines," ")
+  check("a restricted note is unavailable while the public note remains readable",tip:find("Officer note: Unavailable",1,true) and tip:find("Public sample",1,true) and not tip:find("restricted fixture",1,true))
+  e.issecretvalue=function(value) if value=="restricted fixture" then error("unreadable") end;return false end
+  w.noteButton:Click()
+  check("a failed per-note read preserves the public note",table.concat(e.GameTooltip._lines," "):find("Public sample",1,true))
+  e.issecretvalue=oldSecret
+  e.CanViewOfficerNote=function() error("unavailable") end
+  w.noteButton:Click()
+  tip=table.concat(e.GameTooltip._lines," ")
+  check("a failed permission check preserves the public note and hides private data",tip:find("Public sample",1,true) and not tip:find("Officer note",1,true))
+  local id=e.ROSTER[3].guid;e.ROSTER[3].guid="Player-1-0000C0DE"
+  w.noteButton:Click()
+  check("a reused row index cannot display either note",not table.concat(e.GameTooltip._lines," "):find("sample",1,true))
+  e.ROSTER[3].guid=id;e.ROSTER[3].level=53
+  f.emit("GUILD_ROSTER_UPDATE");f.emit("GUILD_ROSTER_UPDATE")
+  check("burst of native updates queues one trailing read",w.nativeDirty and w.rows[1].member.level~=53)
+  e.NOW=e.NOW+5;w.frame:GetScript("OnUpdate")(w.frame,5)
+  check("trailing native update reaches the desk without another event or Sync",not w.nativeDirty and w.rows[1].member.level==53 and syncs==1)
+  s.tabs.inactive:Click()
+  check("Inactive mounts its own native page inside the same desk without Sync",s.active=="inactive" and s.pages.inactive==e.OlympusVerifyInactiveHost and s.pages.inactive:IsShown() and not w.frame:IsShown() and syncs==1)
+  e.OlympusVerifyInactiveHost:Hide()
+  check("closing the native page also closes the chrome",not s.IsShown() and not s.chrome:IsShown() and f.removals==0)
+  ui.Toggle()
+  local bar=s.tabs.roster._parent
+  local starts,stops=0,0
+  local combat=false; e.InCombatLockdown=function() return combat end
+  s.shell.StartMoving=function() assert(not combat);starts=starts+1 end
+  s.shell.StopMovingOrSizing=function() assert(not combat);stops=stops+1 end
+  bar:GetScript("OnDragStart")(bar)
+  combat=true
+  local onEvent=s.shell:GetScript("OnEvent")
+  onEvent(s.shell,"PLAYER_REGEN_DISABLED");bar:GetScript("OnDragStop")(bar);s.chrome:Hide()
+  check("a combat interruption never moves a protected desk",starts==1 and stops==0)
+  combat=false;onEvent(s.shell,"PLAYER_REGEN_ENABLED");onEvent(s.shell,"PLAYER_REGEN_ENABLED")
+  check("combat end releases an interrupted drag exactly once while chrome is hidden",stops==1 and e.OlympusVerifyDB.deskPosition)
+  s.chrome:Show();bar:GetScript("OnDragStart")(bar);s.Close()
+  check("closing during a normal drag releases it without mouseup",starts==2 and stops==2)
 end
 print(string.format("%d passed, %d failed",passed,failed))
 if failed>0 then error("roster controls failed") end

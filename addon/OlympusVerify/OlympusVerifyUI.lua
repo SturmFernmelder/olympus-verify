@@ -44,7 +44,7 @@ local fullBlocked, fullArmedUntil = false, 0  -- set in Refresh from the roster 
 
 -- Geometry, top down, in UI units from the panel's top-left. Every text gets a width here so nothing can draw into
 -- its neighbour; the numbers below are the whole layout.
-local WIDTH = 700
+local WIDTH = OlympusVerifyWorkspace and 1200 or 700
 local PAD = 18                    -- content inset; the dialog border itself is about 8 wide
 local INNER = WIDTH - 2 * PAD     -- 664
 local ROW_W = INNER - 10          -- queue and candidate rows; the last 10 hold the scroll thumb
@@ -404,6 +404,11 @@ end
 -- shrinks to fit instead. Never above 1: the officer's own UI scale is the size they chose.
 local function FitToScreen()
   if not (panel and panel.SetScale and UIParent and UIParent.GetHeight) then return end
+  if OlympusVerifyWorkspace then
+    -- The desk already fits the screen. Only a tall, expanded Operations page needs further scaling.
+    panel:SetScale(math.min(1, OlympusVerifyWorkspace.contentHeight / math.max(1, panel:GetHeight())))
+    return
+  end
   local sh = tonumber((UIParent:GetHeight())) or 0
   local sw = UIParent.GetWidth and tonumber((UIParent:GetWidth())) or 0
   local h = panel.GetHeight and tonumber((panel:GetHeight())) or 0
@@ -504,11 +509,16 @@ local function BuildShell()
     panel:SetBackdrop(PANEL_BACKDROP)
     if panel.SetBackdropColor then panel:SetBackdropColor(C.bg[1], C.bg[2], C.bg[3], 0.97) end
   end
-  panel:SetMovable(true); panel:EnableMouse(true); panel:RegisterForDrag("LeftButton")
-  panel:SetScript("OnDragStart", panel.StartMoving)
-  panel:SetScript("OnDragStop", function(self) self:StopMovingOrSizing(); SavePosition() end)
+  panel:EnableMouse(true)
+  if not OlympusVerifyWorkspace then
+    panel:SetMovable(true); panel:RegisterForDrag("LeftButton")
+    panel:SetScript("OnDragStart", panel.StartMoving)
+    panel:SetScript("OnDragStop", function(self) self:StopMovingOrSizing(); SavePosition() end)
+    RestorePosition()
+  else
+    if panel.SetBackdrop then panel:SetBackdrop(nil) end
+  end
   panel:Hide()
-  RestorePosition()
   -- Esc closes it like any Blizzard window.
   if type(UISpecialFrames) == "table" then table.insert(UISpecialFrames, "OlympusVerifyPanel") end
   UI.panel = panel
@@ -532,7 +542,7 @@ local function BuildHeader()
   UI.rule = rule
 
   -- The title is its own bounded box: measured once, since the text never changes, so the badge sits right after it.
-  UI.title = Label(panel, "GameFontNormalLarge", GOLD .. "Olympus Verify|r", PAD, -17)
+  UI.title = Label(panel, "GameFontNormalLarge", GOLD .. (OlympusVerifyWorkspace and "Operations" or "Olympus Verify") .. "|r", PAD, -17)
   local tw = UI.title.GetStringWidth and tonumber((UI.title:GetStringWidth())) or 0
   UI.title:SetWidth((tw > 0 and tw < 220) and (math.ceil(tw) + 4) or 150)
   -- The NEW marker is its own badge now; in the title string it pushed the counts into the version text.
@@ -550,6 +560,7 @@ local function BuildHeader()
   local close = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
   close:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -5, -5)
   close:SetScript("OnClick", function() UI.Hide() end)
+  if OlympusVerifyWorkspace then close:Hide() end
 
   -- Shown only while /olv preview fills the panel with sample data (OlympusVerifyPreview.lua). Together with the
   -- amber border and header it is impossible to mistake the sample queue for the real one.
@@ -1271,6 +1282,7 @@ local function StartTicker()
 end
 
 function UI.Show()
+  if OlympusVerifyWorkspace and InCombatLockdown and InCombatLockdown() then return end
   Build()
   if OlympusVerifyWorkspace and not OlympusVerifyWorkspace.Activate("operations") then return end
   panel:Show()
@@ -1283,14 +1295,17 @@ function UI.Hide()
 end
 
 function UI.Toggle()
-  if OlympusVerifyWorkspace and OlympusVerifyWorkspace.active=="roster" and OlympusVerifyRoster and OlympusVerifyRoster.frame and OlympusVerifyRoster.frame:IsShown() then
-    OlympusVerifyRoster.Hide();return
+  if OlympusVerifyWorkspace and OlympusVerifyRoster then
+    if OlympusVerifyWorkspace.IsShown() then OlympusVerifyWorkspace.Close()
+    else OlympusVerifyRoster.ShowRoster() end
+    return
   end
   if panel and panel:IsShown() then UI.Hide() else UI.Show() end
 end
 
 -- a new invite landed: open the panel unless the officer turned that off
 function UI.Alert()
+  if OlympusVerifyWorkspace and OlympusVerifyWorkspace.IsShown() then UI.Refresh();return end
   if OlympusVerifyRoster and OlympusVerifyRoster.frame and OlympusVerifyRoster.frame:IsShown() then UI.Refresh();return end
   if AUTO_SHOW then UI.Show() else UI.Refresh() end
 end

@@ -79,6 +79,11 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".308", date: "2026-11-26", lines: [
+      "Officers can open the roster, see when a verified Initiate is ready for a promotion, and review inactive members together using the in-game roster.",
+    ],
+  },
+  {
     build: ".307", date: "2026-11-26", lines: [
       "Browse guild rosters and look up linked characters. Raid views show capacity and signups. Guild bank contributions are voluntary.",
       "The officer workspace brings guild activity, roster filters and verification sync together. Promotions require an officer click.",

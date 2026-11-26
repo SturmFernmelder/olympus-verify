@@ -41,7 +41,7 @@ local SECRET = cfg.secret
 -- 0.6.12: the example's placeholder is public, so a Config.lua copied without replacing it must not accept codes made from it.
 if type(SECRET) ~= "string" or SECRET == "" or string.find(SECRET, "^REPLACE_WITH_") then SECRET = nil end
 local secretWarned = false  -- 0.6.12: say once per session, not on every whisper, that codes cannot be checked
-local SOURCE_VERSION = "0.6.50" -- Keep this source fallback and OlympusVerify.toc aligned.
+local SOURCE_VERSION = "0.6.51" -- Keep this source fallback and OlympusVerify.toc aligned.
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
   or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or SOURCE_VERSION
 local SET_NOTES = cfg.setNotes == true  -- SetNote is forbidden for addons on the Forever beta; leave false there
@@ -1366,7 +1366,7 @@ function Roster.Members()
       if classFile and not classSeen[classFile] then classSeen[classFile] = true; info.classes[#info.classes + 1] = classFile end
       out[#out + 1] = {
         name = base, full = name, rank = rank or "?", rankIndex = rankIndex or 99, level = level or 0, class = classFile,
-        guid = guid,
+        guid = guid, nativeIndex = i,
         online = online and true or false, days = DaysOffline(i, online), status = status,
         statusDetail = display and Roster.STATUS_DETAIL_BASE[display.statusDetail] == status and display.statusDetail or status,
         statusLabel = display and display.label, statusReason = display and display.reason,
@@ -3485,6 +3485,16 @@ OlympusVerifyAPI = {
     return true
   end,
   Candidates = function(n,cachedOnly) return RemovalCandidates(n,cachedOnly) end,
+  -- The inactivity desk reads the native roster on its own. The blank-realm
+  -- observer still needs corroboration in the *current* complete roster; an
+  -- exported verification snapshot is unrelated to a native removal review.
+  Inactive = {
+    Scope = function() return Presence.NativeRosterScope(true) end,
+    RequestRoster = function() return RequestRoster(false) end,
+    VisibilityCurrent = RosterVisibilityCurrent, ReadText = Presence.Readable,
+    DaysOffline = DaysOffline, RequiredDays = RequiredDaysOffline, ProtectedRank = Unverified.ProtectedRank,
+    HeldNote = function(text) return string.find(string.lower(text), HOLD_NOTE, 1, true) ~= nil end,
+  },
   RemoveMember = function(name, reason) return OlympusVerify_RemoveMember(name, reason) end,
   -- The roster window's reads (0.6.4). A table for the same reason as Text and Name: nothing here acts, so /olv
   -- preview has nothing to stand in for.
@@ -4314,7 +4324,11 @@ OlympusVerifySlash234.Register("OLYMPUSVERIFY", {"/olv"}, function(msg)
     end
     Print("/olv [ui|panel] | members [name] | ranks | invite (one existing flush action) | flush | check | queue | all | trace | merge | full | unverified [ranks|all] | aim | macrotest | roster | clear | flushlog | logtest | diag [discord|clog] | sync | preview [state|list|off] | status")
   elseif cmd == "show" or cmd == "hide" or cmd == "ui" or cmd == "panel" or cmd == "" then
-    if OlympusVerifyUI and OlympusVerifyUI.Toggle then
+    if cmd == "show" and OlympusVerifyRoster and OlympusVerifyRoster.ShowRoster then
+      OlympusVerifyRoster.ShowRoster()
+    elseif cmd == "hide" and OlympusVerifyWorkspace and OlympusVerifyWorkspace.Close then
+      OlympusVerifyWorkspace.Close()
+    elseif OlympusVerifyUI and OlympusVerifyUI.Toggle then
       if cmd == "show" then OlympusVerifyUI.Show() elseif cmd == "hide" then OlympusVerifyUI.Hide() else OlympusVerifyUI.Toggle() end
     else
       Print("panel not loaded — /olv status")

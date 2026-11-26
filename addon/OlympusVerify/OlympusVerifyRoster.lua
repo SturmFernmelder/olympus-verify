@@ -22,15 +22,15 @@ local W = OlympusVerifyRoster
 
 local GOLD, GREY, WHITE, GREEN, YELLOW, RED = "|cffc9a86c", "|cff9ea3ad", "|cffe8ddc5", "|cff8ac69a", "|cffe8be65", "|cffe57572"
 local C = {
-  bg = { 0.063, 0.071, 0.090 }, band = { 0.090, 0.102, 0.129 }, tile = { 0.114, 0.125, 0.157 },
+  bg = { 0.034, 0.066, 0.080 }, band = { 0.064, 0.119, 0.137 }, tile = { 0.094, 0.163, 0.180 },
   gold = { 0.788, 0.659, 0.424 }, text = { 0.910, 0.867, 0.773 }, muted = { 0.620, 0.639, 0.678 },
 }
 local WHITE8 = "Interface\\Buttons\\WHITE8X8"
 local BACKDROP_TEMPLATE = (BackdropTemplateMixin and "BackdropTemplate") or nil
 local PANEL_BACKDROP = { bgFile = WHITE8, edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border", tile = false, edgeSize = 24, insets = { left = 6, right = 6, top = 6, bottom = 6 } }
-local CHIP_BACKDROP = { bgFile = WHITE8, edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", tile = false, edgeSize = 10, insets = { left = 2, right = 2, top = 2, bottom = 2 } }
+local CHIP_BACKDROP = { bgFile = WHITE8, edgeFile = WHITE8, edgeSize = 1 }
 
-local WIDTH, PAD, ROWS, ROW_H = 1200, 18, 14, 22
+local WIDTH, PAD, ROWS, ROW_H = 1200, 18, OlympusVerifyWorkspace and OlympusVerifyWorkspace.visibleRows or 14, 22
 local INNER = WIDTH - 2 * PAD
 local FILTER_Y, COLS_Y = -66, -166
 local ROWS_Y = COLS_Y - 20
@@ -47,7 +47,7 @@ local COLS = {
   { key = "display", text = "Display name", x = 688, w = 120 },
   { key = "seen", text = "Last seen", x = 814, w = 60 },
   { key = "sourceAge", text = "Roster age", x = 880, w = 76 },
-  { key = "action", text = "Member readiness", x = 962, w = 176 },
+  { key = "action", text = "Promotion", x = 962, w = 180 },
 }
 local STATUS_TEXT = {
   verified = GREEN .. "verified|r",
@@ -72,6 +72,7 @@ local ACTION_FILTERS = {
   { "unavailable", "Queue unavailable" }, { "duplicate_guid", "Ambiguous native GUID" },
   { "missing_guid", "Native GUID unavailable" }, { "wrong_rank", "Other native rank" },
   { "recommended", "Dated or current recommendations" },
+  { "checking", "Awaiting eligibility result" }, { "check", "Eligibility check needed" },
 }
 local NEXT_STEP = {
   verified="Use Discord /verify-status to confirm current access; this is a dated display result.",
@@ -161,8 +162,16 @@ local function Button(parent, text, w, h, onClick, tipTitle, tipText, secure)
   b:SetSize(w, h)
   if b.SetBackdrop then
     b:SetBackdrop(CHIP_BACKDROP)
-    if b.SetBackdropColor then b:SetBackdropColor(C.tile[1], C.tile[2], C.tile[3], 0.95) end
-    if b.SetBackdropBorderColor then b:SetBackdropBorderColor(C.gold[1], C.gold[2], C.gold[3], 0.55) end
+    if b.SetBackdropColor then
+      if secure then b:SetBackdropColor(.12,.32,.30,1)
+      else b:SetBackdropColor(C.tile[1], C.tile[2], C.tile[3], 1) end
+    end
+    if b.SetBackdropBorderColor then b:SetBackdropBorderColor(.32,.44,.45,1) end
+  end
+  if b.SetHighlightTexture then
+    b:SetHighlightTexture(WHITE8)
+    local hover=b:GetHighlightTexture()
+    if hover and hover.SetVertexColor then hover:SetVertexColor(.21,.54,.56,.22) end
   end
   local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   fs:SetPoint("CENTER", b, "CENTER", 0, 0)
@@ -289,6 +298,14 @@ local function Reload()
     end
   end
   cache.list, cache.info = list or {}, info
+  cache.paint=nil
+  cache.loadedAt,cache.snapshotAt=nil,nil
+  cache.hasHandle=false
+  for _,m in ipairs(cache.list) do
+    if m.discord and m.discord~="" then cache.hasHandle=true end
+    if type(m.statusAt)=="number" and (not cache.loadedAt or m.statusAt<cache.loadedAt) then cache.loadedAt=m.statusAt end
+    if type(m.snapshotAt)=="number" and (not cache.snapshotAt or m.snapshotAt<cache.snapshotAt) then cache.snapshotAt=m.snapshotAt end
+  end
   cache.source,cache.error,cache.stale,cache.fetched,cache.snapshot=EvidenceStamp()
 end
 
@@ -460,6 +477,15 @@ local function DetailLines(m)
 end
 local function ShowDetail(m, visible, log)
   if not detailText then return end
+  if W.noteButton then
+    local previous=W.noteButton.member
+    W.noteButton.member=visible and m or nil
+    W.noteButton:SetEnabled(W.noteButton.member~=nil)
+    if GameTooltip and GameTooltip.IsOwned and GameTooltip:IsOwned(W.noteButton) then
+      if previous==W.noteButton.member and previous then W.noteButton:GetScript("OnEnter")(W.noteButton)
+      else HideTip() end
+    end
+  end
   if W.reminderButton then
     local allowed,reason
     if visible and m and m.guid and R.ReminderEligibility and R.SendInitiateReminder then
@@ -475,7 +501,19 @@ local function ShowDetail(m, visible, log)
     end
     W.reminderDetail:SetText(m and (last.."\n"..(allowed and ("Ready to whisper "..Clean(m.name)..".") or reason or "Select a visible online Initiate.")) or "Select an online Initiate to check reminder eligibility.")
   end
-  if not m then detailText:SetText(GREY.."Select a row for its full verification reason, source dates and promotion readiness. Review labels do not establish current Discord access.|r"); return end
+  if not m then detailText:SetText(GREY.."Select a character to view their verification, promotion eligibility and reminder history.|r"); return end
+  if OlympusVerifyWorkspace and not W.showSources then
+    local action=ActionFor(m)
+    local identity=Clean(m.full or m.name)..(m.discord and ("   @"..Clean(m.discord)) or "")
+    local facts=Clean(m.rank).."   ·   "..className(m.class).."   ·   "..seenText(m)
+    local lines={GOLD..identity.."|r",facts,
+      "Verification: "..Clean(m.statusLabel or m.status), "Promotion: "..Clean(action.label or action.state)}
+    if m.status=="verified" and not m.discord then lines[#lines+1]="Discord handle unavailable. Sync loads the latest available Watcher file." end
+    if action.reason and (m.rankIndex==9 or action.state=="ready" or action.state=="pending") then
+      lines[#lines+1]=Clean(action.reason)
+    end
+    detailText:SetText(table.concat(lines,"\n"));return
+  end
   local lines=DetailLines(m)
   local journal=OlympusVerifyGuildJournal
   local first=journal and m.guid and journal.FirstSeen(m.guid)
@@ -616,18 +654,33 @@ local function SourceLines()
     "Potential Initiates and signed action readiness are separate. Original expiry, native and pending-attempt guards remain." }
 end
 
-function W.Refresh()
+function W.Refresh(scrolling)
   if not frame or not frame:IsShown() or InCombatLockdown and InCombatLockdown() then return end
   local q,err,stale,fetched,snapshot=EvidenceStamp()
   if q~=cache.source or err~=cache.error or stale~=cache.stale or fetched~=cache.fetched or snapshot~=cache.snapshot then Reload() end
-  local log
-  if OnlineInitiates() or selected or historyBox and historyBox:IsShown() then log=ReadReminders() end
-  local list, candidates, why, reminders = Visible(log)
+  local now=time()
+  local list,candidates,why,reminders,log
+  -- Wheel and slider movement only change the visible slice. Every action and each new
+  -- clock second gets fresh eligibility; a native reload also invalidates the projection.
+  local last=scrolling==true and cache.paint
+  if last and last.at==now then
+    list,candidates,why,reminders,log=last.list,last.candidates,last.why,last.reminders,last.log
+  else
+    if OnlineInitiates() or selected or historyBox and historyBox:IsShown() then log=ReadReminders() end
+    list,candidates,why,reminders=Visible(log)
+    cache.paint={at=now,list=list,candidates=candidates,why=why,reminders=reminders,log=log}
+  end
   local info = cache.info or {}
   local selectedShown=false
   local maxOffset = math.max(0, #list - ROWS)
   if offset > maxOffset then offset = maxOffset end
   if offset < 0 then offset = 0 end
+  if W.scroll then
+    W.settingScroll=true
+    W.scroll:SetMinMaxValues(0,math.max(1,maxOffset));W.scroll:SetValue(offset)
+    W.scroll:SetShown(maxOffset>0)
+    W.settingScroll=false
+  end
   for i = 1, ROWS do
     local r, m = rows[i], list[offset + i]
     if m then
@@ -659,7 +712,7 @@ function W.Refresh()
       local action=ActionFor(m)
       r.cells.action:SetText(Eligible(m,candidates) and "" or GREY..trunc(action.label or action.state,28).."|r")
       r.promote.member = m
-      SetButtonText(r.promote,action.targetName and ("To "..action.targetName) or "Promote")
+      SetButtonText(r.promote,action.targetName and ("Promote to "..action.targetName) or "Promote")
       r.promote:SetShown(Eligible(m, candidates))
       r:Show()
     else
@@ -677,17 +730,18 @@ function W.Refresh()
   local shown=#list
   summary:SetText(string.format("%s%d members|r  %s%d verified|r  %s%d not verified|r  %s%d verifying|r  %s%d review/unknown|r  %s%d stale|r",
     WHITE,info.total or 0,GREEN,info.verified or 0,RED,info.unverified or 0,YELLOW,info.pending or 0,GREY,info.unknown or 0,YELLOW,info.stale or 0))
-  local loadedAt,snapshotAt
-  for _,m in ipairs(cache.list) do
-    if type(m.statusAt)=="number" and (not loadedAt or m.statusAt<loadedAt) then loadedAt=m.statusAt end
-    if type(m.snapshotAt)=="number" and (not snapshotAt or m.snapshotAt<snapshotAt) then snapshotAt=m.snapshotAt end
-  end
+  local loadedAt,snapshotAt=cache.loadedAt,cache.snapshotAt
   local sync=OlympusVerifyAutoSync and OlympusVerifyAutoSync.Status and OlympusVerifyAutoSync.Status()
   snapshotText:SetText(GREY.."Local Sync request: "..Stamp(sync and sync.lastRequestedAt).." | Loaded server query: "..Stamp(loadedAt).." ("..Age(loadedAt)..") | Server roster: "..Stamp(snapshotAt).." ("..Age(snapshotAt)..")|r")
-  local namesHint=info.hasNames and "Refresh view rereads the native roster and loaded evidence; it cannot fetch a changed disk file."
-    or "No current Discord names loaded. Use Sync to load the Watcher result."
-  footer:SetText(GREY..string.format("Showing %d of %d members%s. ",shown,info.total or 0,
-    #list>ROWS and string.format(" | rows %d-%d, scroll",offset+1,math.min(#list,offset+ROWS)) or "")..namesHint.."|r")
+  local namesHint
+  if not info.hasNames or (info.verified or 0)>0 and not cache.hasHandle then
+    namesHint="Discord handles unavailable. Use Sync to load the latest list. If handles stay missing, check the Watcher is running and up to date."
+  elseif W.showSources then
+    namesHint="Refresh view uses the roster and file already loaded. Sync loads the latest available Watcher file."
+  end
+  footer:SetText(GREY..string.format("%d of %d members%s",shown,info.total or 0,
+    #list>ROWS and string.format("   ·   Rows %d–%d",offset+1,math.min(#list,offset+ROWS)) or "")
+    ..(namesHint and ("   ·   "..namesHint) or "").."|r")
   SetButtonText(statusBtn,STATUS_FILTERS[view.status][2].." v")
   SetButtonText(rankBtn,(CurrentRank() or "All ranks").." v")
   SetButtonText(classBtn,(CurrentClass() and className(CurrentClass()) or "All classes").." v")
@@ -726,6 +780,11 @@ function W.Refresh()
   end
   actionInfo:SetText(GREY..explanation.."|r")
   W.sourceExplanation=explanation
+  if W.emptyMessage then
+    W.emptyMessage:SetShown(shown==0)
+    W.emptyMessage:SetText(info.total==0 and "The guild roster is empty or still loading."
+      or "No characters match these filters.")
+  end
   local sortLabel=view.sort
   for _,col in ipairs(COLS) do local key,title=Column(col);if key==view.sort then sortLabel=title end end
   local hint="; equal values use character name. Blank values stay last."
@@ -738,6 +797,18 @@ function W.Refresh()
     if same then hint="; this view shares one original observation time, so rows tie by character name." end
   end
   sortText:SetText(GREY.."Sorted by "..sortLabel..(view.desc and " descending" or " ascending")..(view.secondary and (" then "..view.secondary..(view.secondaryDesc and " descending" or " ascending")) or "")..hint.."|r")
+  if W.sortButton then SetButtonText(W.sortButton,"Sort: "..sortLabel..(view.desc and " ↓" or " ↑")) end
+  if W.sourceButton then
+    SetButtonText(W.sourceButton,W.showSources and "Hide source details" or "Source details")
+    if not W.showSources then
+      snapshotText:SetText(GREY.."Discord list: "..(loadedAt and (Age(loadedAt).." ago") or "unavailable")
+        .."   ·   Roster observation: "..(snapshotAt and (Age(snapshotAt).." ago") or "unavailable").."|r")
+      queueSummary:SetText(string.format("%s%d ready to promote|r   ·   %d verified Initiates   ·   %d shown",
+        readyCount>0 and GREEN or GREY,readyCount,diagnostics.knownVerifiedInitiates or 0,shown))
+    end
+    actionInfo:SetShown(W.showSources==true); W.sourceTip:SetShown(W.showSources==true)
+    sortText:SetShown(W.showSources==true)
+  end
   local match
   if selected then for _,m in ipairs(cache.list) do
     if IsSelected(m) then match=m;break end
@@ -758,11 +829,84 @@ end
 
 local function Wheel(_, delta)
   offset = offset - (tonumber(delta) or 0) * 3
-  W.Refresh()
+  W.Refresh(true)
 end
 
 -- ---------------------------------------------------------------- building
 local Layout = { WIDTH=WIDTH, HEIGHT=HEIGHT, PAD=PAD, INNER=INNER, FILTER_Y=FILTER_Y, COLS_Y=COLS_Y, ROWS_Y=ROWS_Y, ROW_H=ROW_H, ROWS=ROWS }
+-- Native notes are fetched only for the hovered selection. A roster index is a hint:
+-- names and GUIDs must still match, and officer notes require the current game permission.
+local function nativeNotes(member)
+  if not member or not readablePlayerGuid(member.guid) or type(member.nativeIndex)~="number"
+    or not IsInGuild or not IsInGuild() or (InCombatLockdown and InCombatLockdown()) then return end
+  local function readable(value)
+    if not issecretvalue then return true end
+    local ok,secret=pcall(issecretvalue,value)
+    return ok and secret==false
+  end
+  local function noteText(value)
+    if not readable(value) or type(value)~="string" then return "Unavailable" end
+    if value=="" then return "None" end
+    return (value:gsub("|","||"):gsub("[%c]"," "))
+  end
+  local name,_,_,_,_,_,note,officerNote,_,_,_,_,_,_,_,_,id=GetGuildRosterInfo(member.nativeIndex)
+  if not readablePlayerGuid(id) or id~=member.guid or not readable(name) or name~=member.full then return end
+  local lines={"Guild note: "..noteText(note)}
+  local can=(C_GuildInfo and C_GuildInfo.CanViewOfficerNote) or CanViewOfficerNote
+  if type(can)=="function" then
+    local ok,allowed=pcall(can)
+    if ok and readable(allowed) and allowed==true then lines[#lines+1]="Officer note: "..noteText(officerNote) end
+  end
+  return lines
+end
+function Layout.AddDeskControls(copy)
+  if not OlympusVerifyWorkspace then return end
+  local sort=Button(frame,"Sort",178,24,function(button)
+    local options={}
+    for _,col in ipairs(COLS) do
+      local key,title=Column(col)
+      options[#options+1]={value=key,label=title}
+    end
+    OpenMenu(button,"Sort by · select again to reverse",options,view.sort,function(key)
+      if view.sort==key then view.desc=not view.desc else view.sort,view.desc=key,false end
+      if view.secondary==key then view.secondary=nil end
+      offset=0;W.Refresh()
+    end)
+  end,"Sort members","Choose a column. Select it again to reverse the order; Shift-click a column heading to break ties.")
+  sort:SetPoint("LEFT",copy,"RIGHT",6,0)
+  W.sortButton=sort
+  local source=Button(frame,"Source details",150,24,function()
+    W.showSources=not W.showSources
+    W.Refresh()
+  end,"Source details","Show original verification and eligibility times, full reasons and the exact selected character.")
+  source:SetPoint("LEFT",sort,"RIGHT",6,0)
+  W.sourceButton=source
+  local notes=Button(frame,"Notes",72,24)
+  notes:SetPoint("LEFT",W.reminderButton,"RIGHT",6,0)
+  local function showNotes(self)
+    local ok,lines=pcall(nativeNotes,self.member)
+    Tip(self,"Guild notes",ok and lines or {"The selected native character is unavailable."})
+  end
+  notes:SetScript("OnEnter",showNotes);notes:SetScript("OnClick",showNotes);notes:SetScript("OnLeave",HideTip)
+  W.noteButton=notes
+  W.emptyMessage=Label(frame,"GameFontHighlight","",PAD,ROWS_Y-40,INNER,"CENTER")
+
+  local scroll=CreateFrame("Slider",nil,frame)
+  scroll:SetPoint("TOPRIGHT",frame,"TOPRIGHT",-10,ROWS_Y)
+  scroll:SetSize(8,ROWS*ROW_H)
+  scroll:SetOrientation("VERTICAL");scroll:SetValueStep(1)
+  if scroll.SetObeyStepOnDrag then scroll:SetObeyStepOnDrag(true) end
+  Fill(scroll,"BACKGROUND",C.band,1):SetAllPoints(scroll)
+  scroll:SetThumbTexture(WHITE8)
+  local thumb=scroll:GetThumbTexture()
+  if thumb then thumb:SetSize(8,25);thumb:SetVertexColor(.38,.58,.59) end
+  scroll:SetScript("OnValueChanged",function(_,value)
+    if W.settingScroll then return end
+    offset=math.floor(value+.5);W.Refresh(true)
+  end)
+  W.scroll=scroll
+end
+
 local function Build()
   frame = CreateFrame("Frame", "OlympusVerifyRosterFrame", OlympusVerifyWorkspace and OlympusVerifyWorkspace.Parent() or UIParent, BACKDROP_TEMPLATE)
   frame:SetSize(Layout.WIDTH, Layout.HEIGHT)
@@ -777,27 +921,33 @@ local function Build()
     if frame.SetBackdropColor then frame:SetBackdropColor(C.bg[1], C.bg[2], C.bg[3], 0.97) end
     if frame.SetBackdropBorderColor then frame:SetBackdropBorderColor(C.gold[1], C.gold[2], C.gold[3], 1) end
   end
-  local pos = OlympusVerifyDB and OlympusVerifyDB.rosterWindow
-  if type(pos) == "table" and pos.point then frame:SetPoint(pos.point, UIParent, pos.point, pos.x or 0, pos.y or 0)
-  else frame:SetPoint("CENTER", UIParent, "CENTER", 0, 20) end
-  frame:SetMovable(true); frame:EnableMouse(true); frame:RegisterForDrag("LeftButton")
-  frame:SetScript("OnDragStart", frame.StartMoving)
-  frame:SetScript("OnDragStop", function(self)
-    self:StopMovingOrSizing()
-    local point, _, _, x, y = self:GetPoint()
-    if OlympusVerifyDB and point then OlympusVerifyDB.rosterWindow = { point = point, x = x, y = y } end
-  end)
+  frame:EnableMouse(true)
+  if OlympusVerifyWorkspace then
+    if frame.SetBackdrop then frame:SetBackdrop(nil) end
+  else
+    local pos = OlympusVerifyDB and OlympusVerifyDB.rosterWindow
+    if type(pos) == "table" and pos.point then frame:SetPoint(pos.point, UIParent, pos.point, pos.x or 0, pos.y or 0)
+    else frame:SetPoint("CENTER", UIParent, "CENTER", 0, 20) end
+    frame:SetMovable(true);frame:RegisterForDrag("LeftButton")
+    frame:SetScript("OnDragStart", frame.StartMoving)
+    frame:SetScript("OnDragStop", function(self)
+      self:StopMovingOrSizing()
+      local point, _, _, x, y = self:GetPoint()
+      if OlympusVerifyDB and point then OlympusVerifyDB.rosterWindow = { point = point, x = x, y = y } end
+    end)
+  end
   frame:Hide()
   if type(UISpecialFrames) == "table" then table.insert(UISpecialFrames, "OlympusVerifyRosterFrame") end
 
   local band = Fill(frame, "BORDER", C.band, 0.96, -1)
   band:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -10)
   band:SetPoint("BOTTOMRIGHT", frame, "TOPRIGHT", -10, -50)
-  Label(frame, "GameFontNormalLarge", GOLD .. "Olympus roster|r", Layout.PAD, -17, 170)
+  W.pageTitle=Label(frame, "GameFontNormalLarge", GOLD .. "Guild members|r", Layout.PAD, -17, 170)
   summary = Label(frame, "GameFontHighlightSmall", "", Layout.PAD + 176, -22, Layout.INNER - 176 - 40)
   local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
   close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -5, -5)
   close:SetScript("OnClick", function() W.Hide() end)
+  if OlympusVerifyWorkspace then close:Hide() end
 
   -- filters: search, then four toggles that cycle through their values
   search = CreateFrame("EditBox", "OlympusVerifyRosterSearch", frame, BACKDROP_TEMPLATE)
@@ -891,6 +1041,7 @@ local function Build()
   BindPromotion(nextBtn,function() return PromotionTarget() end)
   nextBtn:SetPoint("LEFT", readyBtn, "RIGHT", 6, 0)
   local clear = Button(frame, "Clear filters", 108, 24, function()
+    if W.prePromotions then W.ShowPromotions(); return end
     CloseMenu();view.multi={};view.inactiveDays=nil;view.secondary=nil
     view.status, view.rank, view.class, view.online, view.initiates, view.text, view.presence, view.action = 1, 0, 0, false, false, "", 1, 1
     search:SetText(""); offset = 0; W.Refresh()
@@ -935,6 +1086,7 @@ local function Build()
     "Review one removal","Check the selected character's native identity, inactivity and officer protections. Review the prepared guild command and press Enter yourself to send it.")
   W.removeInactive:SetPoint("LEFT",W.inactiveFilter,"RIGHT",6,0);W.removeInactive:Hide()
   W.refreshButton,W.copyButton=refresh,copy
+  Layout.AddDeskControls(copy)
   local sourceTip=CreateFrame("Frame",nil,frame)
   sourceTip:SetSize(Layout.INNER-230,24);sourceTip:SetPoint("TOPLEFT",frame,"TOPLEFT",Layout.PAD+230,Layout.FILTER_Y-64);sourceTip:EnableMouse(true)
   sourceTip:SetScript("OnEnter",function(self)
@@ -1018,7 +1170,7 @@ local function Build()
       b:SetScript("OnEnter", function() RowTip(r) end); b:SetScript("OnLeave", HideTip)
       b:Hide(); r.remind = b
     end
-    r.promote = Button(r, "Promote", 100, Layout.ROW_H - 2, nil,
+    r.promote = Button(r, "Promote", 160, Layout.ROW_H - 2, nil,
       "Native promotion", "One hardware promotion to the displayed Member or Veteran target for this exact GUID. The signed queue, freshness, native rank and permission are rechecked; no automatic retry.",true)
     BindPromotion(r.promote,function(self)
       local m = self.member
@@ -1046,7 +1198,12 @@ local function Build()
   local repaint=0
   frame:SetScript("OnUpdate",function(_,elapsed)
     repaint=repaint+(tonumber(elapsed) or 0)
-    if repaint>=5 then repaint=0;W.Refresh() end
+    if repaint>=5 then
+      repaint=0
+      if (InCombatLockdown and InCombatLockdown()) or (W.activity and W.activity:IsShown()) then return end
+      if W.nativeDirty and time()-(W.lastNativeRead or 0)>=5 then W.nativeDirty=false;W.lastNativeRead=time();Reload() end
+      W.Refresh()
+    end
   end)
   frame:SetScript("OnHide",function()
     CloseMenu()
@@ -1055,6 +1212,7 @@ local function Build()
     reminderLog=nil
   end)
   footer = Label(frame, "GameFontDisableSmall", "", Layout.PAD, -(Layout.HEIGHT - 26), Layout.INNER)
+  W.footer=footer
   W.frame = frame
   if OlympusVerifyWorkspace then OlympusVerifyWorkspace.Attach("roster",frame) end
   W.search = search
@@ -1075,6 +1233,7 @@ function W.ShowRoster()
 end
 function W.ShowInactive()
   if not InCombatLockdown or InCombatLockdown()~=false then return end
+  if OlympusVerifyWorkspace and OlympusVerifyInactiveDesk then return OlympusVerifyWorkspace.OpenInactive() end
   if not view.inactiveDays then
     W.previousRosterView={}
     for key,value in pairs(view) do W.previousRosterView[key]=value end
@@ -1159,11 +1318,12 @@ function W.ShowActivity()
   end
   journal.ObserveRoster();local supported=journal.Request()
   W.activity:Show();W.activity.paint()
+  if OlympusVerifyWorkspace then OlympusVerifyWorkspace.Highlight("activity") end
   if not supported then W.activity.help:SetText("Native guild history is unavailable here. Local first-seen times appear in roster details when supported.") end
 end
 
 -- ---------------------------------------------------------------- public
-function W.Show(text,inactive)
+function W.Show(text,inactive,promotions)
   if InCombatLockdown and InCombatLockdown() then Say("Leave combat before opening the promotion roster.");return end
   if not frame then Build() end
   if OlympusVerifyWorkspace and not OlympusVerifyWorkspace.Activate("roster") then return end
@@ -1173,6 +1333,14 @@ function W.Show(text,inactive)
     for key,value in pairs(W.previousRosterView) do view[key]=value end
     W.previousRosterView=nil;search:SetText(view.text or "")
   end
+  if W.prePromotions and not promotions then
+    for key in pairs(view) do view[key]=nil end
+    for key,value in pairs(W.prePromotions) do view[key]=value end
+    W.prePromotions=nil;selected=nil;search:SetText(view.text or "")
+  end
+  W.pageTitle:SetText(GOLD..(promotions and "Promotions" or "Guild members").."|r")
+  if promotions and OlympusVerifyWorkspace then OlympusVerifyWorkspace.Highlight("promotions") end
+  W.nativeDirty=false;W.lastNativeRead=time()
   Reload()
   if type(text) == "string" and text ~= "" then
     view.text = text
@@ -1184,15 +1352,22 @@ function W.Show(text,inactive)
   W.Refresh()
 end
 
-function W.ShowReadyInitiates()
+function W.ShowPromotions(readyOnly)
   if not InCombatLockdown or InCombatLockdown()~=false then return end
   if not frame then Build() end
   CloseMenu()
+  if not W.prePromotions then
+    W.prePromotions={}
+    for key,value in pairs(view) do W.prePromotions[key]=value end
+  end
   view.multi={};view.inactiveDays=nil
-  view.initiates,view.rank,view.class,view.online,view.presence,view.status,view.action,view.text=true,0,0,false,1,1,2,""
+  view.initiates,view.rank,view.class,view.online,view.presence,view.status,view.action,view.text=true,0,0,false,1,readyOnly and 1 or 2,readyOnly and 2 or 4,""
+  view.sort,view.desc,view.secondary="action",false,nil
+  selected=nil
   search:SetText("")
-  W.Show()
+  W.Show(nil,nil,true)
 end
+function W.ShowReadyInitiates() W.ShowPromotions(true) end
 
 function W.Hide()
   if InCombatLockdown and InCombatLockdown() then
@@ -1214,16 +1389,16 @@ end
 -- The roster changes under the window (people log in and out, join, leave): re-read it when the client says so,
 -- at most every few seconds, and only while the window is open.
 local watcher = CreateFrame("Frame")
-local lastRead = 0
 watcher:RegisterEvent("GUILD_ROSTER_UPDATE")
 watcher:RegisterEvent("PLAYER_REGEN_DISABLED")
 watcher:SetScript("OnEvent", function(_, event)
   -- W.Hide refuses once lockdown has begun, so this makes no forbidden call.
   if event == "PLAYER_REGEN_DISABLED" then if frame and frame:IsShown() and not W.combatGuarded then W.Hide() end return end
   if not frame or not frame:IsShown() then return end
+  if W.activity and W.activity:IsShown() then return end
   local t = time()
-  if t - lastRead < 5 then return end
-  lastRead = t
+  if t - (W.lastNativeRead or 0) < 5 then W.nativeDirty=true; return end
+  W.lastNativeRead=t;W.nativeDirty=false
   Reload()
   W.Refresh()
 end)
