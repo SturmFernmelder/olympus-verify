@@ -300,7 +300,9 @@ local function Reload()
   cache.list, cache.info = list or {}, info
   cache.paint=nil
   cache.loadedAt,cache.snapshotAt=nil,nil
+  cache.hasHandle=false
   for _,m in ipairs(cache.list) do
+    if m.discord and m.discord~="" then cache.hasHandle=true end
     if type(m.statusAt)=="number" and (not cache.loadedAt or m.statusAt<cache.loadedAt) then cache.loadedAt=m.statusAt end
     if type(m.snapshotAt)=="number" and (not cache.snapshotAt or m.snapshotAt<cache.snapshotAt) then cache.snapshotAt=m.snapshotAt end
   end
@@ -506,6 +508,7 @@ local function ShowDetail(m, visible, log)
     local facts=Clean(m.rank).."   ·   "..className(m.class).."   ·   "..seenText(m)
     local lines={GOLD..identity.."|r",facts,
       "Verification: "..Clean(m.statusLabel or m.status), "Promotion: "..Clean(action.label or action.state)}
+    if m.status=="verified" and not m.discord then lines[#lines+1]="Discord handle unavailable. Sync loads the latest available Watcher file." end
     if action.reason and (m.rankIndex==9 or action.state=="ready" or action.state=="pending") then
       lines[#lines+1]=Clean(action.reason)
     end
@@ -730,11 +733,15 @@ function W.Refresh(scrolling)
   local loadedAt,snapshotAt=cache.loadedAt,cache.snapshotAt
   local sync=OlympusVerifyAutoSync and OlympusVerifyAutoSync.Status and OlympusVerifyAutoSync.Status()
   snapshotText:SetText(GREY.."Local Sync request: "..Stamp(sync and sync.lastRequestedAt).." | Loaded server query: "..Stamp(loadedAt).." ("..Age(loadedAt)..") | Server roster: "..Stamp(snapshotAt).." ("..Age(snapshotAt)..")|r")
-  local namesHint=info.hasNames and "Refresh view rereads the native roster and loaded evidence; it cannot fetch a changed disk file."
-    or "No current Discord names loaded. Use Sync to load the Watcher result."
+  local namesHint
+  if not info.hasNames or (info.verified or 0)>0 and not cache.hasHandle then
+    namesHint="Discord handles unavailable. Use Sync to load the latest list. If handles stay missing, check the Watcher is running and up to date."
+  elseif W.showSources then
+    namesHint="Refresh view uses the roster and file already loaded. Sync loads the latest available Watcher file."
+  end
   footer:SetText(GREY..string.format("%d of %d members%s",shown,info.total or 0,
     #list>ROWS and string.format("   ·   Rows %d–%d",offset+1,math.min(#list,offset+ROWS)) or "")
-    ..(W.showSources and ("   ·   "..namesHint) or "").."|r")
+    ..(namesHint and ("   ·   "..namesHint) or "").."|r")
   SetButtonText(statusBtn,STATUS_FILTERS[view.status][2].." v")
   SetButtonText(rankBtn,(CurrentRank() or "All ranks").." v")
   SetButtonText(classBtn,(CurrentClass() and className(CurrentClass()) or "All classes").." v")
@@ -832,15 +839,24 @@ local Layout = { WIDTH=WIDTH, HEIGHT=HEIGHT, PAD=PAD, INNER=INNER, FILTER_Y=FILT
 local function nativeNotes(member)
   if not member or not readablePlayerGuid(member.guid) or type(member.nativeIndex)~="number"
     or not IsInGuild or not IsInGuild() or (InCombatLockdown and InCombatLockdown()) then return end
-  local function plain(value)
-    if issecretvalue and issecretvalue(value) then return nil end
-    if type(value)=="string" and value~="" then return value:gsub("|","||"):gsub("[%c]"," ") end
+  local function readable(value)
+    if not issecretvalue then return true end
+    local ok,secret=pcall(issecretvalue,value)
+    return ok and secret==false
+  end
+  local function noteText(value)
+    if not readable(value) or type(value)~="string" then return "Unavailable" end
+    if value=="" then return "None" end
+    return (value:gsub("|","||"):gsub("[%c]"," "))
   end
   local name,_,_,_,_,_,note,officerNote,_,_,_,_,_,_,_,_,id=GetGuildRosterInfo(member.nativeIndex)
-  if not readablePlayerGuid(id) or id~=member.guid or not plain(name) or name~=member.full then return end
-  local lines={"Guild note: "..(plain(note) or "None")}
+  if not readablePlayerGuid(id) or id~=member.guid or not readable(name) or name~=member.full then return end
+  local lines={"Guild note: "..noteText(note)}
   local can=(C_GuildInfo and C_GuildInfo.CanViewOfficerNote) or CanViewOfficerNote
-  if type(can)=="function" and can()==true then lines[#lines+1]="Officer note: "..(plain(officerNote) or "None") end
+  if type(can)=="function" then
+    local ok,allowed=pcall(can)
+    if ok and readable(allowed) and allowed==true then lines[#lines+1]="Officer note: "..noteText(officerNote) end
+  end
   return lines
 end
 function Layout.AddDeskControls(copy)
@@ -1196,6 +1212,7 @@ local function Build()
     reminderLog=nil
   end)
   footer = Label(frame, "GameFontDisableSmall", "", Layout.PAD, -(Layout.HEIGHT - 26), Layout.INNER)
+  W.footer=footer
   W.frame = frame
   if OlympusVerifyWorkspace then OlympusVerifyWorkspace.Attach("roster",frame) end
   W.search = search

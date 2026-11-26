@@ -78,15 +78,29 @@ function S.Parent()
   if pos and pos.point then shell:SetPoint(pos.point, UIParent, pos.relative or pos.point, pos.x, pos.y)
   else shell:SetPoint("CENTER", UIParent, "CENTER", 0, 0) end
   fit()
+  local dragging=false
+  local function finishDrag()
+    -- The shell parents protected rows. A release or hide in lockdown must wait,
+    -- even when the header has disappeared and will receive no further mouse event.
+    if not dragging or locked() then return end
+    shell:StopMovingOrSizing(); dragging=false
+    local point, _, relative, x, y = shell:GetPoint()
+    if OlympusVerifyDB and point then OlympusVerifyDB.deskPosition={point=point,relative=relative,x=x,y=y} end
+  end
   shell:RegisterEvent("DISPLAY_SIZE_CHANGED")
   shell:RegisterEvent("UI_SCALE_CHANGED")
+  shell:RegisterEvent("PLAYER_REGEN_DISABLED")
   shell:RegisterEvent("PLAYER_REGEN_ENABLED")
-  shell:SetScript("OnEvent", function() if S.IsShown() then fit() end end)
+  shell:SetScript("OnEvent", function(_,event)
+    if event=="PLAYER_REGEN_DISABLED" or event=="PLAYER_REGEN_ENABLED" then finishDrag() end
+    if event~="PLAYER_REGEN_DISABLED" and S.IsShown() then fit() end
+  end)
 
   local chrome = CreateFrame("Frame", nil, shell, template)
   S.chrome = chrome
   chrome:SetAllPoints(shell)
   chrome:Hide()
+  chrome:SetScript("OnHide",finishDrag)
   if chrome.SetBackdrop then
     chrome:SetBackdrop({bgFile=texture, edgeFile=texture, edgeSize=1})
     chrome:SetBackdropColor(.034,.066,.080,.99)
@@ -96,13 +110,11 @@ function S.Parent()
   bar:SetPoint("TOPLEFT", 1, -1); bar:SetPoint("TOPRIGHT", -1, -1); bar:SetHeight(HEADER-1)
   fill(bar, "BACKGROUND", .055,.105,.124):SetAllPoints()
   bar:EnableMouse(true); bar:RegisterForDrag("LeftButton")
-  bar:SetScript("OnDragStart", function() if not locked() then shell:StartMoving() end end)
-  bar:SetScript("OnDragStop", function()
-    if locked() then return end
-    shell:StopMovingOrSizing()
-    local point, _, relative, x, y = shell:GetPoint()
-    if OlympusVerifyDB and point then OlympusVerifyDB.deskPosition = {point=point, relative=relative, x=x, y=y} end
+  bar:SetScript("OnDragStart", function()
+    if not locked() then shell:StartMoving(); dragging=true end
   end)
+  bar:SetScript("OnDragStop",finishDrag)
+  bar:SetScript("OnHide",finishDrag)
   local title = bar:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   title:SetPoint("TOPLEFT", 18, -10); title:SetText("Olympus Verify")
   local line = fill(bar,"ARTWORK",.21,.35,.37)

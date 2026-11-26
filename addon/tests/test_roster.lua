@@ -51,6 +51,7 @@ local okLoad, err = pcall(function()
   assert(loadfile("../OlympusVerify/Libs/OlympusHmac.lua"))("OlympusVerify", {})
   dofile("../OlympusVerify/OlympusVerifyLists.lua")
   assert(loadfile("../OlympusVerify/OlympusVerify.lua"))("OlympusVerify", {})
+  assert(loadfile("../OlympusVerify/OlympusVerifyWorkspace.lua"))("OlympusVerify", {})
   assert(loadfile("../OlympusVerify/OlympusVerifyUI.lua"))("OlympusVerify", {})
   assert(loadfile("../OlympusVerify/OlympusVerifyPreview.lua"))("OlympusVerify", {})
   assert(loadfile("../OlympusVerify/OlympusVerifyRoster.lua"))("OlympusVerify", {})
@@ -94,13 +95,13 @@ end
 print("\n== explicit officer panel aliases ==")
 OlympusVerifyUI.Hide()
 SlashCmdList.OLYMPUSVERIFY("ui")
-check("/olv ui opens the existing officer panel", OlympusVerifyPanel:IsShown(), true)
+check("/olv ui opens the Members page of the desk", OlympusVerifyWorkspace.IsShown() and OlympusVerifyWorkspace.section=="roster", true)
 SlashCmdList.OLYMPUSVERIFY("ui")
-check("/olv ui toggles the same panel closed", OlympusVerifyPanel:IsShown(), false)
+check("/olv ui toggles the same desk closed", OlympusVerifyWorkspace.IsShown(), false)
 SlashCmdList.OLYMPUSVERIFY("panel")
-check("/olv panel opens the same officer panel", OlympusVerifyPanel:IsShown(), true)
+check("/olv panel opens the same Members page", OlympusVerifyWorkspace.IsShown() and OlympusVerifyWorkspace.section=="roster", true)
 SlashCmdList.OLYMPUSVERIFY("panel")
-check("/olv panel toggles the same panel closed", OlympusVerifyPanel:IsShown(), false)
+check("/olv panel toggles the same desk closed", OlympusVerifyWorkspace.IsShown(), false)
 
 print("\n== reserved names go first ==")
 local byName = {}
@@ -200,7 +201,15 @@ do local loaded={};for key,value in pairs(OlympusQueue.verified) do loaded[key]=
 SlashCmdList.OLYMPUSVERIFY("members grace")
 local W = OlympusVerifyRoster
 check("/olv members opens the window with the search filled in", W.frame and W.frame:IsShown() and W.view.text == "grace", true)
-check("loaded-list footer explains the local view boundary", (function() for _, fs in ipairs(FONTS) do if fs._parent == W.frame and plain(fs._text):find("rereads the native roster and loaded evidence", 1, true) then return true end end return false end)(), true)
+W.refreshButton:GetScript("OnEnter")(W.refreshButton)
+check("the local refresh control explains that it uses evidence already loaded",plain(table.concat(GameTooltip._lines," ")):find("already loaded",1,true)~=nil,true)
+local syncCount,originalSync=0,API.Sync
+API.Sync=function() syncCount=syncCount+1 end
+W.refreshButton:Click()
+check("local refresh leaves the working search and makes no Sync request",W.view.text=="grace" and syncCount==0,true)
+W.sourceButton:Click()
+check("the officer can inspect the original query time on demand",W.showSources and plain(W.snapshotText:GetText()):find("Loaded server query",1,true)~=nil,true)
+W.sourceButton:Click()
 check("  the placeholder belongs to the search box (drawn above its backdrop)", W.search.hint and W.search.hint._parent == W.search, true)
 check("  and is hidden while the box has text", W.search.hint:IsShown(), false)
 local shownRows = {}
@@ -222,11 +231,22 @@ check("the panel's Members button opens it", W.frame:IsShown(), true)
 check("  and the window changes nothing: no invite, no whisper", #INVITES == before and #WHISPERS == 0, true)
 
 print("\n== an older Worker: no verified list ==")
+local noHandles={}
+for _,row in ipairs(OlympusQueue.verified.members) do
+  noHandles[#noHandles+1]={name=row.name,guid=row.guid,status=row.status,discordId=row.discordId}
+end
+OlympusQueue.verified={fetchedAt=T-600,members=noHandles}
+W.Show("Fern")
+local fern=W.rows[1]
+fern:GetScript("OnMouseUp")(fern,"LeftButton")
+check("a verified roster missing all handles offers an import in its normal footer",
+  (fern.member.status=="verified" and plain(W.footer:GetText()):find("Sync",1,true)~=nil),true)
+check("the selected verified member shows what to do about their own missing handle",
+  plain(W.detailText:GetText()):find("Discord handle unavailable",1,true)~=nil,true)
 OlympusQueue.verified = nil
 list, info = API.Roster.Members()
 check("no Discord names, and the window says so", info.hasNames, false)
--- .268 removed the "No Discord names yet" footer: without a verified list every row stays unverified or unknown, no row
--- shows a Discord name, and the footer says the view only rereads loaded evidence.
+-- Missing provider data must be actionable on the normal Members page with source details closed.
 local noneVerified, noneNamed = true, true
 for _, x in ipairs(list) do
   if x.status == "verified" then noneVerified = false end
@@ -235,7 +255,13 @@ end
 check("  nobody is verified without the list", noneVerified, true)
 check("  and no row shows a Discord name", noneNamed, true)
 W.Show()
-check("  footer explains where names come from", plain(W.frame and select(1, (function() for _, fs in ipairs(FONTS) do if fs._parent == W.frame and plain(fs._text):find("No current Discord names loaded", 1, true) then return true end end return false end)())), "true")
+local guidance=plain(W.footer:GetText())
+check("older Worker has a visible next step for missing handles",not W.showSources and guidance:find("Discord handles unavailable",1,true)~=nil and guidance:find("Sync",1,true)~=nil and guidance:find("Watcher",1,true)~=nil,true)
+W.refreshButton:Click()
+check("refresh still shows the unavailable list without importing",plain(W.footer:GetText())==guidance and syncCount==0,true)
+OlympusVerifyWorkspace.syncButton:Click()
+check("the shared Sync requests exactly one exchange",syncCount,1)
+API.Sync=originalSync
 
 print("\n== strict read-only roster display ==")
 OlympusVerifyConfig.membershipOnly = true

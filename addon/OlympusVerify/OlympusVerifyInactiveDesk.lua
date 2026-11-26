@@ -301,7 +301,7 @@ local function build(parent)
   help:SetText("Eligible offline members \194\183 Protected ranks and hold notes are excluded.")
   ui.search = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
   ui.search:SetSize(168, 24); ui.search:SetPoint("TOPLEFT", 26, -72); ui.search:SetAutoFocus(false)
-  ui.hint = label(panel, "GameFontDisableSmall", 27, -78); ui.hint:SetText("Search character")
+  ui.hint = label(ui.search, "GameFontDisableSmall", 6, -5); ui.hint:SetText("Search character")
   ui.search:SetScript("OnTextChanged", function(self)
     local value = self:GetText() or ""
     if review then return end
