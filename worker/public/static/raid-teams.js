@@ -19,6 +19,23 @@ function receiptMatches(body,result) {
   if (body.action==="rsvp") return result.answer===body.answer;
   return result.revision===body.revision+1;
 }
+function charterMatches(b,team) {
+  if (team?.id!==b.teamId || !(team.revision>b.revision) || team.capacity!==b.capacity || team.status!==b.status) return false;
+  for (const key of ["name","philosophy","schedule","loot","expectations","needs"]) {
+    const value=b[key]??"";
+    if (typeof value!=="string" || team[key]!==value.trim().normalize("NFC")) return false;
+  }
+  const canonicalZone=zone=>new Intl.DateTimeFormat("en-US",{timeZone:zone.trim()}).resolvedOptions().timeZone;
+  if (typeof b.timezone!=="string" || typeof team.timezone!=="string") return false;
+  try { if (canonicalZone(b.timezone)!==canonicalZone(team.timezone)) return false; } catch { return false; }
+  const roles=b.roleNeeds??[], windows=b.weeklyWindows===undefined?[]:b.weeklyWindows;
+  if (!Array.isArray(roles) || !Array.isArray(team.roleNeeds) || roles.length!==team.roleNeeds.length ||
+      !roles.every((role,i)=>role===team.roleNeeds[i])) return false;
+  if (!Array.isArray(windows) || !Array.isArray(team.weeklyWindows) || windows.length!==team.weeklyWindows.length) return false;
+  // The Worker stores windows in chronological order. Keep the original payload intact for retries.
+  const ordered=[...windows].sort((a,b)=>a.day-b.day||a.start.localeCompare(b.start)||a.end.localeCompare(b.end));
+  return ordered.every((w,i)=>w.day===team.weeklyWindows[i]?.day && w.start===team.weeklyWindows[i]?.start && w.end===team.weeklyWindows[i]?.end);
+}
 function readShowsChange(b,d) {
   if (!d) return false;
   if (b.area==="calendar") {
@@ -35,9 +52,7 @@ function readShowsChange(b,d) {
     return false;
   }
   if (b.action==="create") return d.isLeader && d.team?.id===b.id;
-  if (b.action==="edit") return d.team?.revision>b.revision &&
-    ["name","philosophy","schedule","timezone","loot","expectations","needs","status","capacity","weeklyWindows","roleNeeds"]
-      .every(key=>JSON.stringify(d.team[key])===JSON.stringify(b[key]));
+  if (b.action==="edit") return charterMatches(b,d.team);
   if (b.action==="profile") return d.profile?.revision>b.revision && d.profile.guid===b.guid && !!d.profile.listed===b.listed &&
     ["role","playerClass","spec","availability","notes"].every(key=>d.profile[key]===b[key]);
   if (b.action==="forget") return d.mine?.id!==b.seatId;
