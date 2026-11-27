@@ -132,7 +132,7 @@ end
 do
  local f=fixture();f.page.promotions={};f.page.held={{name="Candidate",guid=id,reason="discord-entitlement-unknown"}};f.env.ROSTER[2].rankIndex=8
  local ready,d=model(f)
- check("Member source entitlement hold remains visible without a positive Veteran recommendation",not ready[id] and d.byGuid[id].state=="held" and d.byGuid[id].reason:find("Discord entitlement",1,true))
+ check("Member source entitlement hold remains visible without a positive Veteran recommendation",not ready[id] and d.byGuid[id].state=="held" and d.byGuid[id].reason:find("Knight rank in Discord",1,true))
 end
 do
  local reasons={
@@ -140,7 +140,7 @@ do
   ["rate-limit-retries-exhausted"]="three rate-limit attempts",["rate-limit-exceeds-scan"]="cooldown exceeds",
   ["selection-admission-expired"]="admission window expired",["selected-target-unavailable"]="GUID is missing or ambiguous",
   ["invalid-selected-page"]="invalid or incompatible",["source-unknown"]="response was unknown",["source-refused"]="source was refused",
-  ["scan-expired"]="context expired",["rate-limited-wait"]="known rate-limit wait"}
+  ["scan-expired"]="click Check",["rate-limited-wait"]="known rate-limit wait"}
  for code,phrase in pairs(reasons) do
   local f=fixture();local d=selected(f);d.completed=false;d.running=code=="rate-limited-wait";d.stoppedReason=code;d.page=nil;d.coveredGuids={}
   local q=f.q.Current()

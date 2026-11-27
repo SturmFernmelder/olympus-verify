@@ -211,7 +211,7 @@ local function StaleResult(m, now, fallback)
   local why = now - ix.fetched > LIST_AGE and "The loaded Watcher fetch and its server roster snapshot are over one hour old."
     or "The server roster snapshot is over one hour old even though the Watcher fetched the list more recently."
   why = why .. " List fetched " .. Dated(ix.fetched) .. "; roster observed " .. Dated(ix.snapshot)
-    .. ". Sync, let the Watcher refresh its display file, then reload. This is not proof of being unverified."
+    .. ". Open the WoW guild roster and let offline rows load. Click Sync once. When the desktop viewer shows a newer roster, /reload to see it here."
   if matched then
     return { status="stale", statusDetail="linked_dated", label="Linked (dated)", historicalLinked=true,
       reason="This exact native GUID was linked in the dated Watcher list; current verification and Discord access are unconfirmed. " .. why,
@@ -245,10 +245,10 @@ local function Verification(name, guid)
   local v, u = q and q.verified, q and q.unverified
   local z = q == OlympusVerifyLists and q and q.version == 2 and q.unknown or nil
   if type(v) ~= "table" or type(u) ~= "table" or type(v.members) ~= "table" or type(u.members) ~= "table" then
-    return { status = "unknown", reason = "No complete watcher verification lists are loaded. Sync and reload first." }
+    return { status = "unknown", reason = "No complete Watcher list is loaded. On Fern open the full guild roster and click Sync. Check Verified members in the desktop viewer before your next /reload." }
   end
   if q == OlympusVerifyLists and q.version == 2 and (type(z) ~= "table" or type(z.members) ~= "table") then
-    return { status="unknown", reason="The Watcher review list is incomplete. Refresh the display file and reload." }
+    return { status="unknown", reason="The Watcher review list is incomplete. Check that the desktop Watcher is running, click Sync with Fern's full guild roster loaded, then look for the updated list in the viewer." }
   end
   if not Fresh(v.fetchedAt, now) or not Fresh(u.fetchedAt, now) or not Fresh(u.snapshotAt, now) then
     if q == OlympusVerifyLists then return StaleResult(m, now) end

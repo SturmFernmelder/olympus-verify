@@ -72,7 +72,7 @@ do
   -- A loaded selected read supersedes the discovery control, so rows outside it
   -- read as held; the no-recommendation reasons are checked on discovery alone.
   f = fixture(); ready, d = f.read()
-  check("verified without recommendation has an explicit reason instead of an opaque zero", d.byGuid[f.rows[2].guid].state == "no_recommendation" and d.byGuid[f.rows[2].guid].reason:find("Display verification alone", 1, true))
+  check("verified without recommendation has an explicit reason instead of an opaque zero", d.byGuid[f.rows[2].guid].state == "no_recommendation" and d.ready == 0 and d.byGuid[f.rows[2].guid].reason:find("Click Sync", 1, true))
   check("Member without a source recommendation remains unknown for Veteran rather than wrong-rank", d.byGuid[f.rows[4].guid].state == "no_recommendation")
   check("a discovery recommendation alone is advisory and asks for a selected check", next(ready) == nil and d.recommendations == 1 and d.byGuid[f.rows[1].guid].label == "Check selected GUID")
 end
@@ -83,12 +83,12 @@ do
   check("missing projection retains potential counts without manufacturing readiness", d.nativeInitiates == 3 and d.knownVerifiedInitiates == 2 and d.ready == 0 and next(ready) == nil and d.state == "unavailable")
   check("legacy queues are explicitly unsupported as promotion authority", d.legacyUnsupported and d.reason:find("Legacy invite queues", 1, true))
   f.e.OlympusLaunchQueue.version = 1; ready, d = f.read()
-  check("actual Current refuses a legacy queue and the model retains its diagnostic", d.ready == 0 and d.byGuid[f.rows[1].guid].state == "unavailable" and d.reason:find("legacy invite queues", 1, true))
+  check("actual Current refuses a legacy queue and the model retains its diagnostic", d.ready == 0 and d.byGuid[f.rows[1].guid].state == "unavailable" and d.reason:find("open the guild roster", 1, true))
   f = fixture(); f.q.Current = function() error("synthetic private error") end
   ready, d = f.read()
   check("failed Current is held with fixed guidance rather than raw error material", d.ready == 0 and d.reason:find("could not be checked", 1, true) and not d.reason:find("private", 1, true))
   f = fixture(); f.q.HardwarePromote = nil; ready, d = f.read()
-  check("missing hardware action never enables a promotion button or calls Current", next(ready) == nil and d.ready == 0 and d.state == "unavailable" and d.reason:find("hardware promotion action is unavailable", 1, true) and f.currentReads == 0 and f.effects == 0)
+  check("missing hardware action never enables a promotion button or calls Current", next(ready) == nil and d.ready == 0 and d.state == "unavailable" and d.reason:find("Restore the official officer addon files", 1, true) and f.currentReads == 0 and f.effects == 0)
   f = fixture(); f.q.HardwarePromote = true; ready, d = f.read()
   check("a non-function hardware action is equally unavailable", next(ready) == nil and d.byGuid[f.rows[1].guid].state == "unavailable" and f.effects == 0)
 end
@@ -97,7 +97,7 @@ do
   local f = fixture(true); f.e.NOW = f.e.NOW + 60
   local ready, d = f.read()
   check("exact source-page expiry preserves recommendation but blocks readiness", not ready[f.rows[1].guid] and d.recommendations == 1 and d.held == 1 and d.byGuid[f.rows[1].guid].state == "expired")
-  check("fresh verified labels never renew action expiry", d.knownVerifiedInitiates == 2 and d.byGuid[f.rows[1].guid].reason:find("does not renew", 1, true))
+  check("fresh verified labels never renew action expiry", d.knownVerifiedInitiates == 2 and d.byGuid[f.rows[1].guid].state == "expired" and d.ready == 0)
   f = fixture(true); f.e.NOW = f.e.NOW + 600; ready, d = f.read()
   check("original scan expiry is separately explained", d.byGuid[f.rows[1].guid].label == "Original scan expired" and d.ready == 0)
   f = fixture(); f.e.OlympusLaunchQueue.stoppedReason = "operator-stopped"; ready, d = f.read()
@@ -182,7 +182,7 @@ do
   local ready, d = f.read()
   check("zero promotions exposes source holds and risk review without converting either to eligibility", next(ready) == nil and d.ready == 0 and d.recommendations == 0 and d.sourceHeld == 2 and d.riskReview == 1 and d.held == 0 and d.knownVerifiedInitiates == 2)
   check("safe reason counts retain known codes and aggregate arbitrary held reason text as other", d.heldReasonCounts["discord-entitlement-unknown"] == 1 and d.heldReasonCounts.other == 1 and d.riskReasonCounts["unverified-initiate"] == 1 and not d.reason:find("private", 1, true) and not d.byGuid[f.rows[2].guid].reason:find("private", 1, true))
-  check("per-row held explanation names the source entitlement gap rather than implying verified status is enough", d.byGuid[f.rows[1].guid].state == "held" and d.byGuid[f.rows[1].guid].reason:find("Discord entitlement", 1, true))
+  check("per-row held explanation names the source entitlement gap rather than implying verified status is enough", d.byGuid[f.rows[1].guid].state == "held" and d.byGuid[f.rows[1].guid].reason:find("Knight rank in Discord", 1, true))
   check("risk buffer remains review only and never suggests promotion or removal authority", d.byGuid[f.rows[3].guid].state == "no_recommendation" and d.byGuid[f.rows[3].guid].label == "Source risk review only" and d.byGuid[f.rows[3].guid].reason:find("not a promotion recommendation or permission to remove", 1, true))
   check("completed discovery with partial source pages is disclosed separately", d.scanComplete and not d.partial and d.pageStatusCounts.partial == 1 and d.pageStatusCounts.ready == 0 and d.reason:find("completed discovery does not clear source holds", 1, true))
   f = fixture(); local current = f.q.Current(); f.q.Current = function() return current end

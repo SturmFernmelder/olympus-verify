@@ -73,9 +73,9 @@ end
 -- Unknown source strings never become UI text or an instruction to retry.
 local LOADED_STATES = {
   ["rate-limited"] = { "Rate limited (last loaded)", "The last loaded scan stopped after an upstream rate limit.", "Staff must review the upstream limit and original scan before separately authorized recovery." },
-  ["rate-limited-wait"] = { "Rate-limit wait (last loaded)", "The last loaded scan reported a bounded read-only rate-limit wait; its action hold remains.", "Wait for a newer returned projection, then load it through the approved workflow. The loaded report does not establish the Watcher's current state." },
+  ["rate-limited-wait"] = { "Rate-limit wait (last loaded)", "The last loaded scan reported a bounded read-only rate-limit wait; its action hold remains.", "Leave the Watcher running through its cooldown. When its window reports a new scan page, /reload once while idle and open /olv launch." },
   ["rate-limit-retries-exhausted"] = { "Rate-limit retries spent (last loaded)", "The last loaded scan exhausted its bounded same-page rate-limit retries.", "Staff must review the stopped original and the upstream limit before authorizing any fresh scan; this view cannot restart it." },
-  ["rate-limit-exceeds-scan"] = { "Rate limit exceeds scan window (last loaded)", "The reported retry delay would exceed the original scan window.", "Keep the expired or stopped original intact; obtain a separately authorized fresh trusted scan instead of extending its timestamps." },
+  ["rate-limit-exceeds-scan"] = { "Rate limit exceeds scan window (last loaded)", "The reported retry delay would exceed the original scan window.", "Wait for the rate limit to end. If the Guild Master approves a new discovery scan, open /olv launch and click Scan roster once." },
   ["discovery-budget-exhausted"] = { "Discovery budget spent (last loaded)", "The last loaded scan exhausted its bounded discovery request budget.", "Staff must review the incomplete coverage and original budget before authorizing a fresh scan." },
   ["refresh-budget-exhausted"] = { "Recheck budget spent (last loaded)", "The last loaded scan exhausted its bounded recheck attempt budget (including rate-limit retries).", "Do not reset its counters; staff must review the original source and authorize any later fresh scan." },
   ["source-unknown"] = { "Source reply unknown (last loaded)", "The last loaded scan could not establish a source reply.", "Staff must inspect the original source outcome and connection; an unknown result is not permission to repeat a member request or native action." },
@@ -348,7 +348,7 @@ local SELECT_HOLDS={
   ["launch-page-verification-changed"]="The member's verification changed while this check was running. Click Check again to request the current state.",
   ["selection-read-expired"]="This check ran out of time before it finished. Click Check again.",
   ["launch-read-window-exhausted"]="This check ran out of its allowed time. Click Check again; the old result is not used.",
-  ["scan-expired"]="The original selected-read context expired. Make a new explicit selected read; its old dates remain unchanged.",
+  ["scan-expired"]="Select this character again and click Check for a new eligibility result. Read the new result before pressing Promote.",
   ["operator-stopped"]="The selected read was explicitly stopped. It cannot resume automatically; a later read is a separate explicit request.",
   ["superseded"]="A newer control superseded this selected read. Load the matching current result; no old action authority is restored.",
   ["rate-limited-wait"]="The last loaded selected read reports a known rate-limit wait. Keep its original request and load its later result; this view cannot observe the Watcher process.",
@@ -373,7 +373,7 @@ local function SelectedCurrent(identity, now, control, data, automaticRead)
   local targets,batch,encoded=ValidSelect(control,identity,now,automaticRead)
   if not targets then return nil end
   local requested={};for _,id in ipairs(targets) do requested[id]=true end
-  local held={targetGuid=targets[1],targetGuids=batch and targets or nil,covered=requested,state="pending",code="awaiting-result",reason="This check is waiting for its result. The Watcher refreshes the list. Its latest result loads at login or reload."}
+  local held={targetGuid=targets[1],targetGuids=batch and targets or nil,covered=requested,state="pending",code="awaiting-result",reason="The Watcher is processing this check. Look for the result in the desktop viewer. Once it appears, /reload to bring it into WoW."}
   if automaticRead then held.reason="The Watcher checks these Initiates automatically. The next normal reload loads its latest dated results." end
   if now>=control.observedAt+(automaticRead and 600 or 60) then
     held.state,held.code,held.refreshable="held","selection-admission-expired",true
@@ -580,20 +580,20 @@ local function RequestRoster()
   if type(fn) == "function" then pcall(fn) end
 end
 local function NativeRoster(identity)
-  if not Q.rosterAt or time() < Q.rosterAt or time() - Q.rosterAt > 15 then RequestRoster(); return nil, "Refresh the native roster, then click again." end
-  if Read(GetGuildRosterShowOffline) ~= true then return nil, "A complete native offline-inclusive roster is required." end
+  if not Q.rosterAt or time() < Q.rosterAt or time() - Q.rosterAt > 15 then RequestRoster(); return nil, "Open the WoW guild roster and wait for its rows to fill, then click the named action again." end
+  if Read(GetGuildRosterShowOffline) ~= true then return nil, "Open the WoW guild roster, enable Show Offline Members, and wait for the rows to fill before clicking again." end
   local count = Read(GetNumGuildMembers)
-  if not Number(count, 1, 1000) or type(GetGuildRosterInfo) ~= "function" then return nil, "Native roster is unknown." end
+  if not Number(count, 1, 1000) or type(GetGuildRosterInfo) ~= "function" then return nil, "Open the WoW guild roster on Fern and wait for it to show at least one member. If it stays empty, run /olv diagnostics scope." end
   local ranks=OlympusVerifyNativeRanks
   local beforeRanks=ranks and ranks.Observe()
-  if not ranks or not ranks.Qualified(beforeRanks) then return nil,"The complete Directive rank table is unconfirmed; no rank action is ready." end
+  if not ranks or not ranks.Qualified(beforeRanks) then return nil,"The guild rank table could not be confirmed. Open the WoW guild roster and run /olv diagnostics scope. Ask the Guild Master to compare the reported rank names before taking action." end
   local rows, names = {}, {}
   for index = 1, count do
     local ok, name, rank, slot, level, _, _, note, officerNote, online, _, _, _, _, _, _, _, guid = pcall(GetGuildRosterInfo, index)
     name, guid = ok and Text(name, 100), ok and Text(guid, 40)
     rank=ok and Text(rank,96)
     local key = name and H.normalizeCharacter(name)
-    if not name or not guid or not key or not Number(slot, 0, 9) or rank~=beforeRanks.names[slot+1] or rows[guid] or names[key] then return nil, "Native roster or its rank labels are incomplete or ambiguous." end
+    if not name or not guid or not key or not Number(slot, 0, 9) or rank~=beforeRanks.names[slot+1] or rows[guid] or names[key] then return nil, "A roster row has an unreadable or duplicate character or rank. Let the full native guild roster load. If this persists, check the in-game ranks with /olv diagnostics scope." end
     local onlineKnown = type(online) == "boolean"
     if type(issecretvalue) == "function" then local known, secret = pcall(issecretvalue, online); if not known or secret then onlineKnown = false end end
     rows[guid] = { name = name, guid = guid, slot = slot, rank=rank, level = level, note = note, officerNote = officerNote,
@@ -916,7 +916,7 @@ function Q.AttemptHeld(id,current,nativeSlot)
   local status=Q.PromotionStatus(id,current,nativeSlot)
   return status=="pending" or status=="blocked"
 end
-local ReconcilePromotions
+local ReconcilePromotions, UpdatePromotionReview
 local reconcileTimer,lastReconcileAt=false,nil
 local function ScheduleReconciliation(delay)
   if reconcileTimer or not (C_Timer and type(C_Timer.After)=="function") then return end
@@ -925,7 +925,7 @@ local function ScheduleReconciliation(delay)
   if not ok then reconcileTimer=false end
 end
 ReconcilePromotions=function()
-  if next(Q.pending)==nil then return end
+  if Q.promotionBlocked or next(Q.pending)==nil then return end
   local now,active=time(),false
   if not Number(now,1,2147483647) then return end
   for _,pending in pairs(Q.pending) do
@@ -958,6 +958,7 @@ ReconcilePromotions=function()
       Q.continuations[id]=not record.completed and {record=record,generation=Q.generation} or nil
     end
   end
+  if UpdatePromotionReview then UpdatePromotionReview() end
 end
 local function PromotionCommand()
   for _,prefix in ipairs({"SLASH_GUILD_PROMOTE","SLASH_GUILDPROMOTE"}) do
@@ -1155,26 +1156,26 @@ function Q.PollInitiateAlerts(safe)
   end
 end
 
-local function PreparePromotion(target)
-  local current, roster = ActionContext()
+local function PreparePromotion(target,current,roster)
+  if not current then current,roster=ActionContext() end
   if not current then Say(roster); return false end
-  local row
-  for index, value in ipairs(current.promotions) do if value.guid == target or tostring(index) == target then row = value; break end end
+  local row=PromotionRow(current,target)
+  if not row and type(target)=="string" and target:match("^[1-9]%d*$") then row=current.promotions[tonumber(target)] end
   if not row then Say("No current promotion matches that GUID/index."); return false end
   local fresh = current.freshness[row.guid]
   local scheme=current.nativeRankScheme
   if type(fresh)~="table" or fresh.kind~="selected" or type(fresh.page)~="table" then
-    Say("A fresh Directive selected plan is required before a promotion click; discovery remains advisory.");return false end
+    Say("Select this character in the officer desk and check eligibility. Once the result shows Ready, review the name and click Promote.");return false end
   if not scheme or fresh.page.rankProfile~=scheme.profile or fresh.page.rankSchemeDigest~=scheme.digest then
-    Say("The current native rank table differs from the selected plan; no promotion sent.");return false end
+    Say("Guild rank names changed since this check. Open the WoW guild roster, click Sync, and recheck the selected character.");return false end
   if not DirectiveIntent(row,fresh.page,current.identity,time()) then
-    Say("A fresh Directive selected plan is required before a promotion click; discovery remains advisory.");return false end
+    Say("Select this character in the officer desk and check eligibility. Once the result shows Ready, review the name and click Promote.");return false end
   if not fresh or (fresh.actionHeld==nil and current.actionHeld or fresh.actionHeld) or not Number(fresh.expiresAt,1,2147483647)
-    or not Number(fresh.scanExpiresAt,1,2147483647) or time() >= fresh.expiresAt or time() >= fresh.scanExpiresAt then Say("This page is stale or stopped. Explicitly recheck it and reload before acting."); return false end
+    or not Number(fresh.scanExpiresAt,1,2147483647) or time() >= fresh.expiresAt or time() >= fresh.scanExpiresAt then Say("This promotion check expired or stopped. Select this character and check eligibility again. Wait for the new Ready result before clicking Promote."); return false end
   local native = roster[row.guid]
   local command=PromotionCommand()
   if not command then Say("This client has not exposed a supported guild-promotion command; no action taken.");return false end
-  if native and (native.name:find("/",1,true) or native.name:find("\\",1,true)) then
+  if native and (not native.name:match("^[a-zA-Z\128-\255]") or native.name:find("[^a-zA-Z0-9 '%-\128-\255]") or native.name:match("%s$")) then
     Say("The native target name is not safe for one literal promotion command; no action taken.");return false
   end
   local ledger=AttemptLedger(true)
@@ -1250,17 +1251,22 @@ function Q.BindPromotionButton(button,resolver,afterClick)
   button:SetScript("PreClick",function(self,mouseButton,down)
     if not ClearPromotionButton(self) then return end
     self.olympusPromotionAttempt=nil
-    if mouseButton~="LeftButton" or down==true or Read(IsShiftKeyDown)~=false
+    if Q.inAction or mouseButton~="LeftButton" or down==true or Read(IsShiftKeyDown)~=false
       or Read(IsControlKeyDown)~=false or Read(IsAltKeyDown)~=false then return end
-    local ok,target=pcall(resolver,self)
+    local ok,target,reviewed=pcall(resolver,self)
     if not ok or type(target)~="string" or not self:IsVisible() then return end
     local prepared=PreparePromotion(target)
     if not prepared then return end
+    if reviewed and (prepared.row.guid~=reviewed.guid or prepared.native.name~=reviewed.name
+      or prepared.native.slot~=reviewed.slot or prepared.row.intentToken~=reviewed.token
+      or prepared.fresh.controlId~=reviewed.control or not SameIdentity(prepared.current.identity,reviewed.identity)
+      or prepared.current.identity.rank~=reviewed.identity.rank or prepared.current.identity.primeInitiates~=reviewed.identity.primeInitiates) then
+      Say("The reviewed character, rank or signed decision changed. Review this selection again."); return
+    end
     local attempt=ReservePromotion(prepared)
     if not attempt then return end
     self.olympusPromotionAttempt=attempt
-    -- One literal native name from the just-read complete roster. Text() already
-    -- refuses control/newline characters, so it cannot add another macro line.
+    -- PreparePromotion validated this literal native name and the current rank.
     self:SetAttribute("macrotext1",prepared.command.." "..prepared.native.name)
     self:SetAttribute("type1","macro")
   end)
@@ -1405,9 +1411,23 @@ function Q.FinishCombatWindows()
   end
   return closed
 end
-function Q.HardwarePromote(target)
-  local prepared=PreparePromotion(target)
-  if not prepared then return false end
+local reviewedPromotions
+UpdatePromotionReview=function()
+  if not reviewedPromotions or not Q.promotionConfirm or not Q.promotionConfirm:IsShown() or Read(InCombatLockdown)~=false then return end
+  local index,items=reviewedPromotions.index,reviewedPromotions.items
+  local nextRow,observed=items[index],0
+  for i=1,index-1 do
+    if items[i].attempt and items[i].attempt.step.state=="rank-observed" then observed=observed+1 end
+  end
+  local summary=string.format("%d of %d requested · %d rank changes observed · %d awaiting a receipt",index-1,#items,observed,index-1-observed)
+  Q.confirmGuid=nextRow and nextRow.guid or nil
+  local heading=Q.promotionBlocked and "WoW blocked promotions. Outstanding requests remain held."
+    or nextRow and (nextRow.name.." · "..nextRow.rank.." > "..nextRow.nextRank)
+  Q.promotionConfirmInfo:SetText((heading and (heading.."\n") or "")..summary)
+  Q.promotionConfirmButton:SetText(Q.promotionBlocked and "Promotions held" or nextRow and ("Promote "..nextRow.name) or "All requests submitted")
+  Q.promotionConfirmButton:SetEnabled(nextRow~=nil and not Q.promotionBlocked)
+end
+local function promotionConfirmFrame()
   if not Q.promotionConfirm then
     local frame=CreateFrame("Frame","OlympusPromotionConfirm",UIParent,"BasicFrameTemplateWithInset")
     frame:SetSize(420,140);frame:SetPoint("CENTER")
@@ -1417,7 +1437,19 @@ function Q.HardwarePromote(target)
     info:SetPoint("TOPLEFT",18,-40);info:SetWidth(384);info:SetJustifyH("LEFT")
     local promote=CreateFrame("Button",nil,frame,"SecureActionButtonTemplate,UIPanelButtonTemplate")
     promote:SetSize(230,28);promote:SetPoint("BOTTOMLEFT",18,16);promote:SetText("Promote one rank")
-    Q.BindPromotionButton(promote,function() return Q.confirmGuid end,function() frame:Hide() end)
+    Q.BindPromotionButton(promote,function()
+      local item=reviewedPromotions and reviewedPromotions.items[reviewedPromotions.index]
+      return Q.confirmGuid,item
+    end,function(_,attempt)
+      if not reviewedPromotions or not attempt or attempt.blocked then frame:Hide();return end
+      local index=reviewedPromotions.index
+      reviewedPromotions.items[index].attempt=attempt
+      reviewedPromotions.index=index+1
+      UpdatePromotionReview()
+    end)
+    frame:HookScript("OnHide",function()
+      if reviewedPromotions then reviewedPromotions=nil;Q.confirmGuid=nil end
+    end)
     local cancel=CreateFrame("Button",nil,frame,"UIPanelButtonTemplate")
     cancel:SetSize(125,28);cancel:SetPoint("LEFT",promote,"RIGHT",12,0);cancel:SetText("Cancel")
     local function close() if Read(InCombatLockdown)==false then frame:Hide() else Q.DeferCombatClose(frame) end end
@@ -1426,10 +1458,38 @@ function Q.HardwarePromote(target)
     Q.CloseInCombat(frame,close) -- CL2-003: combat cancels exactly as the Cancel button does.
     Q.promotionConfirm,Q.promotionConfirmInfo,Q.promotionConfirmButton,Q.promotionConfirmCancel=frame,info,promote,cancel
   end
+end
+function Q.HardwarePromote(target)
+  if reviewedPromotions then return false end
+  local prepared=PreparePromotion(target)
+  if not prepared then return false end
+  promotionConfirmFrame()
+  reviewedPromotions=nil
+  Q.promotionConfirmButton:SetText("Promote one rank");Q.promotionConfirmButton:SetEnabled(true)
   Q.confirmGuid=prepared.row.guid
   Q.promotionConfirmInfo:SetText(prepared.native.name.."\n"..tostring(prepared.native.slot).." > "..tostring(prepared.native.slot-1).." (target "..prepared.row.targetName..")")
   Q.promotionConfirm:Show()
   Say("Click the visible confirmation button for one player promotion command. No rank action has been sent yet.")
+  return true
+end
+function Q.ReviewDeskPromotions(targets)
+  local count=ArraySize(targets,1000)
+  if not count or count==0 or reviewedPromotions then return false,"Select a new set of eligible members." end
+  local current,roster=ActionContext()
+  if not current then return false,roster end
+  local frozen,seen={},{}
+  for _,target in ipairs(targets) do
+    if type(target)~="table" or getmetatable(target) or not Text(target.guid,40) or not target.guid:match("^Player%-%d+%-%x+$")
+      or seen[target.guid] then return false,"The promotion selection must contain distinct native characters." end
+    local p=PreparePromotion(target.guid,current,roster)
+    if not p or p.native.name~=target.name then return false,"A selected character or signed recommendation changed. Review the list again." end
+    seen[target.guid]=true
+    frozen[#frozen+1]={guid=target.guid,name=p.native.name,slot=p.native.slot,rank=p.native.rank,
+      nextRank=current.nativeRankScheme.names[p.native.slot],identity=p.current.identity,token=p.row.intentToken,control=p.fresh.controlId}
+  end
+  promotionConfirmFrame()
+  reviewedPromotions={items=frozen,index=1}
+  Q.promotionConfirm:Show();UpdatePromotionReview()
   return true
 end
 function Q.RecordCurrentPromotionObservation(target)
@@ -1535,13 +1595,26 @@ function Q.Motd(action)
 end
 -- Local signed read control only. SavedVariables reaches the watcher at the hardware reload;
 -- it cannot authorize an invite, Discord role, removal or a protected native action.
+local function ReadControlHold(identity)
+  if cfg.membershipOnly~=true then return "Use the enrolled officer installation in membership-only mode. Run /olv diagnostics scope on Fern to check this installation." end
+  if Q.scopeChanged then return "The character or guild changed. Log in to Fern in OLYMPUS PRIME and /reload before checking again." end
+  if Preview() then return "Close preview and open the officer desk on Fern to check the live roster." end
+  if Read(InCombatLockdown)~=false then return "Wait until Fern is out of combat, then select the character and try the check again." end
+  if not Text(cfg.secret,1024) or #cfg.secret<16 or cfg.secret:find("REPLACE",1,true) then
+    return "The local officer signing configuration is missing. Restore Fern's enrolled configuration from its private backup, then /reload and run /olv diagnostics scope."
+  end
+  if not H or type(H.hmacSha256hex)~="function" or type(H.sha256hex)~="function"
+    or not OlympusVerifyAPI or type(OlympusVerifyAPI.Sync)~="function" then
+    return "The installed addon is missing its signing or Sync module. Restore the current official addon files, keep Fern's private configuration, then /reload."
+  end
+  if not identity then return Read(GetRealmName)=="" and BlankRealmReason()
+    or "Log in to Fern in OLYMPUS PRIME. Open the guild roster, wait for offline rows to load, then run /olv diagnostics scope to check guild and realm." end
+end
 function Q.Control(action, offset)
   local identity = Identity()
-  if cfg.membershipOnly ~= true or not identity or Q.scopeChanged or Preview() or Read(InCombatLockdown) ~= false
-    or (action ~= "scan" and action ~= "stop" and action ~= "recheck")
-    or not Text(cfg.secret, 1024) or #cfg.secret < 16 or cfg.secret:find("REPLACE", 1, true)
-    or not H or type(H.hmacSha256hex) ~= "function" or not OlympusVerifyAPI or type(OlympusVerifyAPI.Sync) ~= "function" then
-    Say("Native identity, local signing or sync is unavailable; scan control held."); return false end
+  local hold=ReadControlHold(identity)
+  if hold then Say(hold);return false end
+  if action~="scan" and action~="stop" and action~="recheck" then return false end
   offset = offset or 0
   if not Number(offset, 0, 980) or offset % 20 ~= 0 or action ~= "recheck" and offset ~= 0 then return false end
   OlympusVerifyDB = OlympusVerifyDB or {}
@@ -1558,12 +1631,12 @@ function Q.Control(action, offset)
 end
 function Q.Select(targetGuid)
   local identity=Identity() or PrimeInitiateIdentity()
-  if cfg.membershipOnly~=true or not identity or Q.scopeChanged or Preview() or Read(InCombatLockdown)~=false
-    or Q.identityBaseline and not SameIdentity(Q.identityBaseline,identity) or not Text(targetGuid,40)
-    or not targetGuid:match("^Player%-%d+%-%x+$") or targetGuid==identity.guid
-    or not Text(cfg.secret,1024) or #cfg.secret<16 or cfg.secret:find("REPLACE",1,true)
-    or not H or type(H.hmacSha256hex)~="function" or not OlympusVerifyAPI or type(OlympusVerifyAPI.Sync)~="function" then
-    Say(Read(GetRealmName)=="" and not identity and BlankRealmReason() or "Current native identity, GUID, signing or sync is unavailable; selected read held.");return false end
+  local hold=ReadControlHold(identity)
+  if hold then Say(hold);return false end
+  if Q.identityBaseline and not SameIdentity(Q.identityBaseline,identity) then
+    Say("The current character differs from the loaded roster. Log in to Fern and /reload before checking again.");return false end
+  if not Text(targetGuid,40) or not targetGuid:match("^Player%-%d+%-%x+$") or targetGuid==identity.guid then
+    Say("Select another character in the current guild roster. Open the WoW guild roster first if their row is missing.");return false end
   local roster,why,scheme=NativeRoster(identity)
   if not roster or not roster[targetGuid] then Say(why or "The selected GUID is absent from the complete current native roster.");return false end
   local native=roster[targetGuid]
@@ -1607,7 +1680,7 @@ function Q.SelectMany(targetGuids)
   if Read(InCombatLockdown)~=false then Say("Leave combat before checking Initiates.");return false end
   if not Text(cfg.secret,1024) or #cfg.secret<16 or cfg.secret:find("REPLACE",1,true)
     or not H or type(H.hmacSha256hex)~="function" or type(H.sha256hex)~="function" then
-    Say("Local officer signing is unavailable. Check the installed officer configuration.");return false end
+    Say("Local officer signing is unavailable. Restore Fern's enrolled private configuration and current official addon files, then /reload and run /olv diagnostics scope.");return false end
   if not OlympusVerifyAPI or type(OlympusVerifyAPI.Sync)~="function" then
     Say("The officer Sync function is unavailable. Check the addon installation.");return false end
   local targets,_,joined=BatchTargets(targetGuids,false)
@@ -1920,6 +1993,7 @@ events:SetScript("OnEvent", function(_, event, addon, functionName)
     -- Keep every unknown record; never use the event to clear or retry a call.
     Q.promotionBlocked = true
     if Q.activeAttempt then Q.activeAttempt.blocked = true end
+    if UpdatePromotionReview then UpdatePromotionReview() end
   end
 end)
 Q.Events = events -- deterministic local tests; contains no action dispatcher.
