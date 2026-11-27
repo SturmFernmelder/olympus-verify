@@ -19,15 +19,17 @@ function receiptMatches(body,result) {
   if (body.action==="rsvp") return result.answer===body.answer;
   return result.revision===body.revision+1;
 }
+function textMatches(stored,input) {
+  return typeof (input??"")==="string" && stored===(input??"").trim().normalize("NFC");
+}
+function zoneMatches(stored,input) {
+  if(typeof stored!=="string" || typeof input!=="string")return false;
+  const canonical=zone=>new Intl.DateTimeFormat("en-US",{timeZone:zone.trim()}).resolvedOptions().timeZone;
+  try{return canonical(stored)===canonical(input);}catch{return false;}
+}
 function charterMatches(b,team) {
   if (team?.id!==b.teamId || !(team.revision>b.revision) || team.capacity!==b.capacity || team.status!==b.status) return false;
-  for (const key of ["name","philosophy","schedule","loot","expectations","needs"]) {
-    const value=b[key]??"";
-    if (typeof value!=="string" || team[key]!==value.trim().normalize("NFC")) return false;
-  }
-  const canonicalZone=zone=>new Intl.DateTimeFormat("en-US",{timeZone:zone.trim()}).resolvedOptions().timeZone;
-  if (typeof b.timezone!=="string" || typeof team.timezone!=="string") return false;
-  try { if (canonicalZone(b.timezone)!==canonicalZone(team.timezone)) return false; } catch { return false; }
+  if(!["name","philosophy","schedule","loot","expectations","needs"].every(k=>textMatches(team[k],b[k])) || !zoneMatches(team.timezone,b.timezone))return false;
   const roles=b.roleNeeds??[], windows=b.weeklyWindows===undefined?[]:b.weeklyWindows;
   if (!Array.isArray(roles) || !Array.isArray(team.roleNeeds) || roles.length!==team.roleNeeds.length ||
       !roles.every((role,i)=>role===team.roleNeeds[i])) return false;
@@ -45,19 +47,20 @@ function readShowsChange(b,d) {
     if (b.action==="rsvp") return event.answer===b.answer && event.rsvpRevision>b.rsvpRevision;
     if (b.action==="attendance") return d.roster?.some(s=>s.seatId===b.seatId && s.attendance===b.state && s.attendanceRevision>b.attendanceRevision);
     if (b.action==="edit") {
-      return event.revision>b.revision && event.title===b.title && event.timezone===b.timezone &&
+      return event.revision>b.revision && textMatches(event.title,b.title) && zoneMatches(event.timezone,b.timezone) &&
         wallTime(event.startsAt,event.timezone)===b.localStart &&
-        event.durationMin===b.durationMin && event.assemblyMinutes===b.assemblyMinutes && event.preparation===b.preparation;
+        event.durationMin===b.durationMin && event.assemblyMinutes===(b.assemblyMinutes??0) &&
+        textMatches(event.preparation,(b.preparation??"").replace(/\r\n?/g,"\n"));
     }
     return false;
   }
   if (b.action==="create") return d.isLeader && d.team?.id===b.id;
   if (b.action==="edit") return charterMatches(b,d.team);
   if (b.action==="profile") return d.profile?.revision>b.revision && d.profile.guid===b.guid && !!d.profile.listed===b.listed &&
-    ["role","playerClass","spec","availability","notes"].every(key=>d.profile[key]===b[key]);
+    d.profile.role===b.role && ["playerClass","spec","availability","notes"].every(key=>textMatches(d.profile[key],b[key]));
   if (b.action==="forget") return d.mine?.id!==b.seatId;
   if (b.action==="apply") return d.mine?.revision>b.revision && d.mine.state==="submitted" && d.mine.role===b.role &&
-    d.mine.note===(b.note||"").trim() && d.characters?.some(c=>c.guid===b.guid && c.name===d.mine.character);
+    textMatches(d.mine.note,b.note) && d.characters?.some(c=>c.guid===b.guid && c.name===d.mine.character);
   const seat=[d.mine,...(d.applications||[]),...(d.members||[])].find(s=>s && s.id===b.seatId && s.revision>b.revision);
   if (!seat) return false;
   if (b.action==="respond" || b.action==="decide") return seat.state===b.state;
@@ -110,9 +113,12 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
   const read = (path) => api("GET", path, undefined, { live });
   if (!live()) return;
   let busy = false, generation = 0;
-  const operationKey=parts.join("/");
-  let attempts=unresolvedByOwner.get(owner);
-  if (!attempts) { attempts=new Map(); unresolvedByOwner.set(owner,attempts); }
+  // The calendar list and each occurrence can submit the same operations.
+  const operationKey=parts[1]==="calendar"?parts.slice(0,2).join("/"):parts.join("/");
+  let shared=unresolvedByOwner.get(owner);
+  if (!shared) { shared={attempts:new Map()}; unresolvedByOwner.set(owner,shared); }
+  const attempts=shared.attempts,view={operationKey,live,showReply};
+  shared.view=view;
   function report(text, error = false) {
     notice.textContent = text;
     notice.className = error ? "raid-feedback err" : "raid-feedback";
@@ -140,23 +146,24 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
     report(errors(error,"Your current access could not be confirmed."),true);
     await refreshCommunity({live});
   }
-  function controlsFor(attempt,text,mayRetire=false) {
-    report(text,true);
+  function controlsFor(attempt,text,checked=false) {
+    if(checked)attempt.checked=true;
+    report([attempt.refusal,text].filter(Boolean).join(" "),true);
     notice.append(" ",button("Retry the same request",()=>submit(attempt,true)), " ",
       button("Check the current record",()=>checkOriginal(attempt)));
-    if(mayRetire) notice.append(" ",button("Stop retrying and reload current access",async()=>{
-      if(!live() || busy || attempts.get(operationKey)!==attempt)return;
+    if(attempt.checked) notice.append(" ",button("Stop retrying and reload current access",async()=>{
+      if(!live() || busy || attempt.sending || attempts.get(operationKey)!==attempt)return;
       busy=true;
       attempts.delete(operationKey);
       main.replaceChildren();
       try {
         await refreshCommunity({live});
-        if(live() && await refresh()) report("You stopped retrying. No new decision was sent. Review the current roster before taking another action.");
+        if(live() && await refresh()) report(["You stopped retrying. The original result remains unconfirmed.",attempt.refusal,"Review the current record before taking another action."].filter(Boolean).join(" "));
       } finally {busy=false;main.inert=false;}
     }));
   }
   async function checkOriginal(attempt) {
-    if (!live() || busy || attempts.get(operationKey)!==attempt) return;
+    if (!live() || busy || attempt.sending || attempts.get(operationKey)!==attempt) return;
     busy=true;
     const b=JSON.parse(attempt.bytes);
     try {
@@ -188,12 +195,12 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
         if (await refresh()) report("The current record confirms the requested change.");
       } else {
         if(d && b.area==="calendar" && b.eventId) await refresh();
-        if(live() && attempts.get(operationKey)===attempt) controlsFor(attempt,"The current record does not confirm the original request. Retry the same request to check its result.");
+        if(live() && attempts.get(operationKey)===attempt) controlsFor(attempt,"The current record does not confirm the original request. You can retry it or stop here.",true);
       }
     } catch(e) {
       if(!live())return;
       if(e?.status===403 || e?.status===503) await refreshAccess(e);
-      if(live())controlsFor(attempt,"The check could not confirm the original request.",!!decisionKind(b));
+      if(live())controlsFor(attempt,"The check could not confirm the original request.",true);
     } finally {busy=false;main.inert=attempts.has(operationKey);}
   }
   function write(target, payload, message, success, conflict) {
@@ -203,24 +210,38 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
     return submit({bytes:JSON.stringify(body),message},false,success,conflict);
   }
   async function submit(attempt,retry,success,conflict) {
-    if (busy || !live() || (retry && attempts.get(operationKey)!==attempt)) return;
-    busy = true;
+    if (busy || attempt.sending || !live() || (retry && attempts.get(operationKey)!==attempt)) return;
+    attempt.sending=true;
     main.inert = true;
     report(retry?"Checking the original request…":"Saving…");
     const b=JSON.parse(attempt.bytes);
     attempts.set(operationKey,attempt);
+    let result,error;
     try {
-      const result = await postRaidTeam316(api,{},b,{ live });
+      result = await postRaidTeam316(api,{},b,{ live });
       if (!receiptMatches(b,result)) throw Object.assign(new Error("Unreadable receipt."),{status:200,data:{error:"unreadable_answer"}});
       attempts.delete(operationKey);
-      if (!live()) return;
-      if (success) await success(result);
-      else if (b.action==="create") location.hash=goTeam(b.id);
-      else if (!await refresh()) return;
-      if (live()) report(attempt.message);
     } catch (e) {
+      error=e;
       const uncertain=!e?.status || e.status>=500 || e.data?.error==="unreadable_answer";
       if(!uncertain && !retry) attempts.delete(operationKey);
+      if(!uncertain && retry)attempt.refusal=errors(e,"The retry was refused.");
+    } finally {attempt.sending=false;}
+    const current=shared.view;
+    if(current.operationKey===operationKey && current.live()) {
+      await current.showReply(attempt,b,result,error,current===view?success:null,current===view?conflict:null);
+    }
+  }
+  async function showReply(attempt,b,result,e,success,conflict) {
+    busy=true;
+    try {
+      if(!e) {
+        if (success) await success(result);
+        else if (b.action==="create") location.hash=goTeam(b.id);
+        else if (!await refresh()) return;
+        if (live()) report(attempt.message);
+        return;
+      }
       if(!live())return;
       if(e?.status===403 || e?.status===503) {
         await refreshAccess(e);
@@ -228,7 +249,7 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
         if(!attempts.has(operationKey)) {notice.append(" ",button("Check current access",()=>refresh()));return;}
       }
       if(attempts.has(operationKey)) {
-        controlsFor(attempt,retry && !uncertain?"The original result is still unconfirmed. Check the current record.":"The save result is unknown. The original request is held for an identical retry or a readback.");
+        controlsFor(attempt,"The save result is unknown. The original request is held for an identical retry or a readback.");
         return;
       }
       report(errors(e, "The change could not be saved. Check the latest record before trying again."), true);
@@ -378,7 +399,9 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
         }),true));
     }
     const active=["primary","reserve"].includes(mine.state);
-    if (!active || !detail.isLeader) {
+    if (detail.ownsCharter===true) {
+      controls.append(p(detail.isLeader?"Transfer team leadership before leaving this raid team.":"You own this charter. Restore verification of its founding character, then transfer team leadership before leaving."));
+    } else if (!detail.isLeader) {
       controls.append(details(active?"Leave this raid team":"Withdraw application",button(active?"Confirm leave team":"Confirm withdrawal",()=>write(target,
         active?{action:"leave",...seat}:{action:"respond",...seat,state:"withdrawn"},active?"You left the raid team.":"Application withdrawn."))));
     }
@@ -528,6 +551,8 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
   await refresh();
   if(live() && attempts.has(operationKey)) {
     main.inert=true;
-    controlsFor(attempts.get(operationKey),"The original save result is unconfirmed. Check the current record or retry the same request.");
+    const attempt=attempts.get(operationKey);
+    if(attempt.sending)report("Waiting for the original save response…");
+    else controlsFor(attempt,"The original save result is unconfirmed. Check the current record or retry the same request.");
   }
 }

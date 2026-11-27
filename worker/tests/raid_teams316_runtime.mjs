@@ -87,8 +87,10 @@ export async function raidTeamsReadback316(base,rawDB,ctx,check) {
     db.prepare("UPDATE characters SET status='left' WHERE guid=?1").bind(leader.guid),
   ]);
   const heldFounder=await ok(leader,one);
+  const heldPeerView=await ok(healer,one);
   check('a charter owner with another verified character cannot abandon the founding seat while its chosen character is on hold',
-    heldFounder.characters.length===1&&!heldFounder.canManage&&
+    heldFounder.ownsCharter===true&&heldFounder.characters.length===1&&!heldFounder.canManage&&!heldFounder.isLeader&&
+    heldPeerView.ownsCharter===false&&!('ownsCharter' in heldPeerView.team)&&
     (await query(leader,one,{action:'leave',seatId:leaderPage.mine.id,revision:leaderPage.mine.revision})).status===409);
   await db.prepare("UPDATE characters SET status='member' WHERE guid=?1").bind(leader.guid).run();
   const returnedFounder=await ok(leader,one);
@@ -271,6 +273,9 @@ export async function raidTeamsReadback316(base,rawDB,ctx,check) {
     (await ok(leader,one)).members.some(m=>m.id===winnerSeat.id));
   const oldLeader=await ok(leader,one),successor=oldLeader.members.find(m=>m.id===winnerSeat.id);
   const transfer={action:'transfer',seatId:successor.id,revision:successor.revision,charterRevision:oldLeader.team.revision,operationId:'T'.repeat(22)};
+  const bareTransfer={action:'transfer',seatId:successor.id,revision:successor.revision};
+  check('a transfer without an operation ID still requires an explicit charter revision',
+    (await query(leader,one,bareTransfer)).status===400 && (await ok(leader,one)).ownsCharter===true);
   check('the original charter revision is required even if transfer authority later returns',
     (await query(leader,one,{...transfer,charterRevision:oldLeader.team.revision+1})).status===409 &&
     (await readDecision(leader,one,transfer)).state==='unrecorded');
@@ -280,7 +285,15 @@ export async function raidTeamsReadback316(base,rawDB,ctx,check) {
     (await readDecision(leader,one,transfer)).state==='applied' && (await ok(leader,one,transfer)).ok &&
     (await db.prepare("SELECT count(*) n FROM audit WHERE actor=?1 AND action='community.raid_team_decision'").bind(leader.id).first()).n===3);
   check('leadership can be transferred without a guild rank or automatic membership change',
-    (await ok(winner,one)).isLeader && !(await ok(leader,one)).isLeader);
+    (await ok(winner,one)).isLeader && (await ok(leader,one)).ownsCharter===false);
+  const currentOwner=await ok(winner,one),returnSeat=currentOwner.members.find(m=>m.id===oldLeader.mine.id);
+  await ok(winner,one,{action:'transfer',seatId:returnSeat.id,revision:returnSeat.revision,charterRevision:currentOwner.team.revision});
+  const delayed=await query(leader,one,{...bareTransfer,charterRevision:oldLeader.team.revision});
+  const restoredOwner=await ok(leader,one);
+  check('a delayed transfer without an operation ID cannot run after leadership returns, even with the same destination seat revision',
+    delayed.status===409 && restoredOwner.ownsCharter===true && restoredOwner.team.revision===oldLeader.team.revision+2 &&
+    restoredOwner.members.find(m=>m.id===successor.id)?.revision===successor.revision);
+  await ok(leader,one,{...bareTransfer,charterRevision:restoredOwner.team.revision});
   await db.batch(communityScopedEraseStatements(base,leader.id,['raid_teams']));
   const retiredEnvelope=await db.prepare('SELECT status,retain_until<=unixepoch() AS expired FROM community_events WHERE id=?1').bind(ownEvent.event_id).first();
   check('erasing the current charter owner cancels and expires the event while cascading its private team metadata',

@@ -161,8 +161,8 @@ async function detail(request: Request, env: Env, ctx: CommunityContext, id: str
   const from=`FROM raid_team_seats316 s JOIN characters k ON k.guid=s.character_guid AND k.discord_id=s.discord_id
     WHERE s.team_id=?1 AND ${seatCurrent('s')}`;
   const result=await admittedRead(env,ctx,'confirmedGuildData',[
-    env.DB.prepare(`SELECT ${teamProjection()},${raidTeamManagerSql316('t.id','?2')} AS canManage,${isLeader('t.id','?2')} AS isLeader,${raidTeamMemberSql316('t.id','?2')} AS canViewRoster
-      FROM raid_teams316 t WHERE t.id=?1`).bind(id,me),
+    env.DB.prepare(`SELECT ${teamProjection()},${raidTeamManagerSql316('t.id','?2')} AS canManage,${isLeader('t.id','?2')} AS isLeader,${raidTeamMemberSql316('t.id','?2')} AS canViewRoster,
+      (t.leader_id=?2 AND t.leader_birth=?3) AS ownsCharter FROM raid_teams316 t WHERE t.id=?1`).bind(id,me,ctx.subject!.accountIncarnation),
     env.DB.prepare(`SELECT ${seatProjection} ${from} AND s.state IN ${ACTIVE} AND ${raidTeamMemberSql316('s.team_id','?2')} ORDER BY s.state,s.group_number,k.name COLLATE NOCASE`).bind(id,me),
     env.DB.prepare(`SELECT ${seatProjection},s.note ${from} AND s.state IN ${OPEN} AND ${raidTeamManagerSql316('s.team_id','?2')}
       ORDER BY s.created_at,s.id`).bind(id,me),
@@ -174,8 +174,8 @@ async function detail(request: Request, env: Env, ctx: CommunityContext, id: str
   if (result===FENCE_REFUSED) return refusal(env,request,'confirmedGuildData');
   const team=result[0]!.results[0] as Record<string,unknown>|undefined;
   if (!team) return apiJson({error:'not_found',message:'This raid team could not be found.'},404);
-  const {canManage,isLeader:leader,canViewRoster,...summary}=team;
-  return apiJson({team:teamDto(summary),canManage:!!canManage,isLeader:!!leader,canViewRoster:!!canViewRoster,members:result[1]!.results,applications:result[2]!.results,mine:result[3]!.results[0]??null,characters:result[4]!.results});
+  const {canManage,isLeader:leader,ownsCharter,canViewRoster,...summary}=team;
+  return apiJson({team:teamDto(summary),canManage:!!canManage,isLeader:!!leader,ownsCharter:!!ownsCharter,canViewRoster:!!canViewRoster,members:result[1]!.results,applications:result[2]!.results,mine:result[3]!.results[0]??null,characters:result[4]!.results});
 }
 
 type SqlValue = string|number|null;
@@ -339,11 +339,12 @@ function writePlan(env:Env, ctx:CommunityContext, teamId:string|null, b:Record<s
       AND (s.is_officer=0 OR ${leader})`);
   }
   if (b.action==='transfer') {
+    const charterRevision=param(receipt?.charterRevision??integer(b.charterRevision,1,2147483646,'current charter revision'));
     const dest=`SELECT s.discord_id,s.account_birth,s.character_guid FROM raid_team_seats316 s
       WHERE ${match} AND s.state IN ${ACTIVE} AND s.discord_id<>?1 AND ${seatCurrent('s')}
       AND (SELECT count(*) FROM raid_teams316 owned WHERE owned.leader_id=s.discord_id)<10`;
     return result(`UPDATE raid_teams316 SET (leader_id,leader_birth,leader_guid)=(${dest}),revision=revision+1,updated_at=${DB_NOW}
-      WHERE id=${team} ${receipt ? 'AND revision='+param(receipt.charterRevision) : ''} AND ${guard} AND ${originalActor} AND ${leader} AND EXISTS(${dest})`);
+      WHERE id=${team} AND revision=${charterRevision} AND ${guard} AND ${originalActor} AND ${leader} AND EXISTS(${dest})`);
   }
   throw new FieldError('Choose a supported raid team action.');
 }

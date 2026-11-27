@@ -7,7 +7,7 @@ const {Miniflare, Log, LogLevel, convertV4MiniflareOptions} = require('miniflare
 
 const worker = path.resolve(__dirname, '..');
 const guild = '236932545793490944', forum = '1554265340286861352';
-const bot = '123456789012345678', admin = '123456789012345679';
+const bot = '123456789012345678', admin = '123456789012345679', textChannel='1551253084536049714';
 const oldTag = {id:'100000000000000001',name:'Other',moderated:true,emoji_id:null,emoji_name:'🌙'};
 const teamTag = {...oldTag,id:'100000000000000002',name:'Team recruiting',moderated:false,emoji_name:null};
 const playerTag = {...teamTag,id:'100000000000000003',name:'Looking for team'};
@@ -15,16 +15,28 @@ const legacy = 'Read first: how to post a group';
 
 async function test() {
   let tags=[oldTag], forumReads=0, calls=0, driftAt=0, loseReply=false, retryLegacy=false;
-  const posts=[], threads=new Map();
+  const posts=[], threads=new Map(), texts=new Map(), limitOnce=new Set();
+  let textPosts=0;
   const bundle=buildSync({stdin:{contents:
-    "import './src/index'; import {refreshIntros} from './src/intros'; export default {async fetch(r,e){const p=new URL(r.url).searchParams;return Response.json(await refreshIntros(e,e.GUILD_ID,p.get('actor'),'1554265340286861352',Number(p.get('budget'))));}}",
+    "import './src/index'; import {refreshIntros} from './src/intros'; export default {async fetch(r,e){const p=new URL(r.url).searchParams;return Response.json(await refreshIntros(e,e.GUILD_ID,p.get('actor'),p.get('channel'),Number(p.get('budget'))));}}",
     resolveDir:worker},bundle:true,write:false,format:'esm',platform:'browser',external:['node:async_hooks']}).outputFiles[0].text;
   const mf=new Miniflare(convertV4MiniflareOptions({name:'raid-forum-test',script:bundle,modules:true,compatibilityDate:'2026-09-01',
     compatibilityFlags:['nodejs_compat'],d1Databases:['DB'],cf:false,host:'127.0.0.1',port:0,log:new Log(LogLevel.NONE),
-    bindings:{GUILD_ID:guild,INTROS_GUILD_ID:guild,INTROS_CHANNELS:'looking-for-group='+forum,SITE_ADMINS:admin,DISCORD_APP_ID:bot,DISCORD_BOT_TOKEN:'fixture'},
+    bindings:{GUILD_ID:guild,INTROS_GUILD_ID:guild,INTROS_CHANNELS:'looking-for-group='+forum+',guild-chat='+textChannel,SITE_ADMINS:admin,DISCORD_APP_ID:bot,DISCORD_BOT_TOKEN:'fixture'},
     outboundService:async req=>{
       const url=new URL(req.url);assert.equal(url.origin,'https://discord.com');const p=url.pathname.replace('/api/v10','');
       calls++;
+      if(limitOnce.delete(req.method+' '+p))return Response.json({message:'Try again',retry_after:0},{status:429});
+      if(req.method==='POST'&&p==='/channels/'+textChannel+'/messages'){
+        const message={id:String(300000000000000000n+BigInt(++textPosts)),pinned:false};
+        texts.set(message.id,message);return Response.json(message);
+      }
+      if(p.startsWith('/channels/'+textChannel+'/messages/')){
+        const message=texts.get(p.split('/').at(-1));
+        if(!message)return Response.json({code:10008,message:'Unknown message'},{status:404});
+        if(req.method==='GET')return Response.json(message);
+        if(req.method==='PUT'&&p.includes('/messages/pins/')){message.pinned=true;return new Response(null,{status:204});}
+      }
       if(req.method==='GET'&&p==='/channels/'+forum) {
         if(++forumReads===driftAt)tags=tags.map(t=>t.id===oldTag.id?{...t,emoji_name:'🎲'}:t);
         return Response.json({id:forum,guild_id:guild,type:15,available_tags:tags});
@@ -51,6 +63,7 @@ async function test() {
         }
         if(req.method==='GET'&&parts[3]==='messages'&&parts[4]===parts[2])return Response.json(v.m);
       }
+      if(req.method==='GET'&&parts[1]==='channels'&&parts.length===3&&!v)return Response.json({code:10003,message:'Unknown channel'},{status:404});
       throw Error('Unexpected Discord request: '+req.method+' '+p);
     }}));
   try {
@@ -59,8 +72,8 @@ async function test() {
       const ddl=schema.match(new RegExp('CREATE TABLE IF NOT EXISTS '+table+' \\([\\s\\S]+?\\n\\);'))[0];
       await db.prepare(ddl).run();
     }
-    async function call(actor=admin,budget=40) {
-      const prior=calls, response=await mf.dispatchFetch('https://local.test/?actor='+actor+'&budget='+budget);
+    async function call(actor=admin,budget=40,channel=forum) {
+      const prior=calls, response=await mf.dispatchFetch('https://local.test/?actor='+actor+'&budget='+budget+'&channel='+channel);
       assert.equal(response.status,200,await response.clone().text());
       const r=await response.json();assert.equal(r.callsUsed,calls-prior,'count every actual Discord attempt');assert.ok(r.callsUsed<=budget);
       return {result:r,legacy:r.outcomes.find(o=>o.key==='looking-for-group'),template:r.outcomes.find(o=>o.key==='raid-recruitment-templates')};
@@ -84,6 +97,29 @@ async function test() {
     assert.equal(posts.length,3);assert.equal(await db.prepare("SELECT COUNT(*) n FROM intro_posts WHERE message_id<>'' AND hash='raid-template-v1'").first('n'),2);
     retryLegacy=true;const again=await call();assert.equal(again.legacy.action,'current');assert.equal(again.template.action,'current');assert.match(again.template.note,/0 published, 0 earlier posts reconciled/);
     assert.equal(posts.length,3);
+    const stored=key=>db.prepare('SELECT channel_id,message_id FROM intro_posts WHERE guild_id=?1 AND intro_key=?2').bind(guild,key).first();
+    const oldForum=await stored('looking-for-group');
+    threads.delete(oldForum.message_id);
+    limitOnce.add('GET /channels/'+oldForum.channel_id);
+    limitOnce.add('GET /channels/'+forum);
+    const newForum=await call('ordinary',5),forumRef=await stored('looking-for-group');
+    assert.equal(newForum.result.callsUsed,5);assert.equal(newForum.legacy.action,'reposted');assert.ok(newForum.result.stoppedEarly);
+    assert.match(newForum.legacy.note,/refresh this channel again to pin/i);
+    assert.notEqual(forumRef.message_id,oldForum.message_id);assert.equal(threads.get(forumRef.message_id).t.flags,0);
+    const countForum=posts.length,forumNext=await call('ordinary',5);
+    assert.equal(forumNext.legacy.action,'repinned');assert.notEqual(threads.get(forumRef.message_id).t.flags,0);
+    assert.deepEqual(await stored('looking-for-group'),forumRef);assert.equal(posts.length,countForum);
+    await call('ordinary',4,textChannel);
+    const oldText=await stored('guild-chat');texts.delete(oldText.message_id);
+    limitOnce.add('GET /channels/'+textChannel+'/messages/'+oldText.message_id);
+    limitOnce.add('POST /channels/'+textChannel+'/messages');
+    const newText=await call('ordinary',4,textChannel),textRef=await stored('guild-chat');
+    assert.equal(newText.result.callsUsed,4);assert.equal(newText.result.outcomes[0].action,'reposted');assert.ok(newText.result.stoppedEarly);
+    assert.notEqual(textRef.message_id,oldText.message_id);assert.equal(texts.get(textRef.message_id).pinned,false);
+    const countTexts=textPosts,textNext=await call('ordinary',4,textChannel);
+    assert.equal(textNext.result.outcomes[0].action,'repinned');assert.equal(texts.get(textRef.message_id).pinned,true);
+    assert.deepEqual(await stored('guild-chat'),textRef);assert.equal(textPosts,countTexts);
+    console.log('Forum and text intro replacements survive charged 429 retries: save before exhausted pin, then pin original replacement with no duplicate POST.');
     console.log('Real intro refresh passed in Workerd/D1 with simulated Discord: attended tags, ordinary intro independence, partial recovery, concurrent edit preservation, exact bounded request counts including a retry, zero duplicate templates.');
   } finally {await mf.dispose();}
 }

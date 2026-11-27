@@ -18,7 +18,7 @@ async function browserScenario() {
   const owner={},writes=[];
   let attendanceEnabled=true,refusal=null,refreshes=0,releaseContext,garbleSchedule=true,loseApplication=true;
   let dropDecision=null,missingDecision=false,waitForContext=true;
-  let charterRead={};
+  let charterRead={},profile=null,profileReply='lost',releaseProfile,offerReply='lost',ownerOnHold=false;
   const acceptedCharter={name:'Café Raiders',philosophy:'Learning',schedule:'Weeknight raids',timezone:'America/Chicago',
     loot:'Two soft reserves',expectations:'',needs:'',status:'recruiting',capacity:20,roleNeeds:[],
     weeklyWindows:[{day:2,start:'19:00',end:'21:00'},{day:2,start:'22:00',end:'01:00'},{day:5,start:'18:00',end:'20:00'}]};
@@ -51,8 +51,8 @@ async function browserScenario() {
       if(path.endsWith('/my-next-raid')) return {characters:[character],selectedGuid:character.guid,events:scheduled&&seat?.state==='primary'?[mine()]:[],raid:mine(),addonImport:'OLR1|'+character.guid+'|123|1'};
       if(path.endsWith('/calendar'))return {events:scheduled&&seat?.state==='primary'?[mine()]:[],attendanceEnabled,roster:seat?.state==='primary'?[{seatId:seat.id,name:character.name,role:'healer',answer,...(attendanceEnabled?{attendance:null}:{})}]:[]};
       if(path.endsWith(teamId))return {team:{...team,...charterRead},characters:[manager?leader:character],members:seat?.state==='primary'?[seat]:[],
-        applications:manager&&seat?.state==='submitted'?[seat]:[],canManage:manager,canViewRoster:manager||seat?.state==='primary',isLeader:manager,mine:manager?{id:'s1',role:'tank',state:'primary'}:seat};
-      return {teams:[team],players:[],characters:[character],profile:null};
+        applications:manager&&seat?.state==='submitted'?[seat]:[],canManage:manager,canViewRoster:manager||seat?.state==='primary',isLeader:manager,ownsCharter:manager||ownerOnHold,mine:manager?{id:'s1',role:'tank',state:'primary'}:seat};
+      return {teams:[team],players:[],characters:[character],profile};
     }
     writes.push(JSON.stringify(body));
     if(dropDecision && body.operationId) {
@@ -66,13 +66,27 @@ async function browserScenario() {
       throw Object.assign(Error('Connection closed after dispatch'),{status:0});
     }
     switch(body.action) {
+      case 'profile':
+        profile={guid:character.guid,revision:body.revision+1,role:body.role,listed:body.listed?1:0,
+          playerClass:'Druid',spec:'Restoración',availability:'Evenings',notes:'Bring water'};
+        if(profileReply==='lost')throw Object.assign(Error('Lost profile reply'),{status:0});
+        await new Promise(resolve=>{releaseProfile=resolve;});break;
       case 'edit':
+        if(body.area==='calendar') {
+          if(!manager || body.eventId!==raid.eventId)throw Error('wrong occurrence edit');
+          Object.assign(raid,{title:'Café practice',preparation:'Bring water\nMeet early',durationMin:body.durationMin,revision:raid.revision+1});
+          throw Object.assign(Error('Lost occurrence reply'),{status:0});
+        }
         if(!manager || body.area!=='team' || body.teamId!==teamId)throw Error('wrong charter editor');
         Object.assign(team,acceptedCharter,{revision:team.revision+1});
         throw Object.assign(Error('Connection closed after charter save'),{status:0});
-      case 'apply':if(manager||body.guid!==character.guid||body.role!=='healer')throw Error('wrong applicant');seat={id:'s2',character:character.name,guid:character.guid,role:body.role,note:body.note,revision:1,state:'submitted'};break;
+      case 'apply':if(manager||body.guid!==character.guid||body.role!=='healer')throw Error('wrong applicant');seat={id:'s2',character:character.name,guid:character.guid,role:body.role,note:'Private healer application Café',revision:1,state:'submitted'};break;
       case 'decide':if(!manager||body.state!=='offered_primary')throw Error('wrong team office');seat.state=body.state;seat.revision++;break;
-      case 'respond':if(manager||seat.state!=='offered_primary'||body.state!=='primary')throw Error('wrong self acceptance');seat.state='primary';seat.revision++;team.primaryCount++;offerAccepted++;break;
+      case 'respond':
+        if(manager||seat.state!=='offered_primary'||body.state!=='primary')throw Error('wrong self acceptance');
+        if(offerReply==='lost'){offerReply='conflict';throw Object.assign(Error('Connection lost'),{status:0});}
+        if(offerReply==='conflict')throw Object.assign(Error('Schedule conflict'),{status:409,data:{error:'other_primary_commitment'}});
+        seat.state='primary';seat.revision++;team.primaryCount++;offerAccepted++;break;
       case 'schedule':if(!manager||JSON.stringify(body.groups)!=='[1,2]'||body.capacity!==10||body.occurrences!==1)throw Error('wrong subgroup or capacity');scheduled=true;break;
       case 'rsvp':if(manager||seat.state!=='primary'||body.answer!=='late')throw Error('wrong RSVP');answer=body.answer;break;
       default:throw Error('unexpected write '+body.action);
@@ -82,7 +96,7 @@ async function browserScenario() {
       if(garbleSchedule) {garbleSchedule=false;throw Object.assign(Error('Unreadable response'),{status:201,data:{error:'unreadable_answer'}});}
       return {eventIds:[eventId]};
     }
-    if(body.action==='rsvp')return {eventId,answer};
+    if(body.action==='rsvp')throw Object.assign(Error('Saved reply lost'),{status:0});
     return {ok:true};
   }
   async function draw(){
@@ -105,9 +119,23 @@ async function browserScenario() {
   location.replace(base);await draw();
   await until(()=>by('a','View charter and roster'));
   assert('directory fits viewport',fits());
+  await click('a','My raider profile',()=>by('button','Save profile'));
+  const profileForm=()=>root.querySelector('form[aria-label="My raider profile"]');
+  Object.entries({playerClass:' Druid ',spec:'Restoracio\u0301n ',availability:' Evenings',notes:'  Bring water '})
+    .forEach(([key,value])=>{profileForm().elements[key].value=value;});
+  profileForm().requestSubmit();await until(()=>by('button','Check the current record'));
+  await click('button','Check the current record',()=>root.textContent.includes('The current record confirms'));
+  assert('profile readback recognizes normalized fields and a saved false listing flag',profileForm().elements.spec.value==='Restoración' && !profileForm().elements.listed.checked);
+  profileReply='delay';profileForm().elements.listed.checked=true;profileForm().requestSubmit();await until(()=>!!releaseProfile);
+  await click('a','Find a team',()=>by('a','View charter and roster'));
+  history.back();await until(()=>root.textContent.includes('Waiting for the original save response'));
+  assert('the replacement profile view blocks writes during the in-flight request',!!profileForm().closest('[inert]')&&!by('button','Retry the same request'));
+  releaseProfile();await until(()=>root.textContent.includes('Raider profile saved.') && !root.querySelector('[inert]'));
+  assert('the original successful response refreshes and unlocks the mounted view once',profileForm().elements.listed.checked&&writes.filter(s=>JSON.parse(s).action==='profile').length===2);
+  await click('a','Find a team',()=>by('a','View charter and roster'));
   await click('a','View charter and roster',()=>by('button','Submit application'));
   const apply=root.querySelector('form[aria-label="Apply to Tuesday Learners"]');
-  apply.elements.role.value='healer';apply.elements.note.value='Private healer application';
+  apply.elements.role.value='healer';apply.elements.note.value=' Private healer application Cafe\u0301 ';
   apply.requestSubmit();await until(()=>by('button','Check the current record'));
   await click('button','Check the current record',()=>root.textContent.includes('The current record confirms'));
   assert('a lost application reply is proved by a fresh read without resubmitting',writes.filter(s=>JSON.parse(s).action==='apply').length===1);
@@ -118,6 +146,14 @@ async function browserScenario() {
   assert('offer remains pending own confirmation',team.primaryCount===1&&offerAccepted===0);
   persona='member';await draw();
   assert('member sees own place and no managerial operation',!!by('button','Accept primary place')&&!by('summary','Edit team charter'));
+  await click('button','Accept primary place',()=>by('button','Retry the same request'));
+  await click('button','Retry the same request',()=>root.textContent.includes('weekly raid times overlap'));
+  assert('a refused replay explains the overlap and keeps the unused offer intact',seat.state==='offered_primary' && !by('button','Stop retrying and reload current access'));
+  await click('button','Check the current record',()=>by('button','Stop retrying and reload current access'));
+  waitForContext=false;await click('button','Stop retrying and reload current access',()=>root.textContent.includes('You stopped retrying.'));
+  assert('stopping an unknown acceptance preserves the refusal and original offer without a third POST',root.textContent.includes('weekly raid times overlap') &&
+    writes.filter(s=>JSON.parse(s).action==='respond').length===2 && !root.querySelector('[inert]') && seat.state==='offered_primary');
+  waitForContext=true;refreshes=0;offerReply='accept';
   await click('button','Accept primary place',()=>root.textContent.includes('Roster place confirmed.'));
   assert('one accepted place and no implied RSVP',offerAccepted===1&&answer===null);
   persona='leader';await draw();
@@ -144,9 +180,12 @@ async function browserScenario() {
   await click('a','View raid details',()=>location.hash.endsWith(eventId)&&by('a','All occurrences')&&by('button','Save response'));
   assert('single occurrence hides private manager attendance controls',!by('h3','Responses and attendance')&&!by('summary','Cancel this occurrence'));
   const rsvp=root.querySelector('form[aria-label="RSVP for BWL healer run"]');rsvp.elements.answer.value='late';rsvp.requestSubmit();
-  await until(()=>root.textContent.includes('Your response is saved.'));
+  await until(()=>by('button','Retry the same request'));
+  history.back();await until(()=>!location.hash.endsWith(eventId)&&by('a','View raid details')&&by('button','Check the current record'));
+  const sameEvent=root.querySelector('form[aria-label="RSVP for BWL healer run"]');sameEvent.requestSubmit();
+  assert('Back to the calendar list preserves the same event hold and prevents a replacement RSVP',!!sameEvent.closest('[inert]')&&writes.filter(s=>JSON.parse(s).action==='rsvp').length===1);
+  await click('button','Check the current record',()=>root.textContent.includes('The current record confirms'));
   assert('explicit healer response shown',root.textContent.includes('Running late')&&answer==='late'&&fits());
-  history.back();await until(()=>!location.hash.endsWith(eventId)&&by('a','View raid details'));
   history.forward();await until(()=>location.hash.endsWith(eventId)&&by('a','All occurrences')&&by('button','Save response'));
   assert('back and forward reopen current occurrence',root.textContent.includes('Running late'));
   await click('a','My next raid',()=>root.querySelector('textarea[readonly]'));
@@ -157,12 +196,22 @@ async function browserScenario() {
   root.appendChild(namedRow);namedRow.click();
   await until(()=>location.hash===base+'/'+teamId+'/calendar/'+eventId&&by('a','All occurrences'));
   assert('a current member opens the matching private occurrence from their named attendance entry',root.textContent.includes(raid.title)&&!!by('button','Save response'));
-  persona='leader';raid.startsAt=Math.floor(Date.now()/1000)-100;attendanceEnabled=false;await draw();
+  persona='leader';await draw();by('summary','Edit this occurrence').click();
+  const occurrence=root.querySelector('form[aria-label="Edit BWL healer run"]');
+  occurrence.elements.title.value='  Cafe\u0301 practice  ';occurrence.elements.timezone.value=' Etc/UTC ';
+  occurrence.elements.preparation.value=' Bring water\r\nMeet early  ';occurrence.requestSubmit();await until(()=>by('button','Check the current record'));
+  await click('button','Check the current record',()=>root.textContent.includes('The current record confirms'));
+  assert('calendar edit readback recognizes normalized title, zone and multiline preparation',!!by('h3','Café practice')&&writes.filter(s=>JSON.parse(s).action==='edit'&&JSON.parse(s).area==='calendar').length===1);
+  raid.startsAt=Math.floor(Date.now()/1000)-100;attendanceEnabled=false;await draw();
   assert('disabled attendance omits states and recording controls but retains member responses',
     !!by('h3','Responses') && !by('dt','Attendance') && !by('button','Save attendance') && root.textContent.includes('Running late'));
   attendanceEnabled=true;await draw();
   assert('enabled attendance allows team managers to record participation after the start',!!by('button','Save attendance'));
   location.hash=base+'/'+teamId;await until(()=>by('button','Confirm transfer to '+character.name));
+  persona='member';ownerOnHold=true;await draw();
+  assert('charter owner on verification hold sees the transfer requirement and cannot leave or manage',root.textContent.includes('Restore verification of its founding character') && !by('button','Confirm leave team') && !by('summary','Edit team charter'));
+  ownerOnHold=false;await draw();assert('a regular primary member can still leave',!!by('button','Confirm leave team'));
+  persona='leader';await draw();
   by('summary','Edit team charter').click();
   const edit=root.querySelector('form[aria-label="Edit charter"]');
   Object.entries({name:'  Cafe\u0301 Raiders  ',schedule:'  Weeknight raids ',timezone:' US/Central ',loot:' Two soft reserves ',expectations:'   ',needs:''})
@@ -185,7 +234,7 @@ async function browserScenario() {
   }
   charterRead={};await click('button','Check the current record',()=>root.textContent.includes('The current record confirms'));
   assert('canonical windows, trimmed NFC text, empty optional values and IANA aliases confirm one edit',writes.at(-1)===frozenEdit &&
-    writes.filter(s=>JSON.parse(s).action==='edit').length===1 && !root.querySelector('[inert]') && !by('button','Retry the same request'));
+    writes.filter(s=>JSON.parse(s).area==='team' && JSON.parse(s).action==='edit').length===1 && !root.querySelector('[inert]') && !by('button','Retry the same request'));
   for(const kind of ['transfer','remove','decline','missing']) {
     persona='leader';seat.state=kind==='decline'||kind==='missing'?'submitted':'primary';
     await draw();

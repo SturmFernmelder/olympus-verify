@@ -503,6 +503,12 @@ export interface RefreshResult { outcomes: Outcome[]; stoppedEarly: boolean; bus
 
 class OutOfBudget extends Error {}
 interface Run { env: Env; left: number; reason: string }
+type SaveNewPost = (channelId:string,messageId:string)=>Promise<void>;
+type IntroOutcome = Outcome & {messageId?:string; where?:string; pinDeferred?:boolean};
+const pinDeferredNote = "Post saved. Refresh this channel again to pin it.";
+function pinBudgetSpent(run:Run,error:unknown) {
+  return error instanceof OutOfBudget || (run.left===0 && error instanceof DiscordError && error.status===429);
+}
 type Msg = { id: string; pinned?: boolean };
 type Thread = { id: string; name?: string; flags?: number; thread_metadata?: { archived?: boolean } };
 
@@ -537,7 +543,7 @@ async function pin(run: Run, channelId: string, messageId: string) {
 
 type Payload = { content?: string; embeds: Embed[]; allowed_mentions: { parse: string[] } };
 
-async function refreshText(run: Run, intro: Intro, parent: string, payload: Payload, hash: string, row: IntroRow | undefined): Promise<Outcome & { messageId?: string; where?: string }> {
+async function refreshText(run: Run, intro: Intro, parent: string, payload: Payload, hash: string, row: IntroRow | undefined, saveNewPost: SaveNewPost): Promise<IntroOutcome> {
   let msg: Msg | null = null;
   let action: Action = "current";
   if (row) {
@@ -554,6 +560,7 @@ async function refreshText(run: Run, intro: Intro, parent: string, payload: Payl
   }
   if (!msg) {
     msg = await call<Msg>(run, "POST", `/channels/${parent}/messages`, payload);
+    await saveNewPost(parent,msg.id);
     if (action !== "reposted") action = "posted";
   }
   let note = "";
@@ -562,6 +569,8 @@ async function refreshText(run: Run, intro: Intro, parent: string, payload: Payl
       await pin(run, parent, msg.id);
       if (action === "current") action = "repinned";
     } catch (e) {
+      if (pinBudgetSpent(run,e) && (action==="posted" || action==="reposted"))
+        return {key:intro.key,action,channelId:parent,note:pinDeferredNote,pinDeferred:true};
       if (e instanceof OutOfBudget) throw e;
       note = `not pinned: ${explainDiscordError(e)}`;
     }
@@ -569,7 +578,7 @@ async function refreshText(run: Run, intro: Intro, parent: string, payload: Payl
   return { key: intro.key, action, channelId: parent, note, messageId: msg.id, where: parent };
 }
 
-async function refreshForum(run: Run, intro: Intro, forum: string, payload: Payload, hash: string, row: IntroRow | undefined): Promise<Outcome & { messageId?: string; where?: string }> {
+async function refreshForum(run: Run, intro: Intro, forum: string, payload: Payload, hash: string, row: IntroRow | undefined, saveNewPost: SaveNewPost): Promise<IntroOutcome> {
   const title = intro.forum!.title;
   let thread: Thread | null = null;
   let action: Action = "current";
@@ -619,11 +628,13 @@ async function refreshForum(run: Run, intro: Intro, forum: string, payload: Payl
       message: payload,
       ...(tag ? { applied_tags: [tag.id] } : {}),
     });
+    await saveNewPost(thread.id,thread.id);
     if (action !== "reposted") action = "posted";
     try {
       await call(run, "PATCH", `/channels/${thread.id}`, { flags: PINNED });
     } catch (e) {
-      if (e instanceof OutOfBudget) throw e;
+      if (pinBudgetSpent(run,e))
+        return {key:intro.key,action,channelId:forum,note:[...notes,pinDeferredNote].join("; "),pinDeferred:true};
       notes.push(`not pinned: ${explainDiscordError(e)}`);
     }
   }
@@ -671,19 +682,25 @@ export async function refreshIntros(env: Env, guild: string, actor: string, only
       const old = rows.get(intro.key);
       const row = old && old.parent_id === parent ? old : undefined; // configured elsewhere now: post in the new place
       try {
+        // Discord assigns the ID on creation. Save it before a pin can fail, so a
+        // continuation inspects that same message even if the provider budget runs out.
+        const saveNewPost: SaveNewPost = (channelId,messageId) => {
+          const t=now();
+          return saveRow(env,{guild_id:guild,intro_key:intro.key,parent_id:parent,channel_id:channelId,message_id:messageId,hash,posted_at:t,updated_at:t});
+        };
         const out = intro.forum
-          ? await refreshForum(run, intro, parent, payload, hash, row)
-          : await refreshText(run, intro, parent, payload, hash, row);
+          ? await refreshForum(run, intro, parent, payload, hash, row, saveNewPost)
+          : await refreshText(run, intro, parent, payload, hash, row, saveNewPost);
+        if (out.pinDeferred) stoppedEarly=true;
         if (old && !row && out.action === "posted") {
           out.action = "moved";
           out.note = [out.note, `the old copy in <#${old.channel_id}> was left alone`].filter(Boolean).join("; ");
         }
-        if (out.action !== "current" && out.messageId && out.where) {
+        if ((out.action === "edited" || out.action === "repinned") && out.messageId && out.where && row) {
           const t = now();
-          const fresh = out.action === "posted" || out.action === "reposted" || out.action === "moved";
           await saveRow(env, {
             guild_id: guild, intro_key: intro.key, parent_id: parent, channel_id: out.where, message_id: out.messageId,
-            hash, posted_at: fresh || !row ? t : row.posted_at, updated_at: t,
+            hash, posted_at: row.posted_at, updated_at: t,
           });
         }
         outcomes.push({ key: out.key, action: out.action, channelId: out.channelId, note: out.note || undefined });
