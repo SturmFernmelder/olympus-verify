@@ -1,9 +1,10 @@
 import { captureGuildActor219 } from '../src/guild-command-authority219';
-import { readCalendar219, calendarRoster219, raidCapacityText } from '../src/guild-calendar219';
+import { readCalendar219, calendarRoster219, raidCapacityText, attendanceCalendar219 } from '../src/guild-calendar219';
+import worker from '../src/index';
 import { raidAssignmentChoices307, decideRaidSignup307 } from '../src/guild-roster-decisions307';
 import { siteMemberLink, siteEntryReturn, siteReturnLocation } from '../src/site-return';
 
-export async function raidCalendarReadback(base, check) {
+export async function raidCalendarReadback(base, check, rawDB, ctx) {
   const guild=base.GUILD_ID, me='800000000000000761', peer='800000000000000762', retired='800000000000000763', undecided='800000000000000765';
   const env={...base,SITE_GUILD_ID:guild,INTROS_GUILD_ID:guild,INTROS_CHANNELS:'raid-signups=800000000000000764',COMMUNITY_FEATURES:'events,attendance',COMMUNITY_ORGANIZERS:me};
   const db=env.DB, at=Math.floor(Date.now()/1000);
@@ -57,4 +58,51 @@ export async function raidCalendarReadback(base, check) {
   await db.prepare('UPDATE site_users SET session_version=session_version+1 WHERE discord_id=?1').bind(me).run();
   let held=false;try { await readCalendar219(env,actor,undefined,1,true); }catch { held=true; }
   check('a changed account session cannot reuse the old raid history view',held);
+  await raidLifecycle(env,rawDB,ctx,me,peer,check);
+}
+
+async function raidLifecycle(base,rawDB,ctx,organizer,attendee,check) {
+  const env={...base,ROLE_OFFICER:'800000000000000789',DISCORD_CLIENT_SECRET:'directory-client-test-only',
+    CF_VERSION_METADATA:{id:'11111111-2222-3333-4444-555555555555',tag:'raid-fixture',timestamp:new Date().toISOString()}};
+  const site='https://guild.example', api=(path,init={})=>worker.fetch(new Request(site+path,init),{...env,DB:rawDB},ctx);
+  async function cookie(code) {
+    const login=await api('/auth/login');
+    const state=new URL(login.headers.get('Location')).searchParams.get('state');
+    const callback=await api('/auth/callback?code='+code+'&state='+encodeURIComponent(state),{headers:{Cookie:login.headers.get('Set-Cookie').split(';')[0]}});
+    const session=callback.headers.getSetCookie().find(x=>x.startsWith('__Host-olg='));
+    if(callback.status!==303||!session)throw Error('Raid fixture missing original OAuth session');
+    return session.split(';')[0];
+  }
+  const organizerCookie=await cookie('raid-organizer-test-only'), attendeeCookie=await cookie('raid-attendee-test-only');
+  async function page(session,method,path,body) {
+    const headers={Cookie:session,Origin:site,'X-Olympus':'2','Content-Type':'application/json'};
+    const response=await api('/api/community/'+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)});
+    const data=await response.json();
+    if(!response.ok)throw Error('Raid fixture '+method+' '+path+' returned '+response.status+' '+data.error);
+    return data;
+  }
+  const id='R'.repeat(22),now=Math.floor(Date.now()/1000),startsAt=new Date((now+3600)*1000).toISOString();
+  const created=await page(organizerCookie,'POST','events',{opId:id,title:'Cross-surface raid',startsAt,durationMin:60,capacity:1});
+  const signup=await page(attendeeCookie,'PUT','events/rsvp',{eventId:id,status:'yes',raidRole:'healer',revision:0});
+  const staff=await captureGuildActor219(env,{guild_id:env.GUILD_ID,member:{user:{id:organizer}}},now,now);
+  const event=(await readCalendar219(env,staff,id))[0];
+  check('website creation and member signup appear on the Discord roster with separate signup and assignment capacity',
+    created.event.id===id&&signup.event.mine?.raidRole==='healer'&&event.id===id&&event.yes===1&&event.accepted===0&&event.capacity===1);
+  const {ref}=await env.DB.prepare('SELECT ref FROM community_refs WHERE discord_id=?1').bind(attendee).first();
+  await page(organizerCookie,'POST','events/decide',{eventId:id,entries:[{ref,revision:0,decision:'bench'}]});
+  const waitlist=await calendarRoster219(env,staff,id);
+  const accepted=await decideRaidSignup307(env,staff,event,staff.deadline,attendee,1,'accepted');
+  const joined=await page(attendeeCookie,'GET','event?id='+id);
+  check('website waitlisting and Discord acceptance update the same D1 signup the attendee sees on the site',
+    waitlist.length===1&&waitlist[0].decision==='bench'&&accepted===true&&joined.event.mine?.decision==='accepted');
+
+  // Move only this fixture event across its start. Worker and D1 clocks remain real.
+  await env.DB.prepare('UPDATE community_events SET starts_at=?1, ends_at=?2 WHERE id=?3').bind(now-60,now+3540,id).run();
+  const recorded=await attendanceCalendar219(env,staff,id,'record',attendee,'present');
+  const locked=await attendanceCalendar219(env,staff,id,'lock',null,null);
+  const later=await attendanceCalendar219(env,staff,id,'record',attendee,'absent');
+  const own=await page(attendeeCookie,'GET','attendance/me'),other=await page(organizerCookie,'GET','attendance/me');
+  check('Discord attendance lock preserves the recording and personal website history returns only the signed-in account’s rows',
+    recorded&&locked&&!later&&own.entries.some(row=>row.event.id===id&&row.state==='present'&&row.source==='officer')
+    &&other.entries.every(row=>row.event.id!==id));
 }

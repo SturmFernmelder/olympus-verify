@@ -71,13 +71,10 @@ import { admittedReadAs, DB_NOW, fenceSql, FENCE_REFUSED, randomToken, registerC
 import {
   type Allocation,
   type ContributionPolicy,
-  DATE_LIMIT,
   DAY,
   DEFAULT_CONTRIBUTION_POLICY,
   type EvaluationResult,
   type EvidenceState,
-  firstEligiblePeriod,
-  HOUR,
   type Obligation,
   type Receipt,
   MAX_COPPER_AMOUNT,
@@ -89,8 +86,6 @@ import {
   obligationKey,
   periodStart,
 } from "./community-contribution-policy";
-import { SCHEDULED_CAPS } from "./scheduled-budget";
-import { privacyGenerationFenceSql } from "./privacy-serving-authority";
 
 const SOURCES = ["officer_manual", "mail", "bank_log"] as const;
 const STATUSES = ["matched", "unmatched", "disputed", "rejected"] as const;
@@ -243,77 +238,11 @@ export type SessionFence = CommunitySubject;
 const fenceAt = (fence: SessionFence | undefined, idPos: number, vPos: number, ePos: number) => (fence ? ` AND ${fenceSql("applicantWrite", idPos, vPos, ePos,fence.privacyGeneration,fence.accountIncarnation)}` : "");
 const fenceBinds = (fence: SessionFence | undefined) => (fence ? [fence.discordId, fence.sessionVersion, fence.expiresAt] : []);
 
-/** A new member row gets a fresh random incarnation; an existing one keeps its incarnation and bumps its revision; only when this request's obligation row was inserted. */
-const bumpMemberFor = (env: Env, guildScope: string, id: string, at: number, opNonce: string) =>
-  env.DB.prepare(
-    `INSERT INTO ${T}members (guild_scope, discord_id, incarnation, revision, nonce, updated_at)
-     SELECT ?1, ?2, ?4, 1, NULL, ?3 WHERE EXISTS (SELECT 1 FROM ${T}obligations WHERE guild_scope = ?1 AND discord_id = ?2 AND op_nonce = ?5)
-     ON CONFLICT(guild_scope, discord_id) DO UPDATE SET revision = revision + 1, updated_at = ?3`,
-  ).bind(guildScope, id, at, randomToken(), opNonce);
-
 type ObligationInput = { guildScope: string; discordId: string; periodStart: number; eligible: boolean; policy?: ContributionPolicy; fence?: SessionFence; proof?: { firstLogin: number; sessionVersion: number; privacyGeneration: string | null } };
 
-/** One obligation per member and week under a pinned policy version; an existing week is returned unchanged. */
-export async function createObligation(env: Env, input: ObligationInput, at = now()): Promise<{ id: number; created: boolean }> {
-  return openObligation(env, input, at, () => ensurePolicy(env, input.policy ?? DEFAULT_CONTRIBUTION_POLICY, at));
-}
-
-/**
- * createObligation's body. `ensure` stores or checks the policy at the point createObligation always did (after the
- * input checks, before the insert); the weekly opener passes one that runs once per run (.115, its D1 budget).
- */
-async function openObligation(env: Env, input: ObligationInput, at: number, ensure: () => Promise<void>): Promise<{ id: number; created: boolean }> {
-  requireWritable(env);
-  const policy = input.policy ?? DEFAULT_CONTRIBUTION_POLICY;
-  scope(input.guildScope);
-  discordId(input.discordId);
-  if (!isPeriodStart(input.periodStart, policy)) throw new ContributionError("invalid_period");
-  obligationKey(input.guildScope, input.discordId, input.periodStart);
-  const retainUntil = input.periodStart + WEEK + retentionS(env);
-  if (retainUntil <= at) throw new ContributionError("past_retention");
-  if (Math.max(retainUntil, input.periodStart + WEEK + policy.graceHours * HOUR) > DATE_LIMIT) throw new ContributionError("invalid_period");
-  await ensure();
-  const opNonce = randomToken();
-  // .78: the opener's captured facts, re-stated at the insert: the account's row as read (its incarnation) and a roster-confirmed character now;
-  // .88: and the eligibility it writes, recomputed from the member's CURRENT roster-confirmed characters (the earliest `member_since` plus the
-  // exemption at or before the week's start: the same rule as firstEligiblePeriod, since the week's start is a period boundary)
-  const fb = fenceBinds(input.fence).length;
-  const proofSql = input.proof
-    ? ` AND EXISTS (SELECT 1 FROM site_users pu WHERE pu.discord_id = ?2 AND pu.first_login = ?${11 + fb} AND pu.session_version = ?${12 + fb})
-        AND EXISTS (SELECT 1 FROM characters pc WHERE pc.discord_id = ?2 AND pc.status = 'member')
-        AND (SELECT MIN(pa.member_since) FROM characters pa WHERE pa.discord_id = ?2 AND pa.status = 'member' AND typeof(pa.member_since) = 'integer' AND pa.member_since > 0) IS NOT NULL
-        AND ${privacyGenerationFenceSql(2, 14 + fb)}
-        AND ?7 = (CASE WHEN (SELECT MIN(pa.member_since) FROM characters pa WHERE pa.discord_id = ?2 AND pa.status = 'member' AND typeof(pa.member_since) = 'integer' AND pa.member_since > 0) + ?${13 + fb} <= ?3 THEN 1 ELSE 0 END)`
-    : "";
-  const proofBinds = input.proof ? [input.proof.firstLogin, input.proof.sessionVersion, policy.newMemberExemptDays * DAY, input.proof.privacyGeneration] : [];
-  // ?1 scope, ?2 member, ?3 period, ?4 due, ?5 version, ?6 amount, ?7 eligible, ?8 now, ?9 retain, ?10 opNonce, ?11.. the fence, then the proof (first login, session version, exemption seconds, original generation or absence)
-  const readback = [
-    env.DB.prepare(`SELECT id FROM ${T}obligations o WHERE o.guild_scope = ? AND o.discord_id = ? AND o.period_start = ? AND ${LIVE_WEEK("o")}`).bind(input.guildScope, input.discordId, input.periodStart),
-    env.DB.prepare(`SELECT (?1 > ${DB_NOW}) AS live`).bind(retainUntil),
-  ];
-  // The source-only opener's original proof has no acting-session fence. Its readback
-  // shares the insert's atomic epoch proof; attended/session callers retain readAs.
-  const atomicReadback = !!input.proof && !input.fence;
-  const insertedResults = await env.DB.batch([
-    env.DB.prepare(
-      `INSERT INTO ${T}obligations (guild_scope, discord_id, period_start, due_at, policy_version, amount_copper, eligible, state, retain_until, op_nonce, created_at, updated_at)
-       SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, 'open', ?9, ?10, ?8, ?8
-       WHERE ?3 > COALESCE((SELECT horizon FROM ${T}horizons WHERE guild_scope = ?1 AND kind = 'obligation'), 0) AND ?9 > ${DB_NOW}${fenceAt(input.fence, 11, 12, 13)}${proofSql}
-       ON CONFLICT(guild_scope, discord_id, period_start) DO NOTHING`,
-    ).bind(input.guildScope, input.discordId, input.periodStart, input.periodStart + WEEK, policy.version, policy.amountCopper, input.eligible ? 1 : 0, at, retainUntil, opNonce, ...fenceBinds(input.fence), ...proofBinds),
-    bumpMemberFor(env, input.guildScope, input.discordId, at, opNonce),
-    ...(atomicReadback ? readback : []),
-  ]);
-  const inserted = insertedResults[0];
-  // .80: the new row's id is a later standalone read: under the acting session's admission (a committed insert stays either way); .88: with the deadline judged by the database clock, for the explanation
-  const [found, deadline] = atomicReadback ? insertedResults.slice(2) : await readAs(env, input.fence, readback);
-  const row = found!.results[0] as { id: number } | undefined;
-  if (!row) {
-    // born at or past its deadline by the database clock (past_retention); the account, its roster proof or its eligibility changed since the scan (proof_changed); or at/before the horizon
-    if ((deadline!.results[0] as { live: number } | undefined)?.live !== 1) throw new ContributionError("past_retention");
-    throw new ContributionError(input.proof && (inserted!.meta.changes ?? 0) === 0 ? "proof_changed" : "past_retention");
-  }
-  return { id: row.id, created: (inserted!.meta.changes ?? 0) > 0 };
+/** Historical callers receive an explicit policy refusal even while the gift ledger is writable. */
+export async function createObligation(_env: Env, _input: ObligationInput, _at?: number): Promise<{ id: number; created: boolean }> {
+  throw new ContributionError("voluntary_contributions");
 }
 
 export interface ReceiptInput {
@@ -840,14 +769,7 @@ export function ledgerViewFrom([member, obligations, receipts, evidence, guard]:
       const pure = obligationFromRow(stored);
       const o: ViewObligationRow = { ...stored, amount_copper: pure.amountCopper, paid: exactSum(stored.paid, stored.paid_magnitude) };
       const evidenceState = weekState.get(o.period_start) ?? "unavailable";
-      const result = evaluate(pure, evaluationInputs(o, o.paid, evidenceState, at));
-      const canAcknowledge =
-        CONTACT_STAGES.acknowledged.includes(result.stage) && o.acknowledged_at === null && o.facts_revision === o.revision
-          ? ("acknowledged" as const)
-          : result.stage === "final_notice" && o.final_notice_at !== null && o.final_acknowledged_at === null && o.facts_revision === o.revision
-            ? ("final_acknowledged" as const)
-            : null;
-      return { row: o, evidence: evidenceState, stage: result.stage, nextReviewAt: result.nextReviewAt, canAcknowledge };
+      return { row: o, evidence: evidenceState, stage: "archived", nextReviewAt: null, canAcknowledge: null };
     }),
     receipts: shownReceipts,
     unallocatedCopper,
@@ -1063,51 +985,9 @@ export async function mailReference(env: Env, guildScope: string, id: string): P
   return `TITHE-${out.slice(0, 4)}-${out.slice(4)}`;
 }
 
-/**
- * Cron, while the flag is on and the ledger writable: this week's obligation for every roster-confirmed account that has
- * signed in here (the keeper rule) and has none yet; eligible once the new-member exemption counted from the keeper's own
- * `member_since` has passed (firstEligiblePeriod), else recorded as exempt-by-age (eligible = 0); bounded per run. A
- * record only: nothing here notifies anyone or changes a role.
- *
- * .115 (Codex, 3 Oct 2026 13:26 UTC): the run shares one invocation's D1 statement limit with every other cron job, and
- * at 200 accounts and six statements each this opener alone could pass it (1,201). So a run opens at most
- * SCHEDULED_CAPS.obligationsPerRun weeks (30; `limit` can only lower it), in Discord id order among the accounts without
- * this week's row: a created row drops out of the scan, so the next run continues with the next accounts (a guild of
- * 1,000 is opened within about 17 hours of the week's start; nothing is due before the week ends). The policy is stored or
- * checked once per run, before the first account, instead of once per account (two statements an account fewer; the
- * policy rows never change). An id the loop would skip is left out by the scan itself (the same 17 to 20 digits as
- * DISCORD_ID), so it can never hold one of the run's slots.
- */
-export async function openWeeklyObligations(env: Env, at = now(), limit: number = SCHEDULED_CAPS.obligationsPerRun): Promise<number> {
-  if (!contributionsWritable(env)) return 0;
-  const cap = Math.max(0, Math.min(SCHEDULED_CAPS.obligationsPerRun, Math.floor(limit)));
-  if (!cap) return 0;
-  const policy = DEFAULT_CONTRIBUTION_POLICY;
-  const guildScope = contributionScope(env);
-  const start = periodStart(at, policy);
-  const rows = await env.DB.prepare(
-    `SELECT c.discord_id, MIN(c.member_since) AS joined, u.first_login, u.session_version, ps.generation AS privacy_generation
-     FROM characters c JOIN site_users u ON u.discord_id = c.discord_id LEFT JOIN privacy_subjects ps ON ps.subject_id = c.discord_id
-     WHERE c.status = 'member' AND typeof(c.member_since) = 'integer' AND c.member_since > 0
-       AND (ps.subject_id IS NULL OR ps.state = 'active')
-       AND length(c.discord_id) BETWEEN 17 AND 20 AND c.discord_id NOT GLOB '*[^0-9]*'
-       AND NOT EXISTS (SELECT 1 FROM ${T}obligations o WHERE o.guild_scope = ?1 AND o.discord_id = c.discord_id AND o.period_start = ?2)
-     GROUP BY c.discord_id ORDER BY c.discord_id LIMIT ?3`,
-  ).bind(guildScope, start, cap).all<{ discord_id: string; joined: number; first_login: number; session_version: number; privacy_generation: string | null }>();
-  let policyOnce: Promise<void> | null = null;
-  const ensureOnce = () => (policyOnce ??= ensurePolicy(env, policy, at));
-  let n = 0;
-  for (const r of rows.results) {
-    if (!DISCORD_ID.test(r.discord_id)) continue; // kept as a second guard; the scan above already leaves these out
-    try {
-      // The original account and privacy generation (including absence) stay fixed across policy awaits; current roster eligibility is re-stated in the insert.
-      const { created } = await openObligation(env, { guildScope, discordId: r.discord_id, periodStart: start, eligible: firstEligiblePeriod(r.joined, policy) <= start, policy, proof: { firstLogin: r.first_login, sessionVersion: r.session_version, privacyGeneration: r.privacy_generation } }, at, ensureOnce);
-      if (created) n++;
-    } catch (e) {
-      if (!(e instanceof ContributionError && e.code === "proof_changed")) throw e; // the account was erased/recreated or lost its roster proof since the scan: nothing recorded
-    }
-  }
-  return n;
+/** An older scheduler may still call this entry point; voluntary gifts carry no weekly assessment. */
+export async function openWeeklyObligations(_env: Env, _at?: number, _limit?: number): Promise<number> {
+  return 0;
 }
 
 registerCommunityData("contributions", (env, id) => contributionDeletionStatements(env, id), (env, id) => contributionExportPlan(env, id));

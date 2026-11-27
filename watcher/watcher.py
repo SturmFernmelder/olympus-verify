@@ -114,11 +114,11 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.48"
+WATCHER_VERSION = "0.6.49"
 STRICT_DISPLAY_PROTOCOL = "launch-roster-display-v2"
 STRICT_DISPLAY_PATH = "/queue/unverified?keyVersion=" + STRICT_DISPLAY_PROTOCOL
 STRICT_DISPLAY_MAX_BYTES = 512 * 1024
-PRIME_REALM_LABEL = "CAMWOW US2 Realm 3 PvE"
+PRIME_REALM_LABEL = launch_operations229.PRIME_REALM_LABEL
 PRIME_GUILD_MASTER_PIN = "d0988804294170b3414fcaf60ea77658d3b511bbd0c1ccf4286b04e47d935a16"
 
 
@@ -708,6 +708,8 @@ class Watcher:
         self._last_unverified_pull = 0.0
         self._next_strict_display_pull = 0.0
         self._initiate_priority: tuple[str, int, frozenset[str]] | None = None
+        self._pending_handle_notice: set[bytes] = set()
+        self._handle_notice_dates = None
         self._name_followup_snapshot = None
         self._name_followups = 0
         self.launch_scan = launch_operations229.Scan(lambda: time.time(), discovery235=True)
@@ -2606,7 +2608,7 @@ class Watcher:
         except initiate_notice.NoticeHistoryUnavailable:
             self._notice_check_at = now + 20  # Optional sidecar; it never owns or blocks ingest.
 
-    def _check_ready_notice(self, now: float) -> None:
+    def _enrolled_notice_source(self, now: float) -> dict | None:
         accepted = self._verification_roster
         if (not self.membership_only or self._custody_halted or not accepted
                 or codes.normalize_character(self.officer) != codes.normalize_character("Fern Melder")
@@ -2614,8 +2616,16 @@ class Watcher:
                 or accepted['scopeHash'] != hashlib.sha256(('native-scope|1|OLYMPUS PRIME|' + PRIME_REALM_LABEL).encode()).hexdigest()[:16]
                 or hashlib.sha256(('prime-guild-master|1|' + accepted['fileSource280']['officerGuid']).encode()).hexdigest() != PRIME_GUILD_MASTER_PIN
                 or accepted['exportedAt'] != self.state.d['roster_sent'] or not 0 <= now - accepted['exportedAt'] < 600
-                or not self._sweep_witness or self._sweep_witness != self._launch_consumed_sv_witness
-                or self._launch_savedvars_witness() != self._sweep_witness or not self._verification_source_current280(accepted)):
+                or not self._verification_source_current280(accepted)):
+            return None
+        return accepted
+
+    def _check_ready_notice(self, now: float) -> None:
+        if (not self._sweep_witness or self._sweep_witness != self._launch_consumed_sv_witness
+                or self._launch_savedvars_witness() != self._sweep_witness):
+            return
+        accepted = self._enrolled_notice_source(now)
+        if not accepted:
             return
         notified, history_witness = self._notice_history.load()
         actor = accepted['fileSource280']['officerGuid']
@@ -2875,6 +2885,7 @@ class Watcher:
         path = self.strict_display_file
         if self._write_projection280(path, body, response) is not None:
             self._next_strict_display_pull = at + cadence
+            self._check_published_handles(response, int(time.time()))
             scope = hashlib.sha256(('native-scope|1|' + response['guild'] + '|' + response['realm']).encode()).hexdigest()[:16]
             self._initiate_priority = (scope, response['snapshotAt'], frozenset(row['guid'] for row in response['verified']))
             # A link can be visible before the separate Discord name lookup finishes.
@@ -2887,6 +2898,40 @@ class Watcher:
                     and any(not member["username"] for member in response["verified"])):
                 self._name_followups += 1
                 self._next_strict_display_pull = at + 60
+
+    def _check_published_handles(self, response: dict, now: int) -> None:
+        # Called only after the authenticated display passed validation and the local write.
+        source = self._enrolled_notice_source(now)
+        at, fetched = response["snapshotAt"], response["fetchedAt"]
+        if (not source or source["exportedAt"] != at or response["protocol"] != STRICT_DISPLAY_PROTOCOL
+                or response["guild"] != "OLYMPUS PRIME" or response["realm"] != PRIME_REALM_LABEL
+                or not at <= fetched <= now < at + 600):
+            self._pending_handle_notice.clear()
+            self._handle_notice_dates = None
+            return
+        dates = self._handle_notice_dates
+        continuous = dates is not None and dates[0] <= at and dates[1] <= fetched and now < dates[0] + 600
+        pending = set()
+        newly_named = False
+        for section in ("unverified", "verified"):
+            for row in response[section]:
+                name, guid = codes.normalize_character(row["name"]), row["guid"]
+                if source["guidCounts"].get(guid) != 1 or source["members"].get(name) != guid:
+                    continue
+                # The in-memory baseline never goes into persisted history, logs or Windows.
+                # Replacing the set drops every removed, erased and unknown subject.
+                key = hmac.digest(self.secret.encode(), ("handle-notice|" + guid + "|" + name).encode(), "sha256")
+                if section == "unverified" or not row["username"]:
+                    pending.add(key)
+                elif continuous and key in self._pending_handle_notice:
+                    newly_named = True
+        self._pending_handle_notice, self._handle_notice_dates = pending, (at, fetched)
+        if newly_named:
+            try:
+                if self._initiate_notice.available(self.wow_dir):
+                    self._initiate_notice.show(verified=True)
+            except initiate_notice.OS_ERRORS:
+                pass
 
     @staticmethod
     def render_strict_display(report: Any, at: int) -> str | None:

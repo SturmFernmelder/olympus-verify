@@ -79,6 +79,13 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".312", date: "2026-11-26", lines: [
+      "Officers can look up verified Discord handles in the desktop roster while WoW is open. Initiate checks restart when the exported roster changes.",
+      "The guild directory shows which guilds have a roster source. Staff can see confirmed Discord guild-role removals in recruitment review.",
+      "The governance book and contribution ledger now use the same voluntary contribution policy as the home page.",
+    ],
+  },
+  {
     build: ".311", date: "2026-11-26", lines: [
       "The Inactive tab offers a Remove button for each reviewed character. One officer click requests one removal. The next name appears after the guild roster confirms the departure.",
       "Officers can check a selected Member for a Veteran promotion when WoW leaves the realm blank. Each rank change requires a fresh recommendation and an officer click.",

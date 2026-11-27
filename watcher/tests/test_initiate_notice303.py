@@ -139,6 +139,57 @@ class NoticeTests(unittest.TestCase):
         self.w.check_initiate_notice()
         self.os.show.assert_called_once_with()
 
+    def test_authenticated_named_receipt_notifies_after_file_write_only(self):
+        subject = self.case.roster["members"][-1]
+        name, guid = subject["name"], subject["guid"]
+        report = dict(protocol=watcher.STRICT_DISPLAY_PROTOCOL, guild="OLYMPUS PRIME", realm=watcher.PRIME_REALM_LABEL,
+                      snapshotAt=self.case.roster["exportedAt"], verified=[], unknown=[],
+                      unverified=[dict(name=name, guid=guid, pending=True)])
+        def poll():
+            self.f.at += 1
+            self.w._next_strict_display_pull = 0
+            report["fetchedAt"] = self.f.at
+            with patch.object(self.w.worker, "call", return_value=(True, report)):
+                self.w.pull_strict_display()
+        poll()
+        report["unverified"] = []
+        report["verified"] = [dict(name=name, guid=guid, status="member", username=None, displayName="PRIVATE")]
+        poll()
+        report["verified"][0]["username"] = "actual_handle"
+        with patch.object(self.w, "_write_projection280", return_value=None):
+            poll()
+        self.os.show.assert_not_called()
+        poll()
+        poll()
+        self.os.show.assert_called_once_with(verified=True)
+        self.assertIn("actual_handle", self.w.strict_display_file.read_text(encoding="utf-8"))
+        self.assertNotIn("actual_handle", repr(self.w._pending_handle_notice))
+        # Removal drops the subject and a new Verified row alone cannot imply a new whisper.
+        report["verified"], prior = [], report["verified"]
+        poll()
+        report["verified"] = prior
+        poll()
+        self.os.show.assert_called_once_with(verified=True)
+
+    def test_new_handle_requires_current_native_identity_and_exact_officer(self):
+        report = dict(protocol=watcher.STRICT_DISPLAY_PROTOCOL, guild="OLYMPUS PRIME", realm=watcher.PRIME_REALM_LABEL,
+                      snapshotAt=self.case.roster["exportedAt"], fetchedAt=self.f.at, verified=[], unknown=[], unverified=[])
+        subject = self.case.roster["members"][-1]
+        row = dict(name=subject["name"],guid=subject["guid"])
+        for bad in ("name", "officer", "scope", "expiry", "older-read", "different-snapshot"):
+            report.update(snapshotAt=self.case.roster["exportedAt"], fetchedAt=self.f.at, realm=watcher.PRIME_REALM_LABEL,
+                          unverified=[dict(**row,pending=False)], verified=[])
+            self.w._check_published_handles(report, self.f.at)
+            report.update(unverified=[], verified=[dict(**row,status="member",username="actual",displayName=None)])
+            if bad=="name": report["verified"][0]["name"]="Unrelated subject"
+            if bad=="scope": report["realm"]="Other Realm"
+            if bad=="older-read": report["fetchedAt"]-=1
+            if bad=="different-snapshot": report["snapshotAt"]-=1
+            observer="Other Officer" if bad=="officer" else self.w.officer
+            with patch.object(self.w,"officer",observer):
+                self.w._check_published_handles(report,self.f.at+(600 if bad=="expiry" else 0))
+        self.os.show.assert_not_called()
+
     def test_windows_receives_only_static_text_and_realtime_quiet_flags(self):
         adapter = watcher.initiate_notice.WindowsNotice()
         dll = Mock()
@@ -153,11 +204,13 @@ class NoticeTests(unittest.TestCase):
         with patch.object(watcher.initiate_notice.os, 'name', 'nt'), patch.object(ctypes, 'windll', dll, create=True):
             self.assertTrue(adapter.show())
             self.assertTrue(adapter.show(test=True))
+            self.assertTrue(adapter.show(verified=True))
             adapter.remove_at = 0
             adapter.tidy()
-        self.assertEqual([r[0] for r in captured], [0, 1, 1, 2])
+        self.assertEqual([r[0] for r in captured], [0, 1, 1, 1, 2])
         self.assertEqual(captured[1][1:], (0x50, 0x91, 'Olympus Verify', watcher.initiate_notice.MESSAGE))
         self.assertEqual(captured[2][-1], watcher.initiate_notice.TEST_MESSAGE)
+        self.assertEqual(captured[3][1:], (0x50, 0x91, "Olympus Verify", watcher.initiate_notice.VERIFIED_MESSAGE))
 
     def test_first_complete_baseline_is_silent_including_existing_eligible(self):
         self.history.path.unlink()

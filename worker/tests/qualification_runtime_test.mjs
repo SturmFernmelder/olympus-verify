@@ -14,6 +14,10 @@ import {D1_PERFORMANCE_INDEX_NAME, D1_PERFORMANCE_INDEX_DDL} from '../src/d1-per
 import {readOriginalCompleteSchema} from '../src/privacy-schema-source-plan.ts';
 import {originalCanonicalSmoke280} from './canonical_v1_compat280_smoke.mjs';
 import {raidCalendarReadback} from './raid_calendar307_runtime.mjs';
+import {createObligation,openWeeklyObligations,recordReceipt,ensurePolicy,ledgerView,setObligationState} from '../src/community-contributions.ts';
+import {adminContributionAction,contributionsAcknowledge} from '../src/community-contributions-api.ts';
+import {DEFAULT_CONTRIBUTION_POLICY,periodStart} from '../src/community-contribution-policy.ts';
+import {PAGE_VERSION} from '../src/site-core.ts';
 import {guildDirectoryReadback} from './guild_directory307_runtime.mjs';
 
 const EPOCH='a'.repeat(32), GUILD='800000000000000001', ROLE='800000000000000010';
@@ -94,7 +98,7 @@ export default {async fetch(request,bindings,ctx){
       check('common role writer refuses a blocking Discord role',await grantMemberRole(env,BLOCKED,'qualification','qualification',undefined,callBudget(env))==='blocked');
       const native=await runNativeSubject232(env,ALLOWED,callBudget(env));
       check('missing original Native authority never reports a settled grant',native.state==='held'&&native.requests===0);
-      await raidCalendarReadback(env,check);
+      await raidCalendarReadback(env,check,db,ctx);
       await guildDirectoryReadback(env,db,ctx,check);
     }else if(kind==='lease'){
       const now=(await db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS t").first()).t;
@@ -111,6 +115,42 @@ export default {async fetch(request,bindings,ctx){
       await env.DB.prepare(FRESH_LEASE_RELEASE).bind(foreign).run();
     }else if(kind==='treasury'){
       const now=(await db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS t").first()).t;
+      const ledger={...env,CONTRIBUTIONS_MODE:'ledger',CONTRIBUTIONS_RETENTION_DAYS:'90'};
+      const weeks=()=>db.prepare('SELECT count(*) AS n FROM community_contribution_obligations').first('n');
+      const originalWeeks=await weeks(), donor=ALLOWED,secondDonor=BLOCKED,joined=now-40*86400;
+      await env.DB.batch([
+        env.DB.prepare('INSERT INTO site_users(discord_id,first_login,last_login) VALUES(?1,?2,?2)').bind(donor,joined),
+        env.DB.prepare("INSERT INTO characters(name_key,name,discord_id,status,bound_at,member_since)VALUES('gift test','Gift Test',?1,'member',?2,?2)").bind(donor,joined)
+      ]);
+      let refusal=null;
+      try{await createObligation(ledger,{guildScope:'olympus',discordId:secondDonor,periodStart:periodStart(now,DEFAULT_CONTRIBUTION_POLICY),eligible:true},now);}
+      catch(error){refusal=error.code??'unknown';}
+      const generated=await openWeeklyObligations(ledger,now,10);
+      check('both retired assessment writers stay closed for an eligible, signed-in member in writable ledger mode',
+        refusal==='voluntary_contributions'&&generated===0&&await weeks()===originalWeeks,{refusal,generated,delta:await weeks()-originalWeeks});
+      const context={features:new Set(['contributions']),capabilities:{applicantWrite:true},subject:{discordId:donor}};
+      const req=()=>new Request('https://guild.example/api/community/contributions/acknowledge',{method:'POST',headers:{'content-type':'application/json','X-Olympus':PAGE_VERSION},body:'{}'});
+      for(const action of ['obligation','contact','removal','acknowledge']){
+        const result=action==='acknowledge'?await contributionsAcknowledge(req(),ledger,context):await adminContributionAction(req(),ledger,context,{discord_id:donor},{action,discordId:donor});
+        check('retired contribution action '+action+' returns its voluntary-policy refusal',result.status===409&&(await result.json()).error==='voluntary_contributions');
+      }
+      const gift={guildScope:'olympus',source:'officer_manual',sourceId:'observed-gift-312',payerName:'Gift Test',amountCopper:25000,observedAt:now,observerDiscordId:secondDonor,matchedDiscordId:donor,status:'matched'};
+      const recorded=await recordReceipt(ledger,gift,now),repeat=await recordReceipt(ledger,gift,now);
+      check('a real voluntary gift can still be recorded and a retry never creates a second receipt or a weekly obligation',
+        recorded.created&&repeat.created===false&&repeat.id===recorded.id&&await weeks()===originalWeeks&&
+        (await db.prepare('SELECT amount_copper FROM community_contribution_receipts WHERE id=?1').bind(recorded.id).first('amount_copper'))===25000);
+      // A pre-retirement week remains readable and correctable after both assessment writers are closed.
+      const previousWeek=periodStart(now,DEFAULT_CONTRIBUTION_POLICY)-7*86400;
+      await ensurePolicy(ledger,DEFAULT_CONTRIBUTION_POLICY,now);
+      await env.DB.prepare(`INSERT INTO community_contribution_obligations
+        (guild_scope,discord_id,period_start,due_at,policy_version,amount_copper,eligible,state,retain_until,created_at,updated_at)
+        VALUES ('olympus',?1,?2,?3,'v1',10000,1,'open',?4,?2,?2)`).bind(donor,previousWeek,previousWeek+7*86400,now+86400).run();
+      const history=await ledgerView(ledger,'olympus',donor,now);
+      const archived=history.obligations[0];
+      const edited=await setObligationState(ledger,{guildScope:'olympus',discordId:donor,obligationId:archived.row.id,state:'resolved',expectedRevision:history.revision,actor:'staff:'+secondDonor},now);
+      check('a historical week has no collection step or scheduled review and staff can still correct it',
+        archived.stage==='archived'&&archived.canAcknowledge===null&&archived.nextReviewAt===null&&edited==='updated'&&
+        (await ledgerView(ledger,'olympus',donor,now)).obligations[0].row.state==='resolved'&&await weeks()===originalWeeks+1);
       const guild='OLYMPUS PRIME',realm='Qualification Realm',collector='Player-1-1234ABCD',guid='Player-1-9999ABCD';
       const watcherToken='qualification-watcher-only-0123456789012345';
       const financialEnv={...env,DB:db,WATCHER_TOKEN:watcherToken,VERIFY_MEMBERSHIP_ONLY:'true',VERIFY_NATIVE_SCOPE:JSON.stringify({version:1,guild,realm})};

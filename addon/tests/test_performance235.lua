@@ -133,6 +133,31 @@ for _,size in ipairs({920,1000}) do
   check(size.." periodic work permits at most one capture/hash",f.hashes<=1 and f.rosterReads<=size+1 and f.noActions())
 end
 
+do
+  local f=fixture(1000)
+  f.reset()
+  local digest=f.api.AutoSyncFacts(true).sweepDigest
+  check("explicit 1000-row sweep hashes its bounded native content once", #digest==64 and f.hashes==1 and f.hashBytes<300000)
+  for _=1,5 do assert(f.api.AutoSyncFacts(true).sweepDigest==digest) end
+  check("re-reading the same accepted sweep needs no extra hash or native read",f.hashes==1 and f.rosterReads==0)
+  f.advance(1); f.api.ExportRoster()
+  check("new timestamp alone preserves the sweep digest", f.api.AutoSyncFacts(true).sweepDigest==digest)
+  local function change(label)
+    f.api.ExportRoster()
+    local nextDigest=f.api.AutoSyncFacts(true).sweepDigest
+    check("sweep changes with "..label,digest~=nextDigest)
+    digest=nextDigest
+  end
+  local row=f.e.ROSTER[3]
+  row.rank="Veteran"; row.rankIndex=6; change("in-place rank and title")
+  row.name="Changed Character"; change("character name")
+  row.guid="Player-1-00FFFFFF"; change("GUID")
+  row.onote="officer note"; change("officer note outside the automatic alert fingerprint")
+  row.level=55; change("level")
+  f.e.ROSTER[3],f.e.ROSTER[5]=f.e.ROSTER[5],f.e.ROSTER[3]; change("roster order even with identical membership")
+  check("native sweep hashing never acts",f.noActions())
+end
+
 for _,case in ipairs({"stale","future-clock","backwards-clock","guild","realm","own-guid","partial-table","invalid-total","long-field","row-type","replacement","mutation-rollback"}) do
   local f=fixture(920);local r=f.e.OlympusVerifyDB.roster;f.reset()
   if case=="stale" then f.advance(76)

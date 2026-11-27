@@ -29,6 +29,7 @@ do
   check("full source tooltip explains that current Watcher state is unobservable",tip:find("cannot observe the Watcher's current process",1,true) and tip:find("not whether the Watcher is alive",1,true))
   check("reported Retry-After is a dated hint without countdown or authority",tip:find("Retry-After 1s",1,true) and tip:find("not a live countdown or permission to act",1,true))
   f.q.Show();f.q.sourceTip:GetScript("OnEnter")(f.q.sourceTip)
+  check("advance reload warning is visible before using scan or check", f.q.windowInfo:GetText():find("Scan, Stop and Check reload WoW once",1,true))
   check("officer window exposes readable summary plus full source hover",f.q.windowInfo:GetText():find("20/962 inspected",1,true) and table.concat(f.e.GameTooltip._lines or {}," "):find("separately authorized recovery",1,true) and f.q.windowDetails:find("recheck attempts (including rate-limit retries)",1,true))
   check("source reporting does not dispatch Sync or native actions",f.attempts==0 and #f.promotions==0 and f.invites==0 and f.removals==0 and f.reloads==0)
 end

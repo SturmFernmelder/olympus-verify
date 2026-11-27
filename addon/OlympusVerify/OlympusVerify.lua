@@ -41,7 +41,7 @@ local SECRET = cfg.secret
 -- 0.6.12: the example's placeholder is public, so a Config.lua copied without replacing it must not accept codes made from it.
 if type(SECRET) ~= "string" or SECRET == "" or string.find(SECRET, "^REPLACE_WITH_") then SECRET = nil end
 local secretWarned = false  -- 0.6.12: say once per session, not on every whisper, that codes cannot be checked
-local SOURCE_VERSION = "0.6.54" -- Keep this source fallback and OlympusVerify.toc aligned.
+local SOURCE_VERSION = "0.6.55" -- Keep this source fallback and OlympusVerify.toc aligned.
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
   or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or SOURCE_VERSION
 local SET_NOTES = cfg.setNotes == true  -- SetNote is forbidden for addons on the Forever beta; leave false there
@@ -757,7 +757,7 @@ do
     Presence.deferPendingFacts235 = nil
     return ok and requested or false
   end
-  function Presence.PendingRosterFacts235()
+  function Presence.PendingRosterFacts235(forSweep)
     local db, now = OlympusVerifyDB, time()
     local r = db and db.roster
     if type(now) ~= "number" or lastClock and now < lastClock then return hold() end
@@ -777,9 +777,29 @@ do
     local upper = string.upper(guild)
     if upper ~= "OLYMPUS PRIME" and upper ~= "OLYMPUS" and upper ~= "OLYMPUS I" then return hold() end
     if not unchanged(r) then return hold() end
+    local function facts()
+      if forSweep and not cached.sweepDigest then
+        -- Watcher custody covers every exported native field and row order except
+        -- exportedAt. Keep its equivalence relation separate from the narrow,
+        -- order-insensitive membership alert fingerprint. Hash once per capture,
+        -- only when preparing a signed sweep during an export.
+        local parts = {}
+        local function add(value)
+          local text = type(value) .. ":" .. tostring(value)
+          parts[#parts + 1] = #text .. ":" .. text
+        end
+        add(r.nativeGuild); add(r.nativeRealm); add(r.total); add(r.online)
+        add(accepted.rankEncoding or r.nativeRankTable); add(accepted.observer)
+        for _, old in ipairs(accepted.rows) do
+          for _, key in ipairs(fields) do add(old.values[key]) end
+        end
+        cached.sweepDigest=L.sha256hex(table.concat(parts))
+      end
+      return { strict=true, exportedAt=r.exportedAt, digest=cached.digest, sweepDigest=cached.sweepDigest }
+    end
     if cached then
       if cached.guid ~= ownGuid or cached.name ~= ownName then return hold() end
-      return { strict=true, exportedAt=r.exportedAt, digest=cached.digest }
+      return facts()
     end
     local parts, own = { "G" .. #guild .. ":" .. guild, "R" .. #realm .. ":" .. realm, "T" .. tostring(r.total), "N" .. (accepted.rankEncoding or "unavailable") }, 0
     if observer then parts[#parts + 1] = "B" .. observer end
@@ -797,7 +817,7 @@ do
     if own ~= 1 then return hold() end
     table.sort(parts)
     cached = { digest=L.sha256hex(table.concat(parts, "|")), guid=ownGuid, name=ownName }
-    return { strict=true, exportedAt=r.exportedAt, digest=cached.digest }
+    return facts()
   end
 end
 
@@ -3573,8 +3593,8 @@ OlympusVerifyAPI = {
 }
 
 -- Read-only facts for the hardware Pending Sync alert; no roster, role or invite authority.
-function OlympusVerifyAPI.AutoSyncFacts()
-  return Presence.PendingRosterFacts235()
+function OlympusVerifyAPI.AutoSyncFacts(forSweep)
+  return Presence.PendingRosterFacts235(forSweep == true)
 end
 
 -- ---------------------------------------------------------------- events

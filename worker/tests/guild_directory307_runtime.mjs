@@ -1,3 +1,4 @@
+import {DEPARTURE_NOTICE_ACCOUNT_SQL} from '../src/role-settlements.ts';
 import worker, {isReadOnly} from '../src/index.ts';
 import {handleMemberProfile, PROFILE_COMMAND} from '../src/lookup.ts';
 import {qualifiedNativeSnapshotSource} from '../src/native-rank-schemes.ts';
@@ -53,6 +54,24 @@ export async function guildDirectoryReadback(base, db, ctx, check) {
     detail.body.roster.members.length===2);
   check('site roster uses literal search and withholds unapproved branch data',
     (await page('?search=%25')).body.roster.members.length===0&&(await page('?guild=Olympus%20II')).body.roster===null);
+  const branch=await page('?guild=Olympus%20II&detail=officer'), branchBasic=await page('?guild=Olympus%20II');
+  const primeState=body=>body.sources.find(s=>s.guild===guild)?.status;
+  check('a branch visit shows PRIME availability and every pending branch without disclosing any named roster',
+    branch.body.officer&&branch.body.roster===null&&branchBasic.body.roster===null&&!branchBasic.body.officer&&
+    primeState(branch.body)==='available'&&branch.body.sources.length===10&&
+    branch.body.sources.filter(s=>s.guild!==guild).every(s=>s.status==='pending-source')&&
+    !JSON.stringify(branch.body).includes('Directory Rune'));
+  const spoof=qualifiedNativeSnapshotSource('Olympus II',realm);
+  await sql('UPDATE roster_snapshots SET source=?2 WHERE id=?1',id,spoof).run();
+  const forged=await page('?guild=Olympus%20II&realm=Directory%20Fixture');
+  check('a different guild label on a complete trusted row cannot publish a branch or advertise a working PRIME source',
+    forged.body.roster===null&&primeState(forged.body)==='awaiting-roster'&&
+    forged.body.sources.find(s=>s.guild==='Olympus II')?.status==='pending-source'&&(await page()).body.roster===null);
+  await sql('UPDATE roster_snapshots SET source=?2 WHERE id=?1',id,source).run();
+  const self=await run(member(target,[]));
+  check('a regular member can view their own linked rank privately with no operational fields',
+    self.flags===64&&self.content.includes('Directory Rune')&&self.content.includes('Member')&&
+    !self.content.includes('Mage')&&!self.content.includes('level')&&!self.content.includes('/olympus-lookup'));
   const active=member(replay), first=await run(active), second=await run(active);
   check('expired reads cannot schedule a delivery to the old private response',
     (await handleMemberProfile(env,active,at-300,()=>{throw Error('Expired continuation');}).json()).type===4);
@@ -122,6 +141,11 @@ export async function guildDirectoryReadback(base, db, ctx, check) {
     large.status===200&&large.body.roster.members.length===49&&large.body.roster.more===false&&
     plan.results.some(r=>r.detail.includes('SEARCH j USING')&&r.detail.includes('privacy_serving_jobs_open'))&&
     !plan.results.some(r=>/\bSCAN j\b/.test(r.detail)));
+  const departurePlan=await db.prepare('EXPLAIN QUERY PLAN '+DEPARTURE_NOTICE_ACCOUNT_SQL).bind(viewer,at).all();
+  check('1,000-member directory resolves a departure notice using both the account and lifecycle indexes',
+    departurePlan.results.some(r=>r.detail.includes('SEARCH c USING INDEX characters_discord'))&&
+    departurePlan.results.some(r=>r.detail.includes('SEARCH s USING INDEX'))&&
+    !departurePlan.results.some(r=>/\bSCAN (c|s)\b/.test(r.detail)),departurePlan.results.map(r=>r.detail));
   await sql("INSERT INTO members(discord_id,banned) VALUES(?1,1) ON CONFLICT(discord_id) DO UPDATE SET banned=1",viewer).run();
   check('new viewer ban denies the existing site session and the repeat Discord read',
     (await page()).status===403&&(await run(member(viewer))).content.includes('access could not be confirmed'));

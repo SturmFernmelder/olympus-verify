@@ -24,6 +24,7 @@ SELECTED_PROTOCOL = "promotion-selection-v274"
 SELECTED_LEGACY_PROTOCOL = "promotion-selection-v273"
 SELECTED_BATCH_PROTOCOL = "promotion-selection-v276"
 DIRECTIVE_PROTOCOL = "promotion-selection-directive-v1"
+PRIME_REALM_LABEL = "CAMWOW US2 Realm 3 PvE"
 PRIME_INITIATE_ACTION = "select-prime-initiates"
 PRIME_MEMBER_ACTION = "select-prime-member"
 _DIRECTIVE_CONTROL_KEYS = {"version", "action", "id", "observedAt", "scopeHash", "guid", "targetGuids", "confirmations", "mac"}

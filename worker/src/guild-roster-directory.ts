@@ -5,7 +5,7 @@ import { admittedRead, FENCE_REFUSED, refusal, type CommunityContext } from './c
 import { apiJson } from './site-core';
 import { captureLaunchVerification } from './launch-verification227';
 import { nativeMembershipSourceMatches } from './native-rank-schemes';
-import { canonicalOlympusGuildName, OLYMPUS_GUILD_NAMES } from './guild-affiliation229';
+import { canonicalOlympusGuildName, FLAGSHIP_GUILD_NAME, OLYMPUS_GUILD_NAMES } from './guild-affiliation229';
 import { directoryOptOutsSql } from './community-discord-directory';
 import { normalizeCharacter } from './codes';
 import { likeArg, now } from './db';
@@ -46,24 +46,32 @@ export function guildRosterRowsSql(officer:boolean,account:boolean):string {
         AND ${condition} ORDER BY r.name_key LIMIT ?2 OFFSET ?3`;
 }
 
+function rosterSnapshotStatement(env:Env) {
+  return env.DB.prepare(`SELECT exported_at,source,complete,trusted,member_count,
+    (SELECT COUNT(*) FROM roster_members WHERE snapshot_id=s.id) AS stored FROM roster_snapshots s WHERE s.id=(${latest})`);
+}
+
 export function guildRosterStatements(env:Env, options:{officer:boolean; search?:string; offset?:number; account?:string}) {
-  return [
-    env.DB.prepare(`SELECT exported_at,source,complete,trusted,member_count,
-      (SELECT COUNT(*) FROM roster_members WHERE snapshot_id=s.id) AS stored FROM roster_snapshots s WHERE s.id=(${latest})`),
+  return [rosterSnapshotStatement(env),
     env.DB.prepare(guildRosterRowsSql(options.officer,options.account!==undefined))
       .bind(options.account ?? likeArg(normalizeCharacter(options.search ?? ''), true), ROSTER_PAGE_SIZE+1, options.offset ?? 0),
   ];
 }
 
-export function readRosterResult(launch:ReturnType<typeof captureLaunchVerification>, results:D1Result[]) {
-  const snapshot=results[0]?.results[0] as Snapshot|undefined;
+function readRosterSource(launch:ReturnType<typeof captureLaunchVerification>, result:D1Result|undefined) {
+  const snapshot=result?.results[0] as Snapshot|undefined;
   if (launch.mode!=='members-only'||!launch.scope||!launch.current()||!snapshot||snapshot.complete!==1||snapshot.trusted!==1||
       !Number.isSafeInteger(snapshot.exported_at)||snapshot.exported_at<=0||snapshot.exported_at>now()+5||
       !Number.isSafeInteger(snapshot.stored)||snapshot.stored<1||snapshot.stored!==snapshot.member_count||
       !nativeMembershipSourceMatches(snapshot.source,launch.scope.guild,launch.scope.realm)) return null;
+  return {guild:canonicalOlympusGuildName(launch.scope.guild), realm:launch.scope.realm, asOf:snapshot.exported_at};
+}
+
+export function readRosterResult(launch:ReturnType<typeof captureLaunchVerification>, results:D1Result[]) {
+  const source=readRosterSource(launch,results[0]);
+  if (!source) return null;
   const rows=results[1]!.results as RosterRow[];
-  return {guild:canonicalOlympusGuildName(launch.scope.guild), realm:launch.scope.realm, asOf:snapshot.exported_at,
-    members:rows.slice(0,ROSTER_PAGE_SIZE), more:rows.length>ROSTER_PAGE_SIZE};
+  return {...source,members:rows.slice(0,ROSTER_PAGE_SIZE),more:rows.length>ROSTER_PAGE_SIZE};
 }
 
 /** Current membership is independently checked for Discord profiles and for any
@@ -92,8 +100,12 @@ export async function guildRosterDirectory(request:Request,env:Env,ctx:Community
   const role=wantsDetail ? await liveRosterReader(env,viewer) : 'basic';
   if (!role) return denied();
   const officer=role==='officer';
-  const scoped=launch.mode==='members-only' && !!launch.scope && canonicalOlympusGuildName(launch.scope.guild)===guild;
-  const statements=[rosterReaderProbe(env,viewer),...(scoped ? guildRosterStatements(env,{officer,search,offset:(Number(page)-1)*ROSTER_PAGE_SIZE}) : [])];
+  const primeConfigured=launch.mode==='members-only' && !!launch.scope && canonicalOlympusGuildName(launch.scope.guild)===FLAGSHIP_GUILD_NAME;
+  const scoped=primeConfigured && guild===FLAGSHIP_GUILD_NAME;
+  // The native installation authenticates a single flagship scope. Branch
+  // labels and aggregate counts cannot supply named roster rows.
+  const statements=[rosterReaderProbe(env,viewer),...(scoped ? guildRosterStatements(env,{officer,search,offset:(Number(page)-1)*ROSTER_PAGE_SIZE})
+    : primeConfigured ? [rosterSnapshotStatement(env)] : [])];
   const read=await admittedRead(env,ctx,'applicantWrite',statements);
   if (read===FENCE_REFUSED) return refusal(env,request,'applicantWrite');
   if (!launch.current() || !rosterReaderAllowed(read[0])) return denied();
@@ -105,5 +117,9 @@ export async function guildRosterDirectory(request:Request,env:Env,ctx:Community
     if (refreshed===FENCE_REFUSED || !launch.current() || !rosterReaderAllowed(refreshed[0])) return denied();
     final=refreshed;
   }
-  return apiJson({guilds:OLYMPUS_GUILD_NAMES,guild,officer,roster:scoped ? readRosterResult(launch,final.slice(1)) : null});
+  const roster=scoped ? readRosterResult(launch,final.slice(1)) : null;
+  const primeAvailable=scoped ? !!roster : primeConfigured && !!readRosterSource(launch,final[1]);
+  const sources=OLYMPUS_GUILD_NAMES.map(name=>({guild:name,status:name===FLAGSHIP_GUILD_NAME
+    ? (primeAvailable ? 'available' : 'awaiting-roster') : 'pending-source'}));
+  return apiJson({guilds:OLYMPUS_GUILD_NAMES,guild,officer,sources,roster});
 }

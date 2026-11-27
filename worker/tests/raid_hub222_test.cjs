@@ -114,9 +114,18 @@ async function checks222(){
  over219.COMMUNITY_FEATURES='events,attendance,directory,crafting';
  await fresh219();
  const attendanceEnv222=directEnv(over219);
- const attended222=await cal222.createCalendar219(attendanceEnv222,await auth222.captureGuildActor219(attendanceEnv222,{guild_id:GUILD,member:{user:{id:ORG}}},at(),at()),{title:'Attendance fixture',starts:new Date((at()+3600)*1000).toISOString(),minutes:60});
+ const attended222=await cal222.createCalendar219(attendanceEnv222,await auth222.captureGuildActor219(attendanceEnv222,{guild_id:GUILD,member:{user:{id:ORG}}},at(),at()),{title:'Attendance fixture',starts:new Date((at()+3600)*1000).toISOString(),minutes:60,capacity:1});
  r=await send222({options:[{type:3,name:'find',value:attended222.id}],who:MEMBER});
  await send222({type:3,custom:control(r.answer,'Your signup preference'),values:['healer'],who:MEMBER});
+ const attendeeRef=one('SELECT ref FROM community_refs WHERE discord_id=?',MEMBER).ref;
+ const webAssign=(decision,revision)=>call('POST','/api/community/events/decide',{eventId:attended222.id,entries:[{ref:attendeeRef,decision,revision}]},ORG,over219);
+ const loadMemberDetail=()=>send222({options:hubOptions([{type:3,name:'find',value:attended222.id}]),who:MEMBER});
+ const waitlisted=await webAssign('bench',0), waitlistedDetail=await loadMemberDetail();
+ check('a real Discord signup waitlisted on the website frees the assignment slot and remains a signup',
+    waitlisted.status===200&&waitlistedDetail.answer.embeds[0].description.includes('0 open signup places · 1 unassigned roster place')&&waitlistedDetail.answer.embeds[0].description.includes('1 on the officer waitlist'));
+ const accepted=await webAssign('accepted',1), acceptedDetail=await loadMemberDetail();
+ check('accepting that waitlisted signup on the website fills the same Discord roster',
+    accepted.status===200&&acceptedDetail.answer.embeds[0].description.includes('0 open signup places · 0 unassigned roster places')&&acceptedDetail.answer.embeds[0].description.includes('1 accepted · 0 on the officer waitlist'));
  await fixtureRun('UPDATE community_events SET starts_at=?,ends_at=? WHERE id=?',at()-60,at()-60+3600,attended222.id);
  const hubHistory=await send222({options:hubOptions(),who:MEMBER});
  const history=await send222({type:3,custom:control(hubHistory.answer,'Raid history'),who:MEMBER});
@@ -139,6 +148,11 @@ async function checks222(){
  await send222({type:5,custom:r.initial.data.custom_id,fields:[['confirm','LOCK']]});
  await send222({type:3,custom:stateSelect222,values:['absent']});
  check('locked attendance cannot be changed through an older private selector',one('SELECT state FROM community_event_attendance WHERE event_id=? AND discord_id=?',attended222.id,MEMBER).state==='present');
+ const myHistory=await call('GET','/api/community/attendance/me',undefined,MEMBER,over219);
+ const otherHistory=await call('GET','/api/community/attendance/me',undefined,OTHER,over219);
+ check('locked Discord attendance appears in the attendee’s own website history and stays out of another member’s personal history',
+   myHistory.status===200&&myHistory.body.entries.some(e=>e.event.id===attended222.id&&e.state==='present'&&e.source==='officer')&&
+   otherHistory.status===200&&otherHistory.body.entries.every(e=>e.event.id!==attended222.id));
  check('the attendance and search hub scenarios create no public message',publicEffects219().length===0);
  await fresh219();
  const start=at()+1800;

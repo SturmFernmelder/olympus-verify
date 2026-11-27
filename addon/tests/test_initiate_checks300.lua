@@ -28,7 +28,7 @@ local function client(count,blank)
   end
   f.content="a"
   e.OlympusVerifyAPI.AutoSyncFacts=function()
-    return {strict=true,digest=string.rep(f.content,64),exportedAt=e.NOW}
+    return {strict=true,sweepDigest=string.rep(f.content,64),exportedAt=e.NOW}
   end
   local function prepare()
     local rows={}
@@ -154,11 +154,11 @@ end
 do
   local f,e,prepare,record,verified=client(41,false)
   local a=prepare()
-  f.content="b"
-  check("first results-loading reload keeps its original control on an unrelated source change",prepare()==a)
+  check("unchanged first results-loading reload keeps its original control",prepare()==a)
   e.OlympusInitiateChecks={version=1,id=a.id,records={record(a.controls[1],77,true)}}
+  f.content="b"
   local b=prepare()
-  check("a second unrelated source change cannot extend the spent readback handoff",b.id~=a.id)
+  check("first changed export immediately replaces partial controls",b.id~=a.id)
   local current=f.q.Current()
   check("new sweep does not take a positive from earlier cycle",current.backgroundChecks.total==41 and current.backgroundChecks.checked==0
     and not f.click(f.id) and f.promote==0)
@@ -183,9 +183,8 @@ for _,blank in ipairs({false,true}) do
     prepare()==cycle and e.OlympusVerifyDB.primeInitiateInputs.awaitingLoad
       and f.q.Current().backgroundChecks.checked==20 and not f.click(secondGuid))
   e.NOW=e.NOW+30
-  f.content="b"
-  check("one normal import reload preserves the original signed set despite unrelated native changes",
-    prepare()==cycle and e.OlympusVerifyDB.primeInitiateInputs.awaitingLoad==false)
+  check("one normal import reload preserves the signed set while the native content is unchanged",
+    prepare()==cycle and e.OlympusVerifyDB.primeInitiateInputs.awaitingLoad)
   e.OlympusInitiateChecks.records[2]=record(pages[2],101,secondGuid)
   e.OlympusInitiateChecks.records[3]=record(pages[3],101,false)
   local full=f.q.Current()
@@ -193,6 +192,7 @@ for _,blank in ipairs({false,true}) do
     full.backgroundChecks.checked==43 and full.backgroundChecks.pending==0 and full.freshness[secondGuid].controlId==pages[2].id
       and full.freshness[secondGuid].page==e.OlympusInitiateChecks.records[2].page and full.freshness[secondGuid].expiresAt==cycle.controls[1].observedAt+600
       and f.promote==0 and not f.syncs)
+  f.content="b"
   check("subsequent changed-source export rotates without borrowing the previous positive",
     prepare().id~=cycle.id and f.q.Current().backgroundChecks.checked==0 and not f.click(secondGuid) and f.promote==0)
 end
@@ -223,11 +223,15 @@ for _,changed in ipairs({false,true}) do
   local first=record(cycle.controls[1],92,true)
   e.OlympusInitiateChecks={version=1,id=cycle.id,records={first}}
   e.NOW=e.NOW+350
-  if changed then f.content="b" end
-  check("a fresh 50-page cycle can use one import at age 350s",prepare()==cycle and not e.OlympusVerifyDB.primeInitiateInputs.awaitingLoad)
-  check("late import preserves its first page's expiry and pending groups",f.q.Current().backgroundChecks.checked==20
-    and f.q.Current().backgroundChecks.pending==979 and first.page.expiresAt==cycle.controls[1].observedAt+600)
-  check("350s reuse cannot become a recurring extension",prepare().id~=cycle.id)
+  if changed then
+    f.content="b"
+    check("50-page changed native content rotates immediately at 350s",prepare().id~=cycle.id and f.q.Current().backgroundChecks.checked==0)
+  else
+    check("a fresh 50-page cycle can use one import at age 350s",prepare()==cycle and not e.OlympusVerifyDB.primeInitiateInputs.awaitingLoad)
+    check("late import preserves its first page's expiry and pending groups",f.q.Current().backgroundChecks.checked==20
+      and f.q.Current().backgroundChecks.pending==979 and first.page.expiresAt==cycle.controls[1].observedAt+600)
+    check("350s reuse cannot become a recurring extension",prepare().id~=cycle.id)
+  end
 end
 for _,age in ipairs({301,600}) do
   local f,e,prepare,record=client(21,false)
@@ -275,6 +279,23 @@ do
     and e.OlympusVerifyDB.roster.total==1000 and not f.syncs and f.promote==0)
   local sweep=e.OlympusLaunch229.Current().backgroundChecks
   check("a 50-group request without replies is fully visible as pending",sweep.total==999 and sweep.pending==999 and sweep.checked==0)
+  -- This non-Initiate changes rank on the last row; the other 998 requests
+  -- retain the exact same GUIDs, partitions and order across both exports.
+  e.ROSTER[1000].rankIndex=7
+  event(core,"PLAYER_LOGOUT")
+  local partial=e.OlympusVerifyDB.primeInitiateChecks
+  check("complete source records its native digest independent of the signed targets",
+    partial and type(e.OlympusVerifyDB.primeInitiateInputs.native)=="string" and #partial.controls==50)
+  e.NOW=e.NOW+1
+  event(core,"PLAYER_LOGOUT")
+  check("fresh timestamp alone preserves the partially loaded 1000-row request",e.OlympusVerifyDB.primeInitiateChecks==partial)
+  e.ROSTER[1000].rankIndex=6
+  event(core,"PLAYER_LOGOUT")
+  local rotated=e.OlympusVerifyDB.primeInitiateChecks
+  check("native Alt to Veteran in place rotates the incomplete sweep on that first export",
+    rotated and rotated.id~=partial.id and rotated.mac~=partial.mac
+      and table.concat(rotated.controls[50].targetGuids,",")==table.concat(partial.controls[50].targetGuids,",")
+      and f.promote==0 and not f.syncs)
 end
 local function notifications(blank)
   local f,e,prepare,record=client(23,blank)
