@@ -6,8 +6,10 @@ if type(API) ~= "table" or type(API.Roster) ~= "table" then return end
 local G = {}
 OlympusVerifyGuild = G
 local MAX_MEMBERS, LIST_AGE, MAX_ROWS = 1000, 3600, 60
-local COLUMN_WIDTH, NAV_GUTTER, SCREEN_MARGIN = 436, 48, 8
-local STATUS_WIDTH, PROMOTE_WIDTH, NAME_WIDTH = 100, 72, 112
+local NAV_GUTTER, SCREEN_MARGIN = 48, 8
+local STATUS_WIDTH, NAME_WIDTH = 100, 112
+local CHECK_VETERAN = "Check Veteran"
+local ACTION_MIN_WIDTH, ACTION_PADDING = 104, 20
 local REMINDER = "Hi! In Asmongold's Discord, use Get my code in #⚡olympus-verify. Follow the bot's instructions to whisper the code from this character in game."
 local LABEL = { verified = "Verified", unverified = "Not verified", pending = "Verifying", unknown = "Unknown", stale = "Stale list" }
 local COLOR = { verified = "|cff8ac69a", unverified = "|cffe57572", pending = "|cffe8be65", unknown = "|cff9ea3ad", stale = "|cffe8be65" }
@@ -600,6 +602,13 @@ local function MemberDetailsShown(frame)
   return detail and type(detail.IsShown) == "function" and detail:IsShown()
     and (not detail.IsVisible or detail:IsVisible())
 end
+local function GuildListShown(host)
+  local list = host and host.MemberList
+  return host and host:IsShown() and (not host.IsVisible or host:IsVisible()) and (not host.GetAlpha or host:GetAlpha()>0)
+    and not MemberDetailsShown(host) and list and type(list.IsShown)=="function" and list:IsShown()
+    and (not list.IsVisible or list:IsVisible()) and list.expandedDisplay==true and type(list.GetSelectedClubId)=="function"
+    and C_Club and type(C_Club.GetGuildClubId)=="function" and list:GetSelectedClubId()==C_Club.GetGuildClubId()
+end
 local function LayerColumn(h)
   local f = h.frame
   h.column:SetFrameStrata((f.GetFrameStrata and f:GetFrameStrata()) or "MEDIUM")
@@ -612,10 +621,8 @@ local function RowCurrent(button)
   local row,list,host=button.nativeRow,button.memberList,button.nativeHost
   if not button:IsShown() or button.IsVisible and not button:IsVisible() or not Text(button.rowGuid,40)
     or not button.rowGuid:match("^Player%-%d+%-%x+$")
-    or not row or not host or not host:IsShown() or host.IsVisible and not host:IsVisible() or MemberDetailsShown(host)
-    or not row:IsShown() or row.IsVisible and not row:IsVisible() or not list or not list:IsShown()
-    or list.IsVisible and not list:IsVisible() or list.expandedDisplay~=true or type(list.GetSelectedClubId)~="function"
-    or not C_Club or type(C_Club.GetGuildClubId)~="function" or list:GetSelectedClubId()~=C_Club.GetGuildClubId() then return false end
+    or not row or not row:IsShown() or row.IsVisible and not row:IsVisible()
+    or not GuildListShown(host) or list~=host.MemberList then return false end
   local ok,member=pcall(row.GetMemberInfo,row)
   return ok and type(member)=="table" and Text(member.name)==button.rowName and Text(member.guid,40)==button.rowGuid
 end
@@ -653,7 +660,7 @@ local function PromotionControl(input,result,ready,detail,bound,current)
   if input.nativeMember then
     if bound and detail and detail.state=="check" and result.status=="verified" and current and current.identity
       and current.identity.primeInitiates and type(launch.Select)=="function" and CheckCustodyClear(launch,input.guid,current,input.rankIndex) then
-      return "Check Veteran",true,"check"
+      return CHECK_VETERAN,true,"check"
     end
     if bound and detail and detail.state=="recheck" and type(launch.Select)=="function" and type(launch.PromotionStatus)=="function" then
       local ok,status=pcall(launch.PromotionStatus,input.guid,current,input.rankIndex)
@@ -692,7 +699,38 @@ local function PromotionTooltip(button)
   end
   GameTooltip:Show()
 end
-local function NewButton(parent)
+local function SizeAction(button, width)
+  button:SetWidth(width)
+  local label = button:GetFontString()
+  label:SetWidth(width - ACTION_PADDING)
+  label:SetWordWrap(false)
+end
+
+local function VeteranCheckButton(parent, host)
+  local b=CreateFrame("Button",nil,parent,"UIPanelButtonTemplate")
+  b:SetText("Check all for Veteran")
+  local label=b:GetFontString()
+  local textWidth=label.GetUnboundedStringWidth and label:GetUnboundedStringWidth() or label:GetStringWidth()
+  SizeAction(b,math.max(150,math.ceil(textWidth)+ACTION_PADDING))
+  b:SetHeight(22)
+  b:SetScript("OnClick",function(self)
+    if not self:IsVisible() or Combat() or Gamepad() or Preview() or not GuildListShown(host) then return end
+    local launch=OlympusLaunch229
+    if not launch or type(launch.CheckAllVeterans)~="function" then Say("Reload the current Olympus Verify addon to check Veteran eligibility."); return end
+    local _,message=launch.CheckAllVeterans()
+    if message then Say(message) end
+  end)
+  b:SetScript("OnEnter",function(self)
+    if not GameTooltip then return end
+    GameTooltip:SetOwner(self,"ANCHOR_RIGHT"); GameTooltip:SetText("Check all for Veteran")
+    GameTooltip:AddLine("Checks all current Members, including offline Members, and continuing Veteran promotions. This saves the request with one Sync and reload. Open Promotions in /olv to review the results. Each rank change requires your click.",1,1,1,true)
+    GameTooltip:Show()
+  end)
+  b:SetScript("OnLeave",function() if GameTooltip then GameTooltip:Hide() end end)
+  return b
+end
+
+local function NewButton(parent, actionWidth)
   local b = CreateFrame("Button", nil, parent)
   b:SetSize(STATUS_WIDTH, 20)
   local text = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -706,7 +744,8 @@ local function NewButton(parent)
     if not called then Say("The current native whisper editor could not be opened.") elseif not ok then Say(why) end
   end)
   b.promote=CreateFrame("Button",nil,b,"UIPanelButtonTemplate,SecureActionButtonTemplate")
-  b.promote:SetSize(PROMOTE_WIDTH,20);b.promote:SetPoint("LEFT",b,"RIGHT",6,0);b.promote:SetText("Promote");b.promote:SetEnabled(false);b.promote:Show()
+  SizeAction(b.promote,actionWidth)
+  b.promote:SetHeight(20);b.promote:SetPoint("LEFT",b,"RIGHT",6,0);b.promote:SetText("Promote");b.promote:SetEnabled(false);b.promote:Show()
   if b.promote.SetMotionScriptsWhileDisabled then b.promote:SetMotionScriptsWhileDisabled(true) end
   b.promote:SetScript("OnEnter",PromotionTooltip);b.promote:SetScript("OnLeave",function()if GameTooltip then GameTooltip:Hide() end end)
   local launch=OlympusLaunch229
@@ -756,6 +795,20 @@ local function GuardColumn(h)
   local ok, secure = pcall(launch.SecureCombatHide, h.column)
   h.secureHide = ok and secure == true
 end
+
+local function SizeColumn(h)
+  -- Measure the longest action with the current UI font. The name columns keep
+  -- their own space; the existing compact fallback handles a narrow window.
+  local width = math.max(ACTION_MIN_WIDTH, math.ceil(h.actionMeasure:GetStringWidth()) + ACTION_PADDING)
+  if width ~= h.actionWidth then
+    h.actionWidth = width
+    h.actionHeader:SetWidth(width)
+    h.column:SetWidth(8 + STATUS_WIDTH + 6 + width + 8 + NAME_WIDTH + 8 + NAME_WIDTH + 8)
+    for _, row in ipairs(h.rows) do SizeAction(row.promote, width) end
+  end
+  return h.column:GetWidth()
+end
+
 local function Discover()
   if Combat() or Gamepad() then if Combat() then layoutPending = true end; return end
   local known = {}; for _, h in ipairs(hosts) do known[h.frame] = true; if h.column and h.secureAttempted ~= OlympusLaunch229 then h.secureAttempted = OlympusLaunch229; GuardColumn(h) end end
@@ -764,7 +817,6 @@ local function Discover()
       local h = { frame = f, rows = {} }; hosts[#hosts + 1] = h; known[f] = true
       -- Separate addon-owned column: native widths, row handlers, sorting and notes stay intact.
       h.column = CreateFrame("Frame", nil, UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
-      h.column:SetWidth(COLUMN_WIDTH)
       LayerColumn(h)
       local fill = h.column:CreateTexture(nil, "BACKGROUND")
       fill:SetAllPoints(h.column); fill:SetColorTexture(0.04, 0.045, 0.06, 1)
@@ -773,17 +825,25 @@ local function Discover()
           tile = false, edgeSize = 24, insets = { left = 6, right = 6, top = 6, bottom = 6 } })
         if h.column.SetBackdropColor then h.column:SetBackdropColor(0.04, 0.045, 0.06, 1) end
       end
+      local bulk=VeteranCheckButton(h.column, f)
+      bulk:SetPoint("TOPLEFT", h.column, "TOPLEFT", 8, -7)
       h.header = h.column:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-      h.header:SetPoint("TOPLEFT", h.column, "TOPLEFT", 8, -14); h.header:SetWidth(100)
+      h.header:SetPoint("TOPLEFT", bulk, "BOTTOMLEFT", 0, -4); h.header:SetWidth(STATUS_WIDTH)
       h.header:SetJustifyH("LEFT"); h.header:SetText("Discord\nverification")
       local previous=h.header
-      for _,spec in ipairs({{"Promotion",PROMOTE_WIDTH,6},{"Discord\nusername",NAME_WIDTH,8},{"Discord\ndisplay name",NAME_WIDTH,8}}) do
+      for _,spec in ipairs({{"Promotion",ACTION_MIN_WIDTH,6},{"Discord\nusername",NAME_WIDTH,8},{"Discord\ndisplay name",NAME_WIDTH,8}}) do
         local header=h.column:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
         header:SetWidth(spec[2]);header:SetPoint("LEFT",previous,"RIGHT",spec[3],0);header:SetJustifyH("LEFT");header:SetText(spec[1]);previous=header
+        if spec[1]=="Promotion" then h.actionHeader=header end
       end
-      h.fallback = CreateFrame("Button", nil, UIParent, "UIPanelButtonTemplate")
+      h.actionMeasure=h.column:CreateFontString(nil,"OVERLAY","GameFontNormal")
+      h.actionMeasure:SetText(CHECK_VETERAN)
+      h.actionMeasure:Hide()
+      h.fallback = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+      h.fallback:SetFrameLevel(f:GetFrameLevel()+12)
       h.fallback:SetSize(116, 22); h.fallback:SetPoint("TOPRIGHT", f, "TOPRIGHT", -44, -28); h.fallback:SetText("Verify members")
       h.fallback:SetScript("OnClick", function() if not Combat() and not Preview() and OlympusVerifyRoster then OlympusVerifyRoster.Show() end end)
+      h.compactBulk=VeteranCheckButton(h.fallback,f)
       if f.HookScript then f:HookScript("OnHide", function() if not Combat() then h.column:Hide(); h.fallback:Hide() else layoutPending = true end end) end
       local detail = f.GuildMemberDetailFrame
       if detail and detail.HookScript then
@@ -798,12 +858,7 @@ local function Paint()
   if Combat() or Gamepad() or Preview() then HideAll(); return end
   for _, h in ipairs(hosts) do
     local f, list, used = h.frame, h.frame.MemberList, 0
-    local rosterVisible = f:IsShown() and (not f.IsVisible or f:IsVisible()) and (not f.GetAlpha or f:GetAlpha() > 0)
-      and not MemberDetailsShown(f)
-      and list and type(list.IsShown) == "function" and list:IsShown() and (not list.IsVisible or list:IsVisible())
-      and list.expandedDisplay == true and type(list.GetSelectedClubId) == "function"
-      and C_Club and type(C_Club.GetGuildClubId) == "function" and list:GetSelectedClubId() == C_Club.GetGuildClubId()
-    if rosterVisible then
+    if GuildListShown(f) then
       local guildList = list.ScrollBox and type(list.ScrollBox.ForEachFrame) == "function"
       if guildList then
         -- ScrollBox can end inside the Guild window's navigation controls. Dock beyond the WHOLE window,
@@ -814,7 +869,7 @@ local function Paint()
         local uiScale = UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()
         guildList = type(right) == "number" and type(edge) == "number" and type(scale) == "number" and scale > 0
           and type(uiScale) == "number" and uiScale > 0
-          and right * scale / uiScale + NAV_GUTTER + COLUMN_WIDTH + SCREEN_MARGIN <= edge
+          and right * scale / uiScale + NAV_GUTTER + SizeColumn(h) + SCREEN_MARGIN <= edge
       end
       if guildList then
         h.fallback:Hide(); LayerColumn(h); h.column:ClearAllPoints()
@@ -827,7 +882,7 @@ local function Paint()
           if type(m) ~= "table" or not Text(m.name) then return end
           used = used + 1
           local b = h.rows[used]
-          if not b then b = NewButton(h.column); h.rows[used] = b end
+          if not b then b = NewButton(h.column,h.actionWidth); h.rows[used] = b end
           local r = G.Verification(m.name, m.guid)
           b.result, b.nativeRow, b.rowName, b.rowGuid = r, row, Text(m.name), Text(m.guid, 40)
           if not b.rowGuid or r.guid~=b.rowGuid then r.discordUsername,r.discordDisplayName=nil,nil end
@@ -845,7 +900,17 @@ local function Paint()
           local text,enabled,mode=PromotionControl(inputs[i],b.result,ready[b.rowGuid],b.promote.detail,b.promote.bound,details.current)
           b.promote.mode=mode;b.promote:SetText(text);b.promote:SetEnabled(enabled)
         end
-      else h.column:Hide(); h.fallback:Show() end
+      else
+        h.column:Hide()
+        local beside=f:GetWidth()>=44+h.fallback:GetWidth()+4+h.compactBulk:GetWidth()+8
+        if h.compactBeside~=beside then
+          h.compactBeside=beside
+          h.compactBulk:ClearAllPoints()
+          if beside then h.compactBulk:SetPoint("RIGHT",h.fallback,"LEFT",-4,0)
+          else h.compactBulk:SetPoint("TOPRIGHT",h.fallback,"BOTTOMRIGHT",0,-2) end
+        end
+        h.fallback:Show()
+      end
     else h.column:Hide(); h.fallback:Hide() end
     for i = used + 1, #h.rows do
       local b=h.rows[i];b.result=nil;b.rowName=nil;b.rowGuid=nil;b.username:SetText("");b.displayName:SetText("");b.promote.detail=nil;b.promote.mode=nil;b.promote:SetEnabled(false);b:Hide()

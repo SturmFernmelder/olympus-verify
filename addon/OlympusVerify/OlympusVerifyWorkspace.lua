@@ -52,6 +52,12 @@ function S.IsShown()
   return page and page:IsShown() or false
 end
 
+function S.ShowMenu(menu)
+  if S.openMenu and S.openMenu ~= menu then S.openMenu:Hide() end
+  S.openMenu = menu
+  menu:Show()
+end
+
 function S.Highlight(key)
   S.section = key
   if S.viewButton then
@@ -130,7 +136,11 @@ function S.Parent()
   local line = fill(bar,"ARTWORK",.21,.35,.37)
   line:SetPoint("BOTTOMLEFT"); line:SetPoint("BOTTOMRIGHT"); line:SetHeight(1)
   local nav=CreateFrame("Frame",nil,bar,template)
-  S.navigation=nav;nav:SetFrameStrata("DIALOG");nav:SetFrameLevel((bar:GetFrameLevel() or 1)+30)
+  S.navigation=nav
+  -- The roster and Operations raise themselves within DIALOG when clicked. Keep
+  -- navigation above either page, while full-screen confirmations retain priority.
+  nav:SetFrameStrata("FULLSCREEN")
+  nav:SetClampedToScreen(true)
   fill(nav,"BACKGROUND",.06,.12,.14,1):SetAllPoints();nav:EnableMouse(true);nav:Hide()
   local function open(owner, tools)
     if locked() then return end
@@ -143,7 +153,7 @@ function S.Parent()
         item:ClearAllPoints();item:SetPoint("TOPLEFT",nav,"TOPLEFT",3,-3-28*n);item:Show();n=n+1
       else item:Hide() end
     end
-    nav:SetSize(188,6+28*n);nav:Show()
+    nav:SetSize(188,6+28*n);S.ShowMenu(nav)
   end
   S.viewButton=button(bar,"View: Members v",174,function(self) open(self,false) end)
   S.viewButton:SetPoint("BOTTOMLEFT",14,3)

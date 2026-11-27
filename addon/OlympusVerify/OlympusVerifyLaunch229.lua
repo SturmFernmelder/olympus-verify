@@ -310,7 +310,8 @@ end
 local function ValidSelect(control,identity,now,automaticRead)
   local batch=type(control)=="table" and (identity.primeInitiates
     and (control.version==5 and control.action=="select-prime-initiates" and control.confirmations=="[]"
-      or not automaticRead and control.version==6 and control.action=="select-prime-member")
+      or automaticRead~=true and control.version==6 and control.action=="select-prime-member"
+      or automaticRead=="members" and control.version==7 and control.action=="select-prime-members" and control.confirmations=="[]")
     or not identity.primeInitiates and control.version==4 and control.action=="select-directive")
   if not ExactKeys(control,batch and BATCH_CONTROL or SELECT_CONTROL)
     or not batch or not Text(control.confirmations,65536)
@@ -374,7 +375,8 @@ local function SelectedCurrent(identity, now, control, data, automaticRead)
   if not targets then return nil end
   local requested={};for _,id in ipairs(targets) do requested[id]=true end
   local held={targetGuid=targets[1],targetGuids=batch and targets or nil,covered=requested,state="pending",code="awaiting-result",reason="The Watcher is processing this check. Look for the result in the desktop viewer. Once it appears, /reload to bring it into WoW."}
-  if automaticRead then held.reason="The Watcher checks these Initiates automatically. The next normal reload loads its latest dated results." end
+  if automaticRead=="members" then held.reason="The Watcher is checking Members for Veteran. Load its results at your next login or reload."
+  elseif automaticRead then held.reason="The Watcher checks these Initiates automatically. The next normal reload loads its latest dated results." end
   if now>=control.observedAt+(automaticRead and 600 or 60) then
     held.state,held.code,held.refreshable="held","selection-admission-expired",true
     held.reason=SELECT_HOLDS[held.code]
@@ -436,15 +438,15 @@ local function SelectedCurrent(identity, now, control, data, automaticRead)
   for _,kind in ipairs({"promotions","held","riskBuffer"}) do
     for _,row in ipairs(checked[kind]) do if not covered[row.guid] then return held end end
   end
-  if identity.primeInitiates then
+  if identity.primeInitiates or automaticRead=="members" then
     local scheme=OlympusVerifyNativeRanks.Profile(page.rankProfile,page.rankSchemeDigest)
     for _,row in ipairs(checked.promotions) do
       if row.guid==identity.guid then return held end
-      if control.version==6 then
+      if control.version==6 or automaticRead=="members" then
         if row.reason~="knight-veteran" or row.targetSlot~=scheme.veteran
           or row.intent.startSlot~=scheme.member and row.intent.startSlot~=scheme.initiate
           or control.confirmations=="[]" and (row.currentSlot~=scheme.member or row.intent.acknowledgedSteps~=0)
-          or control.confirmations~="[]" and (row.intent.acknowledgedSteps==0 or row.currentSlot~=scheme.member and row.currentSlot~=scheme.veteran+1) then return held end
+          or control.confirmations~="[]" and (row.intent.acknowledgedSteps==0 or row.currentSlot<=scheme.veteran or row.currentSlot>=scheme.initiate) then return held end
       elseif row.currentSlot~=scheme.initiate or row.intent.startSlot~=scheme.initiate or row.intent.acknowledgedSteps~=0 then return held end
     end
   end
@@ -466,8 +468,9 @@ local function ArraySize(value, max)
   end
   if count==#value then return count end
 end
-local function EnvelopeMac(envelope, macs)
-  return CachedMac(envelope,"prime-initiate-sweep|1|"..envelope.id.."|"..table.concat(macs,","))
+local function EnvelopeMac(envelope, macs, memberChecks)
+  local purpose=memberChecks and "member-promotion-checks" or "prime-initiate-sweep"
+  return CachedMac(envelope,purpose.."|1|"..envelope.id.."|"..table.concat(macs,","))
 end
 
 local function AllSweepReadsTerminal(envelope,identity,now)
@@ -485,23 +488,27 @@ local function AllSweepReadsTerminal(envelope,identity,now)
   return true
 end
 
-local function BackgroundChecks(identity,now)
-  local envelope=OlympusVerifyDB and OlympusVerifyDB.primeInitiateChecks
+local function BackgroundChecks(identity,now,memberChecks)
+  local db=OlympusVerifyDB
+  local envelope=db and db[memberChecks and "memberPromotionChecks" or "primeInitiateChecks"]
   if not ExactKeys(envelope,SWEEP_KEYS) or envelope.version~=1 or not Text(envelope.id,32)
     or not Text(envelope.mac,32) or not Text(cfg.secret,1024) or #cfg.secret<16
     or not H or type(H.hmacSha256hex)~="function" then return nil end
-  local count=ArraySize(envelope.controls,50)
+  local count=ArraySize(envelope.controls,memberChecks and 1000 or 50)
   if not count or count<1 or type(envelope.controls[1])~="table" or envelope.id~=envelope.controls[1].id then return nil end
   local data=OlympusInitiateChecks
+  if memberChecks then data=OlympusMemberChecks end
   local records=ExactKeys(data,SWEEP_RESULT_KEYS) and data.version==1 and data.id==envelope.id and data.records or nil
   local length=ArraySize(records,count)
   local sweep={observedAt=envelope.controls[1].observedAt,total=0,checked=0,held=0,pending=0,groups={},byGuid={}}
   local macs, ids={},{}
   for i,control in ipairs(envelope.controls) do
     if type(control)~="table" or control.observedAt~=envelope.controls[1].observedAt or not Text(control.id,32)
-      or ids[control.id] or control.confirmations~="[]" then return nil end
+      or ids[control.id] or not memberChecks and control.confirmations~="[]"
+      or memberChecks and identity.primeInitiates and (control.version~=6 and control.version~=7
+        or control.version==6 and control.confirmations=="[]") then return nil end
     ids[control.id]=true
-    local selection=SelectedCurrent(identity,now,control,length and records[i],true)
+    local selection=SelectedCurrent(identity,now,control,length and records[i],memberChecks and "members" or true)
     if not selection then return nil end
     -- Each group proves its own receipt and immutable clocks. A later group
     -- may observe a later ACK for the same native content during a reload.
@@ -510,13 +517,14 @@ local function BackgroundChecks(identity,now)
       if sweep.byGuid[guid] then return nil end
       sweep.byGuid[guid]=selection
       sweep.total=sweep.total+1
+      if sweep.total>1000 then return nil end
       if selection.completed and now<selection.page.expiresAt then sweep.checked=sweep.checked+1
       elseif selection.state=="pending" then sweep.pending=sweep.pending+1
       else sweep.held=sweep.held+1 end
     end
     sweep.groups[i]=selection
   end
-  if envelope.mac~=EnvelopeMac(envelope,macs) then return nil end
+  if envelope.mac~=EnvelopeMac(envelope,macs,memberChecks) then return nil end
   return sweep
 end
 function Q.Current()
@@ -532,26 +540,34 @@ function Q.Current()
   local control=OlympusVerifyDB and OlympusVerifyDB.launchControl
   local selection=SelectedCurrent(identity,now,control,OlympusLaunchSelected)
   local sweep=BackgroundChecks(identity,now)
-  if not selection and not sweep and not identity.primeInitiates then return current,why,code end
+  local members=BackgroundChecks(identity,now,true)
+  if not selection and not sweep and not members and not identity.primeInitiates then return current,why,code end
   if not current then
     current={identity=identity,invites={},promotions={},riskBuffer={},held={},pages={},actionHeld=true,freshness={},scanComplete=false,partial=true,stalePages=0}
   end
-  if not selection and not sweep then return current end
+  if not selection and not sweep and not members then return current end
   current.backgroundChecks=sweep
-  local byGuid,groups={},{}
-  if sweep then
-    for id,group in pairs(sweep.byGuid) do byGuid[id]=group end
-    for i,group in ipairs(sweep.groups) do groups[i]=group end
-  end
-  if selection then
-    local manualCurrent=false
-    for id in pairs(selection.covered) do
-      if not byGuid[id] or control.observedAt>=OlympusVerifyDB.primeInitiateChecks.controls[1].observedAt then
-        byGuid[id]=selection;manualCurrent=true
+  current.memberChecks=members
+  local byGuid,groups,newest,explicit={},{},{},{}
+  local function include(group,request,attended)
+    local used=false
+    for id in pairs(group.covered) do
+      local old=newest[id]
+      if not old or request.observedAt>old.observedAt or request.observedAt==old.observedAt
+        and (attended and not explicit[id] or tonumber(request.id:match(":(%d+)$"))>=tonumber(old.id:match(":(%d+)$"))) then
+        byGuid[id],newest[id],explicit[id],used=group,request,attended,true
       end
     end
-    if manualCurrent then current.selection=selection;groups[#groups+1]=selection end
+    if used then groups[#groups+1]=group end
+    return used
   end
+  if sweep then
+    for i,group in ipairs(sweep.groups) do include(group,OlympusVerifyDB.primeInitiateChecks.controls[i]) end
+  end
+  if members then
+    for i,group in ipairs(members.groups) do include(group,OlympusVerifyDB.memberPromotionChecks.controls[i],true) end
+  end
+  if selection and include(selection,control,true) then current.selection=selection end
   current.selectedByGuid=byGuid
   -- Only the newest applicable read may supply rows for a GUID. A pending,
   -- missing or negative read takes precedence over any earlier positive.
@@ -1629,6 +1645,11 @@ function Q.Control(action, offset)
   OlympusVerifyAPI.Sync()
   return true
 end
+local function StepConfirmation(record,id)
+  if not record.intentToken:match("^[%w_%-]+%.[0-9a-f]+$") then return nil end
+  local step=record.steps[#record.steps]
+  return '[{"guid":"'..id..'","token":"'..record.intentToken..'","from":'..tostring(step.from)..',"to":'..tostring(step.expected)..',"observedAt":'..tostring(step.observedAt)..'}]'
+end
 function Q.Select(targetGuid)
   local identity=Identity() or PrimeInitiateIdentity()
   local hold=ReadControlHold(identity)
@@ -1655,9 +1676,8 @@ function Q.Select(targetGuid)
       or native.slot~=record.observedSlot or now>=record.intentExpiresAt
       or identity.primeInitiates and record.target~=scheme.veteran then
       Say("The original attempt is unknown, incompatible or expired; a new selected read cannot repair it.");return false end
-    local step=record.steps[#record.steps]
-    if not record.intentToken:match("^[%w_%-]+%.[0-9a-f]+$") then return false end
-    confirmations='[{"guid":"'..targetGuid..'","token":"'..record.intentToken..'","from":'..tostring(step.from)..',"to":'..tostring(step.expected)..',"observedAt":'..tostring(step.observedAt)..'}]'
+    confirmations=StepConfirmation(record,targetGuid)
+    if not confirmations then return false end
   end
   local version,action=4,"select-directive"
   if boundInitiate then version,action=5,"select-prime-initiates"
@@ -1669,6 +1689,98 @@ function Q.Select(targetGuid)
   db.launchControl=value
   Say("Selected GUID read requested. This reload saves its fresh native source; sync later to load the dated result. Promotion needs a separate hardware click.")
   OlympusVerifyAPI.Sync();return true
+end
+-- One officer request checks the complete native pool, independent of the
+-- visible filters. The Watcher reads signed pages only after WoW saves them.
+function Q.CheckAllVeterans()
+  local identity=Identity() or PrimeInitiateIdentity()
+  local hold=ReadControlHold(identity)
+  if hold then return false,hold end
+  if Q.identityBaseline and not SameIdentity(Q.identityBaseline,identity) or Read(CanGuildPromote)~=true then
+    return false,"Open the officer desk on the character authorized to manage this guild's ranks."
+  end
+  local roster,why,scheme=NativeRoster(identity)
+  if not roster then return false,why end
+  if identity.rank>=scheme.veteran or identity.primeInitiates and (scheme.member~=8 or scheme.veteran~=6) then
+    return false,"Check the guild's current rank names and your officer permissions before checking for Veteran."
+  end
+  local db=OlympusVerifyDB
+  local ledger=AttemptLedger()
+  local holds=SaveHolds()
+  if not db or not ledger or db.launchPromotionCustodyConflict or db.launchPromotionSaveHolds~=nil and not holds then
+    return false,"Open Guild activity and review the incomplete promotion history before starting a Veteran check."
+  end
+  local now=time()
+  local previous=BackgroundChecks(identity,now,true)
+  if previous and previous.pending>0 then
+    return false,"A Veteran check is already pending. Load the Watcher's results at the next login or reload."
+  end
+  local starts,steps,continuations={},{},{}
+  local held=0
+  local context={identity=identity,promotions={},freshness={}}
+  for id,row in pairs(roster) do
+    local record=ledger[id]
+    local member=row.slot==scheme.member and row.rank=="Member"
+    local continuing=type(record)=="table" and record.target==scheme.veteran and record.completed==false
+      and row.slot>scheme.veteran and row.slot<scheme.initiate
+    if id~=identity.guid and (member or continuing) then
+      local priorValid=record==nil or SameAttempt(record,id,context) and record.state=="confirmed"
+        and record.observedSlot==row.slot and H.normalizeCharacter(record.name)==H.normalizeCharacter(row.name)
+      if priorValid and Q.PromotionStatus(id,context,row.slot)~="pending" and not Q.promotionBlocked
+        and not (holds and holds[id]) then
+        if member and (not record or record.completed) then
+          starts[#starts+1]=id
+        elseif continuing and now<record.intentExpiresAt then
+          local confirmation=StepConfirmation(record,id)
+          if confirmation then
+            steps[#steps+1]=id
+            continuations[id]=confirmation
+          else held=held+1 end
+        else held=held+1 end
+      else held=held+1 end
+    end
+  end
+  local total=#starts+#steps
+  if db.launchPromotionCustodyConflict then
+    return false,"The stored promotion history changed. Open Guild activity and review it before checking again."
+  end
+  if total==0 then
+    return false,("No current Members or continuing Veteran steps can be checked. %d held for officer review."):format(held)
+  end
+  table.sort(starts);table.sort(steps)
+  local controls,macs={},{}
+  local function addPage(targets,confirmation)
+    db.launchSequence=Number(db.launchSequence,0,999999999) and db.launchSequence+1 or 1
+    local version,action=4,"select-directive"
+    if identity.primeInitiates then
+      if confirmation then version,action=6,"select-prime-member" else version,action=7,"select-prime-members" end
+    end
+    local control={version=version,action=action,id=tostring(now)..":"..tostring(db.launchSequence),observedAt=now,
+      scopeHash=identity.scopeHash,guid=identity.guid,targetGuids=targets,confirmations=confirmation or "[]"}
+    control.mac=SelectedMac(control,table.concat(targets,","))
+    controls[#controls+1],macs[#macs+1]=control,control.mac
+  end
+  -- Interleave first checks with owned continuations so a long list of
+  -- single-character steps cannot consume the entire shared source window.
+  for index=1,math.max(#steps,math.ceil(#starts/20)) do
+    local first=(index-1)*20+1
+    if first<=#starts then
+      local page={}
+      for i=first,math.min(first+19,#starts) do page[#page+1]=starts[i] end
+      addPage(page)
+    end
+    local id=steps[index]
+    if id then addPage({id},continuations[id]) end
+  end
+  local envelope={version=1,id=controls[1].id,controls=controls}
+  envelope.mac=EnvelopeMac(envelope,macs,true)
+  local old=db.memberPromotionChecks
+  db.memberPromotionChecks=envelope
+  if OlympusVerifyAPI.Sync()==false then
+    db.memberPromotionChecks=old
+    return false,"Sync could not start. Close other interactions and try Check all for Veteran again while safely idle."
+  end
+  return true,("Requested Veteran checks for %d characters. %d held for officer review. Results load at login or reload."):format(total,held)
 end
 function Q.SelectMany(targetGuids)
   local identity=Identity() or PrimeInitiateIdentity()

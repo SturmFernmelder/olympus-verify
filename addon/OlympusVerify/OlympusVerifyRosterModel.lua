@@ -158,7 +158,7 @@ function M.Promotions(list, launchAPI, now)
   if current then
     local pages, promotions = array(current.pages, 50), array(current.promotions, 1000)
     local primeInitiateRead=current.identity and current.identity.primeInitiates==true
-    if not pages or pages==0 and not current.selection and not current.backgroundChecks and not primeInitiateRead or not promotions or type(current.freshness) ~= "table" then
+    if not pages or pages==0 and not current.selection and not current.backgroundChecks and not current.memberChecks and not primeInitiateRead or not promotions or type(current.freshness) ~= "table" then
       unavailable, current = "The validated projection is incomplete; original page freshness is unavailable.", nil
     else
       diagnostics.queueAvailable, diagnostics.pageCount = true, pages
@@ -218,6 +218,7 @@ function M.Promotions(list, launchAPI, now)
   diagnostics.loadedScan=current and current.loadedScan or nil
   diagnostics.selection=current and current.selection or nil
   diagnostics.backgroundChecks=current and current.backgroundChecks or nil
+  diagnostics.memberChecks=current and current.memberChecks or nil
 
   local freshRead=FreshReadContext(current) -- One complete native rank-table observation per model paint.
   local displayRanks=pageRanks(current and current.selection and current.selection.completed and current.selection.page)
@@ -340,10 +341,16 @@ function M.Promotions(list, launchAPI, now)
   elseif diagnostics.ready>0 then diagnostics.state,diagnostics.reason="ready",tostring(diagnostics.ready).." fresh supported recommendation(s); each hardware click rechecks the exact native target."
   elseif current.selection and current.selection.completed and (diagnostics.counts.expired or 0)>0 then diagnostics.state,diagnostics.reason="expired","The selected recommendation has expired; its original clocks remain unchanged. Recheck the selected GUID for a new read."
   elseif current.selection then diagnostics.state,diagnostics.reason=current.selection.state=="pending" and "pending" or "held",current.selection.reason
+  elseif current.memberChecks and current.memberChecks.pending>0 then diagnostics.state,diagnostics.reason="pending",
+    "The Watcher is checking Members for Veteran. Load the results at your next login or reload."
+  elseif current.memberChecks and current.memberChecks.held>0 then diagnostics.state,diagnostics.reason="held",
+    "Some Veteran reads are held or expired. Select a character for the reason."
   elseif current.backgroundChecks and current.backgroundChecks.pending>0 then diagnostics.state,diagnostics.reason="pending",
     "Some eligibility checks are still awaiting a Watcher result. Results load at login or reload."
   elseif current.backgroundChecks and current.backgroundChecks.held>0 then diagnostics.state,diagnostics.reason="held",
     "Some eligibility checks are held or expired. Select a character to see the reason."
+  elseif current.memberChecks then diagnostics.state,diagnostics.reason="no_recommendation",
+    "The loaded Veteran checks found no current promotion ready for an officer click."
   elseif current.identity and current.identity.primeInitiates then diagnostics.state,diagnostics.reason="no_recommendation",
     "The next complete PRIME roster export checks Initiates in the background. A separate officer click promotes an eligible member."
   elseif current.actionHeld then diagnostics.state, diagnostics.reason = "held", diagnostics.loadedScan
@@ -362,6 +369,10 @@ function M.Promotions(list, launchAPI, now)
     diagnostics.reason=diagnostics.reason.." Background check: "..sweep.checked.." of "..sweep.total
       .." native Initiates checked, "..sweep.pending.." awaiting results, "..sweep.held.." held or expired. Reload to load newer Watcher results."
   elseif diagnostics.partial then diagnostics.reason = diagnostics.reason .. " Discovery is partial; absent recommendations may be undiscovered." end
+  if diagnostics.memberChecks then
+    local sweep=diagnostics.memberChecks
+    diagnostics.reason=diagnostics.reason..(" Veteran checks: %d of %d checked, %d pending, %d held or expired."):format(sweep.checked,sweep.total,sweep.pending,sweep.held)
+  end
   local missing=OlympusVerifyDB and OlympusVerifyDB.primeInitiateMissingGuids
   if whole(missing,1,1000) then diagnostics.reason=diagnostics.reason.." "..missing.." native Initiate(s) have no readable GUID and could not be checked." end
   if diagnostics.sourceHeld > 0 or diagnostics.riskReview > 0 then

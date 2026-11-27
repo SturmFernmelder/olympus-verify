@@ -441,7 +441,7 @@ local function toggleClassMenu()
     item.caption:SetText(item.token and className(item.token) or "All classes")
     item:SetShown(i <= count)
   end
-  menu:Show()
+  if OlympusVerifyWorkspace then OlympusVerifyWorkspace.ShowMenu(menu) else menu:Show() end
   paint()
 end
 
@@ -612,7 +612,9 @@ function D.CandidatesForDesk(mode)
   end
   local found={}
   for _,row in ipairs(listing.data.rows) do
-    if deskEligible(row,mode) then found[row.guid]={name=row.name,days=row.days,class=row.class} end
+    if deskEligible(row,mode) then
+      found[row.guid]={name=row.name,days=row.days,need=mode=="initiate7" and 7 or row.need,class=row.class}
+    end
   end
   local checked=listing.owner
   return found,nil,{guild=checked.guild,realm=checked.realm,actor=checked.actor,rank=checked.rank,observer=checked.observer}

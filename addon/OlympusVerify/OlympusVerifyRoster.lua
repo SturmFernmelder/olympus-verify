@@ -263,7 +263,8 @@ local function OpenMenu(owner, title, options, current, choose,category)
       if category then item.tick:SetChecked(active==true);item.tick:Show() else item.tick:Hide() end
     else item:Hide() end
   end
-  menu:Show(); W.menu=menu
+  if OlympusVerifyWorkspace then OlympusVerifyWorkspace.ShowMenu(menu) else menu:Show() end
+  W.menu=menu
 end
 local function ActionFor(m)
   return diagnostics.byRow and diagnostics.byRow[m]
@@ -438,7 +439,9 @@ local function Visible(log)
     local promotionRow=Desk.preset~="promotions" or action.historical or action.state=="ready"
       or action.state=="check" or action.state=="checking" or action.state=="recheck" or action.state=="pending"
       or m.rankIndex==9 and m.status=="verified" and not m.historicalLinked
-    if promotionRow and (not view.initiates or m.rankIndex == 9) and matches
+    local readyInitiate=Desk.shortcut~="ready" or m.rankIndex==9 and m.status=="verified"
+      and not m.historicalLinked and Eligible(m,candidates)
+    if promotionRow and readyInitiate and (not view.initiates or m.rankIndex == 9) and matches
       and (not multi.rank or multi.rank[m.rank]) and (not multi.class or multi.class[m.class])
       and (not view.inactiveDays or m.online==false and type(m.days)=="number" and m.days>=view.inactiveDays)
       and (not Desk.inactiveRows or Desk.inactiveRows[m.guid] and Desk.inactiveRows[m.guid].name==m.full)
@@ -852,6 +855,9 @@ function W.Refresh(scrolling)
     local any=false;for _,member in ipairs(list) do if Desk.target(member,candidates) then any=true;break end end
     W.selectEligible:SetEnabled(Desk.selectedScope~=nil and any)
     W.modeButton:SetShown(Desk.preset=="inactive")
+    W.checkAllVeteransButton:SetShown(Desk.preset~="inactive")
+    SetButtonText(W.readyInitiatesButton,(Desk.shortcut=="ready" and GOLD or WHITE).."Ready Initiates|r")
+    SetButtonText(W.inactiveInitiatesButton,(Desk.shortcut=="week" and GOLD or WHITE).."Inactive Initiates (7d+)|r")
     SetButtonText(W.modeButton,Desk.mode=="initiate7" and "Initiates 7d+ v" or "Level policy v")
   end
   local selectedShown=false
@@ -900,7 +906,11 @@ function W.Refresh(scrolling)
       local check=diagnostics.current and diagnostics.current.identity and diagnostics.current.identity.primeInitiates
         and (action.state=="check" and m.rankIndex==8 and m.rank=="Member" or action.state=="recheck")
       r.cells.action:SetText((check or Eligible(m,candidates)) and "" or GREY..trunc(action.label or action.state,28).."|r")
-      if Desk.preset=="inactive" then r.cells.action:SetText("Eligible for review") end
+      if Desk.preset=="inactive" then
+        local evidence=Desk.inactiveRows and Desk.inactiveRows[m.guid]
+        r.cells.action:SetText(evidence and evidence.days and evidence.need and
+          string.format("%dd offline / %dd required",evidence.days,evidence.need) or "Eligible for review")
+      end
       r.check:SetShown(Desk.preset~="inactive" and check==true)
       if check then SetButtonText(r.check,action.state=="recheck" and "Check next step" or "Check Veteran eligibility") end
       r.promote.member = m
@@ -1016,12 +1026,18 @@ function W.Refresh(scrolling)
     local normal=Desk.preset~="inactive"
     initiateBtn:Hide();readyBtn:Hide();W.onlineInitiatesButton:SetShown(normal)
     W.inactiveFilter:Hide();W.removeInactive:Hide()
-    -- The full reason is still available below each selected row under Source details.
-    W.sourceTip:Hide();actionInfo:Hide()
     if Desk.preset=="inactive" then
       queueSummary:SetText(Desk.inactiveReason or (#list.." eligible for removal review"))
-      if #list==0 then W.emptyMessage:SetText(Desk.inactiveReason or "No eligible inactive members match these filters.") end
-      nextBtn:Hide();W.sourceTip:Hide();actionInfo:Hide()
+      if #list==0 then
+        local empty=Desk.inactiveReason or (Desk.shortcut=="week" and "No eligible Initiates offline for seven full days match this view." or "No eligible inactive members match these filters.")
+        W.emptyMessage:SetText(empty)
+      end
+      W.sourceExplanation=Desk.inactiveReason or "WoW's complete native roster supplies the days offline. The Removal column shows the selected policy threshold. Members with a protected note are excluded."
+      actionInfo:SetText(GREY..W.sourceExplanation.."|r")
+    elseif Desk.shortcut=="ready" and #list==0 then
+      local empty=not diagnostics.queueAvailable and "Promotion checks are unavailable. Open the guild roster, let offline members load, then click Sync while idle."
+        or "No verified Initiates are ready in this view. Open View > Promotions to see pending checks and each member's next step."
+      W.emptyMessage:SetText(empty)
     end
     nextBtn:Hide()
     local active={}
@@ -1108,7 +1124,7 @@ function Desk.preferences(raw)
   return pref
 end
 function Desk.save()
-  if not OlympusVerifyWorkspace or type(OlympusVerifyDB)~="table" then return end
+  if Desk.shortcut or not OlympusVerifyWorkspace or type(OlympusVerifyDB)~="table" then return end
   if type(OlympusVerifyDB.deskFilters313)~="table" then OlympusVerifyDB.deskFilters313={} end
   OlympusVerifyDB.deskFilters313[Desk.preset]=Desk.preferences(view)
 end
@@ -1224,7 +1240,9 @@ function Desk.column(owner,col)
     return a.label<b.label
   end)
   panel.caption=title;panel.search:SetText("");panel:ClearAllPoints()
-  panel:SetPoint("TOPLEFT",owner,"BOTTOMLEFT",0,-1);panel.paint();panel:Show();panel.search:SetFocus()
+  panel:SetPoint("TOPLEFT",owner,"BOTTOMLEFT",0,-1);panel.paint()
+  OlympusVerifyWorkspace.ShowMenu(panel)
+  panel.search:SetFocus()
 end
 function Layout.AddDeskControls(copy)
   if not OlympusVerifyWorkspace then return end
@@ -1258,8 +1276,14 @@ function Layout.AddDeskControls(copy)
   notes:SetScript("OnEnter",showNotes);notes:SetScript("OnClick",showNotes);notes:SetScript("OnLeave",HideTip)
   W.noteButton=notes
   W.emptyMessage=Label(frame,"GameFontHighlight","",PAD,ROWS_Y-40,INNER,"CENTER")
-  W.filterSummary=Label(frame,"GameFontHighlightSmall","",PAD,FILTER_Y-69,INNER)
+  W.filterSummary=Label(frame,"GameFontHighlightSmall","",PAD,FILTER_Y-59,INNER)
   local tray=CreateFrame("Frame",nil,frame);tray:SetPoint("TOPLEFT",frame,"TOPLEFT",PAD,FILTER_Y-32);tray:SetSize(INNER,24)
+  W.readyInitiatesButton=Button(tray,"Ready Initiates",126,24,function() W.ShowReadyInitiates() end,
+    "Verified Initiates ready to promote","Show all current verified Initiates with an actionable promotion. Review the names and click each promotion yourself.")
+  W.readyInitiatesButton:SetPoint("LEFT",0,0)
+  W.inactiveInitiatesButton=Button(tray,"Inactive Initiates (7d+)",160,24,function() W.ShowInactiveInitiates() end,
+    "Initiates eligible for removal","Show native PRIME Initiates offline for seven full days or longer who pass removal checks, including protected notes. Select and review names before any removal.")
+  W.inactiveInitiatesButton:SetPoint("LEFT",W.readyInitiatesButton,"RIGHT",6,0)
   W.selectEligible=Button(tray,"Select all eligible",134,24,function()
     if InCombatLockdown()~=false then return end
     Reload();local current,candidates=Visible();Desk.clearPicked();Desk.selectedScope=Desk.scope()
@@ -1267,7 +1291,7 @@ function Layout.AddDeskControls(copy)
     for _,m in ipairs(current) do if Desk.target(m,candidates) then Desk.picked[m.guid]={name=m.full,slot=m.rankIndex} end end
     W.Refresh()
   end,"Select eligible filtered members","Select eligible names from all pages of this view. Review the named set before taking any guild action.")
-  W.selectEligible:SetPoint("LEFT",0,0)
+  W.selectEligible:SetPoint("LEFT",W.inactiveInitiatesButton,"RIGHT",16,0)
   W.clearSelection=Button(tray,"Clear selection",110,24,function() Desk.clearPicked();W.Refresh() end)
   W.clearSelection:SetPoint("LEFT",W.selectEligible,"RIGHT",6,0)
   W.reviewSelection=Button(tray,"Review promotions",190,24,Desk.review,"Review selected members","Open a named review. Each guild action requires a separate secure officer click.")
@@ -1275,10 +1299,20 @@ function Layout.AddDeskControls(copy)
   W.modeButton=Button(tray,"Level policy v",145,24,function(self)
     local options={{value="policy",label="Level-based inactivity policy"},{value="initiate7",label="PRIME Initiates offline 7+ days"}}
     OpenMenu(self,"Removal policy",options,Desk.mode or "policy",function(value)
+      if Desk.shortcut=="week" and value~="initiate7" then W.ShowInactive() end
       Desk.mode=value;Desk.inactiveRows=nil;Desk.clearPicked();offset=0;W.Refresh()
     end)
   end,"Inactivity policy","Choose the level-based limits or the PRIME Initiate seven-day rule. Protected ranks and hold notes stay excluded.")
   W.modeButton:SetPoint("LEFT",W.reviewSelection,"RIGHT",6,0);W.modeButton:Hide()
+  W.checkAllVeteransButton=Button(tray,"Check all for Veteran",166,24,function()
+    if InCombatLockdown()~=false then return end
+    local launch=OlympusLaunch229
+    if not launch or type(launch.CheckAllVeterans)~="function" then Say("Veteran eligibility checks are unavailable. Open Sync to check your addon version.");return end
+    local _,message=launch.CheckAllVeterans()
+    if type(message)=="string" and message~="" then Say(message) end
+    W.Refresh()
+  end,"Check everyone for Veteran eligibility","Request eligibility checks across the complete roster, including members outside the current filters. Each promotion still requires your click.")
+  W.checkAllVeteransButton:SetPoint("LEFT",W.reviewSelection,"RIGHT",12,0)
 
 
   local scroll=CreateFrame("Slider",nil,frame)
@@ -1496,7 +1530,15 @@ local function Build()
   end
   local sourceTip=CreateFrame("Frame",nil,frame)
   sourceTip:SetSize(Layout.INNER-230,24);sourceTip:SetPoint("TOPLEFT",frame,"TOPLEFT",Layout.PAD+230,Layout.FILTER_Y-64);sourceTip:EnableMouse(true)
+  if OlympusVerifyWorkspace then
+    actionInfo:ClearAllPoints();actionInfo:SetPoint("TOPLEFT",frame,"TOPLEFT",Layout.PAD,Layout.FILTER_Y-77)
+    actionInfo:SetWidth(Layout.INNER);actionInfo:SetHeight(21)
+    sourceTip:ClearAllPoints();sourceTip:SetPoint("TOPLEFT",actionInfo,"TOPLEFT");sourceTip:SetSize(Layout.INNER,21)
+  end
   sourceTip:SetScript("OnEnter",function(self)
+    if Desk.preset=="inactive" and OlympusVerifyWorkspace then
+      Tip(self,"Native removal checks",{W.sourceExplanation or "Open the guild roster and let offline members load."});return
+    end
     local lines=SourceLines();lines[1]=W.sourceExplanation or lines[1]
     Tip(self,"Last loaded recommendation source",lines)
   end)
@@ -1777,14 +1819,18 @@ function W.Show(text,inactive,promotions)
   if OlympusVerifyWorkspace and not OlympusVerifyWorkspace.Activate("roster") then return end
   if W.activity then W.activity:Hide() end
   local preset=inactive and "inactive" or promotions and "promotions" or "roster"
-  if not Desk.initialized or preset~=Desk.preset then
-    if Desk.initialized then
+  local shortcut=inactive=="week" and "week" or promotions=="ready" and "ready" or nil
+  if not Desk.initialized or preset~=Desk.preset or shortcut~=Desk.shortcut or shortcut then
+    if Desk.initialized and not Desk.shortcut then
       local old={};for key,value in pairs(view) do old[key]=value end
       Desk.views[Desk.preset]=old
+      if Desk.preset=="inactive" then Desk.generalMode=Desk.mode end
     end
-    Desk.preset=preset;Desk.clearPicked();Desk.inactiveRows=nil;Desk.lastFilter=nil
+    Desk.preset,Desk.shortcut=preset,shortcut
+    if inactive then Desk.mode=shortcut=="week" and "initiate7" or Desk.generalMode or "policy" end
+    Desk.clearPicked();Desk.inactiveRows=nil;Desk.lastFilter=nil
     CloseMenu();selected=nil;offset=0
-    local prior=Desk.views[preset]
+    local prior=not shortcut and Desk.views[preset]
     for key in pairs(view) do view[key]=nil end
     if prior then for key,value in pairs(prior) do view[key]=value end
     else
@@ -1797,18 +1843,14 @@ function W.Show(text,inactive,promotions)
       elseif promotions then
         view.sort="action"
       end
-      Desk.load()
+      if shortcut=="ready" then view.initiates,view.status,view.action=true,2,2 end
+      if not shortcut then Desk.load() end
     end
     Desk.initialized=true;search:SetText(view.text or "")
   end
-  if promotions=="general" and view.readyShortcut then
-    view.readyShortcut=nil;view.initiates,view.action=false,1;Desk.clearPicked()
-  elseif promotions=="ready" then
-    view.readyShortcut=true
-    view.text,view.initiates,view.status,view.action,view.rank,view.class,view.presence="",true,1,2,0,0,1
-    view.online,view.columns,view.multi=false,{},{};Desk.clearPicked();search:SetText("")
-  end
-  W.pageTitle:SetText(GOLD..(inactive and "Inactive members" or promotions and "Promotions" or "Guild members").."|r")
+  local title=shortcut=="ready" and "Verified Initiates ready to promote" or shortcut=="week" and "Inactive Initiates eligible for removal (7+ days)"
+    or inactive and "Inactive members" or promotions and "Promotions" or "Guild members"
+  W.pageTitle:SetText(GOLD..title.."|r")
   if OlympusVerifyWorkspace then OlympusVerifyWorkspace.Highlight(preset) end
   W.nativeDirty=false;W.lastNativeRead=time()
   Reload()
@@ -1826,9 +1868,14 @@ function W.ShowPromotions(readyOnly)
   W.Show(nil,nil,readyOnly and "ready" or "general")
 end
 function W.ReturnToRoster()
-  W.Show(nil,Desk.preset=="inactive",Desk.preset=="promotions")
+  W.Show(nil,Desk.shortcut=="week" and "week" or Desk.preset=="inactive",Desk.shortcut=="ready" and "ready" or Desk.preset=="promotions")
 end
 function W.ShowReadyInitiates() W.ShowPromotions(true) end
+function W.ShowInactiveInitiates()
+  if InCombatLockdown()~=false then return end
+  Desk.scopeChanged=nil
+  W.Show(nil,"week")
+end
 
 function W.Hide()
   if InCombatLockdown and InCombatLockdown() then

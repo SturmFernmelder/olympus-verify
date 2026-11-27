@@ -172,12 +172,12 @@ local function guildUI(size,discoveryOnly,initialHistory)
   f.rosterEvent=function()f.event("GUILD_ROSTER_UPDATE");f.launch.Events:GetScript("OnEvent")(f.launch.Events,"GUILD_ROSTER_UPDATE")end
   if not discoveryOnly then f.publish() end
   f.rosterEvent()
-  e.UIParent:Show();e.UIParent.GetRight=function()return 1920 end
+  e.UIParent:Show();e.UIParent.GetRight=function(self)return self:GetWidth() end
   f.tooltipLines={}
   e.GameTooltip.SetText=function(_,text)f.tooltipLines={text}end
   e.GameTooltip.AddLine=function(_,text)f.tooltipLines[#f.tooltipLines+1]=text end
   local host=e.CreateFrame("Frame",nil,e.UIParent);host:Show();host:SetSize(900,700)
-  host.GetRight=function()return f.right or 1100 end;host.GetAlpha=function()return 1 end;host.GuildMemberDetailFrame=false
+  host.GetRight=function(self)return f.right or 200 + self:GetWidth() end;host.GetAlpha=function()return 1 end;host.GuildMemberDetailFrame=false
   local list=e.CreateFrame("Frame",nil,host);list:Show();list.expandedDisplay=true;list.GetSelectedClubId=function()return f.club or 77 end
   e.C_Club={GetGuildClubId=function()return 77 end};host.MemberList=list;e.CommunitiesFrame=host
   f.nativeRows={}
@@ -192,7 +192,7 @@ local function guildUI(size,discoveryOnly,initialHistory)
   f.tick=function()f.frame:GetScript("OnUpdate")(f.frame,0.3)end
   f.event("ADDON_LOADED","Blizzard_Communities");f.tick()
   for _,frame in ipairs(e.FRAMES) do
-    if frame._parent==e.UIParent and frame:GetWidth()==436 then f.column=frame end
+    if frame.nativeHost==host and frame.promote then f.column=frame._parent end
     if frame:GetText()=="Verify members" then f.fallback=frame end
   end
   f.buttons=function()
@@ -209,6 +209,68 @@ local function guildUI(size,discoveryOnly,initialHistory)
   end
   f.host,f.list=host,list
   return f
+end
+do
+  local f=guildUI(nil,true)
+  local e,b=f.e,f.buttons()[2]
+  local profile=e.OlympusVerifyNativeRankConstants.profiles[2]
+  for i,name in ipairs(profile.names) do f.names[i]=name end
+  e.ROSTER[2].rankIndex=8
+  local current=f.launch.Current()
+  current.identity.primeInitiates=true
+  f.launch.Current=function() return current end
+  f.rosterEvent();f.tick()
+  local label=b.promote:GetFontString()
+  local function fitsAction()
+    return label:GetStringWidth() <= label:GetWidth() and label:GetWidth()+16 <= b.promote:GetWidth()
+      and label:GetStringHeight()<=b.promote:GetHeight() and label._wrap==false
+  end
+  check("Check Veteran fits on one line inside the red native Guild action",b.promote:GetText()=="Check Veteran" and fitsAction())
+  local defaultWidth=f.column:GetWidth()
+  for _,font in ipairs(e.FONTS) do
+    if font._parent==f.column and font:GetText()=="Check Veteran" or font==label then font:SetFont("large-ui-font",16) end
+  end
+  f.tick()
+  check("wider UI font expands the shared action column and preserves both Discord fields",fitsAction() and f.column:GetWidth()>defaultWidth
+    and select(2,b.username:GetPoint())==b.promote and select(2,b.displayName:GetPoint())==b.username)
+  e.UIParent:SetSize(1400,800);f.tick()
+  check("narrow window swaps the entire action column for Verify members",not f.column:IsShown() and f.fallback:IsShown())
+  f.host:SetWidth(600);f.tick()
+  check("resizing the actual guild panel restores the fully fitting action",f.column:IsShown() and not f.fallback:IsShown()
+    and b.promote:GetText()=="Check Veteran" and fitsAction() and f.promotions==0 and f.syncs==0)
+end
+do
+  local f=guildUI(nil,true)
+  local wide,narrow
+  for _,b in ipairs(f.e.FRAMES) do
+    if b:GetText()=="Check all for Veteran" then
+      if b._parent==f.column then wide=b elseif b._parent==f.fallback then narrow=b end
+    end
+  end
+  local requested=0
+  f.launch.CheckAllVeterans=function(...)
+    assert(select("#",...)==0,"per-row selection must not restrict a full check")
+    requested=requested+1
+    return true,"Synthetic request queued"
+  end
+  local function fits(b) return b:GetFontString():GetStringWidth()+16 <= b:GetWidth() end
+  check("Guild tab shows a dedicated fully fitting bulk check above the per-character actions",wide:IsVisible()
+    and fits(wide) and not narrow:IsVisible() and wide~=f.buttons()[1].promote)
+  wide:GetScript("OnEnter")(wide)
+  check("the Guild bulk action describes scope, Sync, and individual promotion clicks",table.concat(f.tooltipLines," "):find("including offline Members",1,true)
+    and table.concat(f.tooltipLines," "):find("Each rank change requires your click",1,true))
+  wide:Click();narrow:Click()
+  check("the visible wide button requests the all-Member read exactly once",requested==1 and f.promotions==0)
+  f.e.UIParent:SetSize(1000,750);f.tick()
+  narrow:Click();wide:Click()
+  check("on a compact screen the same fully fitting bulk command is separate from Verify members",not wide:IsVisible() and narrow:IsVisible()
+    and fits(narrow) and select(2,narrow:GetPoint())==f.fallback and select(3,narrow:GetPoint())=="LEFT" and requested==2 and f.promotions==0)
+  f.host:SetWidth(260);f.e.UIParent:SetWidth(500);f.tick()
+  check("narrowing the native window stacks the two compact controls within its width",narrow:IsVisible()
+    and select(3,narrow:GetPoint())=="BOTTOMRIGHT" and narrow:GetWidth()+44<=f.host:GetWidth())
+  f.club=88;narrow:Click()
+  f.club=nil;f.e.InCombatLockdown=function()return true end;narrow:Click()
+  check("switching to another native community or starting combat before repaint suppresses the read",requested==2 and f.promotions==0)
 end
 do
   local f=guildUI();local buttons=f.buttons();local b=buttons[1]

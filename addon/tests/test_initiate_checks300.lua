@@ -60,6 +60,164 @@ local function client(count,blank)
   f.emit("GUILD_ROSTER_UPDATE")
   return f,e,prepare,record,verified
 end
+-- Read every current native Member from the complete roster, independent of desk
+-- filters. Only a later individual hardware click may act on a positive result.
+for _,blank in ipairs({false,true}) do
+  local f,e,prepare,_,verified=client(45,blank)
+  local mode=blank and "bound blank realm" or "observed realm"
+  local constants=e.OlympusVerifyNativeRankConstants
+  local profile=blank and constants.profiles[2] or constants.profiles[1]
+  for i,name in ipairs(profile.names) do f.names[i]=name end
+  local member,veteran=profile.member,profile.veteran
+  assert(type(member)=="number" and type(veteran)=="number")
+  local shown,expected,names={},{},{}
+  for i=2,44 do
+    local r=e.ROSTER[i]
+    r.rank,r.rankIndex="Member",member
+    verified[i-1]={guid=r.guid}
+    shown[#shown+1]={guid=r.guid,name=r.name,status="verified",rank="Member",rankIndex=member}
+    names[r.guid]=r.name
+    if i<=42 then expected[r.guid]=true end
+  end
+  e.ROSTER[45].rank,e.ROSTER[45].rankIndex="Veteran",veteran
+  local db=e.OlympusVerifyDB
+  local heldId,unknownId=e.ROSTER[43].guid,e.ROSTER[44].guid
+  db.launchPromotionSaveHolds={[heldId]=true}
+  db.launchPromotionAttempts=db.launchPromotionAttempts or {}
+  local original={state="unknown",completed=false}
+  db.launchPromotionAttempts[unknownId]=original
+  f.emit("GUILD_ROSTER_UPDATE")
+  local initiates=assert(prepare())
+  local manual=db.launchControl
+  local ok,message=f.q.CheckAllVeterans()
+  check(mode.." one click starts one read-only Veteran sweep and reports its result",ok==true and type(message)=="string" and #message>0
+    and f.syncs==1 and f.promote==0 and f.restricted==0 and f.invites==0 and f.removals==0)
+  local sweep=assert(db.memberPromotionChecks)
+  local again,waitMessage=f.q.CheckAllVeterans()
+  check(mode.." repeated checks while pages are pending preserve the cycle and request no second Sync",again==false and type(waitMessage)=="string"
+    and db.memberPromotionChecks==sweep and f.syncs==1)
+  check(mode.." Veteran check leaves the manual request and simultaneous Initiate checks in place",db.primeInitiateChecks==initiates and db.launchControl==manual)
+  check(mode.." 41 offline Members span three independent pages",#sweep.controls==3 and #sweep.controls[1].targetGuids==20
+    and #sweep.controls[2].targetGuids==20 and #sweep.controls[3].targetGuids==1)
+  local macs={}
+  for _,c in ipairs(sweep.controls) do
+    local ids=c.targetGuids
+    local expectedAction=blank and "select-prime-members" or "select-directive"
+    local version=blank and 7 or 4
+    local signed=table.concat({"launch-selected-read",tostring(version),expectedAction,c.id,tostring(e.NOW),f.scope,f.actor,table.concat(ids,","),"[]"},"|")
+    check(mode.." Member read purpose, actor, native scope and zero confirmations are signed for page "..c.id,
+      c.version==version and c.action==expectedAction and c.confirmations=="[]" and c.guid==f.actor and c.scopeHash==f.scope
+      and c.mac==e.OlympusHmac.hmacSha256hex(e.OlympusVerifyConfig.secret,signed):sub(1,32))
+    for i,id in ipairs(ids) do assert(expected[id] and (i==1 or ids[i-1]<id),"unexpected, duplicate or unordered Member");expected[id]=nil end
+    macs[#macs+1]=c.mac
+  end
+  check(mode.." exact complete current Member set excludes other ranks and preserves held originals",next(expected)==nil
+    and db.launchPromotionAttempts[unknownId]==original and db.launchPromotionSaveHolds[heldId]==true
+    and sweep.mac==e.OlympusHmac.hmacSha256hex(e.OlympusVerifyConfig.secret,"member-promotion-checks|1|"..sweep.id.."|"..table.concat(macs,",")):sub(1,32))
+  setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyRosterModel.lua")),e)("OlympusVerify")
+  local function readiness() return e.OlympusVerifyRosterModel.Promotions(shown,f.q,e.NOW) end
+  local function publish(c,positive,held)
+    local prev=e.OlympusLaunchSelected
+    local specs=positive and {{guid=positive,name=names[positive],start=member,final=veteran}} or {}
+    local data,page=D.publish(e,{control=c,realm=f.realm,guild=f.guild,total=#e.ROSTER,specs=specs,held=held,ttl=600})
+    e.OlympusLaunchSelected=prev
+    page.rankNames,page.rankSchemeDigest,page.rankProfile={unpack(profile.names)},profile.digest,profile.profile
+    if positive then
+      local row=page.promotions[1]
+      row.targetName,row.reason,row.intent.reason="Veteran","knight-veteran","knight-veteran"
+      row.intent.rankProfile,row.intent.rankSchemeDigest=profile.profile,profile.digest
+    end
+    return data
+  end
+  local first=sweep.controls[1]
+  local positive,negative,uncertain=first.targetGuids[1],first.targetGuids[2],first.targetGuids[3]
+  local missing=sweep.controls[3].targetGuids[1]
+  -- A guild without an active Initiate or individual request still needs an
+  -- accurate top-line status for the officer's Veteran checks.
+  db.primeInitiateChecks=nil
+  local _,summary=readiness()
+  check(mode.." Veteran-only desk reports pending until the first result loads",not summary.selection and not summary.backgroundChecks
+    and summary.state=="pending" and summary.memberChecks.pending==41 and summary.reason:find("Veteran",1,true))
+  local completed={}
+  for i,c in ipairs(sweep.controls) do completed[i]=publish(c) end
+  e.OlympusMemberChecks={version=1,id=sweep.id,records=completed}
+  _,summary=readiness()
+  check(mode.." Veteran-only desk distinguishes completed negative results from waiting",summary.state=="no_recommendation"
+    and summary.memberChecks.checked==41 and summary.memberChecks.pending==0 and summary.reason:find("Veteran",1,true))
+  completed[1].completed=false;completed[1].stoppedReason="native-roster-changed-or-expired"
+  _,summary=readiness()
+  check(mode.." Veteran-only desk reports a held page separately",summary.state=="held" and summary.memberChecks.held==20
+    and summary.memberChecks.pending==0 and summary.reason:find("Veteran",1,true))
+  e.OlympusMemberChecks=nil
+  db.primeInitiateChecks=initiates
+  local ready=readiness()
+  check(mode.." no returned pages provide no promotion authority",not next(ready) and not f.click(positive) and f.promote==0)
+  local output=publish(first,positive,{{name=names[uncertain],guid=uncertain,reason="discord-entitlement-unknown"}})
+  e.OlympusMemberChecks={version=1,id=sweep.id,records={output}}
+  local digest=output.targetsDigest
+  output.targetsDigest=string.rep("0",64)
+  check(mode.." a result for a different target set confers no promotion",not readiness()[positive] and not f.click(positive))
+  output.targetsDigest=digest
+  local info
+  ready,info=readiness()
+  check(mode.." only the returned Knight-positive Member is ready; a negative, unknown and unread page stay separate",
+    ready[positive] and info.byGuid[positive].state=="ready" and not ready[negative] and not ready[uncertain] and not ready[missing]
+    and info.byGuid[uncertain].state=="held" and info.byGuid[missing].state=="checking"
+    and info.byGuid[negative].state~=info.byGuid[uncertain].state and info.byGuid[negative].state~=info.byGuid[missing].state and f.promote==0)
+  local detail=f.q.Current()
+  check(mode.." public observation and UI inspection preserve manual and Initiate inputs",detail.selectedByGuid[positive].completed
+    and detail.selectedByGuid[e.ROSTER[46].guid] and db.primeInitiateChecks==initiates and db.launchControl==manual
+    and f.syncs==1 and not f.click(negative) and not f.click(uncertain) and not f.click(missing))
+  local target
+  for _,r in ipairs(e.ROSTER) do if r.guid==positive then target=r end end
+  e.SECURE_MACRO_EXECUTE=function(body)
+    assert(body=="/gpromote "..names[positive].."-Forever")
+    f.promote=f.promote+1;target.rankIndex=member-1
+  end
+  check(mode.." a later officer click executes only one positive promotion step",f.click(positive) and f.promote==1 and not f.click(positive))
+  e.NOW=e.NOW+1;f.emit("GUILD_ROSTER_UPDATE")
+  check(mode.." continuation uses an individual confirmed-step control",f.q.Select(positive)
+    and db.launchControl.version==(blank and 6 or 4) and #db.launchControl.targetGuids==1 and db.launchControl.targetGuids[1]==positive
+    and db.launchControl.confirmations~="[]" and db.memberPromotionChecks==sweep and f.syncs==2 and f.promote==1)
+  local individual=db.launchControl
+  for i=2,#sweep.controls do e.OlympusMemberChecks.records[i]=publish(sweep.controls[i]) end
+  e.NOW=e.NOW+1;f.emit("GUILD_ROSTER_UPDATE")
+  ok,message=f.q.CheckAllVeterans()
+  local nextSweep=db.memberPromotionChecks
+  local continuations=0
+  for _,c in ipairs(nextSweep.controls) do
+    if c.confirmations~="[]" then
+      continuations=continuations+1
+      assert(#c.targetGuids==1 and c.targetGuids[1]==positive and c.confirmations==individual.confirmations)
+      assert(c.version==(blank and 6 or 4) and c.action==individual.action)
+    else
+      for _,id in ipairs(c.targetGuids) do assert(id~=positive) end
+    end
+  end
+  check(mode.." bulk recheck separates the confirmed intermediate rank from new Member checks",ok and nextSweep~=sweep and continuations==1
+    and db.launchControl==individual and db.primeInitiateChecks==initiates and f.syncs==3 and f.promote==1)
+  check(mode.." a full Member page, one confirmed continuation, and the next Member page are interleaved",
+    #nextSweep.controls==3 and #nextSweep.controls[1].targetGuids==20 and nextSweep.controls[1].confirmations=="[]"
+    and nextSweep.controls[2].confirmations==individual.confirmations and #nextSweep.controls[2].targetGuids==1
+    and #nextSweep.controls[3].targetGuids==20 and nextSweep.controls[3].confirmations=="[]")
+end
+for _,problem in ipairs({"offline rows hidden","rank table changed","native GUID missing","no Members","global custody conflict","combat"}) do
+  local f,e,prepare=client(2,true)
+  local steward=e.OlympusVerifyNativeRankConstants.profiles[2]
+  for i,name in ipairs(steward.names) do f.names[i]=name end
+  if problem~="no Members" then e.ROSTER[2].rankIndex=8 end
+  f.emit("GUILD_ROSTER_UPDATE")
+  local init=assert(prepare())
+  local db=e.OlympusVerifyDB
+  if problem=="offline rows hidden" then e.GetGuildRosterShowOffline=function() return false end
+  elseif problem=="rank table changed" then f.names[3]="Unrecognized rank"
+  elseif problem=="native GUID missing" then e.ROSTER[2].guid=nil
+  elseif problem=="global custody conflict" then db.launchPromotionCustodyConflict=true
+  elseif problem=="combat" then e.InCombatLockdown=function() return true end end
+  local ok,message=f.q.CheckAllVeterans()
+  check(problem.." returns an explanation and preserves all existing controls",ok==false and type(message)=="string" and #message>0
+    and db.memberPromotionChecks==nil and db.primeInitiateChecks==init and db.launchControl==f.discovery and not f.syncs and f.promote==0)
+end
 local function reviewedPair()
   local f,e,prepare,record=client(43,true)
   local envelope=prepare()

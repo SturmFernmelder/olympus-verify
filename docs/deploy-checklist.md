@@ -8965,3 +8965,9 @@ On the officer desk, filter two columns together, change the sort direction, swi
 Use the offline Lua fixtures for live-affecting actions. Review several named candidates, click once per distinct name and deliver their roster confirmations together and out of order. Exercise rank changes, name reuse, concurrent departures, combat and an interrupted review. Verify that further clicks cannot repeat a submitted action or add a member outside the review. In the game client inspect controls and cancel the review. Never remove a member for acceptance testing.
 
 Observe real departures independently. Where a Discord role changes, compare its confirmed removal with the actual messages in recruitment review and the private server log. Record each role and destination separately. An unlinked departure can establish that a character left the guild but cannot establish a Discord role change. For rollback use .312 at `6a5c149b` and its public addon 0.6.55, preserving private configuration, history and exchange files.
+
+## 27 November 2026 — .314 Officer desk shortcuts and Veteran eligibility
+
+Check the Tools and View menus above Guild members and Operations. Open Ready Initiates and Inactive Initiates (7d+) with an unrelated column filter active. Verify that the views show the current qualifying rows and the applicable inactivity threshold. Inspect the Guild-tab action label inside its button.
+
+Check all for Veteran reads the complete native roster. Compare grouped results on both supported realm paths and preserve earlier, unresolved promotion attempts. Verify one Sync, per-character outcomes and a separate officer click for every rank step using offline fixtures and the genuine Workerd route. Install the official addon and Watcher while preserving private configuration, projections and SavedVariables. For rollback, use .313 at `bcc11b9c`, addon 0.6.56 and Watcher 0.6.49.
