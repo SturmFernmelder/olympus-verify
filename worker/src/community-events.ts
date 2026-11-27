@@ -528,8 +528,11 @@ export async function getEvent(request: Request, env: Env, ctx: CommunityContext
  * capacity and calendar room are judged in the statement, and `fence` is the caller's admission predicate (the site's
  * session fence at ?2/?3/?14, or the Discord member fence at ?2). Every later statement requires the nonce.
  */
-export interface RsvpWrite { teamScope?: string; eventId: string; me: string; status: RsvpStatus; character: { name: string; key: string } | null; raidRole: RaidRole | null; keepChar: boolean; keepRole: boolean; revision: number; anyRevision: boolean; eventRevision: number; nonce: string; newRef: string; at: number; limit: number; fence: string; sessionVersion: number; expiresAt: number; remindMention: 0 | 1 | null }
+export interface RsvpWrite { teamScope?: {id: string; currentInvite: string}; eventId: string; me: string; status: RsvpStatus; character: { name: string; key: string } | null; raidRole: RaidRole | null; keepChar: boolean; keepRole: boolean; revision: number; anyRevision: boolean; eventRevision: number; nonce: string; newRef: string; at: number; limit: number; fence: string; sessionVersion: number; expiresAt: number; remindMention: 0 | 1 | null }
 export function rsvpStatements(env: Env, w: RsvpWrite): D1PreparedStatement[] {
+  // A private occurrence holds a place only for the current start and an invitation the person still qualifies for.
+  const eligiblePlace = w.teamScope ? ` AND o.rsvp_starts_at=e.starts_at AND ${w.teamScope.currentInvite}` : '';
+  const heldPlaces = w.teamScope ? `(SELECT COUNT(*) FROM community_event_signups o WHERE o.event_id=e.id AND o.status='yes'${eligiblePlace})` : placesHeld(env,"?1");
   // ?1 event, ?2 me, ?3 version (fence), ?4 status, ?5 name, ?6 key, ?7 role, ?8 now, ?9 revision, ?10 keepChar, ?11 keepRole, ?12 nonce, ?13 limit, ?14 expiry (fence), ?15 anyRevision, ?16 eventRevision (0 = any), ?17 remindMention (NULL = keep)
   return [
     env.DB.prepare(
@@ -538,7 +541,7 @@ export function rsvpStatements(env: Env, w: RsvpWrite): D1PreparedStatement[] {
        WHERE e.id = ?1 AND e.status = 'scheduled' AND e.starts_at > ${DB_NOW} AND (?16 = 0 OR e.revision = ?16)
          AND ${w.teamScope ? "e.op_id='team316:'||e.id" : "e.op_id NOT LIKE 'team316:%'"}
          AND (?15 = 1 OR ?9 = 0 OR EXISTS (SELECT 1 FROM community_event_signups o WHERE o.event_id = ?1 AND o.discord_id = ?2 AND o.revision = ?9))
-         AND (?4 <> 'yes' OR e.capacity IS NULL OR EXISTS (SELECT 1 FROM community_event_signups o WHERE o.event_id = ?1 AND o.discord_id = ?2 AND o.status = 'yes') OR ${placesHeld(env, "?1")} < e.capacity)
+         AND (?4 <> 'yes' OR e.capacity IS NULL OR EXISTS (SELECT 1 FROM community_event_signups o WHERE o.event_id = ?1 AND o.discord_id = ?2 AND o.status = 'yes'${eligiblePlace}) OR ${heldPlaces} < e.capacity)
          AND ${calendarRoom("json_array(?2)", "?13")}
          AND ${w.fence}
        ON CONFLICT(event_id, discord_id) DO UPDATE SET
@@ -553,7 +556,7 @@ export function rsvpStatements(env: Env, w: RsvpWrite): D1PreparedStatement[] {
          decision_revision = CASE WHEN excluded.status = 'no' AND (community_event_signups.status <> 'no' OR community_event_signups.decision IS NOT NULL) THEN community_event_signups.decision_revision + 1 ELSE community_event_signups.decision_revision END,
          revision = community_event_signups.revision + 1, rsvp_starts_at = excluded.rsvp_starts_at, updated_at = excluded.updated_at, write_nonce = excluded.write_nonce
        WHERE ?15 = 1 OR community_event_signups.revision = ?9`,
-    ).bind(w.eventId, w.me, w.sessionVersion, w.status, w.character?.name ?? null, w.character?.key ?? null, w.raidRole, w.at, w.revision, w.keepChar ? 1 : 0, w.keepRole ? 1 : 0, w.nonce, w.limit, w.expiresAt, w.anyRevision ? 1 : 0, w.eventRevision, w.remindMention, ...(w.teamScope ? [w.teamScope] : [])),
+    ).bind(w.eventId, w.me, w.sessionVersion, w.status, w.character?.name ?? null, w.character?.key ?? null, w.raidRole, w.at, w.revision, w.keepChar ? 1 : 0, w.keepRole ? 1 : 0, w.nonce, w.limit, w.expiresAt, w.anyRevision ? 1 : 0, w.eventRevision, w.remindMention, ...(w.teamScope ? [w.teamScope.id] : [])),
     env.DB.prepare("UPDATE community_events SET signup_generation = signup_generation + 1 WHERE id = ?1 AND EXISTS (SELECT 1 FROM community_event_signups WHERE event_id = ?1 AND discord_id = ?2 AND write_nonce = ?3)").bind(w.eventId, w.me, w.nonce),
     refAfterSignup(env, w.eventId, w.me, w.nonce, w.newRef, w.at),
     env.DB.prepare("INSERT INTO audit (ts, actor, action, subject, details) SELECT ?3, ?2, 'community.rsvp', ?1, NULL WHERE EXISTS (SELECT 1 FROM community_event_signups WHERE event_id = ?1 AND discord_id = ?2 AND write_nonce = ?4)").bind(w.eventId, w.me, w.at, w.nonce),

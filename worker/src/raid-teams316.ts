@@ -1,4 +1,4 @@
-/** Standing raid teams. A seat decision here never grants a guild rank or changes an event RSVP. */
+/** Standing raid teams. Accepting a seat leaves event RSVPs to the player; leaving releases future invitations. */
 import type { Env } from './env';
 import { admitted, admittedRead, DB_NOW, FENCE_REFUSED, fenceSql, randomToken, refusal, type CommunityContext } from './community-context';
 import { weeklyWindows316, canonicalZone316, validClock316, clock316, localStartRanges316, overlapDetector316, type WeeklyWindow316 } from './raid-team-times316';
@@ -229,8 +229,8 @@ function writePlan(env:Env, ctx:CommunityContext, teamId:string|null, b:Record<s
       AND (EXISTS(SELECT 1 FROM raid_team_seats316 existing WHERE existing.team_id=t.id AND existing.discord_id=?1) OR
            (SELECT count(*) FROM raid_team_seats316 seated WHERE seated.discord_id=?1)<100)
       AND (SELECT count(*) FROM raid_team_seats316 open WHERE open.team_id=t.id AND open.state IN ${OPEN})<200
-      ON CONFLICT(team_id,discord_id) DO UPDATE SET character_guid=excluded.character_guid,role=excluded.role,note=excluded.note,
-        state='submitted',charter_revision=excluded.charter_revision,revision=revision+1,updated_at=${DB_NOW}
+      ON CONFLICT(team_id,discord_id) DO UPDATE SET id=excluded.id,character_guid=excluded.character_guid,role=excluded.role,note=excluded.note,
+        state='submitted',charter_revision=excluded.charter_revision,revision=revision+1,created_at=${DB_NOW},updated_at=${DB_NOW}
       WHERE account_birth=excluded.account_birth AND state IN ('withdrawn','declined') AND revision=${revision}`);
   }
   const id=seatId(),revision=rev(),match=seatMatch(id,revision);
@@ -239,6 +239,25 @@ function writePlan(env:Env, ctx:CommunityContext, teamId:string|null, b:Record<s
   const originalActor=`EXISTS(SELECT 1 FROM site_users actor WHERE actor.discord_id=?1 AND actor.account_incarnation=${birth})`;
   const common=`${match} AND ${guard} AND ${originalActor}`;
   const patch=(sets:string,where:string,after:D1PreparedStatement[]=[])=>result(`UPDATE raid_team_seats316 AS s SET ${sets},revision=revision+1,updated_at=${DB_NOW} WHERE ${common} AND ${where}`,after);
+  function endMembership(where:string) {
+    // A departure must revoke the original invitation even if the same character later rejoins.
+    // The one-batch nonce uses the cleared private note until the final statement. A refused or stale
+    // transition cannot affect another seat, and the member's prior attendance remains on its normal retention.
+    const nonce=randomToken(),seat=String(b.seatId);
+    const closed=`SELECT s.id,s.discord_id FROM raid_team_seats316 s
+      WHERE s.id=?1 AND s.team_id=?2 AND s.note=?3 AND s.state='withdrawn'`;
+    const cleanup=(sql:string)=>env.DB.prepare(sql).bind(seat,teamId,nonce);
+    const future=`SELECT i.event_id FROM raid_team_invites316 i JOIN community_events e ON e.id=i.event_id
+      JOIN (${closed}) former ON former.id=i.seat_id
+      JOIN community_event_signups r ON r.event_id=e.id AND r.discord_id=former.discord_id
+      WHERE e.starts_at>${DB_NOW}`;
+    return patch(`state='withdrawn',note=${param(nonce)},group_number=NULL,is_officer=0`,where,[
+      cleanup(`UPDATE community_events SET signup_generation=signup_generation+1 WHERE id IN (${future})`),
+      cleanup(`DELETE FROM community_event_signups WHERE discord_id=(SELECT discord_id FROM (${closed})) AND event_id IN (${future})`),
+      cleanup(`DELETE FROM raid_team_invites316 WHERE seat_id IN (SELECT id FROM (${closed}))`),
+      cleanup(`UPDATE raid_team_seats316 SET note='' WHERE id=?1 AND team_id=?2 AND note=?3 AND state='withdrawn'`),
+    ]);
+  }
   if (b.action==='decide') {
     const state=choice(b.state,['offered_primary','offered_reserve','waitlisted','declined'],'application decision'),next=param(state);
     // A new offer after edits carries the current charter. A reserve-only listing cannot offer a primary seat.
@@ -261,9 +280,9 @@ function writePlan(env:Env, ctx:CommunityContext, teamId:string|null, b:Record<s
         AND (${next}<>'reserve' OR ${seatCount('t.id','reserve')}<100))
       ${sameOthers}`,state==='primary'?[unlist()]:[]);
   }
-  if (b.action==='leave' || (b.action==='respond' && b.state==='withdrawn')) {
-    const prior=b.action==='leave'?ACTIVE:OPEN;
-    return patch("state='withdrawn',note='',group_number=NULL,is_officer=0",`${self} AND s.state IN ${prior} AND NOT ${leader}`);
+  if (b.action==='leave') return endMembership(`${self} AND s.state IN ${ACTIVE} AND NOT ${leader}`);
+  if (b.action==='respond' && b.state==='withdrawn') {
+    return patch("state='withdrawn',note='',group_number=NULL,is_officer=0",`${self} AND s.state IN ${OPEN} AND NOT ${leader}`);
   }
   if (b.action==='forget') {
     return result(`DELETE FROM raid_team_seats316 AS s WHERE ${common} AND ${self} AND s.state IN ('withdrawn','declined')`);
@@ -279,7 +298,7 @@ function writePlan(env:Env, ctx:CommunityContext, teamId:string|null, b:Record<s
         AND g.group_number=${group} AND g.state='primary' AND ${seatCurrent('g')})<5)`);
   }
   if (b.action==='remove') {
-    return patch("state='withdrawn',note='',group_number=NULL,is_officer=0",`${canManage} AND s.state IN ${ACTIVE} AND s.discord_id<>?1
+    return endMembership(`${canManage} AND s.state IN ${ACTIVE} AND s.discord_id<>?1
       AND NOT EXISTS(SELECT 1 FROM raid_teams316 t WHERE t.id=s.team_id AND t.leader_id=s.discord_id)
       AND (s.is_officer=0 OR ${leader})`);
   }

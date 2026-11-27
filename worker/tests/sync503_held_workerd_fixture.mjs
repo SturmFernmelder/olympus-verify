@@ -7,7 +7,7 @@
 // isolate is captured during each request; nothing is retried by the fixture. Commit-loss cases execute and consume
 // a genuine native transaction before corrupting its reply, then read its actual effects independently.
 import app from '../src/index.ts';
-import {ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON} from '../src/privacy-write-admission-catalogue.ts';
+import {raidAdmissionCatalogue316} from '../src/raid-schema316.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
 import {privacyBoundSubjectEnv,PrivacySiteRequestHeld,privacySiteFailure} from '../src/privacy-serving-authority.ts';
 import {HELD_CAUSES,ROUTE_CLASSES} from '../src/log.ts';
@@ -47,7 +47,7 @@ function classify(body){
 const reply=(value,status=200)=>new Response(JSON.stringify(value),{status,headers:{'content-type':'application/json'}});
 
 async function setup(db){
- const profile=JSON.parse(ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON).recordedLive.profile;
+ const profile=JSON.parse(raidAdmissionCatalogue316('recorded-live-pre-seal-20261017'));
  const objects=[...profile.tables,...profile.indexes].map(o=>db.prepare(o.sql));objects.push(db.prepare(profile.slotSQL));
  while(objects.length)await db.batch(objects.splice(0,40));
  const now=(await db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS n").first()).n;

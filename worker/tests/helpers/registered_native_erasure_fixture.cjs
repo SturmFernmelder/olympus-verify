@@ -14,6 +14,9 @@ function runNativeErasureFixture(run, { lostAdmission = false } = {}) {
   if (hash !== '572066b31422497e89314f47c972536517104de10521a45434b4f041f6ad02a3') {
     throw Error('native erasure setup bytes changed');
   }
+  // Only provision the tested layout after verifying the original fixture evidence.
+  setup = setup.replace('JSON.parse(catalogue.ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON).recordedLive.profile',
+    "JSON.parse(load('raid-schema316').raidAdmissionCatalogue316('recorded-live-pre-seal-20261017'))");
   if (lostAdmission) {
     const original = "if(list.some(s=>s.sql.includes('privacy_terminal_unconfirmed')))";
     if (setup.split(original).length !== 2) throw Error('native erasure commit hook changed');

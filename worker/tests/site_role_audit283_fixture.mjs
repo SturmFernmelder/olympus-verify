@@ -8,7 +8,8 @@ import {accountAuditAttributionSql280} from '../src/tithe-erased-replay280.ts';
 import {captureRoutineMembership232,closeRoutineMembership232,routineMembership232Facts,routineMembership232Predicate,routineMembership232AttendedRoleMatches} from '../src/routine-membership-authority232.ts';
 import {rest,DiscordError,originalDiscordGetPacing} from '../src/discord.ts';
 import worker from '../src/index.ts';
-import {ADMISSION_EXPECTED_JSON,ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON,ADMISSION_PROTOCOL} from '../src/privacy-write-admission-catalogue.ts';
+import {raidAdmissionCatalogue316} from '../src/raid-schema316.ts';
+import {ADMISSION_PROTOCOL} from '../src/privacy-write-admission-catalogue.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
 import {CANONICAL_RANKS233,CANONICAL_PROFILE233,NATIVE_NAMES233} from '../src/canonical-ranks233.ts';
 import {NATIVE_SCOPE232,SHARED_MEMBER232,NATIVE_GUILD232} from '../src/native-rank-reconciliation232.ts';
@@ -27,7 +28,7 @@ const baselineCaps=new Map(),baselineOld=new Map(),baselineActorBirth=new Map(),
 const method=(o,k)=>{for(let p=o;p;p=Object.getPrototypeOf(p)){const d=Object.getOwnPropertyDescriptor(p,k);if(d)return d.value;}throw Error('fixture method missing');};
 const h=n=>n.toString(16).padStart(32,'0');
 async function setup(db,layout='canonical',adminId=ADMIN,lateFinal=null){
- const catalogue=layout==='canonical'?JSON.parse(ADMISSION_EXPECTED_JSON):JSON.parse(ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON).recordedLive.profile;
+ const catalogue=JSON.parse(raidAdmissionCatalogue316(layout));
  const objects=[...catalogue.tables,...catalogue.indexes].map(o=>db.prepare(o.sql));objects.push(db.prepare(catalogue.slotSQL));
  while(objects.length)await db.batch(objects.splice(0,40));
  const t=Math.floor(Date.now()/1000);

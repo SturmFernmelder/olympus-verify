@@ -31,7 +31,7 @@ async function test() {
         const id=String(200000000000000000n+BigInt(posts));
         const t={id,parent_id:forum,owner_id:bot,name:b.name,applied_tags:b.applied_tags};
         threads.set(id,{t,m:{id,author:{id:bot},content:b.message.content}});
-        if(loseReply){loseReply=false;return new Response('uncertain fixture response',{status:502});}
+        if(loseReply){loseReply=false;return new Response('',{status:429});}
         return Response.json(t);
       }
       if(req.method==='GET'&&p==='/guilds/'+guild+'/threads/active')return Response.json({threads:[...threads.values()].map(v=>v.t)});

@@ -120,6 +120,50 @@ export async function raidTeamsReadback316(base,rawDB,ctx,check) {
     capacity:10,groups:[],assemblyMinutes:0,preparation:'Fixture'});
   if(occurrence.status!==201)throw Error('Raid erasure setup could not schedule the private occurrence: '+JSON.stringify(occurrence));
   const ownEvent=await db.prepare('SELECT event_id FROM raid_team_events316 WHERE team_id=?1').bind(other).first();
+  const calendar=otherPage+'/calendar',future=ownEvent.event_id;
+  const schedule=async(label)=>{
+    const out=await query(leader,calendar,{action:'schedule',opId:label.repeat(22),teamRevision:1,title:'Original seat invitation',
+      timezone:'UTC',localStart:new Date(Date.now()+86400000).toISOString().slice(0,16),durationMin:60,occurrences:1,
+      capacity:10,groups:[],assemblyMinutes:0,preparation:''});
+    if(out.status!==201)throw Error('Raid seat fixture could not schedule: '+JSON.stringify(out));
+    return out.data.eventIds[0];
+  };
+  const answer=(actor,eventId)=>ok(actor,calendar,{action:'rsvp',eventId,answer:'confirmed',revision:1,rsvpRevision:0});
+  const currentSeat=async()=>(await ok(winner,otherPage)).mine;
+  const rejoin=async()=>{
+    const last=await currentSeat();
+    await ok(winner,otherPage,{action:'apply',guid:winner.guid,role:'flex',revision:last.revision});
+    const next=await currentSeat();
+    await ok(leader,otherPage,{action:'decide',seatId:next.id,revision:next.revision,state:'offered_primary'});
+    await ok(winner,otherPage,{action:'respond',seatId:next.id,revision:next.revision+1,state:'primary',confirmOverlap:true});
+    return currentSeat();
+  };
+  const past=await schedule('H');
+  await answer(winner,future); await answer(leader,future); await answer(winner,past);
+  await db.prepare('UPDATE community_events SET starts_at=unixepoch()-7200,ends_at=unixepoch()-7200+duration_min*60 WHERE id=?1').bind(past).run();
+  const firstSeat=await currentSeat();
+  await ok(leader,calendar,{action:'attendance',eventId:past,revision:1,seatId:firstSeat.id,state:'present',attendanceRevision:0});
+  check('refused and stale departures do not revoke invitations or release RSVPs',
+    (await query(runner,otherPage,{action:'remove',seatId:firstSeat.id,revision:firstSeat.revision})).status===409 &&
+    (await query(winner,otherPage,{action:'leave',seatId:firstSeat.id,revision:firstSeat.revision+1})).status===409 &&
+    (await ok(winner,calendar+'?eventId='+future)).events[0].answer==='confirmed');
+  await ok(winner,otherPage,{action:'leave',seatId:firstSeat.id,revision:firstSeat.revision});
+  const secondSeat=await rejoin();
+  check('a same-character rejoin cannot see or answer its prior future or historical invitations',secondSeat.id!==firstSeat.id &&
+    (await query(winner,calendar+'?eventId='+future)).status===404 && (await query(winner,calendar+'?eventId='+past)).status===404 &&
+    (await query(winner,calendar,{action:'rsvp',eventId:future,revision:1,answer:'confirmed'})).status===409 &&
+    !(await ok(winner,'/my-next-raid?guid='+winner.guid)).events.some(e=>e.eventId===future));
+  const hasSignup=async(e,account)=>!!(await db.prepare('SELECT 1 FROM community_event_signups WHERE event_id=?1 AND discord_id=?2').bind(e,account.id).first());
+  check('departures release only the departing future signup and preserve recorded past participation',
+    !await hasSignup(future,winner) && await hasSignup(future,leader) && await hasSignup(past,winner) &&
+    (await db.prepare('SELECT state FROM community_event_attendance WHERE event_id=?1 AND discord_id=?2').bind(past,winner.id).first()).state==='present');
+  const later=await schedule('N');
+  await answer(winner,later);
+  await ok(leader,otherPage,{action:'remove',seatId:secondSeat.id,revision:secondSeat.revision});
+  const thirdIncarnation=await rejoin();
+  check('team removal frees the RSVP and reacceptance cannot restore old commitments',thirdIncarnation.id!==secondSeat.id &&
+    !await hasSignup(later,winner) && (await query(winner,calendar+'?eventId='+later)).status===404 &&
+    (await query(winner,otherPage,{action:'leave',seatId:secondSeat.id,revision:secondSeat.revision})).status===409);
   await db.prepare("UPDATE characters SET status='left' WHERE discord_id=?1").bind(winner.id).run();
   check('loss of guild membership immediately removes roster visibility and team administration',
     (await query(winner,one)).status===403 && !(await ok(leader,one)).members.some(m=>m.id===winnerSeat.id));

@@ -65,6 +65,9 @@ function installCurrentEntryEpoch(db, options = {}) {
   db.prepare("INSERT INTO privacy_rejection_expiry_control VALUES(1,'original-guild-rejection-expiry-v1',0,0)").run();
   db.prepare("INSERT INTO site_settings(key,value,updated_at)VALUES('auditTypedNames','115',?)").run(options.now === undefined ? Math.floor(Date.now()/1000) : options.now);
   const installed = installer.installFixtureEpoch(db,layout,epoch);
+  // Exercise today's serving code on the exact, already-qualified predecessor fixture.
+  const {RAID_SCHEMA_DATA316:raid} = require('../../src/raid-schema-data316.ts');
+  for (const object of [...raid.tables,...raid.indexes,...raid.triggers]) db.exec(object.sql);
   return Object.freeze({layout,epoch,installed,metadata:ENTRY_METADATA});
 }
 // Test adapter metadata only, never a production SQL admission/parser. Identify

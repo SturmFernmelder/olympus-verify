@@ -20,10 +20,11 @@ function integer(value:unknown,lo:number,hi:number,label:string):number {
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value<lo || value>hi) throw new CalendarInput('Check '+label+'.');
   return value;
 }
-function bounded(value:unknown,max:number,required:boolean,label:string):string {
+function bounded(value:unknown,max:number,required:boolean,label:string,multiline=false):string {
   if (typeof value!=='string') throw new CalendarInput('Enter '+label+'.');
-  const s=value.normalize('NFC').trim();
-  if ((!s&&required)||enc.encode(s).length>max||/[\p{Cc}\p{Cs}\u202A-\u202E\u2066-\u2069]/u.test(s)) throw new CalendarInput('Check '+label+' and its length.');
+  const s=value.normalize('NFC').replace(/\r\n?/g,'\n').trim();
+  const visible=multiline?s.replace(/[\n\t]/g,' '):s;
+  if ((!s&&required)||enc.encode(s).length>max||/[\p{Cc}\p{Cs}\u202A-\u202E\u2066-\u2069]/u.test(visible)) throw new CalendarInput('Check '+label+' and its length.');
   return s;
 }
 function eventId(value:unknown):string {
@@ -57,7 +58,7 @@ export function weeklyRaidStarts316(local:unknown,zone:string,count:number):numb
 function common(b:Body) {
   return {title:bounded(b.title,200,true,'a raid title'),timezone:zoneOf(b.timezone),
     duration:integer(b.durationMin,15,720,'the duration'),assembly:integer(b.assemblyMinutes??0,0,120,'the assembly offset'),
-    preparation:bounded(b.preparation??'',500,false,'the preparation notes')};
+    preparation:bounded(b.preparation??'',500,false,'the preparation notes',true)};
 }
 function dates(b:Body,zone:string,count:number) {
   const values=weeklyRaidStarts316(b.localStart,zone,count),at=now();
@@ -122,6 +123,7 @@ async function schedule(env:Env,ctx:CommunityContext,team:string,b:Body) {
   const out=await admitted(env,ctx,sql);
   if(out!==FENCE_REFUSED) return apiJson({eventIds:ids},201);
   const replay=await admittedRead(env,ctx,'confirmedGuildData',[db.prepare(`SELECT COUNT(*) n FROM raid_team_events316 x WHERE x.team_id=?1 AND x.series_id=?2
+    AND EXISTS(SELECT 1 FROM community_events ce WHERE ce.id=x.event_id AND ce.retain_until>${DB_NOW})
     AND x.request_hash=?3 AND ${manager('x.team_id','?4')}`).bind(team,op,hash,ctx.subject!.discordId)]);
   if(replay!==FENCE_REFUSED && (replay[0]?.results[0] as {n:number}|undefined)?.n===count)return apiJson({eventIds:ids});
   return apiJson({error:'scheduling_held',message:'Refresh the charter and select a group with confirmed seats. Scheduling supports up to 64 retained team raids, 100 invited seats per occurrence, and 128 retained invitations per member across teams. Try fewer occurrences or a smaller subgroup if a limit was reached.'},409);
@@ -139,7 +141,7 @@ type EventDTO = {eventId:string;title:string;teamName:string;groupMask:number;st
   timezone:string;assemblyMinutes:number;preparation:string;loot:string;expectations:string;charterRevision:number;status:string;capacity:number;durationMin:number;answer:string|null};
 function shortText(s:string,max:number) {
   let value='',len=0;
-  for(const rune of s) {const n=enc.encode(rune).length;if(len+n>max)break;value+=rune;len+=n;}
+  for(const rune of s.replace(/[\p{Cc}\p{Cs}\u202A-\u202E\u2066-\u2069]+/gu,' ')) {const n=enc.encode(rune).length;if(len+n>max)break;value+=rune;len+=n;}
   return encodeURIComponent(value);
 }
 export function addonCalendarImport316(guid:string,at:number,events:readonly EventDTO[]) {
@@ -179,7 +181,7 @@ async function list(request:Request,env:Env,ctx:CommunityContext,team:string){
   if(after&&!cursor)throw new CalendarInput('Open the team calendar again to reload the page.');
   const allow=manager('x.team_id','?2');
   const sql=[db.prepare(`SELECT ${eventColumns},${answerColumns},COALESCE(r.revision,0) rsvpRevision,${allow} canManage,
-      (${linkedInvitation('e.id','x.team_id','?2')} AND e.status='scheduled' AND e.starts_at>${DB_NOW}) canRespond
+      (${linkedInvitation('e.id','x.team_id','?2')} AND t.status<>'inactive' AND e.status='scheduled' AND e.starts_at>${DB_NOW}) canRespond
     FROM raid_team_events316 x JOIN community_events e ON e.id=x.event_id JOIN raid_teams316 t ON t.id=x.team_id
     LEFT JOIN raid_team_seats316 s ON s.team_id=x.team_id AND s.discord_id=?2
     LEFT JOIN raid_team_invites316 i ON i.event_id=x.event_id AND i.seat_id=s.id AND i.character_guid=s.character_guid
@@ -222,7 +224,7 @@ async function rsvp(env:Env,ctx:CommunityContext,team:string,b:Body){
   const writes=rsvpStatements(env,{eventId:id,me:s.discordId,status:RESPONSES[b.answer]!,character:null,raidRole:null,
     keepChar:true,keepRole:true,revision:integer(b.rsvpRevision??0,0,2147483647,'the current RSVP revision'),anyRevision:false,eventRevision:revision,nonce,newRef:randomToken(),at:now(),limit:scanLimit(env),
     fence:`${standing} AND ${linkedInvitation('e.id','?18','?2')} AND EXISTS(SELECT 1 FROM raid_teams316 WHERE id=?18 AND status<>'inactive')`,
-    teamScope:team,sessionVersion:s.sessionVersion,expiresAt:s.expiresAt,remindMention:null});
+    teamScope:{id:team,currentInvite:linkedInvitation('e.id','?18','o.discord_id')},sessionVersion:s.sessionVersion,expiresAt:s.expiresAt,remindMention:null});
   writes.push(env.DB.prepare(`UPDATE raid_team_invites316 SET answer=?3,answer_nonce=?4 WHERE event_id=?1 AND seat_id IN
     (SELECT id FROM raid_team_seats316 WHERE team_id=?5 AND discord_id=?2)
     AND EXISTS(SELECT 1 FROM community_event_signups r WHERE r.event_id=?1 AND r.discord_id=?2 AND r.write_nonce=?4)`)

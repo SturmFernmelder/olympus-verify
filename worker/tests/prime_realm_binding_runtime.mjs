@@ -1,5 +1,6 @@
 import worker from '../src/index.ts';
-import {ADMISSION_EXPECTED_JSON,ADMISSION_PROTOCOL,ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON} from '../src/privacy-write-admission-catalogue.ts';
+import {raidAdmissionCatalogue316} from '../src/raid-schema316.ts';
+import {ADMISSION_PROTOCOL} from '../src/privacy-write-admission-catalogue.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
 import {admitPrimeRoster,recordPrimeBinding} from '../src/prime-realm-binding.ts';
 import {LAUNCH_OPERATIONS_PROTOCOL229,DISCOVERY_OPERATIONS_PROTOCOL235} from '../src/launch-operations229.ts';
@@ -235,7 +236,7 @@ async function checkSelected(check,env,writer,snapshot,ctx,refreshNamed) {
 }
 
 async function install(db,layout) {
-  const c=layout==='canonical'?JSON.parse(ADMISSION_EXPECTED_JSON):JSON.parse(ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON).recordedLive.profile;
+  const c=JSON.parse(raidAdmissionCatalogue316(layout));
   const statements=[...c.tables,...c.indexes].map(x=>db.prepare(x.sql));
   statements.push(db.prepare(c.slotSQL));
   while(statements.length)await db.batch(statements.splice(0,40));

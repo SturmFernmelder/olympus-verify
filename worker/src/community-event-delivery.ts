@@ -127,7 +127,7 @@ async function deliveryAuthority(env: Env, ctx: CommunityContext, eventId: strin
     if (!byEvent) { byEvent = new Map(); organizerOwn.set(ctx, byEvent); }
     let own = byEvent.get(eventId);
     if (!own) {
-      own = env.DB.prepare("SELECT created_by FROM community_events WHERE id=?1").bind(eventId).first<{ created_by: string | null }>().then((row) => !!row && row.created_by !== null && row.created_by === ctx.subject!.discordId);
+      own = env.DB.prepare("SELECT created_by FROM community_events WHERE id=?1 AND op_id NOT LIKE 'team316:%'").bind(eventId).first<{ created_by: string | null }>().then((row) => !!row && row.created_by !== null && row.created_by === ctx.subject!.discordId);
       byEvent.set(eventId, own);
     }
     if (await own) return { manages: true, senior: false, warHead: null }; // the statements still fence created_by = me
@@ -240,15 +240,15 @@ async function read(env: Env, ctx: CommunityContext, eventId: string): Promise<{
     const f = seniorFence(authority, 3, 4);
     const managed = `(created_by = ?2 OR ${f.sql}) AND retain_until > ${DB_NOW}`;
     const out = await admittedRead(env, ctx, "confirmedGuildData", [
-      env.DB.prepare(`SELECT id,title,starts_at,duration_min,status,revision,created_at,retain_until,publication_closed,created_by FROM community_events WHERE id=?1 AND ${managed}`).bind(eventId, me, f.flag, ...f.values),
+      env.DB.prepare(`SELECT id,title,starts_at,duration_min,status,revision,created_at,retain_until,publication_closed,created_by FROM community_events WHERE id=?1 AND op_id NOT LIKE 'team316:%' AND ${managed}`).bind(eventId, me, f.flag, ...f.values),
       env.DB.prepare(`SELECT * FROM community_event_deliveries WHERE event_id=?1 AND purpose='publication' AND retain_until>${DB_NOW}
-        AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND ${managed})`).bind(eventId, me, f.flag, ...f.values),
+        AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND op_id NOT LIKE 'team316:%' AND ${managed})`).bind(eventId, me, f.flag, ...f.values),
     ]);
     if (out === FENCE_REFUSED) return out;
     const event = out[0]!.results[0] as unknown as EventRow | undefined;
     if (event) return { event, delivery: (out[1]!.results[0] as unknown as Delivery | undefined) ?? null };
   }
-  const row = await env.DB.prepare(`SELECT created_by FROM community_events WHERE id=?1 AND retain_until>${DB_NOW}`).bind(eventId).first<{ created_by: string | null }>();
+  const row = await env.DB.prepare(`SELECT created_by FROM community_events WHERE id=?1 AND op_id NOT LIKE 'team316:%' AND retain_until>${DB_NOW}`).bind(eventId).first<{ created_by: string | null }>();
   if (row && row.created_by !== me) return { notYours: true, erased: row.created_by === null };
   return authority.manages ? null : FENCE_REFUSED;
 }
@@ -381,10 +381,10 @@ export function eventAdoptedCustody(db: D1Database, purpose: "event_publication"
 async function settle(env: Env, ctx: CommunityContext, p: EventCustodyProof, result: "posted" | "refused" | "unknown" | "removed", code: string, pointer: string | null = null, fenced: "managed" | "custodyOnly" | null = null) {
   const me = ctx.subject!.discordId, senior = seniorFence(await deliveryAuthority(env, ctx, p.eventId), 9, 17), db = privacyProviderCustodyDatabase(env);
   const stillCurrent = `actor=?5 AND ${privacyAccountIncarnationLiteralFenceSql('actor_account_incarnation',ctx.subject!.accountIncarnation)} AND session_version=?6 AND session_expires=?7 AND cleanup_requested=0
-    AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND publication_closed=0 AND revision=?8 AND starts_at=?15 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S} AND retain_until>${DB_NOW} AND (created_by=?5 OR ${senior.sql}))
+    AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND op_id NOT LIKE 'team316:%' AND publication_closed=0 AND revision=?8 AND starts_at=?15 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S} AND retain_until>${DB_NOW} AND (created_by=?5 OR ${senior.sql}))
     AND ${fenceSql("confirmedGuildData", 5, 6, 7,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`;
   const fence = fenced ? `
-        AND (cleanup_requested=1 OR ${fenced === "managed" ? `EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND retain_until>${DB_NOW} AND (created_by=?5 OR ${senior.sql}))` : "0"})` : "";
+        AND (cleanup_requested=1 OR ${fenced === "managed" ? `EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND op_id NOT LIKE 'team316:%' AND retain_until>${DB_NOW} AND (created_by=?5 OR ${senior.sql}))` : "0"})` : "";
   // The row the fenced UPDATE writes: this operation and nonce, the reconciled pointer and code. If an earlier reconcile
   // already wrote exactly this, the custody statement repeats an identical write.
   const applied = fenced ? { sql: `EXISTS(SELECT 1 FROM community_event_deliveries WHERE event_id=?8 AND purpose='publication' AND claim_nonce=?9 AND op_id=?10 AND message_id=?4 AND result_code=?11)`,
@@ -419,7 +419,7 @@ async function beforeSend(env: Env, ctx: CommunityContext, e: EventRow, nonce: s
   const active = remove ? "" : `AND publication_closed=0 AND revision=?5 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S}`;
   const proof = await env.DB.prepare(`SELECT (${fenceSql("confirmedGuildData", 2, 3, 4,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}) AS ok FROM community_event_deliveries d
     WHERE event_id=?1 AND purpose='publication' AND claim_nonce=?6 AND state='claimed' AND actor=?2 AND ${privacyAccountIncarnationLiteralFenceSql('d.actor_account_incarnation',s.accountIncarnation)} AND session_version=?3 AND session_expires=?4 AND retain_until>${DB_NOW}
-    AND guild_id=?8 AND channel_id=?9 AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND (created_by=?2 OR ${senior.sql}) AND retain_until>${DB_NOW} ${active})`)
+    AND guild_id=?8 AND channel_id=?9 AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND op_id NOT LIKE 'team316:%' AND (created_by=?2 OR ${senior.sql}) AND retain_until>${DB_NOW} ${active})`)
     .bind(e.id, s.discordId, s.sessionVersion, s.expiresAt, e.revision, nonce, senior.flag, d.guild, d.channel, ...senior.values).first<{ ok: number }>();
   return proof?.ok === 1;
 }
@@ -462,7 +462,7 @@ export async function eventDeliveryPublish(request: Request, env: Env, ctx: Comm
     const claimed = await admitted(env, ctx, [env.DB.prepare(`INSERT INTO community_event_deliveries
       (event_id,purpose,event_revision,starts_at,guild_id,channel_id,message_id,frozen_content,payload_hash,op_id,claim_nonce,state,cleanup_requested,actor,actor_account_incarnation,session_version,session_expires,created_at,updated_at,retain_until,result_code)
       SELECT id,'publication',revision,starts_at,?8,?9,?10,?11,?12,?13,?14,'claimed',0,?2,'${s.accountIncarnation}',?3,?4,${DB_NOW},${DB_NOW},retain_until,NULL FROM community_events
-      WHERE id=?1 AND publication_closed=0 AND revision=?5 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S} AND retain_until>${DB_NOW} AND (created_by=?2 OR ${senior.sql})
+      WHERE id=?1 AND op_id NOT LIKE 'team316:%' AND publication_closed=0 AND revision=?5 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S} AND retain_until>${DB_NOW} AND (created_by=?2 OR ${senior.sql})
       AND title=?15 AND starts_at=?16 AND duration_min=?17 AND ${fenceSql("confirmedGuildData", 2, 3, 4,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}
       ON CONFLICT(event_id,purpose) DO UPDATE SET event_revision=excluded.event_revision,starts_at=excluded.starts_at,guild_id=excluded.guild_id,channel_id=excluded.channel_id,
         message_id=excluded.message_id,frozen_content=excluded.frozen_content,payload_hash=excluded.payload_hash,op_id=excluded.op_id,claim_nonce=excluded.claim_nonce,state='claimed',
@@ -559,7 +559,7 @@ export async function eventDeliveryRemove(request: Request, env: Env, ctx: Commu
       nonce, guild: row.guild_id, channel: row.channel_id, pointer: row.message_id, retainUntil: row.retain_until };
     const claim = await admitted(env, ctx, [env.DB.prepare(`UPDATE community_event_deliveries SET state='claimed',cleanup_requested=1,claim_nonce=?5,op_id=?6,actor=?2,actor_account_incarnation='${s.accountIncarnation}',session_version=?3,session_expires=?4,updated_at=${DB_NOW}
       WHERE event_id=?1 AND purpose='publication' AND claim_nonce=?7 AND message_id=?8 AND state IN('posted','refused','unknown') AND retain_until>${DB_NOW}
-      AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND (created_by=?2 OR ${senior.sql}) AND retain_until>${DB_NOW}) AND ${fenceSql("confirmedGuildData", 2, 3, 4,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`)
+      AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND op_id NOT LIKE 'team316:%' AND (created_by=?2 OR ${senior.sql}) AND retain_until>${DB_NOW}) AND ${fenceSql("confirmedGuildData", 2, 3, 4,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`)
       .bind(eventId, s.discordId, s.sessionVersion, s.expiresAt, nonce, op, row.claim_nonce, row.message_id, senior.flag, ...senior.values)]);
     if (claim === FENCE_REFUSED) return answer(request, env, ctx, eventId, { error: "delivery_not_claimed" }, 409);
     if (!(await beforeSend(env, ctx, out.event, nonce, d, true))) {

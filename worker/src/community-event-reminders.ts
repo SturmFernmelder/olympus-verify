@@ -35,8 +35,8 @@ const organizers = (env: Env) => {
 const authority = `EXISTS(SELECT 1 FROM site_users u WHERE u.discord_id=r.actor AND u.session_version=r.consent_version AND r.consent_account_incarnation IS NOT NULL AND typeof(r.consent_account_incarnation)='text' AND length(r.consent_account_incarnation)=32 AND length(CAST(r.consent_account_incarnation AS BLOB))=32 AND instr(r.consent_account_incarnation,char(0))=0 AND r.consent_account_incarnation NOT GLOB '*[^0-9a-f]*' AND u.account_incarnation=r.consent_account_incarnation AND u.denied=0 AND u.in_server=1)
   AND (EXISTS(SELECT 1 FROM characters c WHERE c.discord_id=r.actor AND c.status='member') OR (r.actor='${DISCORD_BOT_OWNER_225}' AND r.actor=json_extract(?2,'$.ownerActor225') AND r.actor=json_extract(?2,'$.roleActor')))
   AND NOT EXISTS(SELECT 1 FROM members m WHERE m.discord_id=r.actor AND m.banned=1)
-  AND (CASE WHEN json_array_length(${organizerMarkersSql219()})>0 THEN COALESCE(r.actor=json_extract(?2,'$.roleActor'),0) ELSE r.actor IN(SELECT value FROM json_each(?2,'$.organizers')) AND EXISTS(SELECT 1 FROM community_events e WHERE e.id=r.event_id AND (e.created_by=r.actor OR r.actor IN(SELECT value FROM json_each(?2,'$.staff')))) END)`;
-const current = `r.cleanup_requested=0 AND r.retain_until>${DB_NOW} AND EXISTS(SELECT 1 FROM community_events e WHERE e.id=r.event_id
+  AND (CASE WHEN json_array_length(${organizerMarkersSql219()})>0 THEN COALESCE(r.actor=json_extract(?2,'$.roleActor'),0) ELSE r.actor IN(SELECT value FROM json_each(?2,'$.organizers')) AND EXISTS(SELECT 1 FROM community_events e WHERE e.op_id NOT LIKE 'team316:%' AND e.id=r.event_id AND (e.created_by=r.actor OR r.actor IN(SELECT value FROM json_each(?2,'$.staff')))) END)`;
+const current = `r.cleanup_requested=0 AND r.retain_until>${DB_NOW} AND EXISTS(SELECT 1 FROM community_events e WHERE e.op_id NOT LIKE 'team316:%' AND e.id=r.event_id
   AND e.reminder_closed=0 AND e.revision=r.event_revision AND e.starts_at=r.starts_at AND e.status='scheduled'
   AND e.starts_at>${DB_NOW} AND e.starts_at<=${DB_NOW}+3600 AND e.starts_at<=e.created_at+366*86400 AND e.retain_until>${DB_NOW})`;
 const description = (e: Event, env: Env) => { const d = destination(env); return d ? `**Raid reminder**\n${contentOf(e, d)}` : null; };
@@ -90,9 +90,9 @@ async function gate(request: Request, env: Env, ctx: CommunityContext, write = f
 async function read(env: Env, ctx: CommunityContext, eventId: string) {
   const s = ctx.subject!;
   const out = await admittedRead(env, ctx, "confirmedGuildData", [
-    env.DB.prepare(`SELECT * FROM community_events WHERE id=?1 AND (created_by=?2 OR ?3=1) AND retain_until>${DB_NOW}`).bind(eventId, s.discordId, isSiteAdmin(env, s.discordId) ? 1 : 0),
+    env.DB.prepare(`SELECT * FROM community_events WHERE id=?1 AND op_id NOT LIKE 'team316:%' AND (created_by=?2 OR ?3=1) AND retain_until>${DB_NOW}`).bind(eventId, s.discordId, isSiteAdmin(env, s.discordId) ? 1 : 0),
     env.DB.prepare(`SELECT *,retain_until<=${DB_NOW} AS expired FROM community_event_reminders WHERE event_id=?1
-      AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND (created_by=?2 OR ?3=1) AND retain_until>${DB_NOW})`).bind(eventId, s.discordId, isSiteAdmin(env, s.discordId) ? 1 : 0),
+      AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND op_id NOT LIKE 'team316:%' AND (created_by=?2 OR ?3=1) AND retain_until>${DB_NOW})`).bind(eventId, s.discordId, isSiteAdmin(env, s.discordId) ? 1 : 0),
   ]);
   if (out === FENCE_REFUSED) return out;
   const event = out[0]!.results[0] as unknown as Event | undefined;
@@ -134,14 +134,14 @@ export async function eventReminderConsent(request: Request, env: Env, ctx: Comm
   if (v.enabled && out.row?.expired === 1) return answer(request, env, ctx, v.eventId, "reminder_expired");
   const s = ctx.subject!, staff = isSiteAdmin(env, s.discordId) ? 1 : 0;
   privacyAccountIncarnation(s.accountIncarnation);
-  const managed = `EXISTS(SELECT 1 FROM community_events e WHERE e.id=?1 AND e.revision=?5 AND (e.created_by=?2 OR ?6=1) AND e.retain_until>${DB_NOW}) AND ${fenceSql("confirmedGuildData", 2, 3, 4,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`;
+  const managed = `EXISTS(SELECT 1 FROM community_events e WHERE e.op_id NOT LIKE 'team316:%' AND e.id=?1 AND e.revision=?5 AND (e.created_by=?2 OR ?6=1) AND e.retain_until>${DB_NOW}) AND ${fenceSql("confirmedGuildData", 2, 3, 4,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`;
   let stmt: D1PreparedStatement;
   if (v.enabled) {
     const d = destination(env), content = description(out.event, env);
     if (!enabled(env) || !d || !content) return apiJson({ error: "feature_disabled" }, 503);
     stmt = env.DB.prepare(`INSERT INTO community_event_reminders(event_id,event_revision,starts_at,actor,consent_version,consent_account_incarnation,guild_id,channel_id,host,op_id,state,frozen_content,created_at,updated_at,last_attempt_at,retain_until)
       SELECT e.id,e.revision,e.starts_at,?2,?3,'${s.accountIncarnation}',?7,?8,?9,?10,'armed',?11,${DB_NOW},${DB_NOW},0,e.retain_until FROM community_events e
-      WHERE e.id=?1 AND e.reminder_closed=0 AND e.status='scheduled' AND e.starts_at>${DB_NOW} AND e.starts_at<=e.created_at+366*86400 AND ${managed}
+      WHERE e.id=?1 AND e.op_id NOT LIKE 'team316:%' AND e.reminder_closed=0 AND e.status='scheduled' AND e.starts_at>${DB_NOW} AND e.starts_at<=e.created_at+366*86400 AND ${managed}
       ON CONFLICT(event_id) DO UPDATE SET event_revision=excluded.event_revision,starts_at=excluded.starts_at,actor=excluded.actor,consent_version=excluded.consent_version,consent_account_incarnation=excluded.consent_account_incarnation,
         guild_id=excluded.guild_id,channel_id=excluded.channel_id,host=excluded.host,op_id=excluded.op_id,state='armed',frozen_content=excluded.frozen_content,claim_nonce=NULL,mention_ids=NULL,
         updated_at=${DB_NOW},last_attempt_at=0,retain_until=MIN(community_event_reminders.retain_until,excluded.retain_until)
@@ -238,7 +238,7 @@ async function settleReminderMessage(env: Env, ctx: CommunityContext, r: Reminde
   const db = privacyProviderCustodyDatabase(env), custody: EventCustodyProof = {
     eventId: r.event_id, revision: r.event_revision, startsAt: r.starts_at, opId: r.op_id, nonce,
     guild: r.guild_id, channel: r.channel_id, pointer: r.message_id, retainUntil: r.retain_until };
-  const stillCurrent = `cleanup_requested=0 AND ${recipientsConsentSql(env, "community_event_reminders.")} AND EXISTS(SELECT 1 FROM community_events e WHERE e.id=?1 AND e.reminder_closed=0
+  const stillCurrent = `cleanup_requested=0 AND ${recipientsConsentSql(env, "community_event_reminders.")} AND EXISTS(SELECT 1 FROM community_events e WHERE e.op_id NOT LIKE 'team316:%' AND e.id=?1 AND e.reminder_closed=0
     AND e.revision=?8 AND e.starts_at=?9 AND e.status='scheduled' AND e.starts_at>${DB_NOW} AND e.retain_until>${DB_NOW}
     AND (e.created_by=?11 OR ?14=1)) AND ${fenceSql("confirmedGuildData", 11, 12, 13,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`;
   await db.batch([
@@ -278,11 +278,11 @@ export async function eventReminderMessage(request: Request, env: Env, ctx: Comm
   }
   const s = ctx.subject!, staff = isSiteAdmin(env, s.discordId) ? 1 : 0, nonce = randomToken();
   const claim = await admitted(env, ctx, [env.DB.prepare(`UPDATE community_event_reminders SET claim_nonce=?5,state='claimed',message_id=COALESCE(message_id,?9),updated_at=${DB_NOW} WHERE event_id=?1 AND claim_nonce=?6 AND op_id=?7 AND state IN('claimed','unknown','posted')
-    AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND (created_by=?2 OR ?8=1) AND retain_until>${DB_NOW}) AND ${fenceSql("confirmedGuildData", 2, 3, 4,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`)
+    AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND op_id NOT LIKE 'team316:%' AND (created_by=?2 OR ?8=1) AND retain_until>${DB_NOW}) AND ${fenceSql("confirmedGuildData", 2, 3, 4,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`)
     .bind(r.event_id, s.discordId, s.sessionVersion, s.expiresAt, nonce, r.claim_nonce, r.op_id, staff, messageId)]);
   if (claim === FENCE_REFUSED) return answer(request, env, ctx, r.event_id, "reminder_not_changed");
   const proof = await admittedRead(env, ctx, "confirmedGuildData", [env.DB.prepare(`SELECT 1 AS ok FROM community_event_reminders WHERE event_id=?1 AND claim_nonce=?2 AND state='claimed' AND retain_until>${DB_NOW}
-    AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND (created_by=?3 OR ?4=1) AND retain_until>${DB_NOW})`).bind(r.event_id, nonce, s.discordId, staff)]);
+    AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND op_id NOT LIKE 'team316:%' AND (created_by=?3 OR ?4=1) AND retain_until>${DB_NOW})`).bind(r.event_id, nonce, s.discordId, staff)]);
   if (proof === FENCE_REFUSED || !proof[0]!.results.length) return answer(request, env, ctx, r.event_id, "reminder_held");
   let state = "posted";
   if (remove) {

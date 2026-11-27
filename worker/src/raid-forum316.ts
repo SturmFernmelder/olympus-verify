@@ -45,6 +45,14 @@ export function recruitmentTags316(ch:Channel) {
 function assertThread(t:Thread,bot:string,title:string) {
   if(!snow(t.id)||t.parent_id!==FORUM||t.owner_id!==bot||t.name!==title)throw Error('The original Olympus template could not be confirmed.');
 }
+function definitelyRefused(error:unknown):boolean {
+  if (!(error instanceof DiscordError)) return false;
+  try {
+    const body=JSON.parse(error.body);
+    if (error.status===429) return typeof body?.retry_after==='number' && body.retry_after>=0 && typeof body.message==='string';
+    return [400,401,403,404].includes(error.status) && Number.isInteger(body?.code) && typeof body.message==='string';
+  } catch { return false; }
+}
 export async function publishRaidForum316(env:Env,guild:string,actor:string):Promise<string> {
   if(guild!==GUILD||env.GUILD_ID!==GUILD||env.INTROS_GUILD_ID!==GUILD||!(env.SITE_ADMINS??'').split(',').map(v=>v.trim()).includes(actor))throw Error('A configured site administrator is required.');
   const bot=env.DISCORD_APP_ID;
@@ -58,7 +66,7 @@ export async function publishRaidForum316(env:Env,guild:string,actor:string):Pro
     await api('PATCH','/channels/'+FORUM,{available_tags:[...before,...missing.map(name=>({name,moderated:false}))]});
   }
   const after=snapshot(await channel());
-  if(before.some(t=>!after.some(v=>JSON.stringify(v)===JSON.stringify(t)))||after.length!==before.length+missing.length)throw Error('Forum tag readback differs. Inspect the forum before retrying.');
+  if(before.some((t,i)=>JSON.stringify(after[i])!==JSON.stringify(t))||after.length!==before.length+missing.length)throw Error('Forum tag readback differs. Inspect the forum before retrying.');
   const links:string[]=[];
   for(const spec of RAID_FORUM_TEMPLATES){
     const tag=after.find(t=>t.name.toLowerCase()===spec.tag.toLowerCase()&&!t.moderated);
@@ -75,7 +83,7 @@ export async function publishRaidForum316(env:Env,guild:string,actor:string):Pro
       try {
         thread=await api<Thread>('POST','/channels/'+FORUM+'/threads',{name:spec.title,applied_tags:[tag.id],message:{content:spec.content,allowed_mentions:{parse:[]}}});
       }catch(e){
-        if(e instanceof DiscordError&&[400,401,403,404,429].includes(e.status))await db.prepare("DELETE FROM intro_posts WHERE guild_id=?1 AND intro_key=?2 AND hash='pending' AND message_id=''").bind(guild,spec.key).run();
+        if(definitelyRefused(e))await db.prepare("DELETE FROM intro_posts WHERE guild_id=?1 AND intro_key=?2 AND hash='pending' AND message_id=''").bind(guild,spec.key).run();
         throw e;
       }
     }else{

@@ -75,7 +75,7 @@ export async function handleRaidComponent(env: Env, i: Interaction): Promise<Res
   if (kind === "remind") {
     // Stage 2: flip the reminder-mention choice of an existing sign-up under the same fence; the event must be open and the button current.
     const flip = env.DB.prepare(`UPDATE community_event_signups SET remind_mention = 1 - remind_mention, revision = revision + 1, updated_at = ?3, write_nonce = ?4
-      WHERE event_id = ?1 AND discord_id = ?2 AND EXISTS (SELECT 1 FROM community_events e WHERE e.id = ?1 AND e.status = 'scheduled' AND e.starts_at > ${DB_NOW} AND e.revision = ?5) AND ${fence(2)} RETURNING remind_mention`).bind(eventId, user.id, t, nonce, revision);
+      WHERE event_id = ?1 AND discord_id = ?2 AND EXISTS (SELECT 1 FROM community_events e WHERE e.id = ?1 AND e.op_id NOT LIKE 'team316:%' AND e.status = 'scheduled' AND e.starts_at > ${DB_NOW} AND e.revision = ?5) AND ${fence(2)} RETURNING remind_mention`).bind(eventId, user.id, t, nonce, revision);
     const note = env.DB.prepare("INSERT INTO audit (ts, actor, action, subject, details) SELECT ?3, ?2, 'community.rsvp', ?1, NULL WHERE EXISTS (SELECT 1 FROM community_event_signups WHERE event_id = ?1 AND discord_id = ?2 AND write_nonce = ?4)").bind(eventId, user.id, t, nonce);
     let flipped: D1Result[];
     try { flipped = (await env.DB.batch([probe, flip, note])).slice(1); } catch { return reply(`Your account could not be confirmed. Open the calendar: ${site}`); }
