@@ -19,6 +19,7 @@ async function browserScenario() {
   let attendanceEnabled=true,refusal=null,refreshes=0,releaseContext,garbleSchedule=true,loseApplication=true;
   let dropDecision=null,missingDecision=false,waitForContext=true;
   let charterRead={},profile=null,profileReply='lost',releaseProfile,offerReply='lost',ownerOnHold=false;
+  let charterAccessFixture;
   const acceptedCharter={name:'Café Raiders',philosophy:'Learning',schedule:'Weeknight raids',timezone:'America/Chicago',
     loot:'Two soft reserves',expectations:'',needs:'',status:'recruiting',capacity:20,roleNeeds:[],
     weeklyWindows:[{day:2,start:'19:00',end:'21:00'},{day:2,start:'22:00',end:'01:00'},{day:5,start:'18:00',end:'20:00'}]};
@@ -101,7 +102,15 @@ async function browserScenario() {
   }
   async function draw(){
     const n=++tepoch,parts=location.hash.replace(base,'').split('/').filter(Boolean);
-    await renderRaidTeams(root,parts,{h,frame,api,owner,live:()=>n===tepoch,explain:e=>e.message,
+    const access=parts[0]==='new' && charterAccessFixture;
+    async function charterApi(method,url,...args) {
+      access.calls.push({method,path:url.split('?')[0]});
+      const outcome=access.outcomes.shift()??200;
+      if(outcome==='unreadable')throw Object.assign(Error('Unreadable response'),{status:200,data:{error:'unreadable_answer'}});
+      if(outcome!==200)throw Object.assign(Error('Charter access check failed'),{status:outcome});
+      return api(method,url,...args);
+    }
+    await renderRaidTeams(root,parts,{h,frame,api:access?charterApi:api,owner,live:()=>n===tepoch,explain:e=>e.message,
       refreshCommunity:async({live})=>{
         refreshes++;
         if(waitForContext)await new Promise(r=>{releaseContext=r;});
@@ -270,24 +279,58 @@ async function browserScenario() {
   const accessRead=draw();await until(()=>refreshes===2 && releaseContext);
   assert('a 503 roster read clears private data and refreshes the community context',!by('button','Save decision') && !root.textContent.includes('Private healer application'));
   releaseContext();await accessRead;
-  waitForContext=false;
-  const detailView=tepoch;
-  location.hash=base+'/new';
-  await until(()=>location.hash.endsWith('/new') && tepoch>detailView && by('button','Check current access'));
-  const charterView=tepoch, beforeRetry=writes.length;
-  const warning='Review guild membership';
+  waitForContext=false;refusal=null;
+  function trackCharter(...outcomes) {
+    charterAccessFixture={outcomes,calls:[]};
+    return charterAccessFixture;
+  }
+  const onlyAccessReads=(fixture,count)=>fixture.calls.length===count &&
+    fixture.calls.every(c=>c.method==='GET' && c.path==='/api/community/raid-teams');
+  const publish=()=>by('button','Publish charter');
+  const retry=()=>by('button','Check current access');
   const charterStatus=()=>root.querySelector('[role="status"]')?.textContent;
-  assert('the refused charter read shows an access warning and hides the form',
-    charterStatus()===warning && !by('button','Publish charter'));
-  const firstRetry=by('button','Check current access');
-  firstRetry.click();
-  await until(()=>!firstRetry.isConnected && by('button','Check current access'));
-  assert('a repeated refusal keeps the warning and retry available',charterStatus()===warning && !by('button','Publish charter'));
-  refusal=null;
-  await click('button','Check current access',()=>by('button','Publish charter'));
-  assert('a successful charter retry clears the warning when the form appears on the same mounted page',
-    tepoch===charterView && !root.textContent.includes(warning) && !by('button','Check current access') &&
-    root.querySelector('form[aria-label="Create a raid team"]').elements.guid.value===character.guid && writes.length===beforeRetry);
+  const loadedCharter=()=>publish() && !retry() && !charterStatus() &&
+    root.querySelector('form[aria-label="Create a raid team"]').elements.guid.value===character.guid;
+  const initial=trackCharter(503,200), beforeRetry=writes.length;
+  location.hash=base+'/new';
+  await until(()=>initial.calls.length===1 && charterStatus());
+  const charterView=tepoch;
+  assert('the first temporary charter refusal gives feedback while the form and manual retry are unavailable',!publish() && !retry());
+  await until(loadedCharter);
+  assert('the charter recovers automatically, clears its warning and keeps the same page',tepoch===charterView && onlyAccessReads(initial,2));
+  for(const fault of [0,524,'unreadable']) {
+    const recovered=trackCharter(fault,200);
+    await draw();await until(loadedCharter);
+    assert('a temporary '+fault+' read also reopens the charter automatically',onlyAccessReads(recovered,2));
+  }
+
+  const persistent=trackCharter(503,503,503,200);
+  await draw();await until(retry);
+  assert('two transient failures leave the manual retry available and the charter closed',
+    onlyAccessReads(persistent,2) && !publish() && !!charterStatus());
+  await click('button','Check current access',()=>retry() && persistent.calls.length>=3);
+  // Leave enough time for another automatic attempt to expose an accidental polling loop.
+  await new Promise(resolve=>setTimeout(resolve,1500));
+  assert('a failed manual access check stays manual',onlyAccessReads(persistent,3) && !!retry() && !publish());
+  const manualView=tepoch;
+  await click('button','Check current access',loadedCharter);
+  assert('successful manual recovery immediately clears the warning on the same mounted page',
+    onlyAccessReads(persistent,4) && manualView===tepoch);
+
+  for(const status of [401,403,429]) {
+    const denied=trackCharter(status);
+    await draw();await until(retry);
+    assert('a '+status+' refusal allows manual recovery without an automatic GET',onlyAccessReads(denied,1) && !publish());
+  }
+  const leaving=trackCharter(503);
+  const staleView=draw();
+  await until(()=>leaving.calls.length===1 && charterStatus() && !retry());
+  await click('a','Find a team',()=>by('a','View charter and roster'));
+  await staleView;
+  await new Promise(resolve=>setTimeout(resolve,1500));
+  assert('leaving before the scheduled retry prevents the old request and preserves the directory',
+    onlyAccessReads(leaving,1) && !!by('a','View charter and roster') && !retry());
+  assert('automatic and manual access recovery sent no writes',writes.length===beforeRetry);
   return {width:innerWidth,checks};
 }
 

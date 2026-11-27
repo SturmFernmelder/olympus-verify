@@ -1,4 +1,5 @@
 const API = "/api/community/raid-teams";
+const CHARTER_RETRY_DELAY_MS = 1000;
 export function postRaidTeam316(api,target,payload,options) {
   return api("POST",API,{...payload,...target},options);
 }
@@ -279,6 +280,25 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
     if (filters.day || filters.from || filters.to) params.set("viewerZone",myZone());
     return API + "?" + params.toString();
   }
+  async function readInitialCharter(path, seq) {
+    try {
+      return await read(path);
+    } catch (error) {
+      const status = error?.status;
+      const unreadable = status >= 200 && status < 300 && error.data?.error === "unreadable_answer";
+      const gatewayUnavailable = status >= 520 && status <= 524;
+      if (!unreadable && !gatewayUnavailable && ![0, 408, 500, 502, 503, 504].includes(status)) throw error;
+      if (!live() || seq !== generation) return;
+      report("Checking charter access again…");
+      await new Promise(resolve => setTimeout(resolve, CHARTER_RETRY_DELAY_MS));
+      if (!live() || seq !== generation) return;
+      try {
+        return await read(path);
+      } finally {
+        if (live() && seq === generation) report("");
+      }
+    }
+  }
   function weeklyEditor(windows) {
     const list=h("div",{class:"stack"}),addButton=button("Add weekly time",()=>add({day:1,start:"",end:""}));
     let sequence=0;
@@ -542,7 +562,9 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
         if(calendar)drawCalendar(detail,eventData);else drawDetail(detail);
         data=calendar?eventData:detail;
       } else {
-        data=await read(directoryPath());
+        const path = directoryPath();
+        data = tab === "new" && seq === 1 && !attempts.has(operationKey)
+          ? await readInitialCharter(path, seq) : await read(path);
         if(!live() || seq!==generation)return;
         if(tab==="new")drawCreate(data);else if(tab==="profile")drawProfile(data);else drawDirectory(data);
       }

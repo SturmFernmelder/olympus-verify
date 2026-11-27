@@ -8993,3 +8993,7 @@ A raider can open **My next raid**, choose their character, copy their schedule 
 ## 27 November 2026 — .317 Raid charter access retry
 
 In a signed-in browser, have the charter directory read return a temporary access refusal for that tab. Restore normal reads and click **Check current access**. Verify that the charter form appears and the earlier warning clears in the same document. A repeated refusal must keep the retry available. Check pending-save recovery separately in the browser fixtures. For rollback, deploy the reviewed .316 commit `2df0ad94` on the existing schema.
+
+## 27 November 2026 — .318 Automatic raid charter access check
+
+In a signed-in test tab, interrupt the initial charter access GET with a temporary 503. Let the next GET reach production and confirm the form opens without a click or page reload. In a second attempt, return 503 twice. Confirm that requests stop, **Check current access** appears and one click loads the form when service resumes. Neither path submits a charter. The unchanged schema also supports the previous .317 release at `adc6b0b9`.
