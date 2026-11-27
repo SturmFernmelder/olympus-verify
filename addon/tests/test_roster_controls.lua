@@ -357,10 +357,10 @@ do
   e.CanGuildRemove=function() return true end
   local opened
   e.ChatFrame_OpenChat=function(text)opened=text end
-  local instruction
-  e.DEFAULT_CHAT_FRAME.AddMessage=function(_,text) instruction=text end
-  check("single eligible current GUID directs the officer to the named native card without opening chat",w.ReviewRemoval()
-    and instruction:find("select NameOnly-Forever,",1,true) and not opened and f.removals==0)
+  local reviewed
+  e.OlympusVerifyInactiveDesk={ReviewOne=function(name,guid) reviewed={name,guid}; return true end}
+  check("single eligible current GUID opens its exact in-addon review without sending",w.ReviewRemoval()
+    and reviewed[1]=="NameOnly-Forever" and reviewed[2]==e.ROSTER[4].guid and not opened and f.removals==0)
   opened=nil
   local officerGuid=e.UnitGUID
   e.UnitGUID=function() return "" end

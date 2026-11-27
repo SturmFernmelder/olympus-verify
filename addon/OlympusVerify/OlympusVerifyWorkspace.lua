@@ -176,6 +176,8 @@ function S.Close()
   if S.active=="roster" then OlympusVerifyRoster.Hide()
   elseif S.active=="operations" then
     if not locked() then OlympusVerifyUI.Hide() end
+  elseif S.active=="inactive" and locked() then
+    if OlympusLaunch229 and OlympusLaunch229.DeferCombatClose then OlympusLaunch229.DeferCombatClose(p) end
   else
     p:Hide()
   end

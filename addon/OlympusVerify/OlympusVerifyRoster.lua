@@ -1294,8 +1294,10 @@ function W.ReviewRemoval()
   end)
   if not read or unchanged~=true then
     Say("The selected native row changed or its offline state is unknown.");return false end
-  Say("Open the guild roster, select "..target.full..", and click Remove on their WoW member card. Review the name on the confirmation.")
-  return true
+  local desk = OlympusVerifyInactiveDesk
+  if desk and desk.ReviewOne and desk.ReviewOne(target.full,target.guid) then return true end
+  Say("Open Inactive to review this character's current removal eligibility.")
+  return false
 end
 function W.ShowActivity()
   W.ShowRoster()

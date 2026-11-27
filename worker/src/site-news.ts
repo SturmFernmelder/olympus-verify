@@ -80,7 +80,7 @@ export interface ReleaseNote {
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
     build: ".311", date: "2026-11-26", lines: [
-      "Open each reviewed character's WoW member card from the Inactive tab. Use Remove and confirm their name. The desk advances when the roster confirms their departure.",
+      "The Inactive tab offers a Remove button for each reviewed character. One officer click requests one removal. The next name appears after the guild roster confirms the departure.",
       "Officers can check a selected Member for a Veteran promotion when WoW leaves the realm blank. Each rank change requires a fresh recommendation and an officer click.",
     ],
   },
