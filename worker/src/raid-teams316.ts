@@ -180,11 +180,34 @@ async function detail(request: Request, env: Env, ctx: CommunityContext, id: str
 
 type SqlValue = string|number|null;
 interface WritePlan { first: D1PreparedStatement; after: D1PreparedStatement[]; id?: string }
+const RECEIPT_ACTION='community.raid_team_decision';
+type DecisionReceipt={operationId:string;kind:string;key:string;proof:string;charterRevision:number|null};
+async function decisionReceipt(ctx:CommunityContext,team:string,op:unknown,kind:unknown,seat:unknown,revision:unknown,charter:unknown):Promise<DecisionReceipt> {
+  if(typeof op!=='string'||!/^[A-Za-z0-9_-]{22}$/.test(op)||typeof seat!=='string'||!/^[A-Za-z0-9_-]{1,64}$/.test(seat))
+    throw new FieldError('Check the original operation and seat references.');
+  const action=choice(kind,['transfer','remove','decline'],'original decision'),rev=integer(revision,1,2147483646,'original revision');
+  const charterRevision=action==='transfer'?integer(charter,1,2147483646,'original charter revision'):null;
+  async function digest(parts:unknown[]) {
+    const bytes=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(parts))));
+    return Array.from(bytes,n=>n.toString(16).padStart(2,'0')).join('');
+  }
+  const s=ctx.subject!,key=await digest(['raid-decision316',s.discordId,s.accountIncarnation,op]);
+  return {operationId:op,kind:action,key,charterRevision,proof:JSON.stringify(await digest([key,team,action,seat,rev,charterRevision]))};
+}
+async function decisionRead(env:Env,ctx:CommunityContext,r:DecisionReceipt) {
+  const out=await admittedRead(env,ctx,'confirmedGuildData',[env.DB.prepare(
+    'SELECT details=?4 AS matched FROM audit WHERE actor=?1 AND action=?2 AND subject=?3 LIMIT 1'
+  ).bind(ctx.subject!.discordId,RECEIPT_ACTION,r.key,r.proof)]);
+  if(out===FENCE_REFUSED)return FENCE_REFUSED;
+  const row=out[0]!.results[0] as {matched:number}|undefined;
+  return row ? (row.matched===1?'applied':'different') : 'unrecorded';
+}
 
-function writePlan(env:Env, ctx:CommunityContext, teamId:string|null, b:Record<string,unknown>,checkedPrimaries?:string):WritePlan {
+function writePlan(env:Env, ctx:CommunityContext, teamId:string|null, b:Record<string,unknown>,checkedPrimaries?:string,receipt?:DecisionReceipt):WritePlan {
   const s=ctx.subject!, args:SqlValue[]=[s.discordId,s.sessionVersion,s.expiresAt];
   const param=(v:SqlValue)=>'?' + args.push(v);
-  const guard=fenceSql('confirmedGuildData',1,2,3,s.privacyGeneration,s.accountIncarnation);
+  const guard=fenceSql('confirmedGuildData',1,2,3,s.privacyGeneration,s.accountIncarnation) +
+    (receipt ? ` AND NOT EXISTS(SELECT 1 FROM audit WHERE actor=?1 AND action='${RECEIPT_ACTION}' AND subject=${param(receipt.key)})` : '');
   const prepare=(sql:string)=>env.DB.prepare(sql).bind(...args);
   const result=(sql:string,after:D1PreparedStatement[]=[],id?:string):WritePlan=>({first:prepare(sql),after,id});
   const unlist=()=>env.DB.prepare(`UPDATE raid_raider_profiles316 SET listed=0,revision=revision+1,updated_at=${DB_NOW}
@@ -320,7 +343,7 @@ function writePlan(env:Env, ctx:CommunityContext, teamId:string|null, b:Record<s
       WHERE ${match} AND s.state IN ${ACTIVE} AND s.discord_id<>?1 AND ${seatCurrent('s')}
       AND (SELECT count(*) FROM raid_teams316 owned WHERE owned.leader_id=s.discord_id)<10`;
     return result(`UPDATE raid_teams316 SET (leader_id,leader_birth,leader_guid)=(${dest}),revision=revision+1,updated_at=${DB_NOW}
-      WHERE id=${team} AND ${guard} AND ${originalActor} AND ${leader} AND EXISTS(${dest})`);
+      WHERE id=${team} ${receipt ? 'AND revision='+param(receipt.charterRevision) : ''} AND ${guard} AND ${originalActor} AND ${leader} AND EXISTS(${dest})`);
   }
   throw new FieldError('Choose a supported raid team action.');
 }
@@ -331,6 +354,14 @@ export async function raidTeams316(request:Request,env:Env,ctx:CommunityContext,
   const id=path===BASE?null:path.startsWith(BASE+'/')?path.slice(BASE.length+1):'';
   if (id!==null && !RAID_TEAM_ID316.test(id)) return apiJson({error:'not_found'},404);
   try {
+    const params=new URL(request.url).searchParams;
+    if(request.method==='GET' && id && params.has('receipt')) {
+      const revision=params.get('revision')??'';
+      if(!/^[1-9]\d{0,9}$/.test(revision))throw new FieldError('Check the original revision.');
+      const r=await decisionReceipt(ctx,id,params.get('receipt'),params.get('decision'),params.get('seat'),Number(revision),Number(params.get('charterRevision')));
+      const state=await decisionRead(env,ctx,r);
+      return state===FENCE_REFUSED?refusal(env,request,'confirmedGuildData'):apiJson({operationId:r.operationId,decision:r.kind,state});
+    }
     if (request.method==='GET') return id ? await detail(request,env,ctx,id) : await listing(request,env,ctx);
     return apiJson({error:'method_not_allowed'},405,{Allow:'GET, POST'});
   } catch (err) {
@@ -341,6 +372,12 @@ export async function raidTeams316(request:Request,env:Env,ctx:CommunityContext,
 
 export async function writeRaidTeam316(request:Request,env:Env,ctx:CommunityContext,id:string|null,b:Record<string,unknown>):Promise<Response> {
   try {
+    let receipt:DecisionReceipt|undefined;
+    if(b.operationId!==undefined) {
+      const kind=b.action==='decide' && b.state==='declined'?'decline':b.action;
+      if(!id || !['remove','transfer','decide'].includes(String(b.action)))throw new FieldError('Choose a supported operation.');
+      receipt=await decisionReceipt(ctx,id,b.operationId,kind,b.seatId,b.revision,b.charterRevision);
+    }
     let checkedPrimaries:string|undefined;
     if(id && b.action==='respond' && b.state==='primary' && b.confirmOverlap!==true) {
       const subject=ctx.subject!,seat=field(b.seatId,'seat reference',64,true),revision=integer(b.revision,1,2147483646,'current revision');
@@ -357,9 +394,17 @@ export async function writeRaidTeam316(request:Request,env:Env,ctx:CommunityCont
         return apiJson({error:'other_primary_commitment',message:'A disclosed weekly raid window overlaps another primary team in the next eight weeks. Confirm if you intend to keep both places.'},409);
       checkedPrimaries=JSON.stringify(others.map(r=>[r.id,r.revision]));
     }
-    const plan=writePlan(env,ctx,id,b,checkedPrimaries);
+    const plan=writePlan(env,ctx,id,b,checkedPrimaries,receipt);
+    if(receipt) {
+      // A successful decision changes one seat/charter, or (for removal) clears exactly one private closing nonce
+      // in the last cleanup statement. In the same database batch a refusal changes zero and creates no receipt.
+      plan.after.push(env.DB.prepare(`INSERT INTO audit(ts,actor,action,subject,details)
+        SELECT ${DB_NOW},?1,?2,?3,?4 WHERE changes()=1`).bind(ctx.subject!.discordId,RECEIPT_ACTION,receipt.key,receipt.proof));
+    }
     const result=await admitted(env,ctx,[plan.first,...plan.after]);
-    if (result!==FENCE_REFUSED) return apiJson({ok:true,...(plan.id?{id:plan.id}:{})});
+    const operation=receipt?{operationId:receipt.operationId,decision:receipt.kind}:{};
+    if (result!==FENCE_REFUSED) return apiJson({ok:true,...operation,...(plan.id?{id:plan.id}:{})});
+    if (receipt && await decisionRead(env,ctx,receipt)==='applied') return apiJson({ok:true,...operation});
     const access=await refusal(env,request,'confirmedGuildData');
     if (access.status!==409) return access;
     return apiJson({error:'conflict',message:'The request could not be applied. Reload the team and check the current offer, charter, permissions and available places.'},409);

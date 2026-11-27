@@ -3,8 +3,14 @@ export function postRaidTeam316(api,target,payload,options) {
   return api("POST",API,{...payload,...target},options);
 }
 const unresolvedByOwner = new WeakMap();
+function decisionKind(b) {
+  if(b.area!=="team")return null;
+  if(b.action==="transfer" || b.action==="remove")return b.action;
+  return b.action==="decide" && b.state==="declined" ? "decline" : null;
+}
 function receiptMatches(body,result) {
   if (!result || typeof result!=="object" || Array.isArray(result)) return false;
+  if(decisionKind(body))return result.ok===true && result.operationId===body.operationId && result.decision===decisionKind(body);
   if (body.area!=="calendar") return result.ok===true && (body.action!=="create" || result.id===body.id);
   if (body.action==="schedule") return Array.isArray(result.eventIds) && result.eventIds.length===body.occurrences &&
     new Set(result.eventIds).size===result.eventIds.length && result.eventIds.every(id=>typeof id==="string" && /^[A-Za-z0-9_-]{22}$/.test(id));
@@ -119,10 +125,20 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
     report(errors(error,"Your current access could not be confirmed."),true);
     await refreshCommunity({live});
   }
-  function controlsFor(attempt,text) {
+  function controlsFor(attempt,text,mayRetire=false) {
     report(text,true);
     notice.append(" ",button("Retry the same request",()=>submit(attempt,true)), " ",
       button("Check the current record",()=>checkOriginal(attempt)));
+    if(mayRetire) notice.append(" ",button("Stop retrying and reload current access",async()=>{
+      if(!live() || busy || attempts.get(operationKey)!==attempt)return;
+      busy=true;
+      attempts.delete(operationKey);
+      main.replaceChildren();
+      try {
+        await refreshCommunity({live});
+        if(live() && await refresh()) report("You stopped retrying. No new decision was sent. Review the current roster before taking another action.");
+      } finally {busy=false;main.inert=false;}
+    }));
   }
   async function checkOriginal(attempt) {
     if (!live() || busy || attempts.get(operationKey)!==attempt) return;
@@ -130,6 +146,23 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
     const b=JSON.parse(attempt.bytes);
     try {
       let d;
+      const kind=decisionKind(b);
+      if (kind) {
+        const query=new URLSearchParams({receipt:b.operationId,decision:kind,seat:b.seatId,revision:String(b.revision)});
+        if(kind==="transfer")query.set("charterRevision",String(b.charterRevision));
+        const receipt=await read(API+"/"+encodeURIComponent(b.teamId)+"?"+query.toString());
+        if(!live() || attempts.get(operationKey)!==attempt)return;
+        if(receipt?.operationId!==b.operationId || receipt.decision!==kind || !["applied","different","unrecorded"].includes(receipt.state))
+          throw new Error("The original receipt could not be read.");
+        if(receipt.state==="applied") {
+          attempts.delete(operationKey);
+          if(await refresh())report("The original decision was recorded.");
+        } else {
+          controlsFor(attempt,receipt.state==="different" ? "This reference belongs to a different decision. This request is unconfirmed." :
+            "There is no receipt for this exact decision at this check. You may retry it or stop without sending another request.",true);
+        }
+        return;
+      }
       if (b.action==="create") d=await read(API+"/"+encodeURIComponent(b.id));
       else if (b.area==="calendar" && b.eventId) d=await read(API+"/"+encodeURIComponent(b.teamId)+"/calendar?eventId="+encodeURIComponent(b.eventId));
       else d=await refresh();
@@ -145,12 +178,14 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
     } catch(e) {
       if(!live())return;
       if(e?.status===403 || e?.status===503) await refreshAccess(e);
-      if(live())controlsFor(attempt,"The check could not confirm the original request.");
+      if(live())controlsFor(attempt,"The check could not confirm the original request.",!!decisionKind(b));
     } finally {busy=false;main.inert=attempts.has(operationKey);}
   }
   function write(target, payload, message, success, conflict) {
     if (busy || !live() || attempts.has(operationKey)) return;
-    return submit({bytes:JSON.stringify({...payload,...target}),message},false,success,conflict);
+    const body={...payload,...target};
+    if(decisionKind(body))body.operationId=requestId();
+    return submit({bytes:JSON.stringify(body),message},false,success,conflict);
   }
   async function submit(attempt,retry,success,conflict) {
     if (busy || !live() || (retry && attempts.get(operationKey)!==attempt)) return;
@@ -347,7 +382,7 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
         ()=>write(target,{action:"officer",seatId:m.id,revision:m.revision,enabled:!m.isOfficer},"Team officer access updated.")) : null;
       const removable=detail.canManage && m.id!==detail.mine?.id && m.character!==team.leader && (!m.isOfficer || detail.isLeader);
       const remove=removable ? details("Remove from team",button("Confirm removal of "+m.character,()=>write(target,{action:"remove",seatId:m.id,revision:m.revision},"Team place removed."))) : null;
-      const transfer=detail.isLeader && m.id!==detail.mine?.id ? details("Transfer team leadership",button("Confirm transfer to "+m.character,()=>write(target,{action:"transfer",seatId:m.id,revision:m.revision},"Team leadership transferred."))) : null;
+      const transfer=detail.isLeader && m.id!==detail.mine?.id ? details("Transfer team leadership",button("Confirm transfer to "+m.character,()=>write(target,{action:"transfer",seatId:m.id,revision:m.revision,charterRevision:team.revision},"Team leadership transferred."))) : null;
       return h("li",null,h("strong",{text:m.character})," · "+(ROLES[m.role] || m.role)+" · "+(SEATS[m.state] || m.state),
         m.groupNumber?" · Group "+m.groupNumber:"",m.isOfficer?" · Team officer":"",
         (assignment||delegate||remove||transfer) && details("Manage "+m.character,h("div",{class:"stack"},assignment,delegate,remove,transfer)));

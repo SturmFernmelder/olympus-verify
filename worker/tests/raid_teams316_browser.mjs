@@ -17,6 +17,8 @@ async function browserScenario() {
   let seat,persona='member',answer=null,offerAccepted=0,tepoch=0,scheduled=false;
   const owner={},writes=[];
   let attendanceEnabled=true,refusal=null,refreshes=0,releaseContext,garbleSchedule=true,loseApplication=true;
+  let dropDecision=null,missingDecision=false,waitForContext=true;
+  const decisionReceipts=new Map();
   const checks=[],assert=(name,v)=>{if(!v)throw Error(name);checks.push(name);},root=document.querySelector('main');
   function h(tag,attrs,...children) {
     const node=document.createElement(tag);
@@ -39,13 +41,26 @@ async function browserScenario() {
     const path=url.split('?')[0],manager=persona==='leader';
     if(refusal?.method===method)throw Object.assign(Error('Review guild membership'),{status:refusal.status,data:{error:'standing_held'}});
     if(method==='GET') {
+      const params=new URL(url,location.href).searchParams;
+      if(params.has('receipt'))return {operationId:params.get('receipt'),decision:params.get('decision'),
+        state:decisionReceipts.has(params.get('receipt'))?'applied':'unrecorded'};
       if(path.endsWith('/my-next-raid')) return {characters:[character],selectedGuid:character.guid,events:scheduled&&seat?.state==='primary'?[mine()]:[],raid:mine(),addonImport:'OLR1|'+character.guid+'|123|1'};
       if(path.endsWith('/calendar'))return {events:scheduled&&seat?.state==='primary'?[mine()]:[],attendanceEnabled,roster:seat?.state==='primary'?[{seatId:seat.id,name:character.name,role:'healer',answer,...(attendanceEnabled?{attendance:null}:{})}]:[]};
       if(path.endsWith(teamId))return {team,characters:[manager?leader:character],members:seat?.state==='primary'?[seat]:[],
-        applications:manager&&seat?.state==='submitted'?[seat]:[],canManage:manager,isLeader:manager,mine:manager?{id:'s1',role:'tank',state:'primary'}:seat};
+        applications:manager&&seat?.state==='submitted'?[seat]:[],canManage:manager,canViewRoster:manager||seat?.state==='primary',isLeader:manager,mine:manager?{id:'s1',role:'tank',state:'primary'}:seat};
       return {teams:[team],players:[],characters:[character],profile:null};
     }
     writes.push(JSON.stringify(body));
+    if(dropDecision && body.operationId) {
+      const kind=body.action==='decide'?'decline':body.action;
+      if(kind!==dropDecision)throw Error('Unexpected destructive fixture request');
+      if(!missingDecision) {
+        decisionReceipts.set(body.operationId,kind);
+        if(kind==='transfer')persona='member';else seat.state=kind==='remove'?'withdrawn':'declined';
+      }
+      dropDecision=null;
+      throw Object.assign(Error('Connection closed after dispatch'),{status:0});
+    }
     switch(body.action) {
       case 'apply':if(manager||body.guid!==character.guid||body.role!=='healer')throw Error('wrong applicant');seat={id:'s2',character:character.name,guid:character.guid,role:body.role,note:body.note,revision:1,state:'submitted'};break;
       case 'decide':if(!manager||body.state!=='offered_primary')throw Error('wrong team office');seat.state=body.state;seat.revision++;break;
@@ -67,7 +82,7 @@ async function browserScenario() {
     await renderRaidTeams(root,parts,{h,frame,api,owner,live:()=>n===tepoch,explain:e=>e.message,
       refreshCommunity:async({live})=>{
         refreshes++;
-        await new Promise(r=>{releaseContext=r;});
+        if(waitForContext)await new Promise(r=>{releaseContext=r;});
         if(live() && refusal?.status===403) {tepoch++;root.replaceChildren(h('p',{text:'Verify your guild character.'}));}
       }});
   }
@@ -139,7 +154,32 @@ async function browserScenario() {
     !!by('h3','Responses') && !by('dt','Attendance') && !by('button','Save attendance') && root.textContent.includes('Running late'));
   attendanceEnabled=true;await draw();
   assert('enabled attendance allows team managers to record participation after the start',!!by('button','Save attendance'));
-  seat.state='submitted';location.hash=base+'/'+teamId;await until(()=>by('button','Save decision'));
+  location.hash=base+'/'+teamId;await until(()=>by('button','Confirm transfer to '+character.name));
+  for(const kind of ['transfer','remove','decline','missing']) {
+    persona='leader';seat.state=kind==='decline'||kind==='missing'?'submitted':'primary';
+    await draw();
+    const before=writes.length;
+    dropDecision=kind==='missing'?'decline':kind;
+    missingDecision=kind==='missing';
+    if(dropDecision==='decline') {
+      const decision=root.querySelector('form[aria-label="Review Fixture Healer"]');
+      decision.elements.state.value='declined';decision.requestSubmit();
+    } else {
+      by('button',kind==='transfer'?'Confirm transfer to '+character.name:'Confirm removal of '+character.name).click();
+    }
+    await until(()=>by('button','Check the current record'));
+    await click('button','Check the current record',()=>kind==='missing'?by('button','Stop retrying and reload current access'):
+      root.textContent.includes('The original decision was recorded.'));
+    if(kind==='missing') {
+      waitForContext=false;
+      await click('button','Stop retrying and reload current access',()=>root.textContent.includes('You stopped retrying.'));
+      waitForContext=true;refreshes=0;
+    }
+    assert('lost '+kind+' is resolved without a second mutation or a stuck form',
+      writes.length===before+1 && !root.querySelector('[inert]') && !by('button','Retry the same request'));
+  }
+  missingDecision=false;
+  seat.state='submitted';await draw();await until(()=>by('button','Save decision'));
   refusal={method:'POST',status:403};
   root.querySelector('form[aria-label="Review Fixture Healer"]').requestSubmit();
   await until(()=>refreshes===1 && releaseContext);

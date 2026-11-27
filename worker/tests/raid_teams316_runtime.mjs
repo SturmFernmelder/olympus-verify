@@ -56,6 +56,9 @@ export async function raidTeamsReadback316(base,rawDB,ctx,check) {
   };
   check('team directory requires authenticated verified guild membership',(await query(null)).status===401&&(await query(guest)).status===403);
   const team=crypto.randomUUID(),other=crypto.randomUUID(),one='/'+team;
+  const readDecision=async(actor,target,body,kind=body.action==='decide'?'decline':body.action)=>
+    ok(actor,target+'?'+new URLSearchParams({receipt:body.operationId,decision:kind,seat:body.seatId,revision:String(body.revision),
+      ...(kind==='transfer'?{charterRevision:String(body.charterRevision)}:{})}));
   const charter={name:'Dawn Patrol',philosophy:'Learning',schedule:'Tuesday 20:00–22:00',timezone:'America/Chicago',loot:'One soft reserve',
     expectations:'Bring consumables',needs:'Healer or mage',status:'recruiting',capacity:2,weeklyWindows:[{day:2,start:'22:00',end:'02:00'}],roleNeeds:['healer']};
   const create={...charter,action:'create',id:team,guid:leader.guid,role:'tank'};
@@ -147,6 +150,19 @@ export async function raidTeamsReadback316(base,rawDB,ctx,check) {
   check('the returning member fits their original place without overbooking the other applicant',
     afterReturn.team.primaryCount===2 && afterReturn.team.primaryOccupied===2 && afterReturn.team.capacity===2 &&
     (await ok(guest,one)).mine.state==='offered_primary');
+  const decline={action:'decide',state:'declined',seatId:finalSeat.id,revision:finalSeat.revision+1,operationId:'D'.repeat(22)};
+  const beforeDecline=await readDecision(leader,one,decline);
+  const declineResult=await ok(leader,one,decline);
+  check('an atomic decline receipt survives disappearance from the open application projection',
+    beforeDecline.state==='unrecorded' && declineResult.operationId===decline.operationId &&
+    !(await ok(leader,one)).applications.some(s=>s.id===finalSeat.id) && (await readDecision(leader,one,decline)).state==='applied');
+  check('receipts reject different actors, teams, decisions, seats and revisions',
+    (await readDecision(winner,one,decline)).state==='unrecorded' && (await readDecision(leader,'/'+other,decline)).state==='different' &&
+    (await readDecision(leader,one,decline,'remove')).state==='different' &&
+    (await readDecision(leader,one,{...decline,seatId:winnerSeat.id})).state==='different' &&
+    (await readDecision(leader,one,{...decline,revision:decline.revision+1})).state==='different');
+  const refused={action:'remove',seatId:winnerSeat.id,revision:999,operationId:'F'.repeat(22)};
+  check('a refused staff decision never emits a receipt',(await query(leader,one,refused)).status===409 && (await readDecision(leader,one,refused)).state==='unrecorded');
   await ok(leader,'',{...create,id:other,name:'Dusk Patrol',capacity:10});
   const otherPage='/'+other;
   check('a delegated officer on one team cannot change a separate charter',
@@ -223,8 +239,12 @@ export async function raidTeamsReadback316(base,rawDB,ctx,check) {
     (await db.prepare('SELECT state FROM community_event_attendance WHERE event_id=?1 AND discord_id=?2').bind(past,winner.id).first()).state==='present');
   const later=await schedule('N');
   await answer(winner,later);
-  await ok(leader,otherPage,{action:'remove',seatId:secondSeat.id,revision:secondSeat.revision});
+  const remove={action:'remove',seatId:secondSeat.id,revision:secondSeat.revision,operationId:'R'.repeat(22)};
+  await ok(leader,otherPage,remove);
   const thirdIncarnation=await rejoin();
+  check('a removed seat incarnation retains its original decision receipt after rejoining',
+    (await readDecision(leader,otherPage,remove)).state==='applied' && (await ok(leader,otherPage,remove)).ok &&
+    (await readDecision(leader,otherPage,{...remove,seatId:thirdIncarnation.id})).state==='different' && (await currentSeat()).state==='primary');
   check('team removal frees the RSVP and reacceptance cannot restore old commitments',thirdIncarnation.id!==secondSeat.id &&
     !await hasSignup(later,winner) && (await query(winner,calendar+'?eventId='+later)).status===404 &&
     (await query(winner,otherPage,{action:'leave',seatId:secondSeat.id,revision:secondSeat.revision})).status===409);
@@ -250,7 +270,15 @@ export async function raidTeamsReadback316(base,rawDB,ctx,check) {
     !(await db.prepare('SELECT 1 FROM raid_team_seats316 WHERE discord_id=?1').bind(runner.id).first()) &&
     (await ok(leader,one)).members.some(m=>m.id===winnerSeat.id));
   const oldLeader=await ok(leader,one),successor=oldLeader.members.find(m=>m.id===winnerSeat.id);
-  await ok(leader,one,{action:'transfer',seatId:successor.id,revision:successor.revision});
+  const transfer={action:'transfer',seatId:successor.id,revision:successor.revision,charterRevision:oldLeader.team.revision,operationId:'T'.repeat(22)};
+  check('the original charter revision is required even if transfer authority later returns',
+    (await query(leader,one,{...transfer,charterRevision:oldLeader.team.revision+1})).status===409 &&
+    (await readDecision(leader,one,transfer)).state==='unrecorded');
+  const both=await Promise.all([query(leader,one,transfer),query(leader,one,transfer)]);
+  check('concurrent exact transfer and retry after losing leadership prove the original action only once',
+    both.every(r=>r.status===200 && r.data.operationId===transfer.operationId) && !((await ok(leader,one)).canManage) &&
+    (await readDecision(leader,one,transfer)).state==='applied' && (await ok(leader,one,transfer)).ok &&
+    (await db.prepare("SELECT count(*) n FROM audit WHERE actor=?1 AND action='community.raid_team_decision'").bind(leader.id).first()).n===3);
   check('leadership can be transferred without a guild rank or automatic membership change',
     (await ok(winner,one)).isLeader && !(await ok(leader,one)).isLeader);
   await db.batch(communityScopedEraseStatements(base,leader.id,['raid_teams']));
