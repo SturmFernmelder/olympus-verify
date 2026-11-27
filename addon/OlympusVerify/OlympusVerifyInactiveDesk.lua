@@ -614,10 +614,11 @@ function D.CandidatesForDesk(mode)
   for _,row in ipairs(listing.data.rows) do
     if deskEligible(row,mode) then found[row.guid]={name=row.name,days=row.days,class=row.class} end
   end
-  return found
+  local checked=listing.owner
+  return found,nil,{guild=checked.guild,realm=checked.realm,actor=checked.actor,rank=checked.rank,observer=checked.observer}
 end
 
-function D.ReviewDeskSelection(targets,mode)
+function D.ReviewDeskSelection(targets,mode,expectedOwner)
   if review or mode~="policy" and mode~="initiate7" or type(targets)~="table" or getmetatable(targets)
     or #targets<1 or #targets>1000 or InCombatLockdown()~=false then return false,"Select a new set of eligible members." end
   local count=0
@@ -628,6 +629,9 @@ function D.ReviewDeskSelection(targets,mode)
   if count~=#targets then return false,"Incomplete removal selection." end
   local data,why=observe()
   if not data then return false,why end
+  if expectedOwner~=nil and (type(expectedOwner)~="table" or getmetatable(expectedOwner) or not sameScope(expectedOwner,data.owner)) then
+    return false,"The officer or native guild changed. Review the current roster again."
+  end
   local frozen,seen={},{}
   for _,picked in ipairs(targets) do
     local row=type(picked)=="table" and getmetatable(picked)==nil and data.eligible[picked.guid]

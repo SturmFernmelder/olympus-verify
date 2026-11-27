@@ -463,8 +463,10 @@ do
   check("sort control indicates reversed direction with plain ASCII",plain(w.filterSummary:GetText()):find("(descending)",1,true))
   w.Show("Alpha")
   s.tabs.promotions:Click()
-  check("Promotions displays verified Initiates without issuing a write or a Sync",
-    s.section=="promotions" and w.view.action==4 and w.view.status==2 and f.attempts==0 and syncs==1)
+  local includesVerified=false
+  for _,m in ipairs(w.Visible()) do if m.name=="Alpha" and m.status=="verified" then includesVerified=true end end
+  check("Promotions displays verified Initiates across the general promotion view without issuing a write or a Sync",
+    s.section=="promotions" and includesVerified and not w.view.initiates and f.attempts==0 and syncs==1)
   s.tabs.roster:Click()
   check("returning to Members restores search and sort",w.view.text=="Alpha" and w.view.sort=="level")
   local alpha=w.rows[1]
@@ -571,6 +573,20 @@ do
   local seen=values(8);choose(seen,"3")
   for _,m in ipairs(w.Visible()) do assert(not m.online and m.days>=1 and m.days<7) end
   check("last-seen filter separates the offline 1-6 day bucket",#w.Visible()>=1)
+  w.onlineInitiatesButton:Click()
+  choose(values(3),"DRUID");choose(values(4),"7")
+  check("Rank Member replaces the Online Initiates rank and retains the online and class filters",
+    #w.Visible()==1 and w.Visible()[1].name=="Member" and w.view.columns.class.DRUID and w.view.presence==2)
+  values(4).clear:Click()
+  check("clearing only Rank keeps online and class and can show native officers too",w.view.rank==0 and not w.view.initiates
+    and w.view.presence==2 and w.view.columns.class.DRUID and #w.Visible()>1)
+  choose(values(8),"3")
+  check("the offline Last seen choice supersedes online-only while keeping another column",
+    #w.Visible()>0 and not w.Visible()[1].online and w.view.columns.class.DRUID and w.view.presence==1)
+  w.clearButton:Click();w.readyButton:GetScript("OnClick")(w.readyButton)
+  choose(values(5),"unverified")
+  check("Verification edits replace the combined verified-Initiate shortcut while preserving native rank",
+    w.view.initiates and w.view.action~=4 and #w.Visible()>0 and w.Visible()[1].status=="unverified")
   w.clearButton:Click();f.selectInitiates();w.Refresh()
   s.viewButton:Click()
   check("preset menu and tool menu are separate from the table",s.navigation:IsShown() and s.tabs.promotions:IsShown() and not s.tabs.operations:IsShown())
@@ -583,30 +599,81 @@ do
   w.selectEligible:Click()
   local options=values(1);choose(options,"Alpha")
   check("filtering discards the old reviewed selection",not w.reviewSelection:IsEnabled() and not next(w.grid.picked))
+  f.publish({specs={{guid=e.ROSTER[8].guid,name="Knight",start=7,final=5}}})
+  w.clearButton:Click()
+  local function veteranReady()
+    for _,row in ipairs(w.rows) do
+      if row.member and row.member.name=="Knight" then return row.pick:IsEnabled() and row.promote:IsShown() end
+    end
+  end
+  check("clearing Promotions includes a signed native Member to Veteran recommendation",veteranReady())
+  w.ShowRoster();w.ShowPromotions()
+  check("the general Promotions view offers the exact Veteran target across ranks",veteranReady())
+  w.ShowReadyInitiates()
+  check("the explicit ready-Initiates shortcut still excludes a signed Member",not veteranReady() and w.view.initiates)
+  w.ShowPromotions()
+  check("opening general Promotions directly after ready-Initiates shows the Veteran candidate again",veteranReady() and not w.view.initiates)
   w.ShowInactive()
   local nativeName=e.GetGuildRosterInfo(2)
   local nativeId=e.ROSTER[2].guid
   local allowed=true
+  local owner={guild="OLYMPUS PRIME",realm="Native Realm",actor=f.actor,rank=1}
   e.OlympusVerifyInactiveDesk.CandidatesForDesk=function(mode)
-    return allowed and {[nativeId]={name=nativeName}} or {}
+    return allowed and {[nativeId]={name=nativeName}} or {},nil,owner
   end
   local removal
-  e.OlympusVerifyInactiveDesk.ReviewDeskSelection=function(picked,mode) removal={picked,mode};return true end
+  e.OlympusVerifyInactiveDesk.ReviewDeskSelection=function(picked,mode,sourceOwner) removal={picked,mode,sourceOwner};return true end
   w.Refresh();w.selectEligible:Click()
   w.reviewSelection:Click()
-  check("removal preset calls only named removal review",removal and removal[2]=="policy" and #removal[1]==1
+  check("removal preset calls only named removal review",removal and removal[2]=="policy" and removal[3]==owner and #removal[1]==1
     and removal[1][1].guid==nativeId and removal[1][1].name==nativeName and f.removals==0)
   removal=nil;allowed=false;w.reviewSelection:Click()
   check("loss of eligibility before review cannot submit older selection",not removal and not next(w.grid.picked))
   allowed=true;w.Refresh();w.selectEligible:Click()
-  local scope=e.OlympusVerifyAPI.Roster.CurrentScope
-  e.OlympusVerifyAPI.Roster.CurrentScope=function() return "Other Guild","Native Realm" end
+  owner.guild="Other Guild"
   w.Refresh()
   check("a confirmed change of guild cancels selection and holds the inactive preset",w.grid.scopeChanged and not next(w.grid.picked)
     and not w.reviewSelection:IsEnabled() and #w.Visible()==0)
-  e.OlympusVerifyAPI.Roster.CurrentScope=scope;w.Refresh();w.ShowInactive()
+  w.Refresh();w.ShowInactive()
   check("explicitly re-opening inactive releases the scope-change hold without reselecting names",not w.grid.scopeChanged and not next(w.grid.picked))
   check("changing presets never dispatches a promotion, kick or reload",f.attempts==0 and f.removals==0 and f.reloads==0)
+end
+do
+  local f=fixture(nil,"Fern Melder");local e=f.e
+  f.w.Hide();e.OlympusVerifyRoster=nil
+  e.GetGuildInfo=function() return "OLYMPUS PRIME","Guild Master",0 end
+  e.GetRealmName=function() return "" end
+  e.ROSTER[1].rankIndex=0;e.ROSTER[4].away=15
+  local hash=e.OlympusHmac.sha256hex
+  e.OlympusHmac.sha256hex=function(value)
+    if value=="prime-guild-master|1|"..f.actor then return "d0988804294170b3414fcaf60ea77658d3b511bbd0c1ccf4286b04e47d935a16" end
+    return hash(value)
+  end
+  local allowed=true
+  e.C_GuildInfo.CanGuildRemove=function() return allowed end
+  e.OlympusVerifyDB.roster=nil
+  for _,module in ipairs({"OlympusVerifyWorkspace","OlympusVerifyUI","OlympusVerifyInactiveDesk","OlympusVerifyRoster"}) do
+    setfenv(assert(loadfile("../OlympusVerify/"..module..".lua")),e)("OlympusVerify")
+  end
+  local w=e.OlympusVerifyRoster
+  w.ShowInactive()
+  local function pick()
+    for _,row in ipairs(w.rows) do if row.member and row.member.guid==e.ROSTER[4].guid then
+      if row.pick:IsEnabled() then row.pick:Click();return w.reviewSelection:IsEnabled() end
+    end end
+  end
+  check("shared Inactive table can pick an eligible native name on blank realm with no export",
+    not select(2,e.OlympusVerifyAPI.Roster.CurrentScope()) and pick())
+  allowed=false;w.reviewSelection:Click()
+  check("permission loss before native review clears the picks",not w.reviewSelection:IsEnabled() and not next(w.grid.picked) and e.OlympusVerifyWorkspace.active=="roster")
+  allowed=true;w.Refresh();assert(pick())
+  local actor=e.UnitGUID
+  e.UnitGUID=function() return "Player-1-0000FFFF" end
+  w.reviewSelection:Click()
+  check("changed officer before review cannot reuse the complete native snapshot",not next(w.grid.picked) and e.OlympusVerifyWorkspace.active=="roster")
+  e.UnitGUID=actor;w.Refresh();assert(pick());w.reviewSelection:Click()
+  check("blank-realm named pick reaches real native removal review without Sync or guild mutation",
+    e.OlympusVerifyWorkspace.active=="inactive" and not e.OlympusVerifyDB.roster and f.removals==0 and f.reloads==0)
 end
 print(string.format("%d passed, %d failed",passed,failed))
 if failed>0 then error("roster controls failed") end

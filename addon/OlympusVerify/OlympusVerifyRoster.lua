@@ -396,11 +396,12 @@ local function Visible(log)
   if OnlineInitiates() and view.columns and view.columns.reminder and not log then log=ReadReminders() end
   if Desk.preset=="inactive" and OlympusVerifyWorkspace then
     local inactive=OlympusVerifyInactiveDesk
+    Desk.inactiveOwner=nil
     if Desk.scopeChanged then
       Desk.inactiveRows,Desk.inactiveReason={},"The guild or officer changed. Choose Inactive again to review the current roster."
     elseif inactive and inactive.CandidatesForDesk then
-      Desk.inactiveRows,Desk.inactiveReason=inactive.CandidatesForDesk(Desk.mode)
-    else Desk.inactiveReason="The native inactivity source is unavailable." end
+      Desk.inactiveRows,Desk.inactiveReason,Desk.inactiveOwner=inactive.CandidatesForDesk(Desk.mode)
+    else Desk.inactiveRows,Desk.inactiveReason=nil,"The native inactivity source is unavailable." end
     Desk.inactiveRows=Desk.inactiveRows or {}
   end
   local list = R.Filter(cache.list, {
@@ -434,7 +435,10 @@ local function Visible(log)
         if (s[3] and m.statusDetail or m.status)==s[1] then matches=true;break end
       end
     end
-    if (not view.initiates or m.rankIndex == 9) and matches
+    local promotionRow=Desk.preset~="promotions" or action.historical or action.state=="ready"
+      or action.state=="check" or action.state=="checking" or action.state=="recheck" or action.state=="pending"
+      or m.rankIndex==9 and m.status=="verified" and not m.historicalLinked
+    if promotionRow and (not view.initiates or m.rankIndex == 9) and matches
       and (not multi.rank or multi.rank[m.rank]) and (not multi.class or multi.class[m.class])
       and (not view.inactiveDays or m.online==false and type(m.days)=="number" and m.days>=view.inactiveDays)
       and (not Desk.inactiveRows or Desk.inactiveRows[m.guid] and Desk.inactiveRows[m.guid].name==m.full)
@@ -497,7 +501,29 @@ end
 function Desk.clearPicked()
   Desk.picked={}
 end
+-- A header replaces the older shortcut predicate for the same dimension.
+-- Verification and native rank both participate in the verified-Initiates shortcut.
+function Desk.editColumn(key)
+  if key=="rank" then view.rank,view.initiates,view.multi.rank=0,false,nil
+  elseif key=="class" then view.class,view.multi.class=0,nil
+  elseif key=="status" then view.status,view.multi.status=1,nil
+  elseif key=="seen" then view.presence,view.online,view.inactiveDays=1,false,nil
+  elseif key=="action" then view.action,view.multi.action=1,nil end
+  if key=="rank" or key=="status" then
+    if view.action==4 then view.action=1 end
+    if view.multi.action then view.multi.action[4]=nil;if not next(view.multi.action) then view.multi.action=nil end end
+  end
+  if not OnlineInitiates() then view.columns.reminder=nil end
+  Desk.clearPicked()
+end
 function Desk.scope()
+  if Desk.preset=="inactive" and OlympusVerifyWorkspace then
+    local owner=Desk.inactiveOwner
+    if owner then
+      return table.concat({owner.guild,owner.realm,owner.actor,tostring(owner.rank),owner.observer or ""},"\031")
+    end
+    return nil
+  end
   if not R.CurrentScope or not UnitGUID then return nil end
   local ok,scope=pcall(function()
     local guild,realm=R.CurrentScope()
@@ -566,7 +592,9 @@ function Desk.review()
   if Desk.preset=="inactive" then fn=OlympusVerifyInactiveDesk and OlympusVerifyInactiveDesk.ReviewDeskSelection
   else fn=OlympusLaunch229 and OlympusLaunch229.ReviewDeskPromotions end
   if type(fn)~="function" then Say("The named action review is unavailable.");return end
-  local ok,why=fn(chosen,Desk.mode)
+  local ok,why
+  if Desk.preset=="inactive" then ok,why=fn(chosen,Desk.mode,Desk.inactiveOwner)
+  else ok,why=fn(chosen) end
   if not ok then Say(why or "The review could not validate the selected members.") end
 end
 
@@ -807,13 +835,14 @@ function W.Refresh(scrolling)
   local chosen={}
   if W.reviewSelection then
     local scope=Desk.scope()
-    if Desk.scopeBaseline and scope and Desk.scopeBaseline~=scope then
+    local baseline=Desk.preset=="inactive" and "inactiveScopeBaseline" or "scopeBaseline"
+    if Desk[baseline] and scope and Desk[baseline]~=scope then
       Desk.mode="policy";Desk.clearPicked();Desk.inactiveRows=nil
       if Desk.preset=="inactive" then
-        Desk.scopeChanged=true;Desk.scopeBaseline=scope;return W.Refresh()
+        Desk.scopeChanged=true;Desk[baseline]=scope;return W.Refresh()
       end
     end
-    if scope then Desk.scopeBaseline=scope end
+    if scope then Desk[baseline]=scope end
     local signature=Desk.filterKey()
     if signature~=Desk.lastFilter then Desk.clearPicked();Desk.lastFilter=signature end
     chosen=Desk.selection(list,candidates)
@@ -1127,7 +1156,7 @@ function Desk.column(owner,col)
       self:ClearFocus()
     end)
     local clear=Button(panel,"All values",84,22,function()
-      view.columns[panel.key]=nil;Desk.clearPicked();Desk.save();offset=0;W.Refresh();panel.paint()
+      Desk.editColumn(panel.key);view.columns[panel.key]=nil;Desk.save();offset=0;W.Refresh();panel.paint()
     end,"Clear this column","Show all values of this column and keep other filters.")
     clear:SetPoint("LEFT",panel.search,"RIGHT",9,0);panel.clear=clear
     panel.items={}
@@ -1138,11 +1167,12 @@ function Desk.column(owner,col)
       label:SetPoint("LEFT",item,"RIGHT",2,0);item.caption=label
       item:SetScript("OnClick",function(self)
         if not self.option or InCombatLockdown()~=false then return end
+        Desk.editColumn(panel.key)
         local choices=view.columns[panel.key] or {}
         local value=self.option.value
         choices[value]=not choices[value] or nil
         view.columns[panel.key]=next(choices) and choices or nil
-        Desk.clearPicked();Desk.save();offset=0;W.Refresh();panel.paint()
+        Desk.save();offset=0;W.Refresh();panel.paint()
       end)
       panel.items[i]=item
     end
@@ -1231,8 +1261,9 @@ function Layout.AddDeskControls(copy)
   W.filterSummary=Label(frame,"GameFontHighlightSmall","",PAD,FILTER_Y-69,INNER)
   local tray=CreateFrame("Frame",nil,frame);tray:SetPoint("TOPLEFT",frame,"TOPLEFT",PAD,FILTER_Y-32);tray:SetSize(INNER,24)
   W.selectEligible=Button(tray,"Select all eligible",134,24,function()
-    if InCombatLockdown()~=false or not Desk.scope() then return end
+    if InCombatLockdown()~=false then return end
     Reload();local current,candidates=Visible();Desk.clearPicked();Desk.selectedScope=Desk.scope()
+    if not Desk.selectedScope then W.Refresh();return end
     for _,m in ipairs(current) do if Desk.target(m,candidates) then Desk.picked[m.guid]={name=m.full,slot=m.rankIndex} end end
     W.Refresh()
   end,"Select eligible filtered members","Select eligible names from all pages of this view. Review the named set before taking any guild action.")
@@ -1369,10 +1400,11 @@ local function Build()
   end,"Presence","Choose all, online only or offline only.")
   onlineBtn:SetPoint("LEFT",classBtn,"RIGHT",6,0)
   W.onlineInitiatesButton=Button(frame,"Online Initiates",122,24,function()
+    if Desk.preset=="promotions" then W.ShowRoster() end
     CloseMenu()
     selected=nil
-    view.multi={};view.inactiveDays=nil
-  view.initiates,view.rank,view.class,view.online,view.presence,view.status,view.action,view.text=true,0,0,false,2,1,1,""
+    view.multi={};view.columns={};view.inactiveDays=nil;Desk.clearPicked()
+    view.initiates,view.rank,view.class,view.online,view.presence,view.status,view.action,view.text=true,0,0,false,2,1,1,""
     search:SetText("")
     offset=0
     Reload()
@@ -1402,7 +1434,7 @@ local function Build()
   local clear = Button(frame, "Clear filters", 108, 24, function()
     Desk.clearPicked();view.columns={}
     if Desk.preset=="promotions" then
-      CloseMenu();view.multi={};view.text="";view.status,view.rank,view.class,view.presence,view.action,view.initiates=2,0,0,1,4,true
+      CloseMenu();view.multi={};view.text="";view.status,view.rank,view.class,view.presence,view.action,view.initiates=1,0,0,1,1,false
       view.online=false;search:SetText("");offset=0;Desk.save();W.Refresh();return
     end
     if Desk.preset=="inactive" and OlympusVerifyWorkspace then
@@ -1763,13 +1795,16 @@ function W.Show(text,inactive,promotions)
         view.presence,view.sort,view.desc=3,"seen",true
         if not OlympusVerifyWorkspace then view.inactiveDays=7 end
       elseif promotions then
-        view.initiates,view.status,view.action,view.sort=true,2,4,"action"
+        view.sort="action"
       end
       Desk.load()
     end
     Desk.initialized=true;search:SetText(view.text or "")
   end
-  if promotions=="ready" then
+  if promotions=="general" and view.readyShortcut then
+    view.readyShortcut=nil;view.initiates,view.action=false,1;Desk.clearPicked()
+  elseif promotions=="ready" then
+    view.readyShortcut=true
     view.text,view.initiates,view.status,view.action,view.rank,view.class,view.presence="",true,1,2,0,0,1
     view.online,view.columns,view.multi=false,{},{};Desk.clearPicked();search:SetText("")
   end
@@ -1788,7 +1823,7 @@ function W.Show(text,inactive,promotions)
 end
 
 function W.ShowPromotions(readyOnly)
-  W.Show(nil,nil,readyOnly and "ready" or true)
+  W.Show(nil,nil,readyOnly and "ready" or "general")
 end
 function W.ReturnToRoster()
   W.Show(nil,Desk.preset=="inactive",Desk.preset=="promotions")

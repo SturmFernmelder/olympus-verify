@@ -9,8 +9,8 @@
   },
   "archive": {
     "path": "/static/olympus-verify/olympus-verify-0.6.56.zip",
-    "bytes": 957561,
-    "sha256": "cc13b621ec10cec81fc4be0c49a985cf77309d95b20a3b762960e5003da28a31"
+    "bytes": 959876,
+    "sha256": "176798c5f63d388eb10022e85ce7bca01fe3044bf4c6914c31eba7aa6824fb9a"
   },
   "files": [
     {
@@ -80,8 +80,8 @@
     },
     {
       "path": "OlympusVerify/OlympusVerifyLaunch229.lua",
-      "bytes": 140768,
-      "sha256": "2527c402b63b4d340f20b8bb201558347c402d2e019d37d785753e919f58b71a"
+      "bytes": 140788,
+      "sha256": "21ae6a10520b38503ca02d3b5185be76bcdb8418c1ab27f9f88b509cbc8f119f"
     },
     {
       "path": "OlympusVerify/OlympusVerifyLive242.lua",
@@ -100,8 +100,8 @@
     },
     {
       "path": "OlympusVerify/OlympusVerifyInactiveDesk.lua",
-      "bytes": 31234,
-      "sha256": "0eccec9e1a5afd796d8e6beef30d365360c7b49546c0f73bc0ae74ed02e0de17"
+      "bytes": 31621,
+      "sha256": "53c5277a9565a7b10e870c98fcb372fed35324a77c30b78be1ec9fc23e20addc"
     },
     {
       "path": "OlympusVerify/OlympusVerifyWorkspace.lua",
@@ -120,8 +120,8 @@
     },
     {
       "path": "OlympusVerify/OlympusVerifyRoster.lua",
-      "bytes": 103455,
-      "sha256": "c86b391f728ab25e83c0781c1d90effa86a066d6e1dfa35c70450c2269df313f"
+      "bytes": 105363,
+      "sha256": "1a34293de89cb75b7d8581f9d0989a42e8ae6484c34c01c67043bd8830100758"
     },
     {
       "path": "OlympusVerify/OlympusVerifyRosterModel.lua",

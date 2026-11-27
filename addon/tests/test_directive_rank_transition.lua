@@ -212,7 +212,7 @@ for _,kind in ipairs({'missing-freshness','missing-page','discovery-only'}) do
   missing.q.Current=function()return current end
   assert(not missing.click() and missing.clicks==0 and missing.direct==0,'a missing selected plan cannot arm hardware: '..kind)
   local printed=table.concat(missing.e.PRINTS,'\n')
-  assert(printed:find('fresh Directive selected plan is required',1,true) and not printed:find('rank table differs',1,true),'a missing selected plan is explained without inventing a native table mismatch: '..kind)
+  assert(printed:find('check eligibility',1,true) and not printed:find('Guild rank names changed',1,true),'a missing selected plan is explained without inventing a native table mismatch: '..kind)
   assert(not next(missing.e.OlympusVerifyDB.launchPromotionAttempts or {}),'missing plan creates no attempt history: '..kind)
 end
 for _,isSteward in ipairs({false,true}) do

@@ -234,7 +234,17 @@ ROSTER={self,alpha,beta,unsafe}
 open(); click("Initiates 7d+")
 local desk=OlympusVerifyInactiveDesk
 local function pick(r) return {guid=r.guid,name=r.name.."-Forever"} end
-local candidates=desk.CandidatesForDesk("initiate7")
+local candidates,why,owner=desk.CandidatesForDesk("initiate7")
+check("full native scope can identify the enrolled GM without a saved blank-realm export",not why and owner and owner.actor==self.guid
+  and owner.observer==self.guid and owner.guild==guild and owner.realm=="CAMWOW US2 Realm 3 PvE" and owner.rank==0)
+owner.guild="changed by caller"
+check("a display consumer cannot change the checked native owner",select(3,desk.CandidatesForDesk("initiate7")).guild==guild)
+check("the backend cannot open a review for a mismatched or malformed owner",not desk.ReviewDeskSelection({pick(alpha)},"initiate7",owner)
+  and not desk.ReviewDeskSelection({pick(alpha)},"initiate7",false))
+permission=false
+local denied,_,deniedOwner=desk.CandidatesForDesk("initiate7")
+check("lost native authority discards the cached owner along with the candidate list",not denied and not deniedOwner)
+permission=true
 check("shared desk returns only qualified named Initiates",candidates and candidates[alpha.guid].name==pick(alpha).name and not candidates[unsafe.guid])
 local rapidA,rapidB=row("Rapid Alpha",200,9,41),row("Rapid Beta",201,9,41)
 local savedRoster=ROSTER
