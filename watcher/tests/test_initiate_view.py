@@ -62,7 +62,11 @@ class InitiateViewTests(unittest.TestCase):
         self.assertNotIn("synthetic-intent", repr(data))
         expired = self.files.get(self.at+500)
         self.assertTrue(all(row.state == view.STALE and not row.target for row in expired.rows))
-        self.assertIn("expired", self.files.get(self.at+599).message)
+        self.assertEqual(expired.rows[0].discord, "@handle_0")
+        gone = self.files.get(self.at+599)
+        self.assertIn("expired", gone.message)
+        self.assertFalse(gone.rows)
+        self.assertFalse(self.files.get(self.at+400).rows)  # Backdating the workstation cannot reopen a handle.
 
     def test_checking_held_then_completed_files_change_with_wow_open(self):
         final = copy.deepcopy(self.records)
@@ -108,8 +112,8 @@ class InitiateViewTests(unittest.TestCase):
         self.assertEqual(len(view.filtered(data.rows, "", view.REVIEW)), 20)
         self.assertEqual(len(view.filtered(data.rows, "", view.HELD)), 1)
         expired = self.files.get(self.at + 601)
-        self.assertEqual({row.name for row in expired.rows}, {row.name for row in data.rows})
-        self.assertTrue(all(row.state == view.STALE for row in expired.rows))
+        self.assertFalse(expired.rows)
+        self.assertFalse(view.filtered(expired.rows, data.rows[0].discord, view.STALE))
 
     def test_explicit_intent_and_actor_required_even_for_a_verified_name(self):
         path = self.directory / (view.CHECKS + ".lua")
@@ -141,7 +145,6 @@ class InitiateViewTests(unittest.TestCase):
         write_receipt()
         self.assertIn("No native Initiates", self.files.get(self.at).message)
         self.assertFalse(self.files.get(self.at).rows)
-        self.assertIn("stale", self.files.get(self.at+600).message)
         receipt["snapshotAt"] -= 1
         write_receipt()
         self.assertIn("stale", self.files.get(self.at).message)
@@ -150,6 +153,76 @@ class InitiateViewTests(unittest.TestCase):
         self.assertIn("stale", self.files.get(self.at).message)
         path.write_text("OlympusInitiateChecks={version=1,records={}}", encoding="utf-8")
         self.assertIn("Waiting", self.files.get(self.at).message)
+        self.assertIn("expired", self.files.get(self.at+600).message)
+
+    def test_all_verified_needs_only_a_fresh_scoped_display_and_reflects_erasure(self):
+        self.display["realm"] = launch.PRIME_REALM_LABEL
+        self.display["verified"][0]["username"] = None
+        self.write()
+        (self.directory / (view.CHECKS + ".lua")).unlink()
+        get = lambda: self.files.get(self.at, verified_members=True)
+        self.assertEqual(len(get().rows), 22)
+        named = view.filtered(get().rows, "@handle_20", "All")
+        self.assertEqual(named, (view.Row("Ñò Life", "@handle_20", "Verified", checked=self.at),))
+        self.assertEqual(get().rows[0].discord, "")
+        self.assertFalse(any(row.target for row in get().rows))
+        erased = self.display["verified"].pop(20)
+        self.display["fetchedAt"] += 1
+        self.at += 1
+        self.display["unknown"].append(dict(name=erased["name"], guid=erased["guid"], reason="link_review"))
+        self.write()
+        self.assertFalse(view.filtered(get().rows, "Ñò", "All"))
+        self.display["realm"] = "Another realm"
+        self.write()
+        self.assertFalse(get().rows)
+        (self.directory / (view.DISPLAY + ".lua")).unlink()
+        self.assertFalse(get().rows)
+
+    def test_observed_erasure_survives_restore_in_all_filters_even_with_missing_checks(self):
+        self.display["realm"] = launch.PRIME_REALM_LABEL
+        char = self.display["verified"][20]
+        self.write()
+        path = self.directory / (view.DISPLAY + ".lua")
+        before = path.read_bytes()
+        self.assertTrue(view.filtered(self.files.get(self.at, verified_members=True).rows, char["username"], "All"))
+        self.display["verified"].remove(char)
+        self.display["fetchedAt"] += 2
+        self.write()
+        removed = path.read_bytes()
+        (self.directory / (view.CHECKS + ".lua")).unlink()
+        now = self.at + 2
+        self.assertFalse(self.files.get(now).rows)  # The newer redaction arrives while checks are unavailable.
+        path.unlink()
+        self.assertFalse(self.files.get(now, verified_members=True).rows)
+        path.write_text("OlympusVerifyLists={", encoding="utf-8")
+        self.assertFalse(self.files.get(now).rows)
+        path.write_bytes(before)
+        for members in (False, True):
+            stale = self.files.get(now, verified_members=members)
+            self.assertIn("older", stale.message)
+            self.assertFalse(stale.rows)
+        self.display["snapshotAt"] -= 1
+        self.display["fetchedAt"] += 1
+        self.write()
+        self.assertFalse(self.files.get(now+1, verified_members=True).rows)
+        self.display["snapshotAt"] += 1
+        self.display["fetchedAt"] -= 1
+        now += 1
+        path.write_bytes(removed)
+        self.assertEqual(len(self.files.get(now, verified_members=True).rows), 21)
+        self.display["verified"].append(char)
+        self.write()  # Conflicting bytes with both identical source timestamps.
+        self.assertFalse(self.files.get(now, verified_members=True).rows)
+        path.write_bytes(removed)
+        self.assertFalse(self.files.get(now, verified_members=True).rows)  # Same-stamp conflict remains held.
+        self.display["verified"].remove(char)
+        self.display["fetchedAt"] += 1
+        self.write()
+        current = self.files.get(now+1, verified_members=True)
+        self.assertEqual(len(current.rows), 21)
+        self.assertFalse(view.filtered(current.rows, char["username"], "All"))
+        self.assertFalse(self.files.get(self.at+599, verified_members=True).rows)
+        self.assertFalse(self.files.get(self.at+500, verified_members=True).rows)
 
     def test_window_search_and_filters(self):
         try:
@@ -169,3 +242,8 @@ class InitiateViewTests(unittest.TestCase):
         self.assertEqual(tree.item(tree.get_children()[0], "values")[:2], ("Ñò Life", "@handle_20"))
         state.set(view.STALE)
         self.assertFalse(tree.get_children())
+        self.display["realm"] = launch.PRIME_REALM_LABEL
+        self.write()
+        (self.directory / (view.CHECKS + ".lua")).unlink()
+        state.set(view.VERIFIED_MEMBERS)
+        self.assertEqual(tree.item(tree.get_children()[0], "values")[:4], ("Ñò Life", "@handle_20", "Verified", "—"))

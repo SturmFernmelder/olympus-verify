@@ -1,16 +1,16 @@
 {
   "schema": "olympus-verify-public-download-v1",
   "addon": "OlympusVerify",
-  "version": "0.6.54",
+  "version": "0.6.55",
   "generator": {
     "path": "scripts/build-verify-addon.cjs",
     "bytes": 5820,
     "sha256": "5a9212ff22309bb10909574cdce490aee4e38cd3fccd0f1d189eb59b9988e153"
   },
   "archive": {
-    "path": "/static/olympus-verify/olympus-verify-0.6.54.zip",
-    "bytes": 921105,
-    "sha256": "a86ed6d54e54e160dc2354e160ef935f47a14325b3431ed305b924aa2c72e31d"
+    "path": "/static/olympus-verify/olympus-verify-0.6.55.zip",
+    "bytes": 922298,
+    "sha256": "bee856911d370678adc68bad0d7f0550e4b98c3912bb0b8a89b97e641ca8423a"
   },
   "files": [
     {
@@ -35,13 +35,13 @@
     },
     {
       "path": "OlympusVerify/OlympusVerify.lua",
-      "bytes": 244340,
-      "sha256": "a12b600702690e837b0845c408b683d351b5d62520ca314512ac6f17c2f4e8a4"
+      "bytes": 245298,
+      "sha256": "fb046bc491c140a5e50bb647666ef494180f4279b7d7d2ad5ba9ac38f86e2f95"
     },
     {
       "path": "OlympusVerify/OlympusVerify.toc",
       "bytes": 1093,
-      "sha256": "f97db335897d5ec2a206888ded241ec20d550d6264b202ff0596dc5278c66304"
+      "sha256": "22ee7ec5d2bb8175404cd5c6cef56bd152fb52a7dd8e23e888e8fbb56bb0b275"
     },
     {
       "path": "OlympusVerify/OlympusVerifyNativeRankConstants.lua",
@@ -60,8 +60,8 @@
     },
     {
       "path": "OlympusVerify/OlympusVerifyAutoSync.lua",
-      "bytes": 20303,
-      "sha256": "efd7a8523c4bb09a69e9fa2b384ec5d9c57698d2300086e2f5489d218e389454"
+      "bytes": 20345,
+      "sha256": "247db3a8a86108b4ffe04ddfec73b9ede132fc7d8a4489857ac858f3d5058431"
     },
     {
       "path": "OlympusVerify/OlympusVerifyBrowser.lua",
@@ -80,8 +80,8 @@
     },
     {
       "path": "OlympusVerify/OlympusVerifyLaunch229.lua",
-      "bytes": 135156,
-      "sha256": "47c98c6dffecdcd044e94ad9a5480206f34b3b00598f181d987608376b486b08"
+      "bytes": 135349,
+      "sha256": "e9e61307169f4c12d55401e7acebcc97b4190e6fbb424e67038f1813eb45391b"
     },
     {
       "path": "OlympusVerify/OlympusVerifyLive242.lua",

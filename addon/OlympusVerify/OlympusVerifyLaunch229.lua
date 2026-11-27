@@ -1665,11 +1665,10 @@ function Q.PrepareInitiateChecks(roster)
       if type(row)=="table" and Text(row.guid,40) then known[row.guid]=true end
     end
   end
-  local first,rest,seen,actor,missing,order={},{},{},nil,0,{}
+  local first,rest,seen,actor,missing={},{},{},nil,0
   for _,row in ipairs(roster.members) do
     if type(row)~="table" or not Number(row.rankIndex,0,9) or row.rank~=ranks.names[row.rankIndex+1] then return end
     local id=Text(row.guid,40) and row.guid:match("^Player%-%d+%-%x+$")
-    order[#order+1]=id or row.full or row.name or ""
     if id then
       if seen[id:lower()] then return end
       seen[id:lower()]=true
@@ -1687,9 +1686,8 @@ function Q.PrepareInitiateChecks(roster)
   if #first+#rest==0 then return end
   table.sort(first);table.sort(rest)
   local knownDigest=H.sha256hex(table.concat(first,","))
-  local facts=OlympusVerifyAPI and OlympusVerifyAPI.AutoSyncFacts and OlympusVerifyAPI.AutoSyncFacts()
-  local nativeDigest=facts and facts.strict and facts.exportedAt==roster.exportedAt and Text(facts.digest,64)
-    and H.sha256hex(table.concat({facts.digest,tostring(roster.online),table.concat(order,"\031")},"|"))
+  local facts=OlympusVerifyAPI and OlympusVerifyAPI.AutoSyncFacts and OlympusVerifyAPI.AutoSyncFacts(true)
+  local nativeDigest=facts and facts.strict and facts.exportedAt==roster.exportedAt and Text(facts.sweepDigest,64)
   for _,id in ipairs(rest) do first[#first+1]=id end
   local controls,macs={},{}
   local reusable=ExactKeys(old,SWEEP_KEYS) and old.version==1 and ArraySize(old.controls,50)==math.ceil(#first/20)
@@ -1709,13 +1707,12 @@ function Q.PrepareInitiateChecks(roster)
     controls[page]=ids
   end
   if reusable and EnvelopeMac(old,macs)==old.mac and type(priorInputs)=="table" and priorInputs.id==old.id
-    and nativeDigest and priorInputs.native and knownDigest==priorInputs.verified then
-    local same=nativeDigest==priorInputs.native
+    and nativeDigest and nativeDigest==priorInputs.native and knownDigest==priorInputs.verified then
     -- A running client can see just the first few pages while the Watcher
     -- finishes the same signed set on disk. Preserve its ID for one reload
-    -- after unrelated roster changes so WoW can load those remaining pages.
+    -- only while the complete native content remains identical.
     local awaiting=priorInputs.awaitingLoad==true and not AllSweepReadsTerminal(old,identity,now)
-    local routine=same and now-old.controls[1].observedAt<=300
+    local routine=now-old.controls[1].observedAt<=300
     if routine or awaiting then
       priorInputs.awaitingLoad=routine and awaiting
       db.primeInitiateChecks,db.primeInitiateInputs=old,priorInputs
@@ -1807,8 +1804,8 @@ function Q.Show()
     for i,spec in ipairs({{"invites","Knight invites"},{"knights","Knights > Veteran"},{"initiates","Verified > Member"},{"buffer","Purge buffer"}}) do
       local key=spec[1];Q.tabButtons[key]=button(spec[2],18+(i-1)*132,-100,125,function() Q.tab=key;Q.listPage=1;Q.Show() end)
     end
-    button("Scan + reload",18,-134,125,function() Q.Control("scan") end)
-    button("Stop + reload",150,-134,125,function() Q.Control("stop") end)
+    button("Scan roster",18,-134,125,function() Q.Control("scan") end)
+    button("Stop scan",150,-134,125,function() Q.Control("stop") end)
     -- Round 5 item 1: in lockdown the Close and X buttons defer to the end of combat instead of calling Hide.
     local function close() if Read(InCombatLockdown)==false then frame:Hide() else Q.DeferCombatClose(frame) end end
     Q.windowClose=button("Close",414,-134,125,close)
@@ -1835,7 +1832,7 @@ function Q.Show()
           Q.Show()
         end
       end)
-      Q.rowRecheckButtons[i]=button("Recheck + reload",426,-171-(i-1)*28,112,function()
+      Q.rowRecheckButtons[i]=button("Check page",426,-171-(i-1)*28,112,function()
         local row=(Q.shownRows or {})[(Q.listPage-1)*8+index];local current,why=Q.Current()
         local source=row and current and current.freshness[row.guid]
         if source and source.kind=="selected" then Q.Select(row.guid)
@@ -1844,7 +1841,7 @@ function Q.Show()
     end
     button("Previous",18,-405,100,function() Q.listPage=math.max(1,Q.listPage-1);Q.Show() end)
     button("Next",125,-405,100,function() Q.listPage=math.min(math.max(1,math.ceil(#(Q.shownRows or {})/8)),Q.listPage+1);Q.Show() end)
-    button("Recheck MOTD + reload",232,-405,195,function() Q.Control("recheck",0) end)
+    Q.motdCheck=button("Check MOTD page",232,-405,195,function() Q.Control("recheck",0) end)
     Q.nextButton=button("Next officer action",18,-442,220,function() Q.NextAction();Q.Show() end)
     button("Native purge review",245,-442,207,function() Q.RiskBuffer() end)
     button("Show MOTD",18,-480,220,function() Q.Motd("show") end)
@@ -1863,13 +1860,16 @@ function Q.Show()
     local status=OlympusOfficerInvites233 and OlympusOfficerInvites233.Status()
     details=(details or "").."\nNext checks the original remote whisperer's explicit WHO guild state. Unknown guild stays held. "..(status and status.reason or "Capability unavailable.")
   elseif Q.tab=="buffer" then details=(details or "").."\nReview only: longest offline, then lowest level. Native guild UI removes; no automatic kick." end
-  details=(details or "").."\nScan + reload exports. Wait for the Watcher, then Sync again to load its dated queue. No timer reload or instant delivery."
+  details=(details or "").."\nScan roster requests discovery. Check page refreshes one discovery page; Check member requests an individual decision. Each request exports via Sync. Windows can show the latest verified handles before WoW reloads."
+  local summary=why or "No supported scan is loaded."
   if current and current.loadedScan then
     local s=current.loadedScan
     details=s.reason.."\nNext step: "..s.nextStep.."\n"..details
-    Q.windowInfo:SetText(s.summary.."\nHover here for the full source reason and next step. Original action guards remain.")
-  else Q.windowInfo:SetText(why or "No supported loaded result. Hover here for details.") end
+    summary=s.summary
+  end
+  Q.windowInfo:SetText(summary.."\nScan, Stop and Check reload WoW once. Hover for details.")
   Q.windowDetails=details
+  local shownOffsets={}
   for i,b in ipairs(Q.rowButtons) do
     local row=Q.shownRows[(Q.listPage-1)*8+i]
     if row then
@@ -1877,9 +1877,17 @@ function Q.Show()
       if Q.tab=="buffer" then b:SetText(row.name.." level "..tostring(row.level or "?")..", offline "..tostring(row.lastOnlineDays or "?").."d"..(dated and " (review only)" or " (STALE/held; recheck)"))
       elseif Q.tab=="invites" then b:SetText(row.name.." > native invite"..(dated and " (click: one request)" or " (STALE/held; recheck)"))
       else b:SetText(row.name.." > "..row.targetName..(dated and " (click: one native request)" or " (STALE/held; recheck)")) end
-      b:Show();Q.rowRecheckButtons[i]:SetText("Recheck p"..fresh.offset);Q.rowRecheckButtons[i]:Show()
+      b:Show()
+      local check=Q.rowRecheckButtons[i]
+      if fresh and fresh.kind=="selected" then
+        check:SetText("Check member"); check:Show()
+      elseif fresh and fresh.offset~=nil and not shownOffsets[fresh.offset] then
+        shownOffsets[fresh.offset]=true
+        check:SetText("Check page "..fresh.offset); check:Show()
+      else check:Hide() end
     else b:Hide();Q.rowRecheckButtons[i]:Hide() end
   end
+  if shownOffsets[0] then Q.motdCheck:Hide() else Q.motdCheck:Show() end
   Q.window:Show()
 end
 local events = CreateFrame("Frame")

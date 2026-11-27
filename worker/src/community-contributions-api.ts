@@ -2,29 +2,21 @@ import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 /**
  * .75 (1 Oct 2026): the HTTP layer of the contribution (tithe) ledger, consolidation batch 5 of Codex's adapter map
  * (the donor's src/contributions/routes.ts, frozen candidate manifest 296db2c8…), on the keeper's door:
- *  - GET /api/community/contributions/me: the member's own ledger (their weeks with paid sums, the stage the pure policy
- *    evaluates and the acknowledgement it calls for; their matched receipts without payer names, source ids or who
- *    recorded them), the policy, and their mail reference with the officer character to mail (a lookup aid for the
- *    officer matching an in-game mail, never payment proof: the officer still records the receipt). applicantWrite: a
- *    signed-in account in good standing; neither roster proof nor a Battle.net link is required to read one's own
- *    records (the keeper's rule, unlike the donor's admission).
- *  - POST /api/community/contributions/acknowledge {obligationId, kind, expectedRevision}: the member's own
- *    acknowledgement of a notice, recorded as a contact fact only when the evaluation calls for it.
- *  - GET/POST /api/admin/community/contributions (SITE_ADMINS, communityStaff through community-routes.ts): one member's
- *    ledger; the staff actions obligation, receipt, allocate, void, reverse, state, contact, evidence, removal, each one
- *    fenced batch in community-contributions.ts, never about the acting admin's own account (own_record), each audited
- *    as community.contribution_<action> with the fixed result only.
+ *  - GET /api/community/contributions/me: the member's voluntary gifts, mail reference and historical ledger.
+ *    Member receipts omit payer names, source IDs and the recording officer.
+ *  - POST /api/community/contributions/acknowledge: retired collection action; returns the current policy.
+ *  - GET/POST /api/admin/community/contributions: staff may review a member's historical entries and correct
+ *    receipts, allocations, record states and evidence under the existing session/revision checks.
  * Every read runs under the acting session's admission (the ledger's readAs); a write's answer carries the ledger as a
  * NEW admitted read after the write, and when the reader lost standing meanwhile the write stands and the answer is a
  * fixed acknowledgment with the ledger withheld (Codex's rule of 1 Oct 03:55 UTC). Writes need the current page
  * (X-Olympus), the flag `contributions`, CONTRIBUTIONS_MODE = "ledger" and a finite retention (503
- * contributions_disabled otherwise). Nothing here notifies anyone, changes a role or opens a restriction case: `removal`
- * records that an officer resolved a week after an in-game removal and may LINK an existing case (community-restrictions.ts).
+ * contributions_disabled otherwise). Assessment, collection contact and removal requests are retired.
  */
 import type { Env } from "./env";
 import { PrivacySiteRequestHeld } from "./privacy-serving-authority";
 import { audit, now } from "./db";
-import { apiJson, PAGE_VERSION, rateLimited, readJson, type SiteUser } from "./site-core";
+import { apiJson, PAGE_VERSION, type SiteUser } from "./site-core";
 import { refusal, type CommunityContext } from "./community-context";
 import { configuredOfficers } from "./relays";
 import { secondsToIso, isoToSeconds } from "./community-time";
@@ -75,6 +67,7 @@ async function answer(e: unknown, request: Request, env: Env): Promise<Response>
   }
 }
 
+const voluntaryOnly = () => apiJson({error:"voluntary_contributions",message:"Guild contributions are voluntary. Collection notices and new assessments are closed."}, 409);
 const policyDto = (p: ContributionPolicy = DEFAULT_CONTRIBUTION_POLICY) => ({ voluntary: true, historicalSchedule: true, version: p.version, amountCopper: p.amountCopper, anchorWeekday: p.anchorWeekday, anchorHourUtc: p.anchorHourUtc, graceHours: p.graceHours, finalNoticeDays: p.finalNoticeDays, reviewDays: p.reviewDays, newMemberExemptDays: p.newMemberExemptDays });
 
 type View = Awaited<ReturnType<typeof L.ledgerView>>;
@@ -164,25 +157,7 @@ export async function contributionsAcknowledge(request: Request, env: Env, ctx: 
   if (!ctx.capabilities.applicantWrite) return refusal(env, request, "applicantWrite");
   const reload = needPage(request);
   if (reload) return reload;
-  const me = ctx.subject!, scope = L.contributionScope(env);
-  const rateLimitAt167280=consumeRateLimit280(`cta:${me.discordId}`,30,60);
-  if (rateLimitAt167280.limited) return apiJson({ error: "slow_down" }, 429,rateLimitHeaders280(rateLimitAt167280));
-  const body = await readJson(request);
-  if (body === null) return apiJson({ error: "bad_request", message: "That request could not be read." }, 400);
-  try {
-    for (const k of Object.keys(body)) if (!["obligationId", "kind", "expectedRevision"].includes(k)) throw new Bad("invalid_request");
-    const { obligationId, kind, expectedRevision } = body;
-    if (!safeInt(obligationId) || obligationId < 1) throw new Bad("invalid_request");
-    if (kind !== "acknowledged" && kind !== "final_acknowledged") throw new Bad("invalid_kind");
-    if (!text(expectedRevision, 80)) throw new Bad("invalid_revision");
-    const at = now();
-    const evidence = await L.obligationEvidence(env, scope, me.discordId, obligationId, me);
-    const result = await L.recordContact(env, { guildScope: scope, discordId: me.discordId, obligationId, kind, evidence, expectedRevision, actor: `member:${me.discordId}`, fence: me }, at);
-    if (result === "recorded") await audit(env, me.discordId, "community.contribution_acknowledged", me.discordId, { kind }).catch(() => {});
-    return withLedger(env, { ok: result === "recorded", result: { status: result } }, scope, me.discordId, me, false, at);
-  } catch (e) {
-    return answer(e, request, env);
-  }
+  return voluntaryOnly();
 }
 
 /** GET /api/admin/community/contributions?discordId= → one member's ledger as staff see it, the policy, their mail reference. */
@@ -235,9 +210,7 @@ export async function adminContributionAction(request: Request, env: Env, ctx: C
     };
     let result: unknown;
     let subject: string | null = null;
-    if (action === "obligation" || action === "contact" || action === "removal") {
-      return apiJson({error:"voluntary_contributions",message:"Guild contributions are voluntary. Collection notices and new assessments are closed."}, 409);
-    }
+    if (action === "obligation" || action === "contact" || action === "removal") return voluntaryOnly();
     if (action === "receipt") {
       keys(["source", "sourceId", "payerName", "amountCopper", "observedAt", "matchedDiscordId", "status"]);
       const matched = (body.matchedDiscordId ?? null) as unknown;

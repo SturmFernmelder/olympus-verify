@@ -2264,9 +2264,9 @@
   // Fixed public assets only: this reader never asks a member/leadership API for identities or permissions.
   const GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";
   const GOVERNANCE_MODEL = "/static/governance/organization.json";
-  // Evergreen 12 Nov 2026: reconciled R7 text (docs/governance-evergreen1112.json via scripts/build-governance-titles.cjs).
-  const GOVERNANCE_SHA256 = "dc11c64f222d8a0c09b7446852d713bf981610e28836a0c7ed7422b0d74c83da";
-  const GOVERNANCE_BYTES = 268133;
+  // The current R7 book, model and reader pins are published together by build-governance-titles.cjs.
+  const GOVERNANCE_SHA256 = "fad73a980a01b6f7e0744511bea97e13760f79283821a640d3b7e236bb0ac13d";
+  const GOVERNANCE_BYTES = 265313;
   let governanceBookPromise = null, governanceModelPromise = null;
   async function publicGovernanceBytes(path, cap) {
     const res = await fetch(path, { credentials: "same-origin", redirect: "error" });
@@ -3059,8 +3059,12 @@
       try {
         const data = await api("GET", "/api/community/guild-rosters?" + params);
         if (current !== sequence || !main.isConnected) return;
-        if (!guild.options.length) {
-          for (const name of data.guilds) guild.appendChild(h("option", { value: name, text: name }));
+        const sources = new Map((data.sources || []).map(source => [source.guild, source.status]));
+        const sourceLabels = { available: "Roster available", "awaiting-roster": "Awaiting roster", "pending-source": "Source pending" };
+        clear(guild);
+        for (const name of data.guilds) {
+          const state = sourceLabels[sources.get(name)];
+          guild.appendChild(h("option", { value: name, text: state ? name + " · " + state : name }));
         }
         guild.value = selected;
         clear(output);
@@ -3070,7 +3074,12 @@
         }
         const roster = data.roster;
         if (!roster) {
-          add(output, h("p", { text: "A trusted roster for this guild is unavailable." }));
+          if (sources.get(selected) === "pending-source") {
+            add(output, h("p", { text: selected + " is waiting for an approved roster source." }));
+            if (data.officer) add(output, h("p", { text: "To publish this roster, the guild owner must confirm its exact in-game guild and realm, approve a signing observer and register their public key. The site then needs support for checking that observer’s signature on a complete roster export." }));
+          } else {
+            add(output, h("p", { text: "A complete, trusted roster for this guild is unavailable." }));
+          }
           return;
         }
         add(output, h("p", { text: roster.realm + " · Roster observed " + fmtShort(roster.asOf) }));
@@ -8056,7 +8065,6 @@
   // with the fresh state the Worker returns; nothing here changes a role, a rank or a membership.
   const RSVP_LABELS = { yes: "Yes", tentative: "Tentative", no: "No" };
   const DECISION_WORDS = { accepted: "accepted", bench: "on the bench", declined: "declined" }; // stage 2 (15 Oct 2026): the organizer's roster decision
-  const STAGE_WORDS = { not_due: "not due yet", due: "due", notice_available: "due; a notice may be given", acknowledged: "acknowledged", final_notice: "final notice", officer_review: "officer review", paid: "paid", exempt: "exempt", resolved: "resolved", needs_review: "needs an officer's review", unknown: "waiting for the officers' attestation" };
   const EVIDENCE_WORDS = { complete: "records complete", partial: "records partial", stale: "records out of date", unavailable: "records not attested" };
   const SOURCE_WORDS = { officer_manual: "entered by an officer", mail: "in-game mail", bank_log: "guild bank log" };
   const ATTENDANCE_WORDS = { present: "present", absent: "absent", excused: "excused", unknown: "unknown" }; // .106: an explicit "unknown" is a record; the blank choice reads "not recorded"
@@ -9131,7 +9139,7 @@
   const LOST_REREAD = "The answer was lost, so the list was re-read to show what was recorded. Check it before acting again: a repeated action with the old revision is refused, never doubled.";
   /** .109 (self-review): the ledger's own lost-answer words: the forms keep what was sent. */
   const LOST_LEDGER = "The answer was lost, so the ledger was re-read. If what you sent is not shown, send it again: the form kept it, a stored payment or week is answered, never doubled, and an action with the old revision is refused.";
-  const CATEGORY_WORDS = { ban: "ban", conduct_removal: "conduct removal", tithe_removal: "dues removal" };
+  const CATEGORY_WORDS = { ban: "ban", conduct_removal: "conduct removal", tithe_removal: "historical contribution case" };
   const CATEGORY_DEFAULT_DAYS = { conduct_removal: { review: 180, expiry: 365 }, tithe_removal: { review: 90, expiry: 180 }, ban: { review: 365, expiry: null } };
   const RENEWAL_WORDS = { ongoing_risk: "ongoing risk", appeal_pending: "appeal pending", repeat_return: "repeat return" };
   const INTAKE_STATUS_WORDS = { received: "received", in_review: "in review", needs_verification: "needs verification", completed: "completed", declined: "declined" };
@@ -9168,7 +9176,7 @@
     await views[sub](area);
   }
   // ---------- the digest and the coverage report ----------
-  const DIGEST_COUNT_WORDS = { invitesWaiting: "invites queued or written", trialsDue: "trial reviews due", departuresOpen: "departure items open", casesReviewDue: "cases due for review", privateRequestsOpen: "private requests open", claimsToReview: "character claims to review", duesPastReview: "dues weeks past their final review" };
+  const DIGEST_COUNT_WORDS = { invitesWaiting: "invites queued or written", trialsDue: "trial reviews due", departuresOpen: "departure items open", casesReviewDue: "cases due for review", privateRequestsOpen: "private requests open", claimsToReview: "character claims to review" };
   async function adminDigest(area) {
     const holder = h("div", { class: "stack" });
     add(area, holder);
@@ -9544,7 +9552,7 @@
         const state = named(selectOf(["open", "exempt", "disputed", "resolved"].map((k) => ({ key: k, label: k })), o.state, { placeholder: null }), "Week state");
         acts.appendChild(state);
         acts.appendChild(h("button", { class: "btn small", type: "button", text: "Set state", onclick: () => action({ action: "state", discordId: sub, obligationId: o.id, state: state.value, expectedRevision: rev }, "State set.") }));
-        weeks.appendChild(h("tr", null, h("td", { text: `${fmtShortUtc(sec(o.periodStart))} (#${o.id})` }), h("td", { class: "num", text: gold(o.amountCopper) }), h("td", { class: "num", text: gold(o.paidCopper) }), h("td", { class: "wrap" }, `${o.state} · ${STAGE_WORDS[o.stage] || o.stage}`, h("span", { class: "muted small", text: ` · ${EVIDENCE_WORDS[o.evidence] || o.evidence}${o.eligible ? "" : " · exempt (new member)"}` })), h("td", { class: "wrap small", text: [o.acknowledgedAt && `ack ${fmtShort(sec(o.acknowledgedAt))}`, o.officerContactAt && `officer ${fmtShort(sec(o.officerContactAt))}`, o.finalNoticeAt && `final ${fmtShort(sec(o.finalNoticeAt))}`, o.finalAcknowledgedAt && `final ack ${fmtShort(sec(o.finalAcknowledgedAt))}`, o.finalOfficerContactAt && `final officer ${fmtShort(sec(o.finalOfficerContactAt))}`].filter(Boolean).join(" · ") || "—" }), h("td", null, acts)));
+        weeks.appendChild(h("tr", null, h("td", { text: `${fmtShortUtc(sec(o.periodStart))} (#${o.id})` }), h("td", { class: "num", text: gold(o.amountCopper) }), h("td", { class: "num", text: gold(o.paidCopper) }), h("td", { class: "wrap" }, o.state, h("span", { class: "muted small", text: ` · ${EVIDENCE_WORDS[o.evidence] || o.evidence}${o.eligible ? "" : " · recorded new-member exemption"}` })), h("td", { class: "wrap small", text: [o.acknowledgedAt && `ack ${fmtShort(sec(o.acknowledgedAt))}`, o.officerContactAt && `officer ${fmtShort(sec(o.officerContactAt))}`, o.finalNoticeAt && `final ${fmtShort(sec(o.finalNoticeAt))}`, o.finalAcknowledgedAt && `final ack ${fmtShort(sec(o.finalAcknowledgedAt))}`, o.finalOfficerContactAt && `final officer ${fmtShort(sec(o.finalOfficerContactAt))}`].filter(Boolean).join(" · ") || "—" }), h("td", null, acts)));
       }
       const receipts = h("tbody");
       for (const r of L.receipts) {
@@ -9574,14 +9582,14 @@
       const snap = (rows) => { for (const [k, el, prop] of rows) drafts[k] = el[prop || "value"]; };
       add(view, [
         h("div", { class: "btn-row" }, ynBadge(current.writable, "ledger open", "read-only"), h("span", { class: "muted small", text: `revision ${rev || "—"} · mail reference ${typeof current.mailReference === "string" ? current.mailReference : (current.mailReference && current.mailReference.reference) || "—"}${L.complete ? "" : " · INCOMPLETE: a record is withheld"}` })),
-        frame("Weeks", h("button", { class: "btn small", type: "button", text: "Allocate credit", onclick: () => action({ action: "allocate", discordId: sub }, "Allocated.") }),
-          L.obligations.length ? h("div", { class: "table-wrap" }, h("table", { class: "data" }, h("thead", null, h("tr", null, h("th", { text: "Week" }), h("th", { class: "num", text: "Asked" }), h("th", { class: "num", text: "Paid" }), h("th", { text: "State · stage" }), h("th", { text: "Contacts" }), h("th", { text: "" }))), weeks)) : h("p", { text: "No week recorded." })),
+        frame("Historical ledger entries", h("button", { class: "btn small", type: "button", text: "Allocate credit", onclick: () => action({ action: "allocate", discordId: sub }, "Allocated.") }),
+          L.obligations.length ? h("div", { class: "table-wrap" }, h("table", { class: "data" }, h("thead", null, h("tr", null, h("th", { text: "Week" }), h("th", { class: "num", text: "Recorded amount" }), h("th", { class: "num", text: "Paid" }), h("th", { text: "Record state" }), h("th", { text: "Contacts" }), h("th", { text: "" }))), weeks)) : h("p", { text: "No historical entries." })),
 
         frame("Payments", L.unallocatedCopper ? h("span", { class: "badge green", text: `credit ${gold(L.unallocatedCopper)}` }) : null,
           L.receipts.length ? h("div", { class: "table-wrap" }, h("table", { class: "data" }, h("thead", null, h("tr", null, h("th", { text: "Seen" }), h("th", { text: "Source" }), h("th", { class: "num", text: "Amount" }), h("th", { class: "num", text: "Applied" }), h("th", { class: "num", text: "Credit" }), h("th", { text: "Status" }), h("th", { text: "" }))), receipts)) : h("p", { text: "No payment recorded." }),
           h("div", { class: "filters" }, fieldBox("lg-src", "Source", src), fieldBox("lg-srcid", "Source id", srcId, { required: true }), fieldBox("lg-payer", "Payer", payer), fieldBox("lg-amount", "Amount (copper)", amount, { required: true }), fieldBox("lg-seen", "Seen", seen), fieldBox("lg-status", "Status", rstatus),
             h("button", { class: "btn small", type: "button", text: "Record the payment", onclick: () => { const t = fromLocalDT(seen.value); if (!srcId.value.trim() || !amount.value || t === null) { toast(ADMIN_COMMUNITY_ERRORS.invalid_receipt, "bad"); return; } snap([["src", src], ["srcId", srcId], ["payer", payer], ["amount", amount], ["seen", seen], ["rstatus", rstatus]]); action({ action: "receipt", source: src.value, sourceId: srcId.value.trim(), payerName: payer.value.trim() || null, amountCopper: Number(amount.value), observedAt: isoOf(t), matchedDiscordId: sub, status: rstatus.value }, "Payment recorded.", ["src", "srcId", "payer", "amount", "seen", "rstatus"]); } }))),
-        frame("Evidence", null, h("p", { class: "muted small", text: "An officer attests the state of a week's payment records for the whole scope; notices depend on it." }),
+        frame("Evidence", null, h("p", { class: "muted small", text: "Record how complete the transfer evidence is for the selected week." }),
           h("div", { class: "filters" }, fieldBox("lg-evweek", "Week (its Monday)", evWeek), fieldBox("lg-evstate", "Records", evState), h("button", { class: "btn small", type: "button", text: "Attest", onclick: () => { if (!evWeek.value) { toast(ADMIN_COMMUNITY_ERRORS.invalid_period, "bad"); return; } snap([["evWeek", evWeek], ["evState", evState]]); action({ action: "evidence", periodStart: dayIso(evWeek.value), state: evState.value }, "Attested.", ["evWeek", "evState"]); } }))),
       ]);
     };
@@ -9589,7 +9597,7 @@
     const open = () => { subject = who.value.trim(); load(); };
     go.addEventListener("click", open);
     who.addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); open(); } });
-    add(holder, [frame("Contribution ledger", h("div", { class: "btn-row" }, who, go), h("p", { class: "muted small", text: "One member's weeks and payments with the private details staff may see. Every action carries the ledger's revision; a stale page is refused and reloaded. Nothing here removes anyone: a removal is recorded, never performed." }), view)]);
+    add(holder, [frame("Contribution ledger", h("div", { class: "btn-row" }, who, go), h("p", { class: "muted small", text: "Review voluntary gifts and historical ledger entries for one member. Membership, promotions and raid places are independent of contributions." }), view)]);
     load();
   }
   // ---------- the private inbox ----------

@@ -45,6 +45,7 @@ jobs:
           npm run check:link-core
           npm run check:vectors
           node ../scripts/build-verify-addon.cjs --check
+          node ../scripts/build-governance-titles.cjs --check
         working-directory: worker
       # CL2-076 (owner ruling of 13 Nov 2026): members keep app.js and app.css of a BUILD in their browser for a year,
       # so a change to either file must ship with a new BUILD. Exit 3 (no base to compare) fails the step too.
@@ -57,10 +58,11 @@ jobs:
       - name: TypeScript, targeted genuine Workerd D1 behavior, D1 statement ceilings and query plans
         run: npm run qualify -- --target lease --target treasury --target reconciliation --target promotions
         working-directory: worker
-      - name: Verify the guild profile registration and raid calendar
+      - name: Verify the guild roster directory, profile registration and raid calendar
         working-directory: worker
         run: |
           node tests/profile_command307_workerd_test.cjs
+          node tests/guild_directory312_frontend_test.cjs
           node tests/raid_calendar307_frontend_test.cjs
       - name: Verify blank-realm PRIME rosters and selected Initiate checks
         working-directory: worker

@@ -11,9 +11,15 @@ const canonicalPresent=new Map([canonicalSubject,liveMember,liveOfficer,liveAlt]
 const canonicalAllowedGrants=new Map([[canonicalSubject,canonicalGM],[liveMember,canonicalMember],[liveOfficer,canonicalOfficer]]);
 const departureMessages=[],departureDeletes=[];
 const directoryViewer='800000000000000781',directoryTarget='800000000000000782',directoryReplay='800000000000000783',directoryOfficer='800000000000000789';
+const raidOrganizer='800000000000000761',raidAttendee='800000000000000762';
+const oauthFixtures=new Map([
+  ['directory-test-only',{id:directoryViewer,token:'directory-profile-test-only',username:'directory_test',roles:[directoryOfficer]}],
+  ['raid-organizer-test-only',{id:raidOrganizer,token:'raid-organizer-token',username:'raid_organizer',roles:[directoryOfficer]}],
+  ['raid-attendee-test-only',{id:raidAttendee,token:'raid-attendee-token',username:'raid_attendee',roles:[]}],
+]);
 let directoryReplays=0;
 let directoryReply=null;
-let ownerReadHeld=false,unknownDepartureSubject=null;
+let ownerReadHeld=false,unknownDepartureSubject=null,loseSharedCompletion=false;
 const bundle=buildSync({entryPoints:[path.join(root,'tests/qualification_runtime_test.mjs')],absWorkingDir:root,bundle:true,write:false,format:'esm',platform:'browser',target:'es2022',external:['node:async_hooks'],tsconfig:path.join(root,'tsconfig.json'),logLevel:'silent'}).outputFiles[0].text;
 let mf,complete=false;
 const observations=[];
@@ -45,19 +51,22 @@ async function run(){
           return new Response(null,{status:204});
         }
         if(request.method==='POST'&&p==='/oauth2/token'){
-          const form=await request.formData();assert.equal(form.get('code'),'directory-test-only');
+          const form=await request.formData(),account=oauthFixtures.get(form.get('code'));
+          assert(account,'unknown local OAuth fixture');
           assert.equal(form.get('client_secret'),'directory-client-test-only');
-          return Response.json({access_token:'directory-profile-test-only'});
+          return Response.json({access_token:account.token});
         }
-        if(request.method==='GET'&&(p==='/users/@me'&&request.headers.get('Authorization')==='Bearer directory-profile-test-only'||p==='/users/@me/guilds/800000000000000001/member')){
-          assert.equal(request.headers.get('Authorization'),'Bearer directory-profile-test-only');
-          return Response.json(p==='/users/@me'?{id:directoryViewer,username:'directory_test',global_name:null,avatar:null}:{pending:false,roles:[directoryOfficer]});
+        if(request.method==='GET'&&(p==='/users/@me'&&request.headers.get('Authorization')?.startsWith('Bearer ')||p==='/users/@me/guilds/800000000000000001/member')){
+          const account=[...oauthFixtures.values()].find(a=>request.headers.get('Authorization')==='Bearer '+a.token);
+          assert(account,'OAuth account must match its original token');
+          return Response.json(p==='/users/@me'?{id:account.id,username:account.username,global_name:null,avatar:null}:{pending:false,roles:account.roles});
         }
         if(u.pathname==='/__fixture/departure'){
           assert.equal(request.method,'POST');const control=await request.json();
           assert.deepEqual(Object.keys(control),['action']);
           if(control.action==='hold-owner')ownerReadHeld=true;
           else if(control.action==='unknown-member-delete')unknownDepartureSubject=liveMember;
+          else if(control.action==='lose-shared-completion')loseSharedCompletion=true;
           else assert.equal(control.action,'observe');
           return Response.json({messages:departureMessages,deletes:departureDeletes,
             memberPresent:canonicalPresent.get(liveMember).has(canonicalMember),officerPresent:canonicalPresent.get(liveOfficer).has(canonicalOfficer)});
@@ -71,6 +80,7 @@ async function run(){
         calls.push({method:request.method,path:p});
         if(request.method==='GET'&&p.startsWith('/guilds/800000000000000001/members/')){
           const id=p.split('/').at(-1);
+          if(id===raidOrganizer||id===raidAttendee)return Response.json({user:{id,bot:false},pending:false,roles:id===raidOrganizer?[directoryOfficer]:[]});
           if([directoryViewer,directoryTarget,directoryReplay,'800000000000000784','800000000000000785','800000000000000787'].includes(id)){
             if(id==='800000000000000787')return new Response(null,{status:503});
             if(id==='800000000000000785')return Response.json({message:'Unknown Member'},{status:404});
@@ -83,8 +93,11 @@ async function run(){
           return Response.json({id:canonicalGuild,owner_id:canonicalSubject});
         }
         if(request.method==='POST'&&/^\/channels\/80000000000000077[78]\/messages$/.test(p)){
-          const body=await request.json();departureMessages.push({channel:p.split('/')[2],content:body.content});
-          return Response.json({id:String(800000000000002000n+BigInt(departureMessages.length))});
+          const body=await request.json();assert.deepEqual(body.allowed_mentions,{parse:[]});
+          const id=String(800000000000002001n+BigInt(departureMessages.length));
+          departureMessages.push({id,channel:p.split('/')[2],content:body.content});
+          if(loseSharedCompletion&&body.content.includes('removal acknowledged and confirmed')){loseSharedCompletion=false;throw Error('Synthetic lost completion POST response');}
+          return Response.json({id});
         }
         if(p==='/users/@me'||p.startsWith('/guilds/'+canonicalGuild+'/'))assert(u.pathname.startsWith('/api/v10/'),'exact canonical Discord API prefix');
         if(request.method==='GET'&&p==='/users/@me')return Response.json({id:canonicalBot,bot:true});
@@ -95,7 +108,7 @@ async function run(){
           const role=canonicalAllowedGrants.get(id);
           if(role&&request.method==='PUT'&&p==='/guilds/'+canonicalGuild+'/members/'+id+'/roles/'+role){roles.add(role);return new Response(null,{status:204});}
           if(role&&request.method==='DELETE'&&p==='/guilds/'+canonicalGuild+'/members/'+id+'/roles/'+role){
-            assert([liveMember,liveOfficer].includes(id),'only actually granted fixture departure roles may be removed');
+            assert([liveMember,liveOfficer,canonicalSubject].includes(id),'only actually granted fixture departure roles may be removed');
             assert(roles.has(role),'a departure may not repeat an already-attempted DELETE');
             departureDeletes.push({subject:id,role});roles.delete(role);
             if(unknownDepartureSubject===id){unknownDepartureSubject=null;throw Error('synthetic response loss after original mock DELETE');}
@@ -138,10 +151,14 @@ async function run(){
       {method:'POST',path:'/channels/800000000000000777/messages'},
       {method:'DELETE',path:'/guilds/'+canonicalGuild+'/members/'+liveOfficer+'/roles/'+canonicalOfficer},
       {method:'POST',path:'/channels/800000000000000777/messages'},
+      {method:'POST',path:'/channels/800000000000000778/messages'},
       {method:'POST',path:'/channels/800000000000000777/messages'},
       {method:'POST',path:'/channels/800000000000000777/messages'},
       {method:'DELETE',path:'/guilds/'+canonicalGuild+'/members/'+liveMember+'/roles/'+canonicalMember},
-    ]:[])],'exact eligible grants, bounded officer/departure notices, and two owned departure DELETE attempts only; unknown/cross-policy/drift must not add effects');
+      {method:'POST',path:'/channels/800000000000000777/messages'},
+      {method:'DELETE',path:'/guilds/'+canonicalGuild+'/members/'+canonicalSubject+'/roles/'+canonicalGM},
+      {method:'POST',path:'/channels/800000000000000777/messages'},
+    ]:[])],'exact eligible grants, bounded officer/departure notices, and the three owned departure DELETE attempts only; unknown/cross-policy/drift must not add effects');
     console.log('PASS exact eligible grants, truthful notices and owned departure attempts; no extra or repeated effect');
     assert.deepEqual(handoffs.map(x=>[x.kind,x.status]),targets.includes('reconciliation')?[['requests',503],['sweep',202]]:[],'failed requests handoff must not suppress or repeat the independent sweep');
     if(targets.includes('reconciliation'))console.log('PASS signed request503 and independent same-generation sweep202 each attempted once in order');

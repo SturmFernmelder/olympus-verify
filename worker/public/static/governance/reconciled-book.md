@@ -1198,7 +1198,7 @@ Module names identify the intended divisions of work in the wider Olympus addon 
 
 (a) A member identifies a main and may link Verified Alt characters through the admitted identity process. A character label or census entry alone is not a verified relationship. Match the actual account, GUID and current guild evidence required by the implemented workflow; ambiguous names remain unresolved. A renaming requirement imposed by Blizzard follows the existing staff-confirmed fresh-application rule rather than an invented blanket punishment for every linked character.
 
-(b) Main and Alt describe character relationships and operational placement, not unequal human worth. The native Alt rank is Rank 9 / zero-based Slot 8; Officer Alt is the distinct current Rank 4 / Slot 3 for an officer's verified alternate. Either placement requires the competent attended Guild Master and its applicable verified owner/main relationship. A second character supplies no second Council vote, duplicate ordinary dues obligation, automatic extra allocation or permission to bypass an account-level safeguard.
+(b) Main and Alt describe character relationships and operational placement, not unequal human worth. The native Alt rank is Rank 9 / zero-based Slot 8; Officer Alt is the distinct current Rank 4 / Slot 3 for an officer's verified alternate. Either placement requires the competent attended Guild Master and its applicable verified owner/main relationship. A second character confers no second Council vote, automatic extra allocation or exemption from account safeguards. Contributions are voluntary regardless of how many characters a member plays.
 
 ### Section IV.3.2 — Home branch, transfers and disputes
 

@@ -18,6 +18,7 @@ from custody_recovery import private_create, regular_identity, reviewed_path
 
 TITLE = "Olympus Verify"
 MESSAGE = "New Initiate recommendations are ready. When safely idle in WoW, use /olv ready sync once to review them."
+VERIFIED_MESSAGE = "A confirmed Discord handle is available. Open the Olympus officer viewer and choose Verified members."
 TEST_MESSAGE = "This is a notification test. No guild data was used. No action is needed."
 OS_ERRORS = (AttributeError, OSError, TypeError, ValueError, ctypes.ArgumentError)
 
@@ -134,7 +135,7 @@ class WindowsNotice:
                         kernel.CloseHandle(handle)
         return False
 
-    def show(self, *, test=False):
+    def show(self, *, test=False, verified=False):
         if os.name != "nt":
             return False
         user, shell = ctypes.windll.user32, ctypes.windll.shell32
@@ -160,7 +161,7 @@ class WindowsNotice:
         icon = self.icon
         icon.uFlags = 0x10 | 0x40  # NIF_INFO | NIF_REALTIME; never queue a stale prompt.
         icon.dwInfoFlags = 1 | 0x10 | 0x80  # NIIF_INFO | NIIF_NOSOUND | NIIF_RESPECT_QUIET_TIME
-        icon.szInfoTitle, icon.szInfo = TITLE, TEST_MESSAGE if test else MESSAGE
+        icon.szInfoTitle, icon.szInfo = TITLE, TEST_MESSAGE if test else VERIFIED_MESSAGE if verified else MESSAGE
         self.remove_at = time.monotonic() + 20
         return bool(shell.Shell_NotifyIconW(1, ctypes.byref(icon)))  # NIM_MODIFY
 

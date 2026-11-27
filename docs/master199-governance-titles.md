@@ -212,13 +212,13 @@ Module names identify the intended divisions of work in the wider Olympus addon 
 
 (b) Report suspected loss to an unconflicted authority with preserved sources, a bounded estimate and the affected period. A discrepancy is not proof of theft. The custodian may take an authorized narrow protective step, but may not seize a member's property or publish accusations as a substitute for Title II. A handover identifies open obligations and original unresolved operations so that a successor does not duplicate an uncertain transfer.
 
-## Article III.2 — Ordinary dues, receipts and hardship
+## Article III.2 — Voluntary contributions and receipts
 
-### Section III.2.1 — One obligation per verified member
+### Section III.2.1 — Recording a contribution
 
-(a) Ordinary dues remain one gold weekly with the fourteen-day new-member exemption. One verified member has one obligation in the designated home guild; linked alts do not multiply it. A receipt records the actual eligible transfer, period and authorized reviewer through the existing manual process. An officer's estimate, player-entered mail reference or a row prepared before transfer is a claim, not proof that gold arrived.
+(a) Each member chooses whether and how much to contribute. A receipt records an observed transfer, its date and the authorized reviewer. The Treasurer verifies in-game receipt before recording a payment.
 
-(b) Hardship and a disputed attribution receive private, respectful review without public balance lists. Record the necessary outcome and applicable period, not an intrusive story about a member's circumstances. Neither a missed entry nor an unpaid ledger automatically removes membership, changes a rank or proves misconduct. A material dispute is reconciled with the member and, where necessary, a second reviewer before any separate conduct process is considered.
+(b) The Treasurer handles disputed attributions privately and asks a second authorized reviewer when needed. A member's decision about donating has no bearing on guild standing.
 
 ### Section III.2.2 — Retention and correction of the ledger
 
@@ -246,7 +246,7 @@ Module names identify the intended divisions of work in the wider Olympus addon 
 
 (a) Seasonal tithe recognition marks additional, voluntary in-game gold within each published ninety-day season. Three tiers are Discord colour roles: **Tithe Payer — 25 gold**, **Patron of the Treasury — 100 gold** and **Benefactor of Olympus — 500 gold**. Two tiers are attended ceremonial titles with no Discord role of their own: **Arch-Financier of Olympus — 1,000 gold** and **Hand of the Imperial Treasury — 2,500 gold**, the capped Patron tier. A member who qualifies for a ceremonial title is shown at most the Benefactor of Olympus colour. At most the highest currently qualified tier is displayed. Contributions are mailed to Fern Melder with a TITHE reference and verified against the actual receipt by the admitted Treasurer or an independently authorized reviewer. The reference alone is not payment proof.
 
-(b) Ordinary weekly dues, a waived obligation and an unclassified historical receipt do not automatically become cosmetic credit. Publish the season's exact start and end before an award; no invented season is inferred from a deployment date. An award expires at that season's end and a new season requires its own eligible receipts. No lifetime donor balance, permanent rank, real-money payment, token purchase, outside-game consideration or automatic debit is part of this schedule.
+(b) Cosmetic credit requires a qualifying, classified receipt. Publish the season's exact start and end before an award; no invented season is inferred from a deployment date. An award expires at that season's end and a new season requires its own eligible receipts. No lifetime donor balance, permanent rank, real-money payment, token purchase, outside-game consideration or automatic debit is part of this schedule.
 
 ### Section III.4.2 — Consent, zero privilege and implementation gates
 
@@ -364,7 +364,7 @@ Module names identify the intended divisions of work in the wider Olympus addon 
 
 (a) A member identifies a main and may link Verified Alt characters through the admitted identity process. A character label or census entry alone is not a verified relationship. Match the actual account, GUID and current guild evidence required by the implemented workflow; ambiguous names remain unresolved. A renaming requirement imposed by Blizzard follows the existing staff-confirmed fresh-application rule rather than an invented blanket punishment for every linked character.
 
-(b) Main and Alt describe character relationships and operational placement, not unequal human worth. The native Alt rank is Rank 9 / zero-based Slot 8; Officer Alt is the distinct current Rank 4 / Slot 3 for an officer's verified alternate. Either placement requires the competent attended Guild Master and its applicable verified owner/main relationship. A second character supplies no second Council vote, duplicate ordinary dues obligation, automatic extra allocation or permission to bypass an account-level safeguard.
+(b) Main and Alt describe character relationships and operational placement, not unequal human worth. The native Alt rank is Rank 9 / zero-based Slot 8; Officer Alt is the distinct current Rank 4 / Slot 3 for an officer's verified alternate. Either placement requires the competent attended Guild Master and its applicable verified owner/main relationship. A second character confers no second Council vote, automatic extra allocation or exemption from account safeguards. Contributions are voluntary regardless of how many characters a member plays.
 
 ### Section IV.3.2 — Home branch, transfers and disputes
 

@@ -17,6 +17,7 @@ import savedvars_source280
 DISPLAY = "OlympusVerifyLists"
 CHECKS = "OlympusInitiateChecks"
 REVIEW, CHECKING, WAITING, HELD, STALE = "Review in WoW", "Checking", "Awaiting eligibility", "Held", "Stale"
+VERIFIED_MEMBERS = "Verified members"
 GUID = re.compile(r"Player-[0-9]{1,6}-[0-9a-fA-F]{4,16}")
 CONTROL = re.compile(r"([0-9]{9,11}):[0-9]{1,10}")
 
@@ -132,9 +133,18 @@ def completed_group(record, targets, guild, realm, snapshot, now):
 def project(display, checks, now):
     """Join by GUID, exact native scope and source clock. Return only display fields."""
     try:
-        guild, realm, scope, snapshot, fetched, verified = read_display(display)
+        return project_checks(read_display(display), checks, now)
+    except (AttributeError, KeyError, IndexError, TypeError, ValueError, OverflowError):
+        return View("The verification list is incomplete. Waiting for an update.")
+
+
+def project_checks(source, checks, now):
+    try:
+        guild, realm, scope, snapshot, fetched, verified = source
         if fetched > now:
             raise ValueError
+        if now >= snapshot + 600:
+            return View("Roster expired. Waiting for a current verification list.", snapshot=snapshot, realm=realm)
         if not checks:
             return View("Waiting for the Watcher’s first Initiate check.", snapshot=snapshot, realm=realm)
         records = items(checks["records"], 50)
@@ -142,8 +152,7 @@ def project(display, checks, now):
             if checks.get("kind") == "no-native-initiates":
                 if (set(checks) != {"version", "kind", "scopeHash", "snapshotId", "snapshotAt", "records"}
                         or type(checks["version"]) is not int or type(checks["snapshotId"]) is not int or checks["snapshotId"] < 1
-                        or timestamp(checks["snapshotAt"]) != snapshot or checks["scopeHash"] != scope
-                        or now >= snapshot + 600):
+                        or timestamp(checks["snapshotAt"]) != snapshot or checks["scopeHash"] != scope):
                     return View("Empty check is stale. Waiting for a matching roster.", snapshot=snapshot, realm=realm)
                 return View("No native Initiates on the latest complete roster.", snapshot=snapshot, realm=realm)
             return View("Waiting for a complete Initiate check.", snapshot=snapshot, realm=realm)
@@ -186,7 +195,7 @@ def project(display, checks, now):
                 state = CHECKING
             elif record["completed"] is not False or record["running"] is not False or not record.get("stoppedReason"):
                 raise ValueError
-            if now >= snapshot + 600 or now >= issued + 600 or source is not None and (source != snapshot or now >= source + 600):
+            if now >= issued + 600 or source is not None and (source != snapshot or now >= source + 600):
                 state = STALE
             for guid in targets:
                 member = verified.get(guid)
@@ -202,10 +211,8 @@ def project(display, checks, now):
                 else:
                     rows.append(Row(name, discord, state, checked=checked))
         rows.sort(key=lambda r: r.name.casefold())
-        message = "Each promotion requires a separate officer click in WoW."
-        if now >= snapshot + 600:
-            message = "Roster expired. Waiting for a fresh Watcher upload."
-        return View(message, tuple(rows), snapshot, len(covered), completed, len(records), realm)
+        return View("Each promotion requires a separate officer click in WoW.",
+                    tuple(rows), snapshot, len(covered), completed, len(records), realm)
     except (AttributeError, KeyError, IndexError, TypeError, ValueError, OverflowError):
         return View("The Watcher files have different scopes or contain incomplete data. Waiting for an update.")
 
@@ -215,17 +222,47 @@ class Files:
         self.directory = Path(directory)
         self.cached = {}
 
-    def get(self, now):
+        self.display_receipts = {}  # Scope digest -> (snapshot, fetched, file digest). No member data.
+        self.last_clock = 0
+
+    def read(self, key):
+        snap = savedvars_source280.read(self.directory / (key + ".lua"), self.cached.get(key))
+        if set(snap.data) != {key}:
+            raise ValueError
+        self.cached[key] = snap
+        return snap
+
+    def get(self, now, *, verified_members=False):
         try:
-            data = {}
-            for key in (DISPLAY, CHECKS):
-                snap = savedvars_source280.read(self.directory / (key + ".lua"), self.cached.get(key))
-                self.cached[key] = snap
-                if set(snap.data) != {key}:
-                    raise ValueError
-                data[key] = snap.data[key]
-            return project(data[DISPLAY], data[CHECKS], now)
-        except (ValueError, OSError):
+            if now < self.last_clock:
+                return View("The local clock moved backward. Waiting for the clock to catch up.")
+            self.last_clock = now
+            display = self.read(DISPLAY)
+            source = read_display(display.data[DISPLAY])
+            guild, realm, scope, snapshot, fetched, members = source
+            if fetched > now:
+                raise ValueError
+            if verified_members and (guild != "OLYMPUS PRIME" or realm != launch.PRIME_REALM_LABEL):
+                return View("Waiting for a current OLYMPUS PRIME verification list.")
+            # Track observed redactions even when the separate promotion file is missing.
+            # Neither a stale restore nor a same-second conflicting file may revive an identity.
+            prior = self.display_receipts.get(scope)
+            if prior and (snapshot < prior[0] or fetched < prior[1]):
+                return View("An older verification list was restored. Waiting for a current Watcher update.")
+            if prior and (snapshot, fetched) == prior[:2] and display.digest != prior[2]:
+                self.display_receipts[scope] = (snapshot, fetched, None)
+                return View("Conflicting verification lists have the same timestamps. Waiting for a newer Watcher update.")
+            self.display_receipts[scope] = (snapshot, fetched, display.digest)
+            if now >= snapshot + 600:
+                return View("Roster expired. Waiting for a current verification list.", snapshot=snapshot, realm=realm)
+            if verified_members:
+                rows = tuple(sorted((Row(name, handle, "Verified", checked=fetched) for name, handle in members.values()),
+                                    key=lambda row: row.name.casefold()))
+                return View("A blank Discord handle is pending. Each promotion has its own eligibility check in WoW.",
+                            rows, snapshot, realm=realm)
+            return project_checks(source, self.read(CHECKS).data[CHECKS], now)
+        except (AttributeError, KeyError, IndexError, OSError, TypeError, ValueError, OverflowError):
+            self.cached.clear()
             return View("Waiting for the Watcher’s roster and Initiate check files.")
 
 
@@ -238,7 +275,7 @@ def filtered(rows, query, state):
 def show(root, directory, clock=time.time):
     from tkinter import StringVar, ttk
 
-    root.title("Olympus Verified Initiates")
+    root.title("Olympus officer roster")
     root.minsize(660, 330)
     root.geometry("840x510")
     body = ttk.Frame(root, padding=12)
@@ -255,7 +292,7 @@ def show(root, directory, clock=time.time):
     ttk.Entry(bar, textvariable=query).grid(row=0, column=1, sticky="ew")
     ttk.Label(bar, text="Show").grid(row=0, column=2, padx=(12, 6))
     ttk.Combobox(bar, state="readonly", width=17, textvariable=state,
-                 values=("All", REVIEW, CHECKING, WAITING, HELD, STALE)).grid(row=0, column=3)
+                 values=("All", REVIEW, CHECKING, WAITING, HELD, STALE, VERIFIED_MEMBERS)).grid(row=0, column=3)
     tree = ttk.Treeview(body, columns=("name", "discord", "state", "target", "checked"), show="headings")
     tree.grid(row=2, column=0, sticky="nsew")
     scroll = ttk.Scrollbar(body, orient="vertical", command=tree.yview)
@@ -270,9 +307,10 @@ def show(root, directory, clock=time.time):
 
     def draw(*_):
         nonlocal shown
-        visible = filtered(current.rows, query.get(), state.get())
+        members = state.get() == VERIFIED_MEMBERS
+        visible = filtered(current.rows, query.get(), "All" if members else state.get())
         if not visible and current.rows:
-            message.set("No verified Initiates match these filters. Change the search or select All.")
+            message.set("No verified members match this search." if members else "No verified Initiates match these filters. Change the search or select All.")
         elif not current.rows and current.groups:
             message.set("Waiting for a verified roster member to match the latest Initiate checks.")
         else:
@@ -285,21 +323,27 @@ def show(root, directory, clock=time.time):
             checked = datetime.fromtimestamp(row.checked).strftime("%H:%M:%S") if row.checked else "—"
             tree.insert("", "end", values=(row.name, row.discord or "—", row.state, row.target or "—", checked))
 
-    def poll():
+    def refresh(*_):
         nonlocal current
         now = int(clock())
-        current = files.get(now)
+        members = state.get() == VERIFIED_MEMBERS
+        current = files.get(now, verified_members=members)
         if current.snapshot:
             age = now - current.snapshot
             prefix = f"OLYMPUS PRIME · {current.realm} · roster {age // 60}m {age % 60}s ago"
-            summary.set(f"{prefix} · {len(current.rows)} verified · {current.completed}/{current.groups} groups checked")
+            count = f"{len(current.rows)} verified members" if members else (
+                f"{len(current.rows)} verified Initiates · {current.completed}/{current.groups} groups checked")
+            summary.set(f"{prefix} · {count}")
         else:
             summary.set("OLYMPUS PRIME")
         draw()
+
+    def poll():
+        refresh()
         root.after(2000, poll)
 
     query.trace_add("write", draw)
-    state.trace_add("write", draw)
+    state.trace_add("write", refresh)
     poll()
     return tree, query, state
 

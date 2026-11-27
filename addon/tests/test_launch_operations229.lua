@@ -112,9 +112,12 @@ do
   end
   f.env.OlympusLaunchQueue.pages, f.env.NOW = pages, start+100
   f.q.Show(); f.q.tab="initiates"; f.q.Show()
-  check("each visible mixed-source recommendation exposes its own recheck button", f.q.rowRecheckButtons and f.q.rowRecheckButtons[8] and f.q.rowRecheckButtons[8]:IsShown())
+  for i,button in ipairs(f.q.rowRecheckButtons) do
+    check("discovery page offers exactly one visible check for row "..i, button:IsShown()==(i%2==1))
+  end
+  check("discovering page zero hides duplicate MOTD page check",not f.q.motdCheck:IsShown())
   if f.q.rowRecheckButtons then
-    f.q.rowRecheckButtons[8]:GetScript("OnClick")()
+    f.q.rowRecheckButtons[7]:GetScript("OnClick")()
     local c, h = f.env.OlympusVerifyDB.launchControl, f.env.OlympusHmac
     check("stale later recommendation rechecks its source offset60 rather than first offset0", c and c.action == "recheck" and c.offset == 60 and f.syncs == 1)
     local message = c and table.concat({"launch-control","1",c.action,c.id,tostring(c.observedAt),c.scopeHash,c.guid,tostring(c.offset)},"|")

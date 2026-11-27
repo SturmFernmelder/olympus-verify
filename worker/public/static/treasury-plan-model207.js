@@ -17,7 +17,7 @@ export const TREASURY_DEFAULTS207 = Object.freeze({
 export const TREASURY_FIELDS207 = Object.freeze([
   { key: "openingGold", label: "Scenario opening gold", unit: "g", max: 1000000000, help: "An editable starting assumption, separate from the owner's dated 0g report." },
   { key: "activePlayers", label: "Weekly active unique players", unit: "players", max: 100000, integer: true, help: "Assumed people, not roster characters, alts or Discord membership." },
-  { key: "donorPercent", label: "Voluntary donor participation", unit: "%", max: 100, help: "An assumption, never a member quota or compulsory tithe." },
+  { key: "donorPercent", label: "Voluntary donor participation", unit: "%", max: 100, help: "Estimated share of members who choose to contribute." },
   { key: "weeklyGift", label: "Average gift per donor per mature week", unit: "g", max: 1000000000, help: "Voluntary gifts; declining never affects membership, justice or access." },
   { key: "goodsSales", label: "Goods sales per mature week", unit: "g", max: 1000000000, help: "Sales receipts before the net margin below, not Treasury profit." },
   { key: "goodsMarginPercent", label: "Goods net contribution margin", unit: "%", max: 100, help: "After materials, fulfilment, commissions, fees and refunds; before other costs below." },

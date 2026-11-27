@@ -209,7 +209,7 @@ end
 do
   local f=fixture();f.a.Request("whisper");f.a.OfferInitiateImport()
   check("local pending notice asks the officer to export before Windows can confirm readiness",f.a.button:GetText():match("^Sync\nInitiate verification waiting")
-    and f.a.button:GetText():find("Click once when safely idle",1,true) and table.concat(f.a.Description()," "):find("/olv ready sync",1,true)
+    and f.a.button:GetText():find("Click once when safely idle",1,true) and table.concat(f.a.Description()," "):find("Verified members",1,true)
     and not f.a.readyButton and f.reloads==0)
   f.e.UnitChannelInfo=function() return "Fishing" end
   f.a.button:GetScript("OnClick")(f.a.button,"LeftButton",false)

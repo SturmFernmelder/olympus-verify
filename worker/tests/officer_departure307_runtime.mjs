@@ -1,6 +1,7 @@
 // Genuine D1, original Native grants/claims and receipt observer. Only Discord HTTP is synthetic.
 import {demote, reportRankMismatches} from '../src/roster.ts';
 import {runNativeSubject232} from '../src/full-release-pass.ts';
+import {countStatements} from '../src/roster-effects.ts';
 import {callBudget} from '../src/roles.ts';
 import {readPrivacySubject} from '../src/privacy-serving-authority.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
@@ -31,7 +32,7 @@ export async function officerDeparture307(env,writer,check,publish,members,rawDb
  const report=await writer.prepare("SELECT details FROM audit WHERE action='rank.mismatch_reported' ORDER BY id DESC LIMIT 1").first();
  check('aggregate warning audit stores counts rather than unreferenced account IDs',report&&!Object.hasOwn(JSON.parse(report.details),'who'));
 
- const logged={...env,CHANNEL_SERVER_LOG:LOG};
+ const logged={...env,CHANNEL_SERVER_LOG:LOG,CHANNEL_MOD_ALERTS:'',CHANNEL_RECRUITMENT_REVIEW:STAFF};
  await demote(logged,OFFICER,'live officer','Live Officer','fixture confirmed native departure');
  observed=await control('observe');
  check('confirmed departure queues canonical reconciliation without claiming legacy removal',observed.officerPresent
@@ -49,17 +50,27 @@ export async function officerDeparture307(env,writer,check,publish,members,rawDb
    &&observed.deletes.length===0&&!observed.messages.some(row=>row.content.includes('removal acknowledged and confirmed')));
  await writer.prepare('UPDATE roster_snapshots SET complete=1 WHERE id=?1').bind(snapshot.id).run();
  members.splice(members.findIndex(row=>row.name==='Live Officer'),1);await publish();
- const removed=await runNativeSubject232(logged,OFFICER,callBudget(logged),2);
+ const count={used:0},counted=countStatements(logged,count);
+ const removed=await runNativeSubject232(counted,OFFICER,callBudget(counted),2);
+ check('complete owned departure with two private destinations fits the existing 200-statement admission allowance',count.used>0&&count.used<=200,{physicalStatementCharge:count.used});
  observed=await control('observe');
  const receipt=await writer.prepare("SELECT id,reason,attempts,state FROM role_settlements WHERE subject=?1 AND role_id=?2 AND desired=0 ORDER BY created_at DESC,id DESC LIMIT 1").bind(OFFICER,OFFICER_ROLE).first();
  check('owned canonical departure has original DELETE ACK, current absence and durable settled receipt',removed.rank?.outcomes.some(row=>row.state==='settled'&&row.reason==='canonical233_delete_acknowledged_and_confirmed')
    &&receipt?.state==='settled'&&receipt.attempts===1&&receipt.reason==='canonical233_delete_acknowledged_and_confirmed'&&!observed.officerPresent);
- check('normal final notice names only the exact confirmed role and original receipt',observed.messages.filter(row=>row.channel===LOG
-   &&row.content.includes(OFFICER)&&row.content.includes('removal acknowledged and confirmed')&&row.content.includes(OFFICER_ROLE)&&row.content.includes(receipt?.id)).length===1);
+ const completions=(channel,subject)=>observed.messages.filter(row=>row.channel===channel&&row.content.includes(subject)&&row.content.includes('removal acknowledged and confirmed'));
+ const completed=channel=>completions(channel,OFFICER);
+ check('private log and recruitment-review each identify the exact departure, rank and confirmed receipt once',
+   [LOG,STAFF].every(channel=>completed(channel).length===1&&completed(channel)[0].content.includes('Live Officer')
+     &&completed(channel)[0].content.includes('Olympus Officer')&&completed(channel)[0].content.includes(OFFICER_ROLE)
+     &&completed(channel)[0].content.includes(receipt.id)&&!completed(channel)[0].content.includes('<@')));
+ const pointers=(await writer.prepare("SELECT purpose,state,channel_id,subjects,message_id FROM privacy_provider_messages WHERE message_id IN (?1,?2)").bind(completed(LOG)[0]?.id??'',completed(STAFF)[0]?.id??'').all()).results;
+ check('both outbound messages have exact distinct provider pointers and original account cleanup custody',
+   pointers.length===2&&pointers.every(r=>r.state==='known'&&JSON.stringify(JSON.parse(r.subjects))===JSON.stringify([{id:OFFICER,g:null}]))
+   &&pointers.some(r=>r.channel_id===STAFF&&r.purpose==='notice')&&pointers.some(r=>r.channel_id===LOG&&r.purpose==='guild_log'));
  await runNativeSubject232(logged,OFFICER,callBudget(logged),2);
  observed=await control('observe');
- check('a later absence observation never repeats the DELETE or its completion notice',observed.deletes.filter(row=>row.subject===OFFICER).length===1
-   &&observed.messages.filter(row=>row.content.includes(OFFICER)&&row.content.includes('removal acknowledged and confirmed')).length===1);
+ check('a later absence observation never repeats the DELETE or either destination notice',
+   observed.deletes.filter(row=>row.subject===OFFICER).length===1&&completed(LOG).length===1&&completed(STAFF).length===1);
 
  await demote(logged,MEMBER,'live member','Live Member','fixture native main departure');
  observed=await control('observe');
@@ -76,6 +87,21 @@ export async function officerDeparture307(env,writer,check,publish,members,rawDb
  observed=await control('observe');
  check('later absent provider state does not manufacture an ACK or retry a spent departure',observed.deletes.filter(row=>row.subject===MEMBER).length===1
    &&!observed.messages.some(row=>row.content.includes(MEMBER)&&row.content.includes('removal acknowledged and confirmed')));
+ // Distinct real owned grant with a shared private channel. The single post must still be named.
+ const gm='800000000000000399',shared={...logged,CHANNEL_MOD_ALERTS:LOG};
+ await demote(shared,gm,'canonical smoke','Canonical Smoke','fixture confirmed native departure');
+ members.splice(members.findIndex(row=>row.name==='Canonical Smoke'),1);await publish();await control('lose-shared-completion');
+ const sharedResult=await runNativeSubject232(shared,gm,callBudget(shared),2);
+ await runNativeSubject232(shared,gm,callBudget(shared),2);
+ observed=await control('observe');
+ check('a shared staff/log venue gets one named completion across the original removal and a later retry',
+   sharedResult.rank?.outcomes.some(row=>row.reason==='canonical233_delete_acknowledged_and_confirmed')
+     &&completions(LOG,gm).length===1&&completions(LOG,gm)[0].content.includes('Canonical Smoke')
+     &&completions(LOG,gm)[0].content.includes('Olympus Guild Master')&&completions(STAFF,gm).length===0
+     &&observed.deletes.filter(row=>row.subject===gm).length===1);
+ const uncertain=await writer.prepare("SELECT state,message_id FROM privacy_provider_messages WHERE purpose='guild_log' AND channel_id=?1 AND state='unknown' AND EXISTS(SELECT 1 FROM json_each(subjects) WHERE json_extract(value,'$.id')=?2)").bind(LOG,gm).first();
+ check('lost combined-channel POST response leaves its individual message unknown, without changing the confirmed role result or repeating either effect',
+   uncertain?.state==='unknown'&&uncertain.message_id===null&&sharedResult.rank.outcomes[0].state==='settled'&&completions(LOG,gm).length===1);
  const alt='800000000000000402',originalCapture=await readPrivacySubject(logged,alt);
  check('generation-race fixture captures the actual original no-account branch',originalCapture===null);
  const lifecycle=createPrivacyWriteAdmissionDatabase(rawDb,'lifecycle',env.PRIVACY_WRITE_ADMISSION_LAYOUT,env.PRIVACY_WRITE_ADMISSION_EPOCH);

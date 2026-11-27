@@ -10,13 +10,15 @@ import {SIGNER_CURRENT} from './qr-signer-current-sql';
 import {privacyAccountIncarnation,privacyAccountIncarnationLiteralFenceSql} from './privacy-serving-authority';
 import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
 import {captureBetaConfiguration,assertBetaConfiguration,BETA_SIGNER_CURRENT,betaMembershipEffectSql,type BetaConfiguration} from './qr-beta-fern';
-import type { Env } from './env';
+import { staffChannel, type Env } from './env';
+import { validateName } from './community-names';
+import { messageOperationId, postPrivacyMessage } from './privacy-provider-messages';
 import { membershipSettlementEnabled,membershipTransitionEnabled,membershipTargets,membershipTargetsCurrent } from './membership-role-transition';
 import { rest, DiscordError, logLine, type AttemptBudget } from './discord';
 import { DB_NOW, randomGeneration, sha256 } from './account-generation-contracts';
 import { requireQr, type QrEnv } from './qr-phase1';
 import { parseNativeRoleMap,mappedNativeRole,identifyNativeProfile,identifyConfiguredNativeProfile,privilegedNativeMap } from './native-rank-adapter';
-import { privacyGenerationFenceSql,readPrivacySubject,privacyProviderCustodyDatabase } from './privacy-serving-authority';
+import { privacyGenerationFenceSql,readPrivacySubject,privacyCaptureFromColumns,privacyProviderCustodyDatabase } from './privacy-serving-authority';
 import { fenceSql } from './community-context';
 import { isSiteAdmin } from './site-core';
 import { captureTreasuryReservedRoles } from './treasury-reserved-roles';
@@ -39,16 +41,38 @@ type Member={roles:string[];user:{id:string}};
 type Intent={beta_window_id?:string|null;id:string;subject:string;purpose:string;proof_id:string|null;guild_id:string;role_id:string;desired:number;state:string;attempts:number;expires_at:number;roster_id:number|null;native_guid:string|null;native_profile:string|null;native_rank:number|null;native_rank_name:string|null;subject_generation:string|null;claim_nonce:string|null;created_at:number;request_digest:string|null;reason:string;checked_at:number|null};
 export type Settlement=Readonly<{state:'settled'|'held'|'unknown';reason:string;operationId:string|null;checkedAt:number|null}>;
 const result=(state:Settlement['state'],reason:string,operationId:string|null=null,checkedAt:number|null=null):Settlement=>({state,reason,operationId,checkedAt});
+export const DEPARTURE_NOTICE_ACCOUNT_SQL = `SELECT s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision,c.name,c.name_key,c.left_at
+   FROM (SELECT ?1 AS subject) a LEFT JOIN privacy_subjects s ON s.subject_id=a.subject
+   LEFT JOIN characters c ON c.discord_id=a.subject AND c.status='left' AND c.guid IS NOT NULL AND c.left_at BETWEEN c.verified_at AND ?2
+   ORDER BY c.left_at DESC,c.name_key LIMIT 2`;
 /** Called only by the original acknowledged canonical DELETE + confirming member
  * read + successful durable receipt below. Logging cannot turn a proved effect
  * back into an unknown effect, mint custody, or retry a DELETE. */
-async function confirmedDepartureNotice(env:Env,f:{subject:string;subjectGeneration:string|null;cause:string},role:string,operation:string):Promise<void>{
- try{
-  if(f.cause!=='departure'||!env.CHANNEL_SERVER_LOG)return;
-  const capture=await readPrivacySubject(env,f.subject);
-  if(capture&&capture.state!=='active'||(capture?.subjectGeneration??null)!==f.subjectGeneration)return;
-  await logLine(env,`➖ roles: Discord account ID \`${f.subject}\` — <@&${role}> removal acknowledged and confirmed after guild departure. Receipt \`${operation}\`.`,[{subject:f.subject,capture}]);
- }catch{/* A notice failure never alters the original completed role receipt. */}
+async function confirmedDepartureNotice(env: Env, f: {subject: string; subjectGeneration: string|null; cause: string}, role: string, operation: string, checkedAt: number|null): Promise<void> {
+ try {
+  const staff = staffChannel(env);
+  if (f.cause !== 'departure' || !Number.isSafeInteger(checkedAt) || (!env.CHANNEL_SERVER_LOG && !staff)) return;
+  type DepartureRow = {privacy_generation: string|null; privacy_state: string|null; privacy_revision: number|null; name: string|null; name_key: string|null; left_at: number|null};
+  // One account-indexed read gets the original lifecycle and the two latest linked departures
+  // as of this receipt. Tied departures cannot identify one last character for the account.
+  const {results} = await env.DB.prepare(DEPARTURE_NOTICE_ACCOUNT_SQL).bind(f.subject,checkedAt).all<DepartureRow>();
+  const [last, previous] = results;
+  if (!last) return;
+  const capture = privacyCaptureFromColumns(f.subject,last);
+  if ((capture?.subjectGeneration ?? null) !== f.subjectGeneration) return;
+  const references = [{subject:f.subject, capture}];
+  const name = validateName(last.name);
+  const character = name.ok && name.proofKey === last.name_key && last.left_at !== previous?.left_at
+   ? ` Last recorded departure: **${name.name}**.` : '';
+  const rank = CANONICAL_RANKS233.find(entry => entry.roleId === role);
+  const roleLabel = rank ? `**${rank.name}** (role ID \`${role}\`)` : `role ID \`${role}\``;
+  const content = `➖ roles: Discord account ID \`${f.subject}\` — ${roleLabel} removal acknowledged and confirmed after guild departure.${character} Receipt \`${operation}\`.`;
+  if (env.CHANNEL_SERVER_LOG) await logLine(env,content,references);
+  // The second audience requires serving message custody. A single venue gets only the log copy.
+  if (!staff || staff === env.CHANNEL_SERVER_LOG || env.PRIVACY_ERASURE_ENABLED !== 'true') return;
+  const notice = await messageOperationId('departure_staff_notice',JSON.stringify([operation,staff,f.subject,f.subjectGeneration,role]));
+  await postPrivacyMessage(env,'notice',staff,{content,allowed_mentions:{parse:[]}},references,notice);
+ } catch { /* Notice delivery never changes the original settled role receipt. */ }
 }
 const ID=/^\d{17,20}$/;const TOKEN=/^[0-9a-f]{32}$/;
 /** Item 15 (17 Oct 2026): restriction-only fence for central removals of the twelve fixed beta roles in the fixed guild.
@@ -2391,7 +2415,7 @@ async function settleRoutineTarget232(env:Env,cap:RoutineMembership232,venue:Run
     originalIntegrity();receipt.check();
     if(receipt.intent?.id===id&&receipt.intent.state==='settled'){
      const settled=result('settled',reason,id,now());
-     await confirmedDepartureNotice(env,f,role,id);
+     await confirmedDepartureNotice(env,f,role,id,receipt.intent.checked_at);
      return settled;
     }
    }catch{/* An uncertain Native answer stays spent; never try this receipt again. */}

@@ -185,7 +185,7 @@ end
 function A.Description()
   local s=A.Status()
   return {
-    state.initiateImport and "A new Initiate whispered. Sync once to save the proof. After Windows reports a ready member, /olv ready sync can open the in-game result." or "Verification Sync",
+    state.initiateImport and "A new Initiate whispered. Sync to export the proof. The Windows officer viewer shows confirmed handles under Verified members. Sync when you want to load updated results into WoW." or "Verification Sync",
     "Last Sync requested: "..stamp(s.lastRequestedAt)..". This is a local request, not a server confirmation.",
     "Loaded server list queried: "..stamp(s.loadedListAt).."; server roster observed: "..stamp(s.loadedRosterAt).." ("..s.displayState..").",
     "Sync exports pending data and reloads once. The Watcher processes that export afterward; the reload can still load the older result.",
