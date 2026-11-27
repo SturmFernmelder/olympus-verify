@@ -41,7 +41,7 @@ local SECRET = cfg.secret
 -- 0.6.12: the example's placeholder is public, so a Config.lua copied without replacing it must not accept codes made from it.
 if type(SECRET) ~= "string" or SECRET == "" or string.find(SECRET, "^REPLACE_WITH_") then SECRET = nil end
 local secretWarned = false  -- 0.6.12: say once per session, not on every whisper, that codes cannot be checked
-local SOURCE_VERSION = "0.6.57" -- Keep this source fallback and OlympusVerify.toc aligned.
+local SOURCE_VERSION = "0.6.58" -- Keep this source fallback and OlympusVerify.toc aligned.
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
   or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or SOURCE_VERSION
 local SET_NOTES = cfg.setNotes == true  -- SetNote is forbidden for addons on the Forever beta; leave false there
@@ -4150,6 +4150,7 @@ end
 if type(OlympusVerifySlash234) == "table" and type(OlympusVerifySlash234.Register) == "function" then
 OlympusVerifySlash234.Register("OLYMPUSVERIFY", {"/olv"}, function(msg)
   local cmd = string.lower(string.match(msg or "", "^%s*(%S*)") or "")
+  if cmd == "raid" and OlympusVerifyRaidSchedule then return OlympusVerifyRaidSchedule.Open() end
   if OlympusVerifyLive242 and (cmd=="status" or cmd=="queue") and not OlympusVerifyLive242.IsAuthorizedWatcher() then
     return OlympusVerifyLive242.PrintOwnStatus()
   end

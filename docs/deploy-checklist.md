@@ -8977,3 +8977,13 @@ Check all for Veteran reads the complete native roster. Compare grouped results 
 Open the website signed out and check the sign-in page, including the expired-session state. After signing in, open Home and read the voluntary guild bank contribution instructions directly below the welcome heading. The heading and instructions stay visible without a disclosure control. Check that the receipts link still follows the existing contributions feature and account permissions.
 
 The previous release is .314 at `1ad53d59`. Roll back by redeploying that reviewed commit.
+
+## 27 November 2026 — .316 Standing raid teams
+
+Rehearse the additive raid migration on a local restore of production. Use `worker/scripts/raid-schema-migration316.cjs` with the restored database to generate the private import. Check the live catalogue and the neutral admission slot again before applying it. Existing accounts and teams must retain their privacy and erasure protections. Keep the pre-change D1 export and both catalogues private. The .315 Worker expects the earlier schema. After migration, roll forward with a qualified Worker that recognizes the new catalogue. A database restore requires the existing quiescence procedure.
+
+On the member website, open Raids → Raid teams. Check that the anonymous route refuses team data. For a real charter, its leader can disclose the schedule, time zone, openings, loot rules and expectations. An offer becomes an active roster place when the applicant confirms. Only its team officers can manage the team schedule. Individual event invitations, replies and attendance stay within that team. Verify that the existing guild calendar still shows its ordinary events.
+
+As a configured administrator in the authorized server, run `/olympus-intros refresh` with channel `#looking-for-group`. Read back both tagged recruitment templates and compare the other forum tags to the pre-change list. The member website and `/raid hub` link to the directory. Avoid creating demonstration listings in production.
+
+A raider can open **My next raid**, choose their character, copy their schedule and paste into `/olv raid` in OlympusVerify 0.6.58. A fresh copy replaces cancelled or changed events. The local copy expires after a day. The display also exposes `OlympusVerifyRaidSchedule.Upcoming()` for an optional calendar provider in Daniel’s addon.

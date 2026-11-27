@@ -1,7 +1,8 @@
 // Genuine local Workerd/D1 behavior. Current exported schema data provisions only
 // this synthetic database; no historical source/pin/projection helpers are loaded.
 import worker from '../src/index.ts';
-import {ADMISSION_EXPECTED_JSON, ADMISSION_PROTOCOL, ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON} from '../src/privacy-write-admission-catalogue.ts';
+import {raidAdmissionCatalogue316} from '../src/raid-schema316.ts';
+import {ADMISSION_PROTOCOL} from '../src/privacy-write-admission-catalogue.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
 import {admittedPrivacySubjectWrite, readPrivacySubject} from '../src/privacy-serving-authority.ts';
 import {grantMemberRole, callBudget} from '../src/roles.ts';
@@ -13,6 +14,8 @@ import {kickRoleWorkGroups266} from '../src/role-reconcile242.ts';
 import {D1_PERFORMANCE_INDEX_NAME, D1_PERFORMANCE_INDEX_DDL} from '../src/d1-performance-index.ts';
 import {readOriginalCompleteSchema} from '../src/privacy-schema-source-plan.ts';
 import {originalCanonicalSmoke280} from './canonical_v1_compat280_smoke.mjs';
+import {checkTeamCalendar316} from './raid_team_calendar316_runtime.mjs';
+import {raidTeamsReadback316} from './raid_teams316_runtime.mjs';
 import {raidCalendarReadback} from './raid_calendar307_runtime.mjs';
 import {createObligation,openWeeklyObligations,recordReceipt,ensurePolicy,ledgerView,setObligationState} from '../src/community-contributions.ts';
 import {adminContributionAction,contributionsAcknowledge} from '../src/community-contributions-api.ts';
@@ -29,7 +32,7 @@ const config={PUBLIC_BASE_URL:'https://verify.example',SITE_HOST:'guild.example'
   COOKIE_SECRET:'qualification-cookie-only',PRIVACY_WRITE_ADMISSION_ENABLED:'true',PRIVACY_WRITE_ADMISSION_LAYOUT:'canonical',PRIVACY_WRITE_ADMISSION_EPOCH:EPOCH};
 
 async function provision(db,layout='canonical'){
-  const catalogue=layout==='recorded-live-pre-seal-20261017'?JSON.parse(ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON).recordedLive.profile:JSON.parse(ADMISSION_EXPECTED_JSON);
+  const catalogue=JSON.parse(raidAdmissionCatalogue316(layout));
   const create=[...catalogue.tables,...catalogue.indexes].map(x=>db.prepare(x.sql));
   create.push(db.prepare(catalogue.slotSQL));
   while(create.length)await db.batch(create.splice(0,40));
@@ -100,6 +103,8 @@ export default {async fetch(request,bindings,ctx){
       check('missing original Native authority never reports a settled grant',native.state==='held'&&native.requests===0);
       await raidCalendarReadback(env,check,db,ctx);
       await guildDirectoryReadback(env,db,ctx,check);
+      await raidTeamsReadback316(env,db,ctx,check);
+      await checkTeamCalendar316(env,db,ctx,check);
     }else if(kind==='lease'){
       const now=(await db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS t").first()).t;
       const owner=freshLeaseValue(now+FRESH_LEASE_SECONDS,'d'.repeat(32)),foreign=freshLeaseValue(now+FRESH_LEASE_SECONDS,'e'.repeat(32));

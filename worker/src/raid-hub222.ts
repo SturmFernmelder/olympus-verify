@@ -59,7 +59,7 @@ export async function raidAutocomplete222(env:Env,a:GuildActor219,i:Interaction)
  const focused=focusedOption(i);
  if(focused?.name!=='find'||!communityFeatures(env).has('events'))return {type:8,data:{choices:[]}};
  const term=focused.value.toLowerCase().slice(0,80);
- const out=await guildActorBatch219(env,a,[env.DB.prepare('SELECT id,title,starts_at FROM community_events WHERE retain_until>'+DB_NOW+" AND status='scheduled' AND starts_at>"+DB_NOW+' AND (id=?1 OR instr(lower(title),?1)>0) ORDER BY starts_at,id LIMIT 25').bind(term)]);
+ const out=await guildActorBatch219(env,a,[env.DB.prepare('SELECT id,title,starts_at FROM community_events WHERE retain_until>'+DB_NOW+" AND op_id NOT LIKE 'team316:%' AND status='scheduled' AND starts_at>"+DB_NOW+' AND (id=?1 OR instr(lower(title),?1)>0) ORDER BY starts_at,id LIMIT 25').bind(term)]);
  const events=out[0]!.results as unknown as Pick<CalendarEvent219,'id'|'title'|'starts_at'>[];
  return {type:8,data:{choices:events.filter(e=>(e.title+' '+e.id).toLowerCase().includes(term)).slice(0,5).map(e=>({name:plainDiscordLabel280(e.title,75)+' · '+new Date(e.starts_at*1000).toISOString().slice(0,16)+'Z',value:e.id}))}};
 }
@@ -151,7 +151,7 @@ export async function raidHub222(env:Env,a:GuildActor219,i:Interaction):Promise<
   if(p.page>1)nav.push(button('Previous events',cid(a,view,undefined,p.page-1)));
   if(events.length>5&&p.page<100)nav.push(button('More events',cid(a,view,undefined,p.page+1)));
   if(staff)nav.push(button('Schedule an event…',cid(a,'create'),1));components.push(row(...nav));
-  components.push(row({type:2,style:5,label:'Guild calendar',url:calendarLink},{type:2,style:5,label:'Raid preparation',url:siteMemberLink(host,'resources')}));
+  components.push(row({type:2,style:5,label:'Guild calendar',url:calendarLink},{type:2,style:5,label:'Find a raid team',url:siteMemberLink(host,'community/raid-teams')},{type:2,style:5,label:'Raid preparation',url:siteMemberLink(host,'resources')}));
  }
  if(p.action==='choose'){const id=eventId219(selected(i));return raidHub222(env,a,{...i,type:2,data:{name:'raid',options:[{type:3,name:'find',value:id}]}});}
  return {content:note||undefined,embeds,components};

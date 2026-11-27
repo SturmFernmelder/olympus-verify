@@ -19,7 +19,7 @@ export async function readCalendar219(env:Env,a:GuildActor219,id?:string,page=1,
  const order=history?'DESC':'ASC';
  const rows=await guildActorBatch219(env,a,[env.DB.prepare(`WITH page AS MATERIALIZED (
    SELECT id,title,details,starts_at,duration_min,capacity,status,revision,retain_until,created_at,publication_closed
-     FROM community_events WHERE retain_until>${DB_NOW} AND ${scope}
+     FROM community_events WHERE op_id NOT LIKE 'team316:%' AND retain_until>${DB_NOW} AND ${scope}
      ORDER BY starts_at ${order},id ${order} LIMIT 6 OFFSET ?2
   ), signups AS (
    SELECT s.event_id,SUM(s.status='yes') AS yes,SUM(s.decision='accepted') AS accepted,SUM(s.decision='bench') AS bench
@@ -81,7 +81,7 @@ export async function calendarRoster219(env:Env,a:GuildActor219,id:string,page=1
  const out=await guildActorBatch219(env,a,[env.DB.prepare(`SELECT ${eventParticipantNameSql226(env,'u')} display_name,s.character_name,s.status,s.raid_role,s.decision,${rsvpPreferenceSql219()} AS preference,
   CASE WHEN ?3=1 AND s.discord_id=?4 THEN (SELECT state FROM community_event_attendance x WHERE x.event_id=s.event_id AND x.discord_id=s.discord_id) END attendance, CASE WHEN ?3=1 AND s.discord_id=?4 THEN 1 ELSE 0 END attendance_visible
   FROM community_event_signups s JOIN site_users u ON u.discord_id=s.discord_id WHERE s.event_id=?1 AND ${eventParticipantSql226(env,'s.discord_id')}
-  AND EXISTS(SELECT 1 FROM community_events e WHERE e.id=s.event_id AND e.retain_until>${DB_NOW}) ORDER BY s.updated_at,s.discord_id LIMIT ${ROSTER_PAGE_219+1} OFFSET ?2`).bind(eventId219(id),(page-1)*ROSTER_PAGE_219,communityFeatures(env).has('attendance')?1:0,a.id)]);
+  AND EXISTS(SELECT 1 FROM community_events e WHERE e.id=s.event_id AND e.op_id NOT LIKE 'team316:%' AND e.retain_until>${DB_NOW}) ORDER BY s.updated_at,s.discord_id LIMIT ${ROSTER_PAGE_219+1} OFFSET ?2`).bind(eventId219(id),(page-1)*ROSTER_PAGE_219,communityFeatures(env).has('attendance')?1:0,a.id)]);
  return out[0]!.results as Record<string,unknown>[];
 }
 export async function attendanceCalendar219(env:Env,a:GuildActor219,id:string,action:string,target:unknown,state:unknown):Promise<boolean> {
@@ -89,7 +89,7 @@ export async function attendanceCalendar219(env:Env,a:GuildActor219,id:string,ac
  const event=eventId219(id),nonce=randomToken(),at=now(),limit=scanLimit(env);
  if(action==='lock') {
   const out=await guildActorBatch219(env,a,[env.DB.prepare(`INSERT INTO community_event_changes(event_id,action,actor,at,fields)
-   SELECT id,'updated',?2,?3,?4 FROM community_events WHERE id=?1 AND status='scheduled' AND starts_at<=${DB_NOW} AND retain_until>${DB_NOW}
+   SELECT id,'updated',?2,?3,?4 FROM community_events WHERE id=?1 AND op_id NOT LIKE 'team316:%' AND status='scheduled' AND starts_at<=${DB_NOW} AND retain_until>${DB_NOW}
     AND ${attendanceUnlocked219('community_events.id')} AND ${guildActorFence219(env,a,2)}`).bind(event,a.id,at,JSON.stringify(['attendance219','locked',nonce])),
    env.DB.prepare(`INSERT INTO audit(ts,actor,action,subject,details) SELECT ?1,?2,'community.attendance_locked',?3,NULL WHERE changes()=1`).bind(at,a.id,event)]);
   return out[0]?.meta.changes===1;
@@ -97,7 +97,7 @@ export async function attendanceCalendar219(env:Env,a:GuildActor219,id:string,ac
  if(action!=='record'||typeof target!=='string'||!/^[0-9]{17,20}$/.test(target)||!['present','absent','excused','unknown'].includes(String(state)))throw Error('Select an existing signup and an explicit observed attendance state.');
  const targetStanding=`${eventParticipantSql226(env,'?3')} AND (EXISTS(SELECT 1 FROM community_event_signups WHERE event_id=?1 AND discord_id=?3) OR EXISTS(SELECT 1 FROM community_event_attendance WHERE event_id=?1 AND discord_id=?3) OR EXISTS(SELECT 1 FROM community_profiles WHERE discord_id=?3 AND listed=1))`;
  const admitted=`EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND attendance_nonce=?5)`;
- const out=await guildActorBatch219(env,a,[env.DB.prepare(`UPDATE community_events SET attendance_nonce=?5 WHERE id=?1 AND status='scheduled' AND starts_at<=${DB_NOW} AND retain_until>${DB_NOW}
+ const out=await guildActorBatch219(env,a,[env.DB.prepare(`UPDATE community_events SET attendance_nonce=?5 WHERE id=?1 AND op_id NOT LIKE 'team316:%' AND status='scheduled' AND starts_at<=${DB_NOW} AND retain_until>${DB_NOW}
   AND ${attendanceUnlocked219('community_events.id')} AND ${guildActorFence219(env,a,2)} AND ${targetStanding} AND ${calendarRoom('json_array(?3)','?6')}`).bind(event,a.id,target,state,nonce,limit),
   env.DB.prepare(`INSERT INTO community_event_attendance(event_id,discord_id,state,source,reason_code,recorded_by,recorded_at,revision,write_nonce)
    SELECT ?1,?3,?4,'officer',NULL,?2,${DB_NOW},1,?5 WHERE ${admitted} ON CONFLICT(event_id,discord_id) DO UPDATE SET state=excluded.state,source='officer',reason_code=NULL,recorded_by=excluded.recorded_by,recorded_at=excluded.recorded_at,revision=community_event_attendance.revision+1,write_nonce=excluded.write_nonce`).bind(event,a.id,target,state,nonce),

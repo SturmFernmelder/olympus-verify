@@ -9,7 +9,7 @@ import {meDataInOriginalOrder,meSeatsData} from './site-api';
 import {ownPublicationReadSql} from './site-appointed-identities';
 import {ensureSchema} from './schema';
 import {PRIVACY_ADMISSION_SCHEMA_PROOF_SQL,createPrivacyWriteAdmissionDatabase,isPrivacyWriteAdmissionDatabase,type AdmissionLayout} from './privacy-write-admission';
-import {ADMISSION_EXPECTED_JSON,ADMISSION_PHYSICAL_EXPECTED_JSON} from './privacy-write-admission-catalogue';
+import {raidAdmissionCatalogue316} from './raid-schema316';
 import {privacyBoundSiteEnv,privacyAccountIncarnationLiteralFenceSql,privacyGenerationLiteralFenceSql,privacyGenerationFenceSql,PRIVACY_DB_NOW,PrivacySiteRequestHeld} from './privacy-serving-authority';
 import {createServingRecoveryGateClient,bindServingGateClientWitness,readServingRecoveryFloor,type ServingGateClient,type ServingOriginalConfig,type ServingGateEnvironment} from './privacy-serving-recovery-gate-client';
 import {prepareServingInvocation,dispatchServingInvocation,runServingChild,servingContextCustody,type ServingContext} from './privacy-serving-recovery-context';
@@ -96,7 +96,7 @@ function user(v:SiteUser,o:Origin):Readonly<SiteUser>{const s=o.session;if(!s||!
  if(out.discord_id!==s.u||out.session_version!==s.v||out.account_incarnation!==s.n||out.privacyGeneration!==s.g||!integer(out.denied)||!integer(out.in_server)||!integer(out.first_login)||!integer(out.last_login))return held();return Object.freeze(out) as unknown as Readonly<SiteUser>;
 }
 function projected(o:Origin,db:D1Database):Env{const ds=Object.getOwnPropertyDescriptors(o.env);ds.DB={value:db,writable:false,configurable:false,enumerable:true};return Object.freeze(Object.create(Object.getPrototypeOf(o.env),ds)) as Env;}
-function schemaPlan(o:Origin):Plan{return Object.freeze({sql:PRIVACY_ADMISSION_SCHEMA_PROOF_SQL,values:Object.freeze(['','',o.layout==='canonical'?ADMISSION_EXPECTED_JSON:ADMISSION_PHYSICAL_EXPECTED_JSON,o.config.writeEpoch])});}
+function schemaPlan(o:Origin):Plan{return Object.freeze({sql:PRIVACY_ADMISSION_SCHEMA_PROOF_SQL,values:Object.freeze(['','',raidAdmissionCatalogue316(o.layout),o.config.writeEpoch])});}
 function sitePlan(o:Origin):Plan{const s=o.session??held();return Object.freeze({sql:`SELECT CASE WHEN EXISTS(SELECT 1 FROM site_users WHERE discord_id=?1 AND session_version=?2 AND ${privacyAccountIncarnationLiteralFenceSql('account_incarnation',s.n)})
  AND ?3>${PRIVACY_DB_NOW} AND ${privacyGenerationFenceSql(1,4)} THEN 1 ELSE json_extract('privacy_site_request_refused','$') END AS admitted`,values:Object.freeze([s.u,s.v,s.e,s.g])});}
 function ownArray<T>(v:unknown,maximum:number):readonly T[]{if(!Array.isArray(v))return held();const length=data(v,'length');if(!integer(length)||length>maximum||Reflect.ownKeys(v).some(k=>k!=='length'&&(typeof k!=='string'||!/^(?:0|[1-9]\d*)$/.test(k)||Number(k)>=length)))return held();return Object.freeze(Array.from({length},(_,i)=>data(v,String(i)) as T));}

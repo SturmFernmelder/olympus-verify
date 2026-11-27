@@ -16,6 +16,7 @@ import {captureCanonicalRankConfig233} from './canonical-ranks233';
  * hard-codes an id, and a channel missing from the config degrades to plain "#name" text instead of a broken mention.
  */
 import { errorRef } from "./log";
+import { publishRaidForum316 } from "./raid-forum316";
 import type { Env } from "./env";
 import { activeRulesetSnapshot, rulesetDecidedText, rulesetLabel, type RulesetSnapshot } from "./ruleset-profile";
 import { audit, now } from "./db";
@@ -642,6 +643,13 @@ export async function refreshIntros(env: Env, guild: string, actor: string, only
   let stoppedEarly = false;
   try {
     const rows = await loadRows(env, guild);
+    // An administrator explicitly targeting LFG also installs its two recruitment templates.
+    // The ordinary bulk intro refresh never creates tags or recruitment posts.
+    if (only === '1554265340286861352' && only === channels['looking-for-group'] &&
+        (env.SITE_ADMINS ?? '').split(',').map(s => s.trim()).includes(actor)) {
+      const links = await publishRaidForum316(env, guild, actor);
+      outcomes.push({key:'raid-recruitment-templates',action:'current',channelId:only,note:links});
+    }
     for (const intro of list) {
       const parent = channels[intro.channel];
       if(managed.includes(intro.key)){outcomes.push({key:intro.key,action:'skipped',note:'Managed by the staff ruleset publication page; inspect or reconcile that operation.'});continue;}

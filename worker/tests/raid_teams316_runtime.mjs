@@ -1,0 +1,167 @@
+import {overlapDetector316} from '../src/raid-team-times316.ts';
+import worker from '../src/index.ts';
+import { PAGE_VERSION } from '../src/site-core.ts';
+import { communityScopedExportPlan, communityScopedEraseStatements, communityEraseStatements } from '../src/community-data-registry.ts';
+
+export async function raidTeamsReadback316(base,rawDB,ctx,check) {
+  const guild=base.GUILD_ID,site='https://guild.example',env={...base,DB:rawDB,SITE_GUILD_ID:guild,INTROS_GUILD_ID:guild,
+    COMMUNITY_FEATURES:'events,attendance',DISCORD_CLIENT_SECRET:'directory-client-test-only',
+    CF_VERSION_METADATA:{id:'11111111-2222-3333-4444-555555555555',tag:'raid-teams-fixture',timestamp:new Date().toISOString()}};
+  const overlap=overlapDetector316(Date.parse('2027-03-01T00:00:00Z')/1000);
+  const overnight={zone:'America/Chicago',windows:[{day:7,start:'23:30',end:'01:00'}]};
+  check('cross-zone overnight overlaps include the US daylight saving change',
+    overlap(overnight,[{zone:'UTC',windows:[{day:1,start:'05:05',end:'05:20'}]}]) &&
+    !overlap(overnight,[{zone:'UTC',windows:[{day:1,start:'08:00',end:'10:00'}]}]));
+  const db=base.DB;
+  const accounts=['Team Founder','Raid Healer','Standby Mage','New Arrival'].map((name,i)=>({
+    id:'80000000000000086'+(i+1),guid:'Player-87-0010000'+i,name,
+  }));
+  const [leader,healer,mage,guest]=accounts;
+  for (const [i,a] of accounts.entries()) {
+    const login=await worker.fetch(new Request(site+'/auth/login'),env,ctx);
+    const state=new URL(login.headers.get('Location')).searchParams.get('state');
+    const callback=await worker.fetch(new Request(site+'/auth/callback?code=raid-team-test-'+i+'&state='+encodeURIComponent(state),{
+      headers:{Cookie:login.headers.get('Set-Cookie').split(';')[0]},
+    }),env,ctx);
+    const cookie=callback.headers.getSetCookie().find(x=>x.startsWith('__Host-olg='));
+    if (callback.status!==303 || !cookie) throw Error('Missing original raid team fixture session '+i);
+    a.cookie=cookie.split(';')[0];
+    if (a!==guest) await db.batch([
+      db.prepare('INSERT INTO members(discord_id) VALUES(?1)').bind(a.id),
+      db.prepare("INSERT INTO characters(name_key,name,guid,discord_id,status,bound_at) VALUES(?1,?2,?3,?4,'member',unixepoch())").bind(a.name.toLowerCase(),a.name,a.guid,a.id),
+    ]);
+  }
+  const query=async(a,tail='',body)=>{
+    const response=await worker.fetch(new Request(site+'/api/community/raid-teams'+tail,{method:body?'POST':'GET',
+      headers:{...(a?{Cookie:a.cookie}:{}),Origin:site,'X-Olympus':PAGE_VERSION,'Content-Type':'application/json'},
+      body:body?JSON.stringify(body):undefined}),env,ctx);
+    return {status:response.status,data:await response.json()};
+  };
+  const ok=async(...args)=>{
+    const r=await query(...args);
+    if(r.status!==200) throw Error('raid team fixture '+(args[2]?.action||'GET')+' expected 200, received '+r.status+' '+JSON.stringify(r.data));
+    return r.data;
+  };
+  check('team directory requires authenticated verified guild membership',(await query(null)).status===401&&(await query(guest)).status===403);
+  const team=crypto.randomUUID(),other=crypto.randomUUID(),one='/'+team;
+  const charter={name:'Dawn Patrol',philosophy:'Learning',schedule:'Tuesday 20:00–22:00',timezone:'America/Chicago',loot:'One soft reserve',
+    expectations:'Bring consumables',needs:'Healer or mage',status:'recruiting',capacity:2,weeklyWindows:[{day:2,start:'22:00',end:'02:00'}],roleNeeds:['healer']};
+  const create={...charter,action:'create',id:team,guid:leader.guid,role:'tank'};
+  check('team founder must own their selected verified character',(await query(healer,'',create)).status===409);
+  await ok(leader,'',create);
+  check('team search combines recruiting role, style and the viewer’s converted day and start time before pagination',
+    (await ok(healer,'?teamRole=healer&style=learn&viewerZone=UTC&day=3&from=02:00&to=05:30')).teams.some(t=>t.id===team) &&
+    !(await ok(healer,'?teamRole=tank&day=3&viewerZone=UTC')).teams.some(t=>t.id===team) &&
+    !(await ok(healer,'?day=2&viewerZone=UTC')).teams.some(t=>t.id===team));
+  let leaderPage=await ok(leader,one);
+  check('ordinary verified member can found a team with a single founder seat',leaderPage.isLeader&&leaderPage.canManage&&leaderPage.team.primaryCount===1&&leaderPage.mine.state==='primary');
+  check('standings are public to guild members and team assignments are scoped',(await ok(healer,one)).members.length===0 && !JSON.stringify(leaderPage.members).includes(leader.id));
+  const profile={action:'profile',guid:healer.guid,role:'healer',playerClass:'Priest',spec:'Holy',availability:'Tuesdays',notes:'Learning runs welcome',listed:false,revision:0};
+  await ok(healer,'',profile);
+  check('saved profile is private until its owner lists it',(await ok(mage)).players.length===0);
+  await ok(healer,'',{...profile,listed:true,revision:1});
+  check('class/spec filters search opt-in profiles without disclosing account or character IDs',
+    (await ok(mage,'?role=healer&class=Priest&spec=hol')).players.some(p=>p.character===healer.name&&!p.guid&&!p.discord_id)
+    &&(await ok(mage,'?class=Mage')).players.length===0);
+  await ok(healer,one,{action:'apply',guid:healer.guid,role:'healer',note:'Private application note',revision:0});
+  await ok(mage,one,{action:'apply',guid:mage.guid,role:'ranged',note:'Reserve available',revision:0});
+  const healerSeat=(await ok(healer,one)).mine.id,mageSeat=(await ok(mage,one)).mine.id;
+  check('team applicant cannot inspect other applications or self-issue an offer',(await ok(mage,one)).applications.length===0 &&
+    (await query(healer,one,{action:'decide',seatId:healerSeat,revision:1,state:'offered_primary'})).status===409);
+  let panel=await ok(leader,one);
+  check('team leadership sees applicant notes and no one has been automatically rostered',
+    panel.applications.length===2 && panel.applications.some(s=>s.note==='Private application note') && panel.team.primaryCount===1);
+  const offer=(seatId,revision,state='offered_primary')=>ok(leader,one,{action:'decide',seatId,revision,state});
+  await offer(healerSeat,1); await offer(mageSeat,1);
+  await ok(leader,one,{...charter,action:'edit',revision:1,loot:'Two soft reserves'});
+  const accept=(a,seatId,revision,state='primary')=>query(a,one,{action:'respond',seatId,revision,state});
+  check('a charter edit invalidates outstanding offers until leadership reissues them',(await accept(healer,healerSeat,2)).status===409);
+  await offer(healerSeat,2); await offer(mageSeat,2);
+  const race=await Promise.all([accept(healer,healerSeat,3),accept(mage,mageSeat,3)]);
+  check('concurrent acceptances for one primary place admit exactly one applicant',
+    race.map(r=>r.status).sort().join(',')==='200,409' && (await ok(leader,one)).team.primaryCount===2);
+  const winner=race[0].status===200?healer:mage,runner=winner===mage?healer:mage;
+  let runnerSeat=(await ok(runner,one)).mine,winnerSeat=(await ok(winner,one)).mine;
+  await offer(runnerSeat.id,runnerSeat.revision,'offered_reserve');
+  await ok(runner,one,{action:'respond',seatId:runnerSeat.id,revision:runnerSeat.revision+1,state:'reserve'});
+  panel=await ok(leader,one);
+  check('an accepted reserve is recorded separately from occupied primary places',panel.team.primaryCount===2 && panel.team.reserveCount===1);
+  await ok(leader,one,{action:'officer',seatId:winnerSeat.id,revision:winnerSeat.revision,enabled:true});
+  let wp=await ok(winner,one);winnerSeat=wp.mine;
+  check('delegation grants only that team management and no guild role',wp.canManage&&!wp.isLeader);
+  await ok(winner,one,{action:'group',seatId:winnerSeat.id,revision:winnerSeat.revision,groupNumber:1});
+  check('delegated officer can assign a primary member to a team group',(await ok(winner,one)).mine.groupNumber===1);
+  await ok(leader,'',{...create,id:other,name:'Dusk Patrol',capacity:10});
+  const otherPage='/'+other;
+  check('a delegated officer on one team cannot change a separate charter',
+    (await query(winner,otherPage,{...charter,action:'edit',revision:1})).status===409);
+  await ok(winner,otherPage,{action:'apply',guid:winner.guid,role:'flex',revision:0});
+  const otherSeat=(await ok(winner,otherPage)).mine;
+  await ok(leader,otherPage,{action:'decide',seatId:otherSeat.id,revision:1,state:'offered_primary'});
+  const take={action:'respond',seatId:otherSeat.id,revision:2,state:'primary'};
+  check('multiple teams may offer places and another primary commitment requires confirmation',(await query(winner,otherPage,take)).data.error==='other_primary_commitment');
+  await ok(winner,otherPage,{...take,confirmOverlap:true});
+  check('a member may explicitly accept a second team without losing their first seat',(await ok(winner)).myTeams.filter(x=>x.state==='primary').length===2);
+  const nonoverlap=crypto.randomUUID(),third='/'+nonoverlap;
+  await ok(leader,'',{...create,id:nonoverlap,name:'Sunday Picnic',weeklyWindows:[{day:7,start:'12:00',end:'14:00'}]});
+  await ok(winner,third,{action:'apply',guid:winner.guid,role:'flex',revision:0});
+  const thirdSeat=(await ok(winner,third)).mine;
+  await ok(leader,third,{action:'decide',seatId:thirdSeat.id,revision:1,state:'offered_primary'});
+  await ok(winner,third,{action:'respond',seatId:thirdSeat.id,revision:2,state:'primary'});
+  check('nonoverlapping primary commitments need no override',(await ok(winner,third)).mine.state==='primary');
+  await ok(runner,third,{action:'apply',guid:runner.guid,role:'flex',revision:0});
+  const forgetSeat=(await ok(runner,third)).mine;
+  await ok(runner,third,{action:'respond',seatId:forgetSeat.id,revision:forgetSeat.revision,state:'withdrawn'});
+  await ok(runner,third,{action:'forget',seatId:forgetSeat.id,revision:forgetSeat.revision+1});
+  check('withdrawn applications can be forgotten and their account slot reclaimed',
+    (await ok(runner,third)).mine===null && !(await ok(runner)).myTeams.some(t=>t.teamId===nonoverlap));
+  const occurrence=await query(leader,otherPage+'/calendar',{action:'schedule',opId:'S'.repeat(22),teamRevision:1,title:'Future raid for erasure fixture',
+    timezone:'UTC',localStart:new Date(Date.now()+2*86400000).toISOString().slice(0,16),durationMin:90,occurrences:1,
+    capacity:10,groups:[],assemblyMinutes:0,preparation:'Fixture'});
+  if(occurrence.status!==201)throw Error('Raid erasure setup could not schedule the private occurrence: '+JSON.stringify(occurrence));
+  const ownEvent=await db.prepare('SELECT event_id FROM raid_team_events316 WHERE team_id=?1').bind(other).first();
+  await db.prepare("UPDATE characters SET status='left' WHERE discord_id=?1").bind(winner.id).run();
+  check('loss of guild membership immediately removes roster visibility and team administration',
+    (await query(winner,one)).status===403 && !(await ok(leader,one)).members.some(m=>m.id===winnerSeat.id));
+  await db.prepare("UPDATE characters SET status='member' WHERE discord_id=?1").bind(winner.id).run();
+  await db.batch([
+    db.prepare("INSERT INTO characters(name_key,name,guid,discord_id,status,bound_at) VALUES('fixture collision','Fixture Collision',?1,?2,'member',unixepoch())").bind(winner.guid,runner.id),
+  ]);
+  check('a disputed character GUID immediately holds grants for that seat',!(await ok(winner,one)).canManage);
+  await db.prepare("DELETE FROM characters WHERE name_key='fixture collision'").run();
+  await db.prepare("UPDATE privacy_subjects SET state='retiring',revision=revision+1,updated_at=unixepoch() WHERE subject_id=?1 AND state='active'").bind(runner.id).run();
+  check('retiring member disappears from team reads, including member counts',!(await ok(leader,one)).members.some(m=>m.id===runnerSeat.id) && (await ok(leader,one)).team.reserveCount===0);
+  await db.prepare("UPDATE characters SET name='Raider Renamed',name_key='raider renamed' WHERE discord_id=?1").bind(winner.id).run();
+  check('renaming a still-proved GUID preserves the seat and shows its current name',(await ok(winner,one)).mine.character==='Raider Renamed');
+  const plan=communityScopedExportPlan(base,winner.id,['raid_teams']);
+  const own=JSON.stringify(plan.shape(await db.batch(plan.statements)));
+  check('own raid data export includes this character and excludes other applicants',own.includes(winner.guid)&&!own.includes(runner.guid)&&!own.includes(leader.guid));
+  const eraser=communityScopedEraseStatements(base,runner.id,['raid_teams']);
+  await db.batch(eraser);
+  check('erasure clears only the retiring applicant and retains the other team seats',
+    !(await db.prepare('SELECT 1 FROM raid_team_seats316 WHERE discord_id=?1').bind(runner.id).first()) &&
+    (await ok(leader,one)).members.some(m=>m.id===winnerSeat.id));
+  const oldLeader=await ok(leader,one),successor=oldLeader.members.find(m=>m.id===winnerSeat.id);
+  await ok(leader,one,{action:'transfer',seatId:successor.id,revision:successor.revision});
+  check('leadership can be transferred without a guild rank or automatic membership change',
+    (await ok(winner,one)).isLeader && !(await ok(leader,one)).isLeader);
+  await db.batch(communityScopedEraseStatements(base,leader.id,['raid_teams']));
+  const retiredEnvelope=await db.prepare('SELECT status,retain_until<=unixepoch() AS expired FROM community_events WHERE id=?1').bind(ownEvent.event_id).first();
+  check('erasing the current charter owner cancels and expires the event while cascading its private team metadata',
+    retiredEnvelope.status==='cancelled' && retiredEnvelope.expired===1 &&
+    !(await db.prepare('SELECT 1 FROM raid_team_events316 WHERE event_id=?1').bind(ownEvent.event_id).first()));
+  const communitySteps=communityEraseStatements(base,leader.id).length;
+  check('raid erasure contributes four statements to the registered community cleanup',
+    communityScopedEraseStatements(base,leader.id,['raid_teams']).length===4, {registeredCommunityStatements:communitySteps,raidStatements:4});
+  check('erasing the prior leader preserves the transferred charter and removes the former leader from it',
+    (await ok(winner,one)).isLeader && !(await ok(winner,one)).members.some(m=>m.character===leader.name));
+  const series="WITH RECURSIVE n(v) AS (SELECT 1 UNION ALL SELECT v+1 FROM n WHERE v<1000) ";
+  await db.batch([
+    db.prepare(series+"INSERT INTO members(discord_id) SELECT '7999999999999'||printf('%05d',v) FROM n"),
+    db.prepare(series+"INSERT INTO characters(name_key,name,guid,discord_id,status,bound_at) SELECT 'sim raider '||v,'Sim Raider '||v,'Player-87-'||printf('%08X',100000+v),'7999999999999'||printf('%05d',v),'member',unixepoch() FROM n"),
+  ]);
+  check('guild-scale character data preserves correct visible seats and verified char choices',
+    (await ok(winner,one)).members.length===1 && (await ok(winner)).characters.some(c=>c.name==='Raider Renamed'));
+  const lookup=await rawDB.prepare('EXPLAIN QUERY PLAN SELECT 1 FROM characters k WHERE k.guid=?1 AND k.discord_id=?2').bind(winner.guid,winner.id).all();
+  check('character ownership lookup can use an index',lookup.results.some(row=>/SEARCH k USING.*INDEX/i.test(row.detail)));
+}
