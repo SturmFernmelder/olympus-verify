@@ -182,16 +182,35 @@ function A.Status()
     loadedRosterAt=display and seconds(display.rosterObservedAt) or nil,
     displayState=display and (display.state=="loaded" or display.state=="stale") and display.state or "unavailable" }
 end
+function A.NextStep(s)
+  s=s or A.Status()
+  local held=s.held or ""
+  if held=="current enrolled PRIME Guild Master roster required" then
+    return "On Fern, open the WoW guild roster, show offline members and wait for the list to fill. Then click Sync."
+  elseif held:find("blocked reload",1,true) or held:find("refused Sync",1,true) or held:find("request unconfirmed",1,true) then
+    return "WoW did not confirm the reload. When safely idle, type /reload once. Look for a newer roster in the desktop viewer."
+  elseif s.requested then
+    return "Sync was requested. Let WoW finish reloading, then check the upload time in the desktop viewer."
+  elseif s.pending then
+    if held~="" and held~="hardware click or keybind required" and held~="waiting for native data" then
+      return "Sync is waiting ("..held.."). Finish that activity and stand still out of combat, then click Sync once."
+    end
+    return "A local change is waiting. Stand still out of combat and click Sync once to export it to the Watcher."
+  elseif s.lastRequestedAt and (not s.loadedListAt or s.loadedListAt<s.lastRequestedAt
+    or s.capturedRosterAt and (not s.loadedRosterAt or s.loadedRosterAt<s.capturedRosterAt)) then
+    return "Check the desktop viewer for the roster you just sent. Once its result is visible there, /reload when you want it on this screen."
+  elseif s.displayState~="loaded" then
+    return "Open the WoW guild roster, let offline rows load and click Sync. Check Verified members in the desktop viewer before loading its result in WoW."
+  end
+  return "No export is pending. Select a character to see its verification and next promotion step."
+end
 function A.Description()
   local s=A.Status()
   return {
-    state.initiateImport and "A new Initiate whispered. Sync to export the proof. The Windows officer viewer shows confirmed handles under Verified members. Sync when you want to load updated results into WoW." or "Verification Sync",
+    A.NextStep(s),
     "Last Sync requested: "..stamp(s.lastRequestedAt)..". This is a local request, not a server confirmation.",
     "Loaded server list queried: "..stamp(s.loadedListAt).."; server roster observed: "..stamp(s.loadedRosterAt).." ("..s.displayState..").",
-    "Sync exports pending data and reloads once. The Watcher processes that export afterward; the reload can still load the older result.",
-    "The Watcher refreshes the desktop list automatically. Reload only if you need its newer results inside WoW before your next login.",
-    "WoW loads the Watcher's dated results at login or reload. Check current access in Discord /verify-status.",
-    s.held,
+    "The Watcher updates Verified members in the desktop viewer after the export. WoW reads that file at login or /reload.",
   }
 end
 function A.OfferInitiateImport()

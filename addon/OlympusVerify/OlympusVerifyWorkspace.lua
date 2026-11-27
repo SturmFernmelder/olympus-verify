@@ -54,16 +54,26 @@ end
 
 function S.Highlight(key)
   S.section = key
-  for name, tab in pairs(S.tabs) do
-    tab.rule:SetShown(name == key)
-    tab:GetFontString():SetTextColor(name == key and .97 or .69, name == key and .86 or .76, name == key and .62 or .77)
+  if S.viewButton then
+    local names={roster="Members",promotions="Promotions",inactive="Inactive"}
+    if names[key] then S.viewButton:SetText("View: "..names[key].." v") end
+    if S.back then S.back:SetShown(key=="activity" or key=="operations" or key=="inactive" and S.active=="inactive") end
+    S.toolsButton:SetText(key=="activity" and "Tools: Guild activity v" or key=="operations" and "Tools: Operations v" or "Tools v")
   end
+  if S.navigation then S.navigation:Hide() end
 end
 
 local function fit()
   if locked() then return end
   local w, h = UIParent:GetWidth(), UIParent:GetHeight()
   if w and h and w > 30 and h > 30 then S.shell:SetScale(math.min(1, (w-16)/WIDTH, (h-16)/HEIGHT)) end
+end
+
+function S.UpdateSyncGuidance(status)
+  if S.syncHint then
+    local sync=OlympusVerifyAutoSync
+    S.syncHint:SetText(sync and type(sync.NextStep)=="function" and sync.NextStep(status) or "")
+  end
 end
 
 function S.Parent()
@@ -119,16 +129,38 @@ function S.Parent()
   title:SetPoint("TOPLEFT", 18, -10); title:SetText("Olympus Verify")
   local line = fill(bar,"ARTWORK",.21,.35,.37)
   line:SetPoint("BOTTOMLEFT"); line:SetPoint("BOTTOMRIGHT"); line:SetHeight(1)
-  local previous
-  for _, spec in ipairs(tabs) do
-    local tab = button(bar, spec[2], 104, spec[3])
-    if previous then tab:SetPoint("LEFT", previous, "RIGHT", 2, 0)
-    else tab:SetPoint("BOTTOMLEFT", 10, 2) end
-    local rule = fill(tab, "OVERLAY", .91,.72,.38)
-    rule:SetPoint("BOTTOMLEFT", 4, 0); rule:SetPoint("BOTTOMRIGHT",-4,0); rule:SetHeight(2)
-    tab.rule = rule; rule:Hide()
-    S.tabs[spec[1]], previous = tab, tab
+  local nav=CreateFrame("Frame",nil,bar,template)
+  S.navigation=nav;nav:SetFrameStrata("DIALOG");nav:SetFrameLevel((bar:GetFrameLevel() or 1)+30)
+  fill(nav,"BACKGROUND",.06,.12,.14,1):SetAllPoints();nav:EnableMouse(true);nav:Hide()
+  local function open(owner, tools)
+    if locked() then return end
+    if nav:IsShown() and nav.owner==owner then nav:Hide();return end
+    nav.owner=owner;nav:ClearAllPoints();nav:SetPoint("TOPLEFT",owner,"BOTTOMLEFT",0,-2)
+    local n=0
+    for i,spec in ipairs(tabs) do
+      local item=S.tabs[spec[1]]
+      if (i>3)==tools then
+        item:ClearAllPoints();item:SetPoint("TOPLEFT",nav,"TOPLEFT",3,-3-28*n);item:Show();n=n+1
+      else item:Hide() end
+    end
+    nav:SetSize(188,6+28*n);nav:Show()
   end
+  S.viewButton=button(bar,"View: Members v",174,function(self) open(self,false) end)
+  S.viewButton:SetPoint("BOTTOMLEFT",14,3)
+  S.toolsButton=button(bar,"Tools v",160,function(self) open(self,true) end)
+  S.toolsButton:SetPoint("LEFT",S.viewButton,"RIGHT",8,0)
+  S.back=button(bar,"Back to roster",112,function()
+    if not locked() and OlympusVerifyRoster then OlympusVerifyRoster.ReturnToRoster() end
+  end)
+  S.back:SetPoint("LEFT",S.toolsButton,"RIGHT",8,0);S.back:Hide()
+  for _,spec in ipairs(tabs) do
+    local fn=spec[3]
+    S.tabs[spec[1]]=button(nav,spec[2],182,function() if not locked() then nav:Hide();fn() end end)
+  end
+  bar:HookScript("OnHide",function() nav:Hide() end)
+  S.syncHint=bar:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+  S.syncHint:SetPoint("TOPRIGHT",bar,"TOPRIGHT",-135,-7);S.syncHint:SetWidth(530);S.syncHint:SetHeight(55)
+  S.syncHint:SetJustifyH("LEFT");S.syncHint:SetWordWrap(true)
   local sync = button(bar, "Sync", 72, function()
     if OlympusVerifyAPI and OlympusVerifyAPI.Sync then OlympusVerifyAPI.Sync() end
   end)
@@ -137,7 +169,9 @@ function S.Parent()
   sync:SetScript("OnEnter", function(self)
     if not GameTooltip then return end
     GameTooltip:SetOwner(self,"ANCHOR_BOTTOM"); GameTooltip:SetText("Sync")
-    GameTooltip:AddLine("Save pending changes and reload once to load the Watcher’s latest available result.",1,1,1,true)
+    local api=OlympusVerifyAutoSync
+    local lines=api and api.Description and api.Description() or {"Save pending changes and reload once."}
+    for _,line in ipairs(lines) do GameTooltip:AddLine(line,1,1,1,true) end
     GameTooltip:Show()
   end)
   sync:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
@@ -188,6 +222,7 @@ function S.Activate(which)
   if S.active ~= which then S.Close() end
   S.active = which
   S.Highlight(which)
+  S.UpdateSyncGuidance()
   fit()
   return true
 end

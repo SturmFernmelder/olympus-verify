@@ -152,7 +152,7 @@ do
   check("local request does not renew stale loaded clocks",s.loadedListAt==f.wall-120 and s.loadedRosterAt==f.wall-4000 and s.displayState=="stale")
   check("button separates request time from loaded data",f.a.button:GetText():find("Requested",1,true) and f.a.button:GetText():find("loaded",1,true) and f.a.button:GetText():find("stale",1,true))
   local explanation=table.concat(f.a.Description()," ")
-  check("Sync explains post-reload processing without claiming delivery",explanation:find("not a server confirmation",1,true) and explanation:find("older result",1,true))
+  check("Sync explains post-reload processing without claiming delivery",explanation:find("not a server confirmation",1,true) and explanation:find("WoW reads that file at login or /reload",1,true))
   local saved=f.e.OlympusVerifyDB;f.advance(10)
   local next=fixture(saved);next.wall=f.wall;next.e.date=f.e.date
   next.e.OlympusVerifyAPI.Roster={DisplayFacts=function() return loaded end}
@@ -238,5 +238,16 @@ do
   check("opening ready Initiates never syncs or reopens its alert",opens==1 and f.reloads==0 and not f.a.readyButton:IsShown())
   f.a.ShowReadyNotice(1,f.wall+2);f.advance(3);f.a.Tick()
   check("the private button disappears at original expiry",not f.a.readyButton:IsShown() and f.reloads==0)
+end
+do
+  local f=fixture()
+  local function hint(s,part) return f.a.NextStep(s):find(part,1,true)~=nil end
+  check("pending export identifies the one officer click",hint({pending=true},"click Sync once"))
+  check("a held export names the interfering activity",hint({pending=true,held="casting"},"casting"))
+  check("a missing scoped roster directs the officer to load offline rows",hint({held="current enrolled PRIME Guild Master roster required"},"offline members"))
+  check("finishing an export takes precedence over requesting another export",hint({pending=true,requested=true},"finish reloading"))
+  check("a newer fetch of an older roster still directs the officer to the viewer",hint({capturedRosterAt=40,loadedRosterAt=39,lastRequestedAt=42,loadedListAt=43},"desktop viewer"))
+  check("current roster needs no repeat export",hint({capturedRosterAt=40,loadedRosterAt=40,lastRequestedAt=42,loadedListAt=43,displayState="loaded"},"No export is pending"))
+  check("reading instructions has no game side effects",f.reloads==0 and not f.a.Status().requested)
 end
 print(string.format("%d passed, %d failed",passed,failed));if failed>0 then error("pending hardware sync failed") end

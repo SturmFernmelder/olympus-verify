@@ -54,13 +54,13 @@ local function recommendation(row,page)
     or (row.reason=="knight-veteran" and whole(row.currentSlot,ranks.veteran+1,ranks.initiate) and row.targetSlot==ranks.veteran and row.targetName=="Veteran"))
 end
 local rowHolds = {
-  ["native-rank-unconfirmed"] = {"Guild rank unconfirmed", "The server could not confirm the character's in-game rank. Check the guild roster."},
-  ["selected-rank-changed"] = {"Guild rank changed", "The checked roster lists a different rank. The next complete export can pick up the new rank."},
-  ["pending-verification"] = {"Verification in progress", "The server is still processing verification for this character. Check Discord /verify-status."},
-  ["verification-unknown"] = {"Verification unconfirmed", "The server could not confirm this character's verification. Check Discord /verify-status."},
-  ["unverified-initiate"] = {"Verification required", "The promotion check found this Initiate unverified. They can check My status in Discord."},
-  ["discord-entitlement-unknown"] = {"Discord role unconfirmed", "The server could not confirm the Discord entitlement needed to choose the target rank."},
-  ["directive-rank-policy-held"] = {"Promotion policy held", "The current rank policy withheld this promotion. Review the guild's configured ranks."},
+  ["native-rank-unconfirmed"] = {"Guild rank unconfirmed", "Open the WoW guild roster and check this character's rank. Wait for offline members to load, then click Sync."},
+  ["selected-rank-changed"] = {"Guild rank changed", "Check the character's current rank in the WoW guild roster, then click Sync with the full list loaded."},
+  ["pending-verification"] = {"Verification in progress", "Ask the member to open My status in #olympus-verify. On Fern, click Sync if their original whisper is waiting for export."},
+  ["verification-unknown"] = {"Verification unconfirmed", "Ask the member to open My status in #olympus-verify. Match the character shown there to the selected WoW row before checking again."},
+  ["unverified-initiate"] = {"Verification required", "Ask the Initiate to use Get my code in #olympus-verify and whisper from this character. An officer can send a reminder from their online row."},
+  ["discord-entitlement-unknown"] = {"Discord role unconfirmed", "Look up the linked account's Knight rank in Discord. Once its role is visible, select this Member and check Veteran eligibility again."},
+  ["directive-rank-policy-held"] = {"Promotion policy held", "Compare the guild's current rank names with /olv diagnostics scope. Ask the Guild Master to review the rank setup before checking again."},
 }
 -- Held-row reason text is not validated by Current. Count only fixed codes and
 -- use fixed display text; never copy an arbitrary source reason into the UI.
@@ -119,7 +119,7 @@ function M.Promotions(list, launchAPI, now)
   local size = array(list, 1000)
   if not size then
     diagnostics.state, diagnostics.reason, diagnostics.inputUnavailable = "unavailable",
-      "The native roster is incomplete or unreadable; promotion readiness is unknown.", true
+      "Open the WoW guild roster, show offline members and wait for the list to fill. Reopen the officer desk to check the ranks.", true
     return candidates, diagnostics
   end
   local seen = {}
@@ -143,16 +143,16 @@ function M.Promotions(list, launchAPI, now)
     diagnostics.legacyUnsupported = true
     unavailable = "A supported dated promotion API is unavailable. Legacy invite queues and verification labels cannot authorize promotion."
   elseif type(launchAPI.HardwarePromote) ~= "function" then
-    unavailable = "The hardware promotion action is unavailable; no promotion button can be enabled."
+    unavailable = "Restore the official officer addon files, keep Fern's private configuration, then /reload to load the promotion button."
   elseif type(launchAPI.pending) ~= "table" then
-    unavailable = "The original pending-attempt ledger is unavailable; an unattempted promotion cannot be established."
+    unavailable = "Open Guild activity and check the character's current rank. Have the Guild Master review the missing action history before trying another promotion."
   else
     local ok, value, why = pcall(launchAPI.Current) -- existing validated source, dot call; no hardware action
     if ok and type(value) == "table" then current = value
     else unavailable = ok and sourceReason(why) or "The dated promotion projection could not be checked." end
     if not current then
       unavailable = (unavailable or "No dated promotion projection is loaded.")
-        .. " A supported current projection is required; legacy invite queues are not promotion authority."
+        .. " On Fern, open the guild roster and let offline rows load. Click Sync once. When the desktop viewer shows updated results, /reload to load them here."
     end
   end
   if current then
@@ -237,9 +237,9 @@ function M.Promotions(list, launchAPI, now)
     if initiate(row) and id and seen[id] == 1 and verified(row) then
       diagnostics.knownVerifiedInitiates = diagnostics.knownVerifiedInitiates + 1
     end
-    if not id then info = detail("missing_guid", "Native GUID unavailable", "No unique native character GUID is available; a name match cannot enable promotion.")
-    elseif seen[id] ~= 1 then info = detail("duplicate_guid", "Duplicate native GUID", "This GUID occurs more than once in the native list; no promotion is ready.")
-    elseif not whole(row.rankIndex, 0, 9) then info = detail("unavailable", "Native rank unavailable", "The current native rank slot is unreadable; promotion readiness is unknown.")
+    if not id then info = detail("missing_guid", "Native GUID unavailable", "Open the WoW guild roster and let offline rows load. Select this character again once their full row is available.")
+    elseif seen[id] ~= 1 then info = detail("duplicate_guid", "Duplicate native GUID", "Open the WoW guild roster and wait for one complete list. If the same character still appears twice, ask the Guild Master to review both rows.")
+    elseif not whole(row.rankIndex, 0, 9) then info = detail("unavailable", "Native rank unavailable", "Open the WoW guild roster, wait for this character's rank to appear, then select the row again.")
     elseif memberMayCheck and not selected then
       info=detail("check","Check Veteran eligibility","Check this Member’s current Discord Knight rank. The officer reviews each promotion separately.")
     elseif (attemptStatus=="settled" and not (boundMember and selected) or attemptStatus=="confirmed") then info=detail("wrong_rank","Target rank observed (history retained)","A complete native roster previously confirmed this original target. Its command history is retained; this historical fact never enables a repeat.")
@@ -254,7 +254,7 @@ function M.Promotions(list, launchAPI, now)
     elseif attemptStatus=="blocked" then info=detail("held","Client promotion action blocked","The client reported a blocked promotion API. Original attempt history is retained; this view cannot clear the block or send a fallback.")
     elseif launchAPI.pending[id] ~= nil or attemptStatus=="pending"
       or not attemptStatus and type(launchAPI.AttemptHeld)=="function" and launchAPI.AttemptHeld(id,current,row.rankIndex) then info = detail("pending", "Prior attempt pending", "An earlier promotion attempt for this member is pending or unconfirmed. The addon does not repeat it. Review that attempt's unresolved history and check the member's current rank in the game's guild window. Only if staff review confirms a promotion is still due, do it there by hand. The earlier attempt and its uncertainty stay on record.")
-    elseif attemptStatus=="recheck" then info=detail("recheck","Check next original step","The last owned step was confirmed. Check this GUID against a fresh complete roster before a separate next promotion click; the original intent and expiry stay fixed.")
+    elseif attemptStatus=="recheck" then info=detail("recheck","Check next original step","The last rank change is confirmed. Select this character and click Check next step. A fresh result unlocks one click for their next rank.")
     elseif selected and not selected.completed then
       if selected.state=="pending" then
         local label = selected.code=="awaiting-result" and "Awaiting Watcher result"
@@ -265,7 +265,7 @@ function M.Promotions(list, launchAPI, now)
         or selected.code=="native-rank-scheme-unconfirmed" and "Guild rank table unconfirmed" or "Selected read held",selected.reason) end
     elseif current.identity and current.identity.primeInitiates and initiate(row) and verified(row)
       and not selected then
-      info=detail("check","Awaiting roster export","The next complete PRIME roster export automatically requests eligibility for this Initiate. Once a current result is ready, click Promote on their row.")
+      info=detail("check","Awaiting roster export","On Fern, open the full guild roster and click Sync. The Watcher checks the Initiate automatically. After the result loads in WoW, select the character and click Promote when ready.")
     elseif freshRead and initiate(row) and verified(row)
       and (sourceHeld[id]==nil or current.rankHeldReason=="directive-rank-policy-held" and sourceHeld[id]=="directive-rank-policy-held") and riskReview[id]==nil
       and not selected
@@ -294,7 +294,7 @@ function M.Promotions(list, launchAPI, now)
         info = detail("no_recommendation", "No promotion available", "The Watcher checked this character and returned no eligible promotion. A later complete roster export can pick up changes to verification or rank.")
       else
         info = detail("no_recommendation", "No loaded recommendation", verified(row)
-          and "The base display is verified, but no supported Initiate-to-Member recommendation is loaded for this GUID. Display verification alone is not promotion authority."
+          and "Verification is complete. Click Sync with the full guild roster loaded so the Watcher can check the Member promotion. Load the new result at login or /reload."
           or "No supported Member or Veteran recommendation is loaded for this GUID. Verification or other admission checks may still be needed.")
       end
     else
@@ -309,8 +309,8 @@ function M.Promotions(list, launchAPI, now)
       elseif source.kind~="selected" or type(recommendations[id].intent)~="table" then info=detail("no_recommendation","Check selected GUID","Discovery is advisory. A fresh Directive selected plan is required before a promotion click.")
       elseif row.rankIndex~=recommendations[id].currentSlot and attemptStatus~="continue" then info=detail("wrong_rank","Native rank changed","The current native rank differs from this recommendation. Recheck the selected GUID; no action is ready.")
       elseif not rankScheme or not readable(row.rank) or row.rank~=rankScheme.names[row.rankIndex+1] then info=detail("unavailable","Native rank label unconfirmed","The native rank label does not match this exact source profile and slot. Recheck the selected GUID; no action is ready.")
-      elseif now >= source.scanExpiresAt then info = detail("expired", "Original scan expired", "The original scan has expired. Its recommendation is advisory until an explicit source recheck.")
-      elseif now >= source.expiresAt then info = detail("expired", "Recommendation page expired", "The original recommendation page has expired. A verified display does not renew its action window.")
+      elseif now >= source.scanExpiresAt then info = detail("expired", "Original scan expired", "Select this character and check eligibility again. Load the new result before clicking Promote.")
+      elseif now >= source.expiresAt then info = detail("expired", "Recommendation page expired", "Select this character and request a fresh eligibility check. Click Promote once the new result shows Ready.")
       else
         candidates[id], diagnostics.ready = true, diagnostics.ready + 1
         if initiate(row) then diagnostics.readyInitiates=diagnostics.readyInitiates+1 end

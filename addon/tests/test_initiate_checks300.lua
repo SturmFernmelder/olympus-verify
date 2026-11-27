@@ -60,6 +60,61 @@ local function client(count,blank)
   f.emit("GUILD_ROSTER_UPDATE")
   return f,e,prepare,record,verified
 end
+local function reviewedPair()
+  local f,e,prepare,record=client(43,true)
+  local envelope=prepare()
+  local id1,id2=f.id,envelope.controls[2].targetGuids[1]
+  e.OlympusInitiateChecks={version=1,id=envelope.id,records={record(envelope.controls[1],101,id1),
+    record(envelope.controls[2],101,id2),record(envelope.controls[3],101,false)}}
+  local function pick(id)
+    for i,row in ipairs(e.ROSTER) do if row.guid==id then return {guid=id,name=e.GetGuildRosterInfo(i)},row end end
+  end
+  local first,row1=pick(id1);local second,row2=pick(id2)
+  check("duplicate and renamed picks cannot open a promotion review",not f.q.ReviewDeskPromotions({first,first})
+    and not f.q.ReviewDeskPromotions({{guid=id1,name=second.name}}) and f.promote==0)
+  check("reviewing two named Initiates spanning pages does not issue a command",f.q.ReviewDeskPromotions({first,second}) and f.promote==0)
+  local sent={}
+  e.SECURE_MACRO_EXECUTE=function(text) sent[#sent+1]=text end
+  local b=f.q.promotionConfirmButton
+  return f,e,first,row1,second,row2,b,sent
+end
+do
+  local f,e,first,row1,second,row2,b,sent=reviewedPair()
+  local id1,id2=first.guid,second.guid
+  b:Click()
+  check("the next reviewed promotion is available while the first rank receipt is outstanding",f.q.pending[id1] and not f.q.pending[id2]
+    and #sent==1 and sent[1]=="/gpromote "..first.name and f.q.confirmGuid==id2 and b:IsEnabled())
+  b:Click();b:Click()
+  check("two hardware releases spend two signed names once without receiving prior results",#sent==2 and sent[2]=="/gpromote "..second.name
+    and f.q.pending[id1] and f.q.pending[id2] and not b:IsEnabled() and not b:GetAttribute("type1"))
+  row2.rankIndex=8;e.NOW=e.NOW+1;f.emit("GUILD_ROSTER_UPDATE")
+  check("the second promotion can be observed before the first without issuing or replaying a click",not f.q.pending[id2] and f.q.pending[id1]
+    and #sent==2 and f.q.promotionConfirmInfo:GetText():find("1 awaiting a receipt",1,true))
+  row1.rankIndex=8;e.NOW=e.NOW+1;f.emit("GUILD_ROSTER_UPDATE")
+  check("every rank receipt belongs to its own GUID and exact next rank",not f.q.pending[id1] and not f.q.pending[id2]
+    and #sent==2 and f.q.promotionConfirmInfo:GetText():find("2 rank changes observed",1,true))
+end
+do
+  local f,e,first,row1,second,row2,b,sent=reviewedPair()
+  b:Click();b:Click()
+  row1.rankIndex,row2.rankIndex=8,8;e.NOW=e.NOW+1;f.emit("GUILD_ROSTER_UPDATE")
+  check("one fresh roster confirms two exact named rank increases together",not f.q.pending[first.guid] and not f.q.pending[second.guid]
+    and #sent==2 and f.q.promotionConfirmInfo:GetText():find("2 rank changes observed",1,true))
+end
+do
+  local f,e,first,row1,second,row2,b,sent=reviewedPair()
+  b:Click();row2.rankIndex=8;b:Click()
+  check("a rank changed since review cannot spend the next click or dispatch another selected name",#sent==1 and f.q.pending[first.guid]
+    and not f.q.pending[second.guid] and not f.q.promotionConfirm:IsShown())
+end
+do
+  local f,e,first,row1,second,row2,b,sent=reviewedPair()
+  b:Click();b:Click();f.q.promotionConfirmCancel:Click()
+  f.emit("ADDON_ACTION_BLOCKED","OlympusVerify","C_GuildInfo.Promote()")
+  row1.rankIndex,row2.rankIndex=8,8;e.NOW=e.NOW+1;f.emit("GUILD_ROSTER_UPDATE")
+  check("late unnamed client refusal after close keeps both attempted rank outcomes unknown",f.q.promotionBlocked and f.q.pending[first.guid]
+    and f.q.pending[second.guid] and f.q.pending[first.guid].record.state=="unknown" and f.q.pending[second.guid].record.state=="unknown" and #sent==2)
+end
 for _,blank in ipairs({false,true}) do
   local f,e,prepare,record=client(43,blank)
   setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyRosterModel.lua")),e)("OlympusVerify")

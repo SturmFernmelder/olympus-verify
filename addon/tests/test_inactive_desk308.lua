@@ -232,6 +232,74 @@ local alpha, beta, unsafe = row("Alpha Trial",134,9,40), row("Beta Trial",135,9,
 local classRoster = ROSTER
 ROSTER={self,alpha,beta,unsafe}
 open(); click("Initiates 7d+")
+local desk=OlympusVerifyInactiveDesk
+local function pick(r) return {guid=r.guid,name=r.name.."-Forever"} end
+local candidates=desk.CandidatesForDesk("initiate7")
+check("shared desk returns only qualified named Initiates",candidates and candidates[alpha.guid].name==pick(alpha).name and not candidates[unsafe.guid])
+local rapidA,rapidB=row("Rapid Alpha",200,9,41),row("Rapid Beta",201,9,41)
+local savedRoster=ROSTER
+ROSTER={self,rapidA,rapidB,unsafe}
+event()
+check("duplicate, sparse and mismatched reviewed sets cannot expand or open",not desk.ReviewDeskSelection({pick(rapidA),pick(rapidA)},"initiate7")
+  and not desk.ReviewDeskSelection({[2]=pick(rapidA)},"initiate7")
+  and not desk.ReviewDeskSelection({{guid=rapidA.guid,name=pick(rapidB).name}},"initiate7"))
+assert(desk.ReviewDeskSelection({pick(rapidA),pick(rapidB)},"initiate7"))
+local rapidButton=btn("Remove Rapid Alpha-Forever")
+local previousIssued=issued
+issued={}
+local start=0
+rapidButton:Click()
+check("next distinct reviewed name can be clicked before the first departure receipt",rapidButton==btn("Remove Rapid Beta-Forever") and rapidButton:IsEnabled()
+  and #issued==start+1 and noCommand(rapidButton))
+StaticPopup1=CreateFrame("Frame",nil,UIParent); StaticPopup1:Show(); rapidButton:Click()
+check("an outstanding native popup refuses a second destructive click",#issued==start+1 and noCommand(rapidButton))
+StaticPopup1:Hide(); StaticPopup1=nil
+rapidButton:Click(); rapidButton:Click()
+check("two actual clicks create only two named, non-repeating removal attempts",#issued==start+2 and not rapidButton:IsEnabled()
+  and issued[start+1]=="/guildremove Rapid Alpha-Forever" and issued[start+2]=="/guildremove Rapid Beta-Forever")
+table.remove(ROSTER,3);event()
+check("an out-of-order departure confirms the second name before the first",OlympusVerifyDB.inactiveRemovalAttempts[rapidA.guid]
+  and not OlympusVerifyDB.inactiveRemovalAttempts[rapidB.guid] and #issued==start+2)
+table.remove(ROSTER,2);event()
+check("remaining receipt finishes the reviewed set without dispatch",not OlympusVerifyDB.inactiveRemovalAttempts[rapidA.guid] and #issued==start+2 and status("all reviewed characters have left"))
+local function requestPair(serial)
+  local a,b=row("Pair Alpha",serial,9,41),row("Pair Beta",serial+1,9,41)
+  ROSTER={self,a,b,unsafe};open()
+  assert(desk.ReviewDeskSelection({pick(a),pick(b)},"initiate7"))
+  local secure=btn("Remove Pair Alpha-Forever")
+  secure:Click();secure:Click()
+  return a,b
+end
+local function system(line)
+  panel:GetScript("OnEvent")(panel,"CHAT_MSG_SYSTEM",line)
+  panel:GetScript("OnUpdate")(panel,1)
+end
+local a,b=requestPair(210)
+ROSTER={self,unsafe};event()
+local receipts=OlympusVerifyDB.inactiveRemovalAttempts
+check("two absences together keep both originals pending until independently named by WoW",receipts[a.guid] and receipts[b.guid])
+system("Other Person has left the guild.")
+system("Pair Alpha-OtherRealm has left the guild.")
+check("an unrelated name or wrong realm cannot confirm either coalesced absence",receipts[a.guid] and receipts[b.guid])
+system("Pair Beta-Forever has been kicked out of the guild by Officer One.")
+check("the matching native removal line confirms only its own absent character",receipts[a.guid] and not receipts[b.guid])
+system("Pair Alpha has left the guild.")
+check("an unambiguous native leave line confirms the second absence with no extra command",not receipts[a.guid] and #issued==4)
+a,b=requestPair(220)
+ROSTER={self,unsafe};event()
+ROSTER={self,a,unsafe};event()
+system("Pair Beta has left the guild.")
+check("a vanished pending GUID reappearing holds both original requests",receipts[a.guid] and receipts[b.guid] and #issued==6)
+a,b=requestPair(230)
+ROSTER={self,row("Pair Alpha",232,9,41),unsafe};event()
+system("Pair Beta has left the guild.")
+check("a different GUID taking a reviewed name invalidates the observation before accepting any departure",receipts[a.guid] and receipts[b.guid] and #issued==8)
+a,b=requestPair(240)
+ROSTER={self};event()
+system("Pair Alpha has left the guild.")
+check("an unrelated member also disappearing holds every coalesced receipt",receipts[a.guid] and receipts[b.guid] and #issued==10)
+issued=previousIssued
+ROSTER=savedRoster;open();click("Initiates 7d+")
 check("macro condition syntax in a native name is never selectable",not activeRows()[unsafe.guid].check:IsEnabled())
 check("single-member handoff rejects a name with an unrelated GUID",not OlympusVerifyInactiveDesk.ReviewOne("Beta Trial-Forever",alpha.guid))
 check("single-member handoff reviews only this eligible native row without dispatch",OlympusVerifyInactiveDesk.ReviewOne("Alpha Trial-Forever",alpha.guid)
@@ -269,5 +337,17 @@ assert(loadfile("../OlympusVerify/OlympusVerifyInactiveDesk.lua"))("OlympusVerif
 check("a new addon revision retains the refused GUID across reload",not OlympusVerifyInactiveDesk.ReviewOne("Mage Week-Forever",mage.guid)
   and OlympusVerifyDB.inactiveRemovalAttempts[mage.guid].state=="blocked")
 check("a previous revision's blanket refusal does not disable an unrelated eligible row on a revised addon",OlympusVerifyInactiveDesk.ReviewOne("Druid Month-Forever",druid.guid) and #issued==5)
+local fresh=OlympusVerifyInactiveDesk
+local extra=row("Late Report",260,9,41)
+ROSTER={self,extra,druid,unsafe}
+OlympusVerifyWorkspace.Close();open()
+assert(fresh.ReviewDeskSelection({pick(extra),pick(druid)},"initiate7"))
+local lateButton=btn("Remove Late Report-Forever")
+lateButton:Click();lateButton:Click()
+local owner=lateButton._parent._parent
+OlympusVerifyWorkspace.Close()
+owner:GetScript("OnEvent")(owner,"ADDON_ACTION_FORBIDDEN","OlympusVerify","C_GuildInfo.Uninvite")
+check("a delayed client refusal after closing a two-click review blocks the route and keeps both originals unknown",
+  receipts[extra.guid].state=="unknown" and receipts[druid.guid].state=="unknown" and not fresh.CandidatesForDesk("initiate7") and #issued==7)
 check("no native chat opening, protected call, whisper, export or UI reload took place", opened == 0 and effects == 0 and OlympusVerifyDB.roster == originalRoster and not originalRoster.members)
 print(passed .. " inactive desk checks passed")

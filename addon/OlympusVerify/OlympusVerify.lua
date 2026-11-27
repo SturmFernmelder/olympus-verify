@@ -41,7 +41,7 @@ local SECRET = cfg.secret
 -- 0.6.12: the example's placeholder is public, so a Config.lua copied without replacing it must not accept codes made from it.
 if type(SECRET) ~= "string" or SECRET == "" or string.find(SECRET, "^REPLACE_WITH_") then SECRET = nil end
 local secretWarned = false  -- 0.6.12: say once per session, not on every whisper, that codes cannot be checked
-local SOURCE_VERSION = "0.6.55" -- Keep this source fallback and OlympusVerify.toc aligned.
+local SOURCE_VERSION = "0.6.56" -- Keep this source fallback and OlympusVerify.toc aligned.
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
   or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or SOURCE_VERSION
 local SET_NOTES = cfg.setNotes == true  -- SetNote is forbidden for addons on the Forever beta; leave false there
@@ -3515,6 +3515,14 @@ OlympusVerifyAPI = {
   -- exported verification snapshot is unrelated to a native removal review.
   Inactive = {
     Scope = function() return Presence.NativeRosterScope(true) end,
+    RosterGeneration = function() return Presence.rosterVersion end,
+    DepartureName = function(message)
+      local line = Presence.Readable(message)
+      if not line then return nil end
+      line = Presence.Visible(line)
+      local name = line:match(LEFT_PATTERN) or line:match(Unverified.kickedPattern)
+      return name and (name:match("^%[(.-)%]$") or name)
+    end,
     RequestRoster = function() return RequestRoster(false) end,
     VisibilityCurrent = RosterVisibilityCurrent, ReadText = Presence.Readable,
     DaysOffline = DaysOffline, RequiredDays = RequiredDaysOffline, ProtectedRank = Unverified.ProtectedRank,

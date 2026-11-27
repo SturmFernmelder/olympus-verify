@@ -5,7 +5,8 @@ local D = {}
 OlympusVerifyInactiveDesk = D
 local native = OlympusVerifyAPI.Inactive
 local panel, listRows, ui, openParent
-local scope, snapshot, selection, review, waiting
+local scope, snapshot, selection, review
+local rosterGeneration = 0
 local cutoff, search, page, message, unavailable = 0, "", 1, nil, nil
 local initiateWeek, classes = false, nil
 local dirty, elapsed = false, 0
@@ -13,7 +14,8 @@ local metadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
 local version = metadata and metadata(ADDON, "Version")
 local clientRevision = type(version) == "string" and version ~= "" and (tostring(select(2, GetBuildInfo())) .. "|" .. version)
 local routeRefused = false
-local inClick, lastAttempt
+local inClick
+local sessionPending = {}
 
 local function sameScope(a, b)
   return a and b and a.guild == b.guild and a.realm == b.realm and a.actor == b.actor
@@ -158,7 +160,7 @@ end
 
 local function held(guid)
   local entries = ledger()
-  return type(OlympusVerifyDB) ~= "table" or blockedRoute()
+  return type(OlympusVerifyDB) ~= "table" or blockedRoute() or sessionPending[guid]~=nil
     or entries ~= nil and (type(entries) ~= "table" or entries[guid] ~= nil)
 end
 
@@ -171,7 +173,66 @@ end
 
 local function cancel(reason)
   disarm()
-  selection, review, waiting, page, message = {}, nil, nil, 1, reason
+  selection, review, page, message = {}, nil, 1, reason
+end
+
+local function noteDeparture(raw)
+  if not review or review.count==0 or not sameScope(scope,nativeScope()) then return end
+  local name=native.DepartureName(raw)
+  if not safeName(name) then return end
+  name=name:lower()
+  -- Some Blizzard messages omit the realm. Accept a short name only when it
+  -- identifies a single GUID across the complete roster seen at dispatch.
+  local candidate
+  for guid,full in pairs(review.before) do
+    if full==name or not name:find("-",1,true) and full:match("^[^-]+")==name then
+      if candidate then return end
+      candidate=guid
+    end
+  end
+  local attempt=review.pending[candidate]
+  if attempt then attempt.namedDeparture=true;dirty=true end
+end
+
+local function confirmDepartures(data)
+  for guid,name in pairs(review.confirmed) do
+    if data.members[guid] or data.names[name] then return false end
+  end
+  if not next(review.pending) then return true end
+  for guid in pairs(review.before) do
+    if not data.members[guid] and not review.pending[guid] and not review.confirmed[guid] then return false end
+  end
+  if type(OlympusVerifyDB)~="table" or getmetatable(OlympusVerifyDB) then return false end
+  local entries,history=ledger(),OlympusVerifyDB.inactiveRemovalHistory
+  if type(entries)~="table" or getmetatable(entries) or history~=nil and (type(history)~="table" or getmetatable(history)) then return false end
+  local absent={}
+  for guid,attempt in pairs(review.pending) do
+    local record=attempt.record
+    if entries[guid]~=record or record.state~="unknown" or record.guid~=guid or record.name~=attempt.name
+      or record.actor~=scope.actor or record.realm~=scope.realm or record.guild~=scope.guild then return false end
+    local named=data.names[attempt.name:lower()]
+    if data.members[guid] then
+      if named~=guid or attempt.sawAbsent then return false end
+    elseif named then return false
+    elseif rosterGeneration>attempt.generation then absent[#absent+1]=attempt end
+  end
+  -- Many missing rows in one update can also be a clipped roster. Require
+  -- Blizzard's independently named system message for *each* such absence.
+  for _,attempt in ipairs(absent) do
+    attempt.sawAbsent=true
+    if #absent>1 then attempt.needsNamed=true end
+    if not attempt.needsNamed or attempt.namedDeparture then
+      local record,guid=attempt.record,attempt.guid
+      if not history then history={};OlympusVerifyDB.inactiveRemovalHistory=history end
+      record.state,record.departedAt="departure-observed",time()
+      table.insert(history,1,record)
+      if #history>500 then table.remove(history) end
+      entries[guid],review.pending[guid],sessionPending[guid]=nil,nil,nil
+      review.confirmed[guid]=attempt.name:lower()
+      review.count=review.count-1
+    end
+  end
+  return true
 end
 
 local function refresh()
@@ -185,40 +246,10 @@ local function refresh()
   elseif scope and not sameScope(scope, data.owner) then
     cancel("Guild or officer changed. Make a new selection.")
   elseif review then
-    local target = review.targets[review.index]
-    if waiting and waiting.sawRoster and not data.members[target.guid] and not data.names[target.name:lower()] then
-      -- A partial read that drops more than this member isn't an unambiguous
-      -- departure. Names/GUIDs are also unique throughout the complete roster.
-      local intact = true
-      for id in pairs(waiting.before) do
-        if id ~= target.guid and not data.members[id] then intact = false; break end
-      end
-      if intact then
-        local entries = ledger()
-        if type(entries) == "table" and entries[target.guid] == waiting.record then
-          local history = OlympusVerifyDB.inactiveRemovalHistory
-          if history == nil then history = {}; OlympusVerifyDB.inactiveRemovalHistory = history end
-          if type(history) == "table" then
-            local record = waiting.record
-            record.state, record.departedAt = "departure-observed", time()
-            -- The roster confirms departure. Only the guild event log identifies a kick.
-            table.insert(history, 1, record)
-            if #history > 500 then table.remove(history) end
-            entries[target.guid] = nil
-          end
-        end
-        if lastAttempt and lastAttempt.record == waiting.record then lastAttempt = nil end
-        waiting = nil
-        review.index = review.index + 1
-        if review.index > #review.targets then
-          cancel("WoW confirmed all reviewed characters have left the guild.")
-        else
-          message = target.name .. " left the guild. Next: " .. review.targets[review.index].name .. "."
-          page = math.floor((review.index - 1) / #listRows) + 1
-        end
-      else
-        cancel("More than one roster entry disappeared. Review the current list before continuing.")
-      end
+    if not confirmDepartures(data) then
+      cancel("Roster or receipt evidence changed unexpectedly. Review the current list before continuing.")
+    elseif review.index > #review.targets and review.count == 0 then
+      cancel("WoW confirmed all reviewed characters have left the guild.")
     end
     if review then
       for i = review.index, #review.targets do
@@ -252,8 +283,10 @@ local function paint()
   page = math.max(1, math.min(page, pages))
   local blocked = blockedRoute()
   local target = review and review.targets[review.index]
+  local waiting = review and review.count > 0 and (not review.rapid or not target)
   ui.status:SetText(unavailable or (blocked and "WoW blocked the secure removal command. Removals are held on this client build.")
-    or (waiting and ("Waiting for WoW to confirm " .. target.name .. " left. No repeat will be sent."))
+    or (waiting and ("Awaiting native departure receipts: " .. review.count .. "."))
+    or (review and review.count>0 and target and ("Next: " .. target.name .. ". Awaiting receipts: " .. review.count .. "."))
     or message or (review and ("Next: " .. target.name .. ". Check the name, then click Remove once.")
     or string.format("%d eligible · %d selected", #rows, selected)))
   ui.pages:SetText(page .. " / " .. pages)
@@ -293,10 +326,15 @@ local function paint()
       widget.rank:SetText(row.rank)
       widget.class:SetText(className(row.class))
       widget.days:SetText(string.format("%dd / %dd", math.floor(row.days), minimumDays(row)))
-      local status = review and (index < review.index and "Left guild" or index == review.index and "Current" or "Reviewed") or (held(row.guid) and "Held" or "")
+      local status = review and (review.confirmed[row.guid] and "Left guild" or review.pending[row.guid] and "Awaiting receipt" or index == review.index and "Current" or "Reviewed") or (held(row.guid) and "Held" or "")
       widget.mark:SetText(status)
     end
   end
+end
+
+local function beginReview(targets, rapid)
+  review = {targets=targets,index=1,pending={},confirmed={},before={},count=0,rapid=rapid}
+  page, message = 1, nil
 end
 
 local function freezeSelection()
@@ -307,28 +345,39 @@ local function freezeSelection()
         class = row.class, level = row.level, days = row.days, need = row.need, weekEligible = row.weekEligible}
     end
   end
-  if #targets > 0 then review = {targets = targets, index = 1}; page, message = 1, nil end
+  if #targets > 0 then beginReview(targets, false) end
+end
+
+local function popupOpen()
+  for i=1,STATICPOPUP_NUMDIALOGS or 4 do
+    local popup=_G["StaticPopup"..i]
+    if popup and popup:IsShown() then return true end
+  end
+  return false
 end
 
 local function beforeClick(button, mouse, down)
   if InCombatLockdown() ~= false then return end
   disarm()
   if mouse ~= "LeftButton" or down == true or IsShiftKeyDown() ~= false or IsControlKeyDown() ~= false
-    or IsAltKeyDown() ~= false or not button:IsVisible() or not button:IsEnabled() or waiting or inClick then return end
+    or IsAltKeyDown() ~= false or not button:IsVisible() or not button:IsEnabled() or inClick or popupOpen() then return end
   local original, index = review, review and review.index
   refresh()
   if not snapshot or review ~= original or review and review.index ~= index then paint(); return end
   if not review then freezeSelection(); paint(); return end
   local target = review.targets[index]
-  if held(target.guid) or not commandName(target.name) or not stillEligible(target, snapshot) then paint(); return end
+  if not target or (not review.rapid and review.count>0) or held(target.guid) or not commandName(target.name) or not stillEligible(target, snapshot) then paint(); return end
   if OlympusVerifyDB.inactiveRemovalAttempts == nil then OlympusVerifyDB.inactiveRemovalAttempts = {} end
   local record = {guid=target.guid, name=target.name, guild=scope.guild, realm=scope.realm, actor=scope.actor, requestedAt=time(), state="unknown"}
   -- Reserve persistently before handing this exact name to the template. A
   -- canceled dialog, lost reply, UI close or reload cannot admit a duplicate.
   OlympusVerifyDB.inactiveRemovalAttempts[target.guid] = record
-  inClick = {guid=target.guid, record=record}
-  lastAttempt = inClick
-  waiting = {record=record, before=snapshot.members}
+  inClick = {guid=target.guid, name=target.name, record=record, generation=rosterGeneration}
+  sessionPending[target.guid] = inClick
+  review.pending[target.guid] = inClick
+  for name,guid in pairs(snapshot.names) do review.before[guid] = name end
+  review.count, review.index = review.count + 1, index + 1
+  page = math.floor((math.min(review.index,#review.targets) - 1) / #listRows) + 1
   button:SetAttribute("macrotext1", "/guildremove " .. target.name)
   button:SetAttribute("type1", "macro")
 end
@@ -339,7 +388,7 @@ local function afterClick()
   inClick = nil
   if InCombatLockdown() == false then
     paint()
-    if waiting then native.RequestRoster() end
+    if review and review.count>0 then native.RequestRoster() end
   end
 end
 
@@ -484,17 +533,20 @@ local function build(parent)
   panel:RegisterEvent("GUILD_ROSTER_UPDATE"); panel:RegisterEvent("PLAYER_GUILD_UPDATE")
   panel:RegisterEvent("PLAYER_REGEN_DISABLED"); panel:RegisterEvent("PLAYER_REGEN_ENABLED")
   panel:RegisterEvent("PLAYER_LEAVING_WORLD")
+  panel:RegisterEvent("CHAT_MSG_SYSTEM")
   panel:RegisterEvent("ADDON_ACTION_BLOCKED"); panel:RegisterEvent("ADDON_ACTION_FORBIDDEN")
   panel:SetScript("OnEvent", function(self, event, addon, action)
+    if event=="CHAT_MSG_SYSTEM" then noteDeparture(addon);return end
     if event == "ADDON_ACTION_BLOCKED" or event == "ADDON_ACTION_FORBIDDEN" then
-      local attempt = inClick or lastAttempt
       local op = type(action) == "string" and action:lower():match("^([^%(]+)")
       local removal = op == "c_guildinfo.uninvite" or op == "guilduninvite" or op == "guildremove" or op == "/guildremove"
-      local age = attempt and time() - attempt.record.requestedAt
-      if addon == ADDON and attempt and (removal and age >= 0 and age <= 10 or inClick and op == "runmacrotext") then
-        attempt.record.state, routeRefused = "blocked", true
+      if addon == ADDON and (removal and next(sessionPending)~=nil or inClick and op=="runmacrotext") then
+        -- A delayed error names only the action. Even after the window closes,
+        -- stop this route and retain each individual unknown until reviewed.
+        if inClick then inClick.record.state="blocked" end
+        routeRefused = true
         if clientRevision then OlympusVerifyDB.inactiveSecureRemovalBlocked = clientRevision end
-        cancel("WoW blocked the removal. The attempted name remains held.")
+        cancel("WoW blocked the removal. Outstanding requests remain held.")
         if self:IsVisible() and InCombatLockdown() == false then paint() end
       end
       return
@@ -507,7 +559,7 @@ local function build(parent)
     elseif event == "PLAYER_GUILD_UPDATE" then
       if InCombatLockdown() == false then refresh(); paint() end
     else
-      if waiting and event == "GUILD_ROSTER_UPDATE" then waiting.sawRoster = true end
+      if event == "GUILD_ROSTER_UPDATE" then rosterGeneration = rosterGeneration + 1 end
       dirty = true
     end
   end)
@@ -540,15 +592,55 @@ function D.Hide()
   elseif panel then panel:Hide() end
 end
 
-function D.ReviewOne(name, guid)
-  if review or not commandName(name) or type(guid) ~= "string" or InCombatLockdown() ~= false
-    or not OlympusVerifyWorkspace or not OlympusVerifyWorkspace.OpenInactive() then return false end
-  refresh()
-  local row = snapshot and snapshot.eligible[guid]
-  if not row or row.name ~= name or row.days < row.need or held(guid) then return false end
-  initiateWeek, classes, cutoff, search, page = false, nil, 0, "", 1
+local function deskEligible(row, mode)
+  return row and not held(row.guid) and commandName(row.name)
+    and (mode=="policy" and row.days>=row.need or mode=="initiate7" and row.weekEligible and row.days>=7)
+end
+
+local listing
+function D.CandidatesForDesk(mode)
+  if mode~="policy" and mode~="initiate7" then return nil,"Unknown inactivity filter." end
+  local owner, now, generation = nativeScope(), time(), native.RosterGeneration()
+  if not owner or not canReadOfficerNotes(owner) or not native.VisibilityCurrent() or blockedRoute() then
+    listing=nil;return nil,"The complete native guild roster and removal permission are required."
+  end
+  if not listing or not sameScope(owner,listing.owner) or listing.generation~=generation
+    or now<listing.at or now-listing.at>=5 then
+    local data,why=observe()
+    if not data then listing=nil;return nil,why end
+    listing={data=data,owner=data.owner,at=now,generation=generation}
+  end
+  local found={}
+  for _,row in ipairs(listing.data.rows) do
+    if deskEligible(row,mode) then found[row.guid]={name=row.name,days=row.days,class=row.class} end
+  end
+  return found
+end
+
+function D.ReviewDeskSelection(targets,mode)
+  if review or mode~="policy" and mode~="initiate7" or type(targets)~="table" or getmetatable(targets)
+    or #targets<1 or #targets>1000 or InCombatLockdown()~=false then return false,"Select a new set of eligible members." end
+  local count=0
+  for i in pairs(targets) do
+    if type(i)~="number" or i~=math.floor(i) or i<1 or i>#targets then return false,"Invalid removal selection." end
+    count=count+1
+  end
+  if count~=#targets then return false,"Incomplete removal selection." end
+  local data,why=observe()
+  if not data then return false,why end
+  local frozen,seen={},{}
+  for _,picked in ipairs(targets) do
+    local row=type(picked)=="table" and getmetatable(picked)==nil and data.eligible[picked.guid]
+    if not deskEligible(row,mode) or picked.name~=row.name or seen[row.guid] then return false,"A selected name or its eligibility changed. Review the list again." end
+    frozen[#frozen+1],seen[row.guid]=row,true
+  end
+  if not OlympusVerifyWorkspace or not OlympusVerifyWorkspace.OpenInactive() or not sameScope(data.owner,scope) then return false,"The native review window is unavailable." end
+  initiateWeek, classes, cutoff, search = mode=="initiate7",nil,0,""
   ui.search:SetText("")
-  selection = {[guid] = row}
-  freezeSelection(); paint()
-  return review ~= nil
+  beginReview(frozen,true);refresh();paint()
+  return review~=nil,unavailable
+end
+
+function D.ReviewOne(name, guid)
+  return D.ReviewDeskSelection({{name=name,guid=guid}},"policy")
 end
