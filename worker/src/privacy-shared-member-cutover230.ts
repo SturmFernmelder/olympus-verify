@@ -10,7 +10,8 @@ type Step230=Readonly<{sql:string;values:readonly (string|number)[]}>;
 export type SharedMember230PlanId='precheck'|'fence-and-seal'|'closed-read'|'open-enabled'|'open-off-abort';
 export const SHARED_MEMBER230_LAYOUT='recorded-live-pre-seal-20261017';
 const PROFILE=JSON.parse(ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON).recordedLive as {objects:(string|null)[][]};
-const APP_OBJECTS=JSON.stringify(PROFILE.objects);
+import {raidPhysicalObjects316} from './raid-schema316';
+const APP_OBJECTS=JSON.stringify(raidPhysicalObjects316(PROFILE.objects));
 /** Exact historical provider companion only; its values are never read or mutated. */
 export const SHARED_MEMBER230_OPTIONAL_CF_KV_JSON=JSON.stringify((JSON.parse(ADMISSION_COOKIE_MIGRATION_SOURCES_JSON)['public-predecessor'].recordedLive.objects as (string|null)[][]).filter(o=>o[1]==='_cf_KV'||o[2]==='_cf_KV'));
 const NOW="CAST(strftime('%s','now') AS INTEGER)",TUPLE='json_array(singleton,protocol,epoch,mode,active,nonce,purpose,entry_changes,logical_changes)';
@@ -38,7 +39,7 @@ function tuple(raw:unknown,epoch:string,mode:'serving'|'closed'):unknown[]{
  if(!Array.isArray(a)||a.length!==9||JSON.stringify(a)!==raw||a[0]!==1||a[1]!==N.VERSION||a[2]!==epoch||a[3]!==mode||a[4]!==0||a[5]!==''||a[6]!==''
   ||![a[7],a[8]].every(v=>typeof v==='number'&&Number.isSafeInteger(v)&&v>=0))return held('member230_tuple');return a;
 }
-/** Exact442 application objects, plus only the source-owned optional _cf_KV (live443).
+/** The complete serving application profile, plus only the source-owned optional _cf_KV.
  * The independent exact _cf_METADATA companion remains outside that catalogue.
  * No later-layout alias, DDL fallback, schema learning or provider-value read. */
 export function sharedMember230CurrentProfileProof(mode:'serving'|'closed',bound:boolean):string{

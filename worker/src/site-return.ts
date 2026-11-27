@@ -1,6 +1,6 @@
 /** Same-origin member landing pages carried by the site's ordinary Discord sign-in. */
 const ROUTES = new Set([
-  "apply", "army", "community/calendar", "community/workshop", "governance",
+  "apply", "army", "community/calendar", "community/raid-teams", "community/workshop", "governance",
   "guild-rosters", "guides/tools/attunements", "organization", "resources", "roles", "vote",
 ]);
 const CALENDAR_EVENT = /^community\/calendar\/[A-Za-z0-9_-]{22}(?:\/roster)?$/;

@@ -1505,3 +1505,16 @@ main.shell:focus-visible { outline: none; }
 .role-audit283 .btn-row, .verification-recovery285 .btn-row { margin-bottom: 12px; }
 .role-audit283 .btn-row > *, .verification-recovery285 .btn-row > * { min-width: 0; max-width: 100%; }
 .verification-recovery285 input[type="file"] { width: 100%; overflow: hidden; }
+
+.raid-teams .raid-team-card { display: grid; gap: .6rem; align-content: start; }
+.raid-teams .raid-member-list { padding-inline-start: 1.4rem; }
+.raid-teams .raid-member-list > li { margin-block: .5rem; }
+.raid-teams .raid-details { margin-block: .6rem; }
+.raid-teams .raid-details > summary { cursor: pointer; color: var(--gold); }
+.raid-teams .raid-details[open] > summary { margin-bottom: .75rem; }
+.raid-teams .raid-feedback { margin: 0; }
+.raid-teams .raid-feedback:empty { display: none; }
+.raid-teams .raid-feedback.err { color: var(--red-soft); }
+.raid-teams .kv dd { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.raid-week-window{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,8rem),1fr));align-items:end;gap:.6rem}

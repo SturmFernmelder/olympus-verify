@@ -1,7 +1,8 @@
 // Genuine Workerd/D1 fixture. Only the runner's external Discord HTTP is synthetic.
 import {readLaunchOperations229,readPromotionSelection273,readPromotionSelections276,handleLaunchOperations229} from '../src/site-launch229.ts';
 import {captureLaunchVerification} from '../src/launch-verification227.ts';
-import {ADMISSION_EXPECTED_JSON, ADMISSION_PROTOCOL} from '../src/privacy-write-admission-catalogue.ts';
+import {raidAdmissionCatalogue316} from '../src/raid-schema316.ts';
+import {ADMISSION_PROTOCOL} from '../src/privacy-write-admission-catalogue.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
 import {strictRosterDisplay} from '../src/unverified.ts';
 import {CANONICAL_GUILD233,CANONICAL_PROFILE233,CANONICAL_RANKS233,captureCanonicalRankConfig233} from '../src/canonical-ranks233.ts';
@@ -135,7 +136,7 @@ async function reviewRecords275(action, input) {
 // `record` receives the seed checks: the promotion fixture's go to the module list, the budget database's to its own
 // list under their own names, so neither is counted twice (12 Nov review of CL2-024).
 async function seed(db, record = check) {
-  const catalogue = JSON.parse(ADMISSION_EXPECTED_JSON);
+  const catalogue = JSON.parse(raidAdmissionCatalogue316('canonical'));
   const install = [...catalogue.tables, ...catalogue.indexes].map(row => db.prepare(row.sql));
   install.push(db.prepare(catalogue.slotSQL));
   while (install.length) await db.batch(install.splice(0, 40));

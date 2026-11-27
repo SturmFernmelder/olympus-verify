@@ -8,7 +8,7 @@ let fixture230=parent230.slice(0,cuts230[0].index);
 const oldInstall230='    entry.installCurrentEntryEpoch(db, { now: T });';
 const oldEnv230="  return { ...current, DB: load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(current.DB, 'writer', 'canonical', entry.ENTRY_EPOCH) };";
 if(fixture230.split(oldInstall230).length!==2||fixture230.split(oldEnv230).length!==2)throw Error('launch230_fixture_native_boundary_changed');
-fixture230=fixture230.replace(oldInstall230,`    const profile=JSON.parse(load('./privacy-write-admission-catalogue').ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON).recordedLive.profile;
+fixture230=fixture230.replace(oldInstall230,`    const profile=JSON.parse(load('./raid-schema316').raidAdmissionCatalogue316('recorded-live-pre-seal-20261017'));
     for(const t of profile.tables)db.exec(t.sql);for(const i of profile.indexes)db.exec(i.sql);db.exec(profile.slotSQL);
     db.prepare("INSERT INTO privacy_write_admission(singleton,protocol,epoch,mode,active,nonce,purpose,entry_changes,logical_changes)VALUES(1,'olympus-write-admission-epoch-2',?,'serving',0,'','',0,0)").run('a'.repeat(32));
     db.exec("INSERT INTO privacy_rejection_expiry_control VALUES(1,'original-guild-rejection-expiry-v1',0,0);INSERT INTO site_settings(key,value,updated_at)VALUES('auditTypedNames','115',1)");for(const t of profile.triggers)db.exec(t.sql);`)

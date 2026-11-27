@@ -46,6 +46,7 @@ jobs:
           npm run check:vectors
           node ../scripts/build-verify-addon.cjs --check
           node ../scripts/build-governance-titles.cjs --check
+          node scripts/build-raid-team-schema.cjs --check
         working-directory: worker
       # CL2-076 (owner ruling of 13 Nov 2026): members keep app.js and app.css of a BUILD in their browser for a year,
       # so a change to either file must ship with a new BUILD. Exit 3 (no base to compare) fails the step too.
@@ -64,6 +65,8 @@ jobs:
           node tests/profile_command307_workerd_test.cjs
           node tests/guild_directory312_frontend_test.cjs
           node tests/raid_calendar307_frontend_test.cjs
+          node tests/raid_schema316_workerd_test.cjs
+          node tests/raid_forum316_workerd.cjs
       - name: Verify blank-realm PRIME rosters and selected Initiate checks
         working-directory: worker
         run: node tests/prime_realm_binding_workerd_test.cjs

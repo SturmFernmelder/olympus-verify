@@ -25,7 +25,8 @@ export function parseSharedMember230RecoveryPlan(text:unknown):SharedMember230Re
 }
 type Step=Readonly<{sql:string;values:readonly (string|number)[]}>;
 export type SharedMember230RecoveryPlanId='recovery-precheck'|'recovery-fence'|'recovery-closed-read'|'recovery-open-off';
-const OBJECTS=JSON.stringify(JSON.parse(ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON).recordedLive.objects),TUPLE='json_array(singleton,protocol,epoch,mode,active,nonce,purpose,entry_changes,logical_changes)',NOW="CAST(strftime('%s','now') AS INTEGER)";
+import {raidPhysicalObjects316} from './raid-schema316';
+const OBJECTS=JSON.stringify(raidPhysicalObjects316(JSON.parse(ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON).recordedLive.objects)),TUPLE='json_array(singleton,protocol,epoch,mode,active,nonce,purpose,entry_changes,logical_changes)',NOW="CAST(strftime('%s','now') AS INTEGER)";
 function step(sql:string,values:readonly(string|number)[]):Step{N.bounded(sql,values);return Object.freeze({sql,values:Object.freeze([...values])});}
 function profile(p:SharedMember230RecoveryPlan,epoch:string,mode:'serving'|'closed',bound:string|null):Step{return step(sharedMember230CurrentProfileProof(mode,bound!==null),[OBJECTS,bound??'',epoch,String(p.expiresAt),String(p.createdAt),SHARED_MEMBER230_OPTIONAL_CF_KV_JSON]);}
 function closed(raw:unknown,p:SharedMember230RecoveryPlan):unknown[]{if(typeof raw!=='string')return recoveryHeld('member230_recovery_closed_tuple');let t:unknown;try{t=JSON.parse(raw);}catch{return recoveryHeld('member230_recovery_closed_tuple');}

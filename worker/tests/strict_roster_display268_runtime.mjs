@@ -1,7 +1,8 @@
 // Actual Workerd/D1 display behavior; fixture identities never authorize roles.
 import {strictRosterDisplay, STRICT_ROSTER_DISPLAY_PROTOCOL_V2} from '../src/unverified.ts';
 import {captureLaunchVerification} from '../src/launch-verification227.ts';
-import {ADMISSION_EXPECTED_JSON, ADMISSION_PROTOCOL} from '../src/privacy-write-admission-catalogue.ts';
+import {raidAdmissionCatalogue316} from '../src/raid-schema316.ts';
+import {ADMISSION_PROTOCOL} from '../src/privacy-write-admission-catalogue.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
 
 const EPOCH = 'a'.repeat(32);
@@ -12,7 +13,7 @@ export default {async fetch(request, bindings) {
   const db = bindings.DB, checks = [];
   const check = (name, value) => { if (!value) throw Error(name); checks.push({name, passed: true}); };
   try {
-    const catalogue = JSON.parse(ADMISSION_EXPECTED_JSON);
+    const catalogue = JSON.parse(raidAdmissionCatalogue316('canonical'));
     const install = [...catalogue.tables, ...catalogue.indexes].map(row => db.prepare(row.sql));
     install.push(db.prepare(catalogue.slotSQL));
     while (install.length) await db.batch(install.splice(0, 40));

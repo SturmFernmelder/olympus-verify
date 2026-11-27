@@ -1,5 +1,6 @@
 import { exactDiscordNames, refreshVerifiedNames, refreshNames, scheduleMissingVerifiedName } from '../src/names';
-import { ADMISSION_EXPECTED_JSON, ADMISSION_PROTOCOL } from '../src/privacy-write-admission-catalogue';
+import { raidAdmissionCatalogue316 } from '../src/raid-schema316';
+import { ADMISSION_PROTOCOL } from '../src/privacy-write-admission-catalogue';
 import { createPrivacyWriteAdmissionDatabase } from '../src/privacy-write-admission';
 
 const epoch = 'a'.repeat(32);
@@ -14,7 +15,7 @@ function check(label, condition) {
 
 export default {async fetch(request, bindings) {
   const db=bindings.DB;
-  const catalogue=JSON.parse(ADMISSION_EXPECTED_JSON);
+  const catalogue=JSON.parse(raidAdmissionCatalogue316('canonical'));
   const schema=[...catalogue.tables,...catalogue.indexes].map(row=>db.prepare(row.sql));
   schema.push(db.prepare(catalogue.slotSQL));
   while(schema.length) await db.batch(schema.splice(0,40));

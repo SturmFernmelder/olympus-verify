@@ -12,7 +12,9 @@ const canonicalAllowedGrants=new Map([[canonicalSubject,canonicalGM],[liveMember
 const departureMessages=[],departureDeletes=[];
 const directoryViewer='800000000000000781',directoryTarget='800000000000000782',directoryReplay='800000000000000783',directoryOfficer='800000000000000789';
 const raidOrganizer='800000000000000761',raidAttendee='800000000000000762';
+const teamAccounts=['800000000000000861','800000000000000862','800000000000000863','800000000000000864'];
 const oauthFixtures=new Map([
+  ...teamAccounts.map((id,i)=>['raid-team-test-'+i,{id,token:'raid-team-token-'+i,username:'raid_team_'+i,roles:[]}]),
   ['directory-test-only',{id:directoryViewer,token:'directory-profile-test-only',username:'directory_test',roles:[directoryOfficer]}],
   ['raid-organizer-test-only',{id:raidOrganizer,token:'raid-organizer-token',username:'raid_organizer',roles:[directoryOfficer]}],
   ['raid-attendee-test-only',{id:raidAttendee,token:'raid-attendee-token',username:'raid_attendee',roles:[]}],
@@ -80,7 +82,7 @@ async function run(){
         calls.push({method:request.method,path:p});
         if(request.method==='GET'&&p.startsWith('/guilds/800000000000000001/members/')){
           const id=p.split('/').at(-1);
-          if(id===raidOrganizer||id===raidAttendee)return Response.json({user:{id,bot:false},pending:false,roles:id===raidOrganizer?[directoryOfficer]:[]});
+          if(id===raidOrganizer||id===raidAttendee||teamAccounts.includes(id))return Response.json({user:{id,bot:false},pending:false,roles:id===raidOrganizer?[directoryOfficer]:[]});
           if([directoryViewer,directoryTarget,directoryReplay,'800000000000000784','800000000000000785','800000000000000787'].includes(id)){
             if(id==='800000000000000787')return new Response(null,{status:503});
             if(id==='800000000000000785')return Response.json({message:'Unknown Member'},{status:404});

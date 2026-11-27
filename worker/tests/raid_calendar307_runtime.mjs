@@ -2,7 +2,7 @@ import { captureGuildActor219 } from '../src/guild-command-authority219';
 import { readCalendar219, calendarRoster219, raidCapacityText, attendanceCalendar219 } from '../src/guild-calendar219';
 import worker from '../src/index';
 import { raidAssignmentChoices307, decideRaidSignup307 } from '../src/guild-roster-decisions307';
-import { siteMemberLink, siteEntryReturn, siteReturnLocation } from '../src/site-return';
+import { siteMemberLink, siteEntryReturn, siteLoginLocation, siteLoginReturn, siteReturnFromVerifiedState, siteReturnLocation } from '../src/site-return';
 
 export async function raidCalendarReadback(base, check, rawDB, ctx) {
   const guild=base.GUILD_ID, me='800000000000000761', peer='800000000000000762', retired='800000000000000763', undecided='800000000000000765';
@@ -35,6 +35,11 @@ export async function raidCalendarReadback(base, check, rawDB, ctx) {
   const history=await readCalendar219(env,actor,undefined,1,true);
   check('history excludes upcoming and expired events and returns only this member’s attendance',history.length===1&&history[0].id===past&&history[0].own_attendance==='present'&&!JSON.stringify(history).includes('excused'));
   const ownLink=siteMemberLink(env.SITE_HOST,'community/calendar/'+upcoming+'/roster');
+  const teamRoute='community/raid-teams', destination=new URL(siteMemberLink(env.SITE_HOST,teamRoute));
+  const login=new URL(siteLoginLocation(siteEntryReturn(destination)),destination);
+  const state=btoa(JSON.stringify({issuedAt:at,returnTo:siteLoginReturn(login)}))+'n';
+  check('raid hub directory link survives direct entry and the verified OAuth return',siteReturnLocation(siteEntryReturn(destination))==='/#/'+teamRoute && siteReturnLocation(siteReturnFromVerifiedState(state,at))==='/#/'+teamRoute);
+  check('unlisted directory subpaths stay outside the login return list',siteEntryReturn(new URL('/?to=community/raid-teams/private',destination))===null);
   check('roster deep link survives sign-in and arbitrary subpaths are refused',siteReturnLocation(siteEntryReturn(new URL(ownLink)))==='/#/community/calendar/'+upcoming+'/roster'&&siteEntryReturn(new URL(ownLink+'x'))===null);
   const event=events[0], choose=(who,rev,decision,until=actor.deadline)=>decideRaidSignup307(env,actor,event,until,who,rev,decision);
   const revision=async who=>db.prepare('SELECT decision,decision_revision,status FROM community_event_signups WHERE event_id=?1 AND discord_id=?2').bind(upcoming,who).first();

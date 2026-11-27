@@ -1,6 +1,7 @@
 // Full current Worker entry, real local D1 and the real site cookie parser.
 import worker from '../src/index.ts';
-import {ADMISSION_EXPECTED_JSON,ADMISSION_PROTOCOL} from '../src/privacy-write-admission-catalogue.ts';
+import {raidAdmissionCatalogue316} from '../src/raid-schema316.ts';
+import {ADMISSION_PROTOCOL} from '../src/privacy-write-admission-catalogue.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
 import {canonicalSiteSessionBody,INCARNATION_SESSION_PURPOSE} from '../src/privacy-site-session-incarnation.ts';
 const OWNER='472099715253796864',OTHER='800000000000000002',BIRTH='b'.repeat(32),EPOCH='a'.repeat(32),SECRET='synthetic-registration-cookie';
@@ -8,7 +9,7 @@ const modes=['normal','unknown-landed','unknown-absent','conflict','concurrent',
 const ready=new Map();
 const b64=value=>btoa(String.fromCharCode(...new Uint8Array(value))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 async function setup(db,mode){
- const catalogue=JSON.parse(ADMISSION_EXPECTED_JSON),parts=[...catalogue.tables,...catalogue.indexes].map(row=>db.prepare(row.sql));
+ const catalogue=JSON.parse(raidAdmissionCatalogue316('canonical')),parts=[...catalogue.tables,...catalogue.indexes].map(row=>db.prepare(row.sql));
  parts.push(db.prepare(catalogue.slotSQL));while(parts.length)await db.batch(parts.splice(0,40));
  const at=(await db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS t").first()).t;
  await db.batch([

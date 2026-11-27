@@ -1,3 +1,4 @@
+import {RAID_TEAM_DDL316} from './raid-schema316';
 import {D1_PERFORMANCE_INDEX_LEGACY_DDL} from './d1-performance-index';
 /**
  * Columns and tables added after the first deploy, applied by the Worker itself so a deploy never depends on someone
@@ -107,6 +108,7 @@ async function migrate(env: Env) {
   await env.DB.prepare("CREATE INDEX IF NOT EXISTS audit_actor_action ON audit(actor, action)").run();
   // .266 optional performance companion; only this dormant legacy migration runs DDL.
   await env.DB.prepare(D1_PERFORMANCE_INDEX_LEGACY_DDL).run();
+  for (const ddl of RAID_TEAM_DDL316) await env.DB.prepare(ddl.replace(/^CREATE (TABLE|INDEX) /,'CREATE $1 IF NOT EXISTS ')).run();
   // Older production restriction tables predate retain_until. Create the canonical cold shape first,
   // then consume a zero-row probe/guarded ALTER before the site batch's retain index can reference it.
   await env.DB.prepare(SITE_SCHEMA.find(s=>s.startsWith('CREATE TABLE IF NOT EXISTS community_restriction_cases'))!).run();

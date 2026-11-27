@@ -1,5 +1,5 @@
 import app from '../src/index.ts';
-import {ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON} from '../src/privacy-write-admission-catalogue.ts';
+import {raidAdmissionCatalogue316} from '../src/raid-schema316.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
 
 const EPOCH='a'.repeat(32),ID='300000000000000003',OTHER='300000000000000004',BOT='300000000000000099',GUILD='236932545793490944';
@@ -9,7 +9,7 @@ const method=(o,k)=>{for(let p=o;p;p=Object.getPrototypeOf(p)){const d=Object.ge
 const packets=body=>{const p=JSON.parse(body);return Array.isArray(p)?p:[p];};
 
 async function setup(db){
- const profile=JSON.parse(ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON).recordedLive.profile;
+ const profile=JSON.parse(raidAdmissionCatalogue316('recorded-live-pre-seal-20261017'));
  const objects=[...profile.tables,...profile.indexes].map(o=>db.prepare(o.sql));objects.push(db.prepare(profile.slotSQL));
  while(objects.length)await db.batch(objects.splice(0,40));
  const now=(await db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS n").first()).n;

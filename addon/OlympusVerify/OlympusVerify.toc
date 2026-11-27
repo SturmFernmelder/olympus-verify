@@ -2,9 +2,10 @@
 ## Title: Olympus Verify
 ## Notes: Guild roster, promotion checks, inactivity review and Discord verification. /olv opens the officer workspace.
 ## Author: Olympus
-## Version: 0.6.57
+## Version: 0.6.58
 ## OptionalDeps: Olympus
 ## SavedVariables: OlympusVerifyDB
+## SavedVariablesPerCharacter: OlympusRaidScheduleDB
 
 # Supported interfaces are explicit qualification metadata; qualify each future client before adding its number.
 Libs\OlympusHmac.lua
@@ -36,3 +37,4 @@ OlympusMemberChecks.lua
 OlympusVerifyLaunch229.lua
 OlympusVerifyOfficerInvites233.lua
 OlympusVerifyLive242.lua
+OlympusVerifyRaidSchedule.lua

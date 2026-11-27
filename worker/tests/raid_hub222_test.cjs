@@ -21,6 +21,7 @@ async function checks222(){
  check('bare /raid replaces subcommands with one optional event autocomplete',raid.options.length===1&&raid.options[0].name==='find'&&raid.options[0].autocomplete===true);
  check('utility commands and calendar event alias remain registered',catalog222.GUILD_COMMANDS_222.length===10&&['event','guide','forever','workshop','treasury','stockades','council','branches','launch'].every(n=>catalog222.GUILD_COMMANDS_222.some(c=>c.name===n)));
  let r=await send222({who:MEMBER});
+ check('raid team button opens the member directory',controls(r.answer).some(c=>c.label==='Find a raid team'&&new URL(c.url).searchParams.get('to')==='community/raid-teams'));
  check('member opens a private empty hub without organizer controls',r.initial.type===5&&r.initial.data.flags===64&&r.answer.embeds[0].title==='Olympus raid & event hub'&&!control(r.answer,'Schedule an event…'));
  check('opening the hub creates no event, reminder, signup or public message',one('SELECT COUNT(*) n FROM community_events').n===0&&one('SELECT COUNT(*) n FROM community_event_reminders').n===0&&publicEffects219().length===0);
  r=await send222({who:MEMBER,options:hubOptions()});

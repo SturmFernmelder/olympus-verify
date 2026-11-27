@@ -79,6 +79,11 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".316", date: "2026-11-27", lines: [
+      "Find a standing raid team, list your verified character for recruitment, and confirm a starter or reserve offer. Team leaders can schedule raids from the standing roster.",
+    ],
+  },
+  {
     build: ".315", date: "2026-11-27", lines: [
       "After signing in, members can read the voluntary guild bank contribution instructions directly on the home page.",
     ],
@@ -888,7 +893,7 @@ export async function newsPage(request: Request, env: Env): Promise<Response> {
     leadershipStampStatement(env),
     // title and time only: never the creator, the details, the capacity or the sign-ups
     ...(withEvents
-      ? [env.DB.prepare(`SELECT id, title, starts_at, duration_min FROM community_events WHERE status = 'scheduled' AND starts_at > ?1 AND starts_at < ?2 ORDER BY starts_at, id LIMIT ${NEWS_LIMITS.eventsMax}`).bind(at, at + NEWS_LIMITS.eventsDays * DAY_S)]
+      ? [env.DB.prepare(`SELECT id, title, starts_at, duration_min FROM community_events WHERE op_id NOT LIKE 'team316:%' AND status = 'scheduled' AND starts_at > ?1 AND starts_at < ?2 ORDER BY starts_at, id LIMIT ${NEWS_LIMITS.eventsMax}`).bind(at, at + NEWS_LIMITS.eventsDays * DAY_S)]
       : []),
   ]);
   if (out === FENCE_REFUSED) return communityReadRefusal(env, request);

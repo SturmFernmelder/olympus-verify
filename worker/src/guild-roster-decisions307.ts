@@ -12,7 +12,7 @@ type Manager = { sql:string; values:readonly string[] };
 type Roles = Awaited<ReturnType<typeof guildCalendarRolesNow219>>;
 type Signup = { discord_id:string; label:string; decision:string|null; decision_revision:number };
 const ID=/^[1-9]\d{16,19}$/;
-const EVENT_OPEN=`e.status='scheduled' AND e.starts_at>${DB_NOW} AND e.retain_until>${DB_NOW}`;
+const EVENT_OPEN=`e.op_id NOT LIKE 'team316:%' AND e.status='scheduled' AND e.starts_at>${DB_NOW} AND e.retain_until>${DB_NOW}`;
 
 /** Discord controls have a signed actor. Reusing a website session here would
  * lose that original actor's deadline, account birth, or privacy generation. */

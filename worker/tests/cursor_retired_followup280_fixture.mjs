@@ -1,6 +1,6 @@
 // Actual sweep/issuer/Native D1 regression; synthetic data and external providers only.
 import app from '../src/index.ts';
-import {ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON,ADMISSION_EXPECTED_JSON} from '../src/privacy-write-admission-catalogue.ts';
+import {raidAdmissionCatalogue316} from '../src/raid-schema316.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
 import {sweepMemberRoles,forgetLocalThrottle} from '../src/restore.ts';
 import {callBudget} from '../src/roles.ts';
@@ -9,7 +9,7 @@ import {CANONICAL_RANKS233,CANONICAL_PROFILE233} from '../src/canonical-ranks233
 import {runServingErasureJob} from '../src/privacy-serving-jobs.ts';
 const C0='100000000000000000',C1='111111111111111111',C2='222222222222222222',B2='500000000000000005',B0='300000000000000003',B1='400000000000000004',BOT='300000000000000099',G='236932545793490944';
 const MEMBER='1552077551839617104',BASE='https://guild.example',EPOCH='a'.repeat(32),LAYOUT=TEST_LAYOUT280;
-const profile=LAYOUT==='canonical'?JSON.parse(ADMISSION_EXPECTED_JSON):JSON.parse(ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON).recordedLive.profile;
+const profile=JSON.parse(raidAdmissionCatalogue316(LAYOUT));
 const cases=new Map();
 const packs=body=>{const value=JSON.parse(body);return Array.isArray(value)?value:[value];};
 function method(object,key){for(let p=object;p;p=Object.getPrototypeOf(p)){const d=Object.getOwnPropertyDescriptor(p,key);if(d&&Object.hasOwn(d,'value')&&typeof d.value==='function')return d.value;}throw Error('original_method_missing');}

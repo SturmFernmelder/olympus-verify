@@ -15,6 +15,7 @@ import sys
 TESTS = Path(__file__).resolve().parent
 ADDON = TESTS.parent
 SUITES = {
+    "raid_schedule316": (TESTS, Path("test_raid_schedule316.lua")),
     "harness": (ADDON, Path("test/harness.lua")),
     "status": (TESTS, Path("test_status.lua")),
     "ranks": (TESTS, Path("test_ranks.lua")),

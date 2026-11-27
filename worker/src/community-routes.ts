@@ -6,6 +6,10 @@
 import type { Env } from "./env";
 import { apiJson, readJson, type SiteUser } from "./site-core";
 import { guildRosterDirectory } from "./guild-roster-directory";
+import { raidTeams316 } from "./raid-teams316";
+import { handleRaidTeamWrite316 } from "./raid-team-writes316";
+import { handleRaidTeamCalendar316 } from "./raid-team-calendar316";
+import "./raid-teams-data316";
 import { communityContext, contextDto, refusal } from "./community-context";
 import "./community-refs"; // registers its erasure and export
 import { adminAltDecision, adminDirectory, craftingSearch, directoryList, profileGet, profilePut } from "./community-directory";
@@ -28,6 +32,9 @@ export async function handleCommunity(request: Request, env: Env, path: string):
   const m = request.method;
   const reader = m === "GET" && ["/api/community/context", "/api/community/profile", "/api/community/directory", "/api/community/discord-directory", "/api/community/crafting", "/api/community/events", "/api/community/event", "/api/community/attendance/me"].includes(path);
   const ctx = await communityContext(env, request, { guildRoleRead: reader });
+  if (m === "POST" && (path === "/api/community/raid-teams" || path.startsWith("/api/community/raid-teams/"))) return handleRaidTeamWrite316(request, env, ctx, path);
+  if (/^\/api\/community\/raid-teams\/(?:my-next-raid|[A-Za-z0-9_-]+\/calendar)$/.test(path)) return handleRaidTeamCalendar316(request, env, ctx);
+  if (path === "/api/community/raid-teams" || path.startsWith("/api/community/raid-teams/")) return raidTeams316(request, env, ctx, path);
   if (m === "GET" && path === "/api/community/guild-rosters") return guildRosterDirectory(request,env,ctx);
   if ((m === "GET" || m === "PUT") && path === "/api/community/discord-directory/visibility") return discordDirectoryVisibility(request, env, ctx, m === "PUT" ? (await readJson(request) ?? undefined) : {});
   if (m === "POST" && path === "/api/community/census/preview") return censusPreview(request, env, ctx);
