@@ -651,6 +651,10 @@ local function PromotionControl(input,result,ready,detail,bound,current)
   if input.nativeVeteran then return "Veteran",false,nil end
   if ready and bound then return "Promote",true,"promote" end
   if input.nativeMember then
+    if bound and detail and detail.state=="check" and result.status=="verified" and current and current.identity
+      and current.identity.primeInitiates and type(launch.Select)=="function" and CheckCustodyClear(launch,input.guid,current,input.rankIndex) then
+      return "Check Veteran",true,"check"
+    end
     if bound and detail and detail.state=="recheck" and type(launch.Select)=="function" and type(launch.PromotionStatus)=="function" then
       local ok,status=pcall(launch.PromotionStatus,input.guid,current,input.rankIndex)
       if ok and status=="recheck" then return "Check next",true,"check" end

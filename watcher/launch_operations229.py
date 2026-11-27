@@ -25,6 +25,7 @@ SELECTED_LEGACY_PROTOCOL = "promotion-selection-v273"
 SELECTED_BATCH_PROTOCOL = "promotion-selection-v276"
 DIRECTIVE_PROTOCOL = "promotion-selection-directive-v1"
 PRIME_INITIATE_ACTION = "select-prime-initiates"
+PRIME_MEMBER_ACTION = "select-prime-member"
 _DIRECTIVE_CONTROL_KEYS = {"version", "action", "id", "observedAt", "scopeHash", "guid", "targetGuids", "confirmations", "mac"}
 _SELECTED_CONTROL_KEYS = {"version", "action", "id", "observedAt", "scopeHash", "guid", "targetGuid", "mac"}
 _SELECTED_BATCH_CONTROL_KEYS = (_SELECTED_CONTROL_KEYS - {'targetGuid'}) | {'targetGuids'}
@@ -474,9 +475,9 @@ def targets_digest276(value: list[str]) -> str:
 
 
 def selected_control_mac(secret: str, value: dict[str, Any]) -> str:
-    if value.get('version') in (4, 5):
+    if value.get('version') in (4, 5, 6):
         version = value['version']
-        action = PRIME_INITIATE_ACTION if version == 5 else 'select-directive'
+        action = {4: 'select-directive', 5: PRIME_INITIATE_ACTION, 6: PRIME_MEMBER_ACTION}[version]
         message = '|'.join(['launch-selected-read', str(version), action, value['id'], str(value['observedAt']),
                             value['scopeHash'], value['guid'], ','.join(value['targetGuids']), value['confirmations']])
         return hmac.new(secret.encode(), message.encode(), hashlib.sha256).hexdigest()[:32]
@@ -491,9 +492,13 @@ def validate_selected_control(secret: str, value: Any, at: int, guid: Any, guild
     if not isinstance(value, dict):
         return False
     # Old controls remain historical originals; never upgrade them to the new ladder.
-    if (set(value) != _DIRECTIVE_CONTROL_KEYS or type(value.get('version')) is not int or value['version'] != (5 if prime_binding else 4)
-            or value['action'] != (PRIME_INITIATE_ACTION if prime_binding else 'select-directive')
-            or prime_binding and value['confirmations'] != '[]' or not _selected_targets276(value['targetGuids'])
+    member_read = prime_binding and not automatic_initiates and value.get('version') == 6
+    expected = (4, 'select-directive')
+    if prime_binding:
+        expected = (6, PRIME_MEMBER_ACTION) if member_read else (5, PRIME_INITIATE_ACTION)
+    if (set(value) != _DIRECTIVE_CONTROL_KEYS or type(value.get('version')) is not int or (value['version'], value['action']) != expected
+            or prime_binding and not member_read and value['confirmations'] != '[]' or not _selected_targets276(value['targetGuids'])
+            or member_read and len(value['targetGuids']) != 1
             or not _text(value['confirmations'],8192) or not value['confirmations'].isascii()
             or not isinstance(value['id'], str) or re.fullmatch(r'[0-9]{9,11}:[0-9]{1,10}', value['id']) is None
             or not _integer(value['observedAt'], 1) or value['id'].split(':')[0] != str(value['observedAt'])
@@ -598,6 +603,7 @@ class SelectedRead:
         self.native_digest: str | None = None
         self.native_guids: set[str] = set()
         self.prime_binding = False
+        self.member_read = False
 
     @property
     def running(self) -> bool:
@@ -605,7 +611,8 @@ class SelectedRead:
 
     def request(self, control: dict[str, Any], accepted: Any, roster: Any, at: float,
                 *, sweep_source: tuple[str | None, set[str]] | None = None) -> None:
-        self.prime_binding = control.get('version') == 5
+        self.prime_binding = control.get('version') in (5, 6)
+        self.member_read = control.get('version') == 6
         batch = self.prime_binding or control.get('version') == 4
         self.record = dict(version=2, protocol=DIRECTIVE_PROTOCOL, controlId=control['id'], actorGuid=control['guid'],
                            confirmations=control.get('confirmations'),
@@ -632,9 +639,15 @@ class SelectedRead:
         r = self.record
         r.update(snapshotId=accepted['snapshot'], snapshotAt=accepted['exportedAt'],
                  expiresAt=min(control['observedAt']+600, accepted['exportedAt']+600))
-        self.native_guids = (sweep_source[1] if sweep_source is not None else
-                             {row['guid'] for row in roster['members']
-                              if not self.prime_binding or row.get('rankIndex') == 9 and row.get('rank') == 'Initiate'})
+        if self.member_read:
+            confirmed = _confirmations(control['confirmations'], targets)
+            self.native_guids = {row['guid'] for row in roster['members']
+                                 if row.get('rankIndex') == 8 and row.get('rank') == 'Member'
+                                 or confirmed and row.get('rankIndex') == 7 and row['guid'] == confirmed[0]['guid'] and confirmed[0]['to'] == 7}
+        else:
+            self.native_guids = (sweep_source[1] if sweep_source is not None else
+                                 {row['guid'] for row in roster['members']
+                                  if not self.prime_binding or row.get('rankIndex') == 9 and row.get('rank') == 'Initiate'})
         self.native_digest = digest
         targets = control['targetGuids'] if batch else [control['targetGuid']]
         if any(guid not in self.native_guids for guid in targets):
@@ -699,7 +712,7 @@ class SelectedRead:
         if self.automatic_initiates:
             query['autoInitiates'] = '1'
         if self.prime_binding:
-            query['primeBinding'] = 'prime-guild-master'
+            query['primeBinding'] = 'prime-guild-master-member' if self.member_read else 'prime-guild-master'
         query.update(targetGuids=json.dumps(r['targetGuids'], separators=(',', ':'))) if batch else query.update(targetGuid=r['targetGuid'])
         if self.cursor:
             query['cursor'] = self.cursor
@@ -743,8 +756,12 @@ class SelectedRead:
             return self.hold('source-held')
         observation = {**r, 'protocol': reply['protocol']}
         if (not _selected_page(page, observation, covered, int(self.clock())) or not set(covered) <= self.native_guids
-                or (self.prime_binding or self.automatic_initiates) and any(row['currentSlot'] != 9
+                or (self.prime_binding and not self.member_read or self.automatic_initiates) and any(row['currentSlot'] != 9
                     or row['intent']['startSlot'] != 9 or row['intent']['acknowledgedSteps'] != 0 for row in page['promotions'])
+                or self.member_read and any(row['reason'] != 'knight-veteran' or row['targetSlot'] != 6
+                    or row['intent']['startSlot'] not in (8, 9) or row['currentSlot'] not in (7, 8)
+                    or (r['confirmations'] == '[]') != (row['intent']['acknowledgedSteps'] == 0)
+                    or r['confirmations'] == '[]' and row['currentSlot'] != 8 for row in page['promotions'])
                 or r['page'] is not None and page['scan']['id'] != r['page']['scan']['id']):
             return self.hold('invalid-selected-page')
         r['page'] = json.loads(json.dumps(page))

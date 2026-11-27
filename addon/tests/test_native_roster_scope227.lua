@@ -282,11 +282,11 @@ local function selectedFixture()
     button:Show();button:Click()
     return granted
   end
-  f.publish=function(finalSlot)
+  f.publish=function(finalSlot,startSlot)
     local control=e.OlympusVerifyDB.launchControl
     local d=assert(loadfile("directive_fixture280.lua"))()
     local data,page=d.publish(e,{control=control,guild=f.guild,realm="CAMWOW US2 Realm 3 PvE",total=2,
-      specs={{guid=row.guid,name=row.name,start=9,final=finalSlot}}})
+      specs={{guid=row.guid,name=row.name,start=startSlot or 9,final=finalSlot}}})
     page.rankProfile,page.rankSchemeDigest,page.rankNames=steward.profile,steward.digest,{unpack(steward.names)}
     local recommendation=page.promotions[1]
     recommendation.intent.rankProfile,recommendation.intent.rankSchemeDigest=steward.profile,steward.digest
@@ -297,6 +297,67 @@ local function selectedFixture()
   end
   f.selectedCount=function() return granted end
   return f,e,q,row
+end
+do
+  local f,e,q,row=selectedFixture()
+  row.rankIndex,row.rank=8,"Member"
+  assert(f.export()==2)
+  e.OlympusVerifyLists={version=2,guild=f.guild,realm="CAMWOW US2 Realm 3 PvE",
+    verified={fetchedAt=e.NOW,snapshotAt=e.NOW,members={{name=row.name,guid=row.guid,status="member",username="knightsample"}}},
+    unverified={fetchedAt=e.NOW,snapshotAt=e.NOW,members={}},unknown={fetchedAt=e.NOW,snapshotAt=e.NOW,members={}}}
+  setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyRoster.lua")),e)("OlympusVerify")
+  local desk=e.OlympusVerifyRoster
+  desk.Show()
+  local deskRow
+  for _,view in ipairs(desk.rows) do if view.member and view.member.guid==row.guid then deskRow=view end end
+  check("verified Member has an officer desk check button before a Knight read",deskRow and deskRow.check:IsShown() and not deskRow.promote:IsShown())
+  if deskRow and deskRow.check:IsShown() then deskRow.check:Click() end
+  check("attended blank-realm Member check accepts one exact native Member",f.syncs==1)
+  if e.OlympusVerifyDB.launchControl then
+    local c=e.OlympusVerifyDB.launchControl
+    check("new Member read uses its own exact signed single-target purpose",c.version==6 and c.action=="select-prime-member" and c.confirmations=="[]" and #c.targetGuids==1)
+    f.publish(6,8)
+    local current=q.Current()
+    check("blank-realm Member receives its original Knight entitlement without a native action",current and current.selection and current.selection.completed and current.promotions[1].targetSlot==6 and f.selectedCount()==0)
+    check("blank-realm Member still needs one officer click for one native rank step",f.click()==1 and row.rankIndex==7)
+  end
+  check("automatic and bulk Initiate checks cannot start a Member Knight path",not q.SelectMany({row.guid}))
+  local g,ee,qq,alt=selectedFixture()
+  alt.rankIndex,alt.rank=7,"Alt"
+  assert(g.export()==2)
+  check("unowned Alt cannot start a blank-realm promotion",not qq.Select(alt.guid) and not g.syncs)
+end
+do
+  local f,e,q,row=selectedFixture()
+  row.rankIndex,row.rank=8,"Member"
+  assert(f.export()==2 and q.Select(row.guid))
+  local rows={{name=row.name,guid=row.guid,rankIndex=8,rank="Member",status="verified"}}
+  local function state()
+    local _,result=e.OlympusVerifyRosterModel.Promotions(rows,q,e.NOW)
+    return result.byGuid[row.guid].state
+  end
+  check("a pending Member read cannot be replaced",state()=="checking")
+  local data=f.publish(6,8)
+  local page=data.page
+  local positive=page.promotions
+  page.promotions={}
+  check("a checked Member without a Knight role can be checked again",state()=="check")
+  page.held={{name=row.name,guid=row.guid,reason="discord-entitlement-unknown"}}
+  check("a completed Member check with unknown Discord entitlement stays held",state()=="held")
+  page.held={}
+  page.promotions=positive
+  check("a current positive Member read still shows a separate promotion button",state()=="ready")
+  page.expiresAt=e.NOW
+  check("a Member can request a new read after the positive recommendation expires",state()=="check")
+  page.promotions={}
+  check("an expired negative Member result can be checked again",state()=="check")
+  data.completed=false
+  data.stoppedReason="source-unknown"
+  check("an indeterminate stopped Member request stays held",state()=="held")
+  data.stoppedReason="native-roster-changed-or-expired"
+  check("an explicitly refreshable Member read failure offers a new check",state()=="check")
+  e.OlympusVerifyDB.launchPromotionSaveHolds={[row.guid]=true}
+  check("a stopped Member check cannot hide unresolved native custody",state()~="check" and f.selectedCount()==0 and f.syncs==1)
 end
 for _,final in ipairs({8,6}) do
   local f,e,q,row=selectedFixture()
@@ -326,8 +387,10 @@ for _,final in ipairs({8,6}) do
   e.CanGuildPromote=function() return true end
   check("one explicit officer click admits exactly the first promotion step",f.click()==1 and row.rankIndex==8)
   f.event()
-  check("later clicks and checking a non-Initiate cannot reuse the first step",f.click()==1 and not q.Select(row.guid)
-    and f.syncs==1 and f.effects==0)
+  check("later clicks cannot reuse the first step; a new read is still required",f.click()==1 and q.Select(row.guid)
+    and f.syncs==2 and f.effects==0 and e.OlympusVerifyDB.launchControl.version==6 and f.click()==1)
+  check("only an unfinished Knight intent sends its original step confirmation",
+    (e.OlympusVerifyDB.launchControl.confirmations~="[]")==(final==6))
 end
 do
   local f,e,q,row=selectedFixture()

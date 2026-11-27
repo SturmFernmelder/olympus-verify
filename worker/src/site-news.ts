@@ -79,6 +79,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".311", date: "2026-11-26", lines: [
+      "The Inactive tab offers a Remove button for each reviewed character. One officer click requests one removal. The next name appears after the guild roster confirms the departure.",
+      "Officers can check a selected Member for a Veteran promotion when WoW leaves the realm blank. Each rank change requires a fresh recommendation and an officer click.",
+    ],
+  },
+  {
     build: ".310", date: "2026-11-26", lines: [
       "Known verified Initiates get priority in promotion checks. Officers can review the recommended in-game rank and promote each character with one click.",
       "Filter the inactive roster by one or more classes. The Initiates 7d+ option lists OLYMPUS PRIME Initiates who have been offline for at least seven days and are eligible for removal.",

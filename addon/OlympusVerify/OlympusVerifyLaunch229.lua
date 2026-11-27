@@ -39,9 +39,8 @@ local function RawIdentity(allowBlank)
   if not guild or guild ~= guild:match("^%s*(.-)%s*$") or not realm or realm=="" and not allowBlank or not guid or not Number(rank,0,9) then return nil end
   return {guild=guild,realm=realm,guid=guid,rank=rank}
 end
--- The owner approved one read when the native player realm is blank (21 Nov
--- 2026). Only the core's current-session, complete enrolled-GM capture can
--- resolve that realm. Discovery, invitations and history still use Identity().
+-- Only the current-session, complete enrolled-GM capture can resolve a blank
+-- realm for signed roster promotion reads. Discovery and invites use Identity().
 local readScope=OlympusVerifyAPI and OlympusVerifyAPI.Roster and OlympusVerifyAPI.Roster.CurrentScope
 local function PrimeInitiateIdentity()
   local raw=RawIdentity(true)
@@ -308,9 +307,10 @@ local function SelectedMac(control,joined)
     tostring(control.observedAt),control.scopeHash,control.guid,joined,control.confirmations},"|")
   return CachedMac(control,message)
 end
-local function ValidSelect(control,identity,now)
+local function ValidSelect(control,identity,now,automaticRead)
   local batch=type(control)=="table" and (identity.primeInitiates
-    and control.version==5 and control.action=="select-prime-initiates" and control.confirmations=="[]"
+    and (control.version==5 and control.action=="select-prime-initiates" and control.confirmations=="[]"
+      or not automaticRead and control.version==6 and control.action=="select-prime-member")
     or not identity.primeInitiates and control.version==4 and control.action=="select-directive")
   if not ExactKeys(control,batch and BATCH_CONTROL or SELECT_CONTROL)
     or not batch or not Text(control.confirmations,65536)
@@ -320,7 +320,7 @@ local function ValidSelect(control,identity,now)
   local targets,encoded,joined
   if batch then targets,encoded,joined=BatchTargets(control.targetGuids,true)
   elseif Text(control.targetGuid,40) and control.targetGuid:match("^Player%-%d+%-%x+$") then targets,joined={control.targetGuid},control.targetGuid end
-  if not targets then return false end
+  if not targets or control.version==6 and #targets~=1 then return false end
   if control.mac~=SelectedMac(control,joined) then return false end
   return targets,batch,encoded
 end
@@ -370,7 +370,7 @@ local function TargetsDigest(data,encoded)
   return digest
 end
 local function SelectedCurrent(identity, now, control, data, automaticRead)
-  local targets,batch,encoded=ValidSelect(control,identity,now)
+  local targets,batch,encoded=ValidSelect(control,identity,now,automaticRead)
   if not targets then return nil end
   local requested={};for _,id in ipairs(targets) do requested[id]=true end
   local held={targetGuid=targets[1],targetGuids=batch and targets or nil,covered=requested,state="pending",code="awaiting-result",reason="This check is waiting for its result. The Watcher refreshes the list. Its latest result loads at login or reload."}
@@ -439,8 +439,13 @@ local function SelectedCurrent(identity, now, control, data, automaticRead)
   if identity.primeInitiates then
     local scheme=OlympusVerifyNativeRanks.Profile(page.rankProfile,page.rankSchemeDigest)
     for _,row in ipairs(checked.promotions) do
-      if row.guid==identity.guid or row.currentSlot~=scheme.initiate or row.intent.startSlot~=scheme.initiate
-        or row.intent.acknowledgedSteps~=0 then return held end
+      if row.guid==identity.guid then return held end
+      if control.version==6 then
+        if row.reason~="knight-veteran" or row.targetSlot~=scheme.veteran
+          or row.intent.startSlot~=scheme.member and row.intent.startSlot~=scheme.initiate
+          or control.confirmations=="[]" and (row.currentSlot~=scheme.member or row.intent.acknowledgedSteps~=0)
+          or control.confirmations~="[]" and (row.intent.acknowledgedSteps==0 or row.currentSlot~=scheme.member and row.currentSlot~=scheme.veteran+1) then return held end
+      elseif row.currentSlot~=scheme.initiate or row.intent.startSlot~=scheme.initiate or row.intent.acknowledgedSteps~=0 then return held end
     end
   end
   held={targetGuid=targets[1],targetGuids=batch and targets or nil,state="complete",reason=batch
@@ -1552,31 +1557,40 @@ function Q.Control(action, offset)
   return true
 end
 function Q.Select(targetGuid)
-  if Read(GetRealmName)=="" then return Q.SelectMany({targetGuid}) end
-  local identity=Identity()
+  local identity=Identity() or PrimeInitiateIdentity()
   if cfg.membershipOnly~=true or not identity or Q.scopeChanged or Preview() or Read(InCombatLockdown)~=false
     or Q.identityBaseline and not SameIdentity(Q.identityBaseline,identity) or not Text(targetGuid,40)
     or not targetGuid:match("^Player%-%d+%-%x+$") or targetGuid==identity.guid
     or not Text(cfg.secret,1024) or #cfg.secret<16 or cfg.secret:find("REPLACE",1,true)
     or not H or type(H.hmacSha256hex)~="function" or not OlympusVerifyAPI or type(OlympusVerifyAPI.Sync)~="function" then
-    Say("Current native identity, GUID, signing or sync is unavailable; selected read held.");return false end
-  local roster,why=NativeRoster(identity)
+    Say(Read(GetRealmName)=="" and not identity and BlankRealmReason() or "Current native identity, GUID, signing or sync is unavailable; selected read held.");return false end
+  local roster,why,scheme=NativeRoster(identity)
   if not roster or not roster[targetGuid] then Say(why or "The selected GUID is absent from the complete current native roster.");return false end
+  local native=roster[targetGuid]
+  local boundInitiate=identity.primeInitiates and native.slot==scheme.initiate
   OlympusVerifyDB=OlympusVerifyDB or {}
   local db,now=OlympusVerifyDB,time()
-  db.launchSequence=Number(db.launchSequence,0,999999999) and db.launchSequence+1 or 1
   local ledger,confirmations=AttemptLedger(),"[]"
   if not ledger then Say("Prior attempt custody is unavailable; selected read held.");return false end
   local record=ledger[targetGuid]
+  if boundInitiate and record~=nil then Say("The Initiate has a prior attempt. Review its original history.");return false end
+  if identity.primeInitiates and not boundInitiate and (scheme.member~=8 or scheme.veteran~=6 or scheme.names[9]~="Member" or scheme.names[7]~="Veteran"
+    or not (native.slot==scheme.member or native.slot==scheme.veteran+1 and type(record)=="table" and record.completed==false)) then
+    Say("Choose a current native Member or the next observed step of the original Knight promotion.");return false end
   if record~=nil and not (type(record)=="table" and record.completed==true) then
     if not SameAttempt(record,targetGuid,{identity=identity}) or record.state~="confirmed" or record.completed~=false
-      or roster[targetGuid].slot~=record.observedSlot or now>=record.intentExpiresAt then
+      or native.slot~=record.observedSlot or now>=record.intentExpiresAt
+      or identity.primeInitiates and record.target~=scheme.veteran then
       Say("The original attempt is unknown, incompatible or expired; a new selected read cannot repair it.");return false end
     local step=record.steps[#record.steps]
     if not record.intentToken:match("^[%w_%-]+%.[0-9a-f]+$") then return false end
     confirmations='[{"guid":"'..targetGuid..'","token":"'..record.intentToken..'","from":'..tostring(step.from)..',"to":'..tostring(step.expected)..',"observedAt":'..tostring(step.observedAt)..'}]'
   end
-  local value={version=4,action="select-directive",id=tostring(now)..":"..tostring(db.launchSequence),observedAt=now,
+  local version,action=4,"select-directive"
+  if boundInitiate then version,action=5,"select-prime-initiates"
+  elseif identity.primeInitiates then version,action=6,"select-prime-member" end
+  db.launchSequence=Number(db.launchSequence,0,999999999) and db.launchSequence+1 or 1
+  local value={version=version,action=action,id=tostring(now)..":"..tostring(db.launchSequence),observedAt=now,
     scopeHash=identity.scopeHash,guid=identity.guid,targetGuids={targetGuid},confirmations=confirmations}
   value.mac=SelectedMac(value,targetGuid)
   db.launchControl=value
@@ -1908,7 +1922,7 @@ events:SetScript("OnUpdate",function()
   if type(control)~="table" or control.action=="stop" or not Number(control.observedAt,1,time()) then return end
   local age=time()-control.observedAt
   if age<5 or age>=60 or Q.remindedControl==control.id then return end
-  local identity=Identity() or (control.action=="select-prime-initiates" and PrimeInitiateIdentity())
+  local identity=Identity() or ((control.action=="select-prime-initiates" or control.action=="select-prime-member") and PrimeInitiateIdentity())
   local selected=identity and SelectedCurrent(identity,time(),control,OlympusLaunchSelected)
   if selected and selected.completed then Q.remindedControl=control.id;return end -- Notification-only decision, never cached authority.
   if not OlympusLaunchQueue or OlympusLaunchQueue.controlId~=control.id then

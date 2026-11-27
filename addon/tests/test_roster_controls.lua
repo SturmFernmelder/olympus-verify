@@ -357,7 +357,10 @@ do
   e.CanGuildRemove=function() return true end
   local opened
   e.ChatFrame_OpenChat=function(text)opened=text end
-  check("single eligible current GUID prepares only an unsent native command",w.ReviewRemoval() and opened=="/guildremove NameOnly-Forever" and f.removals==0)
+  local reviewed
+  e.OlympusVerifyInactiveDesk={ReviewOne=function(name,guid) reviewed={name,guid}; return true end}
+  check("single eligible current GUID opens its exact in-addon review without sending",w.ReviewRemoval()
+    and reviewed[1]=="NameOnly-Forever" and reviewed[2]==e.ROSTER[4].guid and not opened and f.removals==0)
   opened=nil
   local officerGuid=e.UnitGUID
   e.UnitGUID=function() return "" end
