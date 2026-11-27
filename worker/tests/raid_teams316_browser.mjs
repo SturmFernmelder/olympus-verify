@@ -8,7 +8,7 @@ import {spawn} from 'node:child_process';
 import assert from 'node:assert/strict';
 
 async function browserScenario() {
-  const {renderRaidTeams}=await import('/static/raid-teams.js');
+  const {renderRaidTeams,personalTeamAttendanceLabel}=await import('/static/raid-teams.js');
   const base='#/community/raid-teams',teamId='db9d29c6-1311-4fee-82a0-d3dbd670aaa2',eventId='E'.repeat(22);
   const character={name:'Fixture Healer',guid:'Player-87-00000200'};
   const leader={name:'Fixture Lead',guid:'Player-87-00000201'};
@@ -103,6 +103,12 @@ async function browserScenario() {
   assert('back and forward reopen current occurrence',root.textContent.includes('Running late'));
   await click('a','My next raid',()=>root.querySelector('textarea[readonly]'));
   assert('own character schedule is copyable',root.querySelector('textarea[readonly]').value.startsWith('OLR1|'+character.guid)&&fits());
+  const heldRow=personalTeamAttendanceLabel(h,{id:null,teamId:null,title:'Private team raid (retained attendance)'});
+  const namedRow=personalTeamAttendanceLabel(h,{id:eventId,teamId,title:raid.title});
+  assert('a former member sees a retained attendance label without a clickable destination',heldRow.textContent==='Private team raid (retained attendance)'&&heldRow.tagName!=='A'&&!heldRow.querySelector('a'));
+  root.appendChild(namedRow);namedRow.click();
+  await until(()=>location.hash===base+'/'+teamId+'/calendar/'+eventId&&by('a','All occurrences'));
+  assert('a current member opens the matching private occurrence from their named attendance entry',root.textContent.includes(raid.title)&&!!by('button','Save response'));
   return {width:innerWidth,checks};
 }
 

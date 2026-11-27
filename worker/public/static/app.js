@@ -8170,7 +8170,16 @@
       more.disabled = true;
       try {
         const data = await api("GET", "/api/community/attendance/me" + (cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""));
-        for (const a of data.entries) tbody.appendChild(h("tr", null, h("td", { class: "wrap" }, h("a", { href: eventHref(a.event.id), text: a.event.title })), h("td", { text: fmtDateTime(sec(a.event.startsAt)) }), h("td", { text: `${ATTENDANCE_WORDS[a.state] || a.state}${a.reasonCode ? ` (${REASON_WORDS[a.reasonCode] || a.reasonCode})` : ""} · ${fmtShort(sec(a.recordedAt))}` })));
+        const hasTeamEntry = data.entries.some(a => Object.hasOwn(a.event, "teamId"));
+        const teamLabel = hasTeamEntry ? (await import("/static/raid-teams.js")).personalTeamAttendanceLabel : null;
+        for (const a of data.entries) {
+          const event = a.event;
+          const label = teamLabel && Object.hasOwn(event, "teamId") ? teamLabel(h, event) : h("a", { href: eventHref(event.id), text: event.title });
+          const reason = a.reasonCode ? ` (${REASON_WORDS[a.reasonCode] || a.reasonCode})` : "";
+          tbody.appendChild(h("tr", null, h("td", { class: "wrap" }, label),
+            h("td", { text: fmtDateTime(sec(event.startsAt)) }),
+            h("td", { text: `${ATTENDANCE_WORDS[a.state] || a.state}${reason} · ${fmtShort(sec(a.recordedAt))}` })));
+        }
         cursor = data.nextCursor;
         more.hidden = !cursor;
         table.hidden = !tbody.firstChild;

@@ -1,4 +1,5 @@
 import {overlapDetector316} from '../src/raid-team-times316.ts';
+import {postRaidTeam316} from '../public/static/raid-teams.js';
 import worker from '../src/index.ts';
 import { PAGE_VERSION } from '../src/site-core.ts';
 import { communityScopedExportPlan, communityScopedEraseStatements, communityEraseStatements } from '../src/community-data-registry.ts';
@@ -31,11 +32,22 @@ export async function raidTeamsReadback316(base,rawDB,ctx,check) {
       db.prepare("INSERT INTO characters(name_key,name,guid,discord_id,status,bound_at) VALUES(?1,?2,?3,?4,'member',unixepoch())").bind(a.name.toLowerCase(),a.name,a.guid,a.id),
     ]);
   }
-  const query=async(a,tail='',body,pageVersion=PAGE_VERSION)=>{
-    const response=await worker.fetch(new Request(site+'/api/community/raid-teams'+tail,{method:body?'POST':'GET',
+  const basePath='/api/community/raid-teams',usedWebWrites=new Set();
+  const http=async(a,method,path,body,pageVersion=PAGE_VERSION)=>{
+    const response=await worker.fetch(new Request(site+path,{method,
       headers:{...(a?{Cookie:a.cookie}:{}),Origin:site,...(pageVersion===null?{}:{'X-Olympus':pageVersion}),'Content-Type':'application/json'},
       body:body?JSON.stringify(body):undefined}),env,ctx);
     return {status:response.status,data:await response.json()};
+  };
+  const query=async(a,tail='',body,pageVersion=PAGE_VERSION)=>{
+    if(!body)return http(a,'GET',basePath+tail,undefined,pageVersion);
+    const [,teamId,section]=tail.split('/');
+    const target=teamId?{teamId,area:section==='calendar'?'calendar':'team'}:{area:'team'};
+    return postRaidTeam316((method,path,data)=>{
+      if(method!=='POST'||path!==basePath)throw Error('Raid website attempted an unapproved write URL');
+      usedWebWrites.add((data.teamId?data.area:'directory')+'/'+data.action);
+      return http(a,method,path,data,pageVersion);
+    },target,body);
   };
   const ok=async(...args)=>{
     const r=await query(...args);
@@ -51,6 +63,15 @@ export async function raidTeamsReadback316(base,rawDB,ctx,check) {
     (await query(leader,'',create,null)).status===403 && (await query(leader,'',create,'1')).data.error==='reload_page' &&
     (await query(leader,'/'+team)).status===404);
   check('team founder must own their selected verified character',(await query(healer,'',create)).status===409);
+  const apply={action:'apply',guid:leader.guid,role:'tank',revision:0};
+  const invalidTargets=[{area:'admin',teamId:team},{area:'calendar'},{teamId:'https://elsewhere.example/'},{teamId:null},
+    {teamId:{path:'../admin'}},{teamId:team,id:other},{path:'/api/admin/roles'},{url:'/api/me'},{route:'calendar'}];
+  check('one exact website POST rejects malformed targets and never dispatches an arbitrary path',
+    (await Promise.all(invalidTargets.map(t=>http(leader,'POST',basePath,{...apply,...t})))).every(r=>r.status===400&&r.data.error==='invalid_target') &&
+    (await http(leader,'POST',basePath+'?path=/api/admin',{...apply,teamId:team})).status===400 &&
+    (await http(leader,'POST',basePath+'/'+team,{...apply,teamId:other})).status===400 &&
+    (await http(leader,'POST',basePath+'/'+team+'/calendar',{...apply,area:'team'})).status===400 &&
+    (await http(leader,'POST',basePath,{...apply,teamId:other})).status===409);
   await ok(leader,'',create);
   check('team search combines recruiting role, style and the viewer’s converted day and start time before pagination',
     (await ok(healer,'?teamRole=healer&style=learn&viewerZone=UTC&day=3&from=02:00&to=05:30')).teams.some(t=>t.id===team) &&
@@ -239,4 +260,7 @@ export async function raidTeamsReadback316(base,rawDB,ctx,check) {
     (await ok(winner,one)).members.length===1 && (await ok(winner)).characters.some(c=>c.name==='Raider Renamed'));
   const lookup=await rawDB.prepare('EXPLAIN QUERY PLAN SELECT 1 FROM characters k WHERE k.guid=?1 AND k.discord_id=?2').bind(winner.guid,winner.id).all();
   check('character ownership lookup can use an index',lookup.results.some(row=>/SEARCH k USING.*INDEX/i.test(row.detail)));
+  check('ordinary directory, team-application, offer and calendar writes use the website’s single POST',
+    ['directory/create','directory/profile','team/apply','team/decide','team/respond','calendar/schedule','calendar/rsvp',
+      'calendar/attendance'].every(key=>usedWebWrites.has(key)));
 }

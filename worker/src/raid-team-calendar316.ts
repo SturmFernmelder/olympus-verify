@@ -3,11 +3,11 @@
 import type { Env } from './env';
 import { now } from './db';
 import { admitted, admittedRead, DB_NOW, fenceSql, FENCE_REFUSED, randomToken, refusal, type CommunityContext } from './community-context';
-import { apiJson, readJson, sameOrigin, PAGE_VERSION } from './site-core';
+import { apiJson } from './site-core';
 import { calendarRoom, EVENT_RETENTION_S, rsvpStatements, type RsvpStatus } from './community-events';
 import { scanLimit } from './community-directory';
 import { attendanceUnlocked219 } from './guild-calendar-metadata219';
-import { raidTeamManagerSql316, raidTeamMemberSql316 } from './raid-teams316';
+import { raidIncludesGroup316 as includesGroup, raidTeamInvitationSql316 as linkedInvitation, raidTeamManagerSql316, raidTeamMemberSql316, raidTeamOccurrenceVisible316 } from './raid-teams316';
 
 const BASE = '/api/community/raid-teams/';
 const ID = /^[A-Za-z0-9_-]{22}$/;
@@ -75,16 +75,12 @@ function subgroupMask(groups:unknown):number {
   if(!Array.isArray(groups)||groups.length>8||new Set(groups).size!==groups.length) throw new CalendarInput('Select up to eight distinct subgroups.');
   return groups.reduce((mask,n)=>mask | (1 << (integer(n,1,8,'the subgroup')-1)),0);
 }
-const includesGroup=(mask:string,group:string)=>`(${mask}=0 OR (${mask} & (1 << (${group}-1)))<>0)`;
 function groupLabel(mask:number) {
   const groups=Array.from({length:8},(_,i)=>i+1).filter(i=>mask & (1<<(i-1)));
   return groups.length ? (groups.length===1?'Group ':'Groups ')+groups.join(', ') : 'Whole team';
 }
 const held = ()=>apiJson({error:'team_calendar_changed',message:'Check your current raid team, its invitations, and the latest calendar revision before trying again.'},409);
 const missing = ()=>apiJson({error:'not_found'},404);
-const linkedInvitation = (event:string,team:string,actor:string)=>`EXISTS(SELECT 1 FROM raid_team_invites316 iv JOIN raid_team_seats316 sx ON sx.id=iv.seat_id JOIN raid_team_events316 ex ON ex.event_id=iv.event_id
-  WHERE iv.event_id=${event} AND sx.team_id=${team} AND sx.discord_id=${actor} AND sx.character_guid=iv.character_guid
-  AND ${includesGroup('ex.group_mask','sx.group_number')} AND ${member('sx.team_id','sx.discord_id')})`;
 async function digest(s:string) {
   const bytes=new Uint8Array(await crypto.subtle.digest('SHA-256',enc.encode(s)));
   return btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
@@ -190,7 +186,7 @@ async function list(request:Request,env:Env,ctx:CommunityContext,team:string){
     LEFT JOIN raid_team_invites316 i ON i.event_id=x.event_id AND i.seat_id=s.id AND i.character_guid=s.character_guid
     LEFT JOIN community_event_signups r ON r.event_id=x.event_id AND r.discord_id=?2
     WHERE x.team_id=?1 AND e.retain_until>${DB_NOW} AND (?3 IS NULL OR e.id=?3)
-    AND (${allow} OR (${member('x.team_id','?2')} AND i.seat_id IS NOT NULL AND ${includesGroup('x.group_mask','s.group_number')}))
+    AND ${raidTeamOccurrenceVisible316('e.id','x.team_id','?2')}
     AND (?4=0 OR (e.starts_at,e.id)>(?4,?5)) ORDER BY e.starts_at,e.id LIMIT 51`).bind(team,me,selected,cursor?Number(cursor[1]):0,cursor?.[2]??'')];
   if(selected)sql.push(db.prepare(`SELECT s.id seatId,k.name,s.role,i.group_number groupNumber,${answerColumns},
     a.state attendance,COALESCE(a.revision,0) attendanceRevision FROM raid_team_events316 x ${personalJoin}
@@ -263,10 +259,11 @@ export async function handleRaidTeamCalendar316(request:Request,env:Env,ctx:Comm
     const m=/^([a-f0-9-]{36})\/calendar$/i.exec(path);if(!m)return missing();
     const team=m[1]!;
     if(request.method==='GET')return await list(request,env,ctx,team);
-    if(request.method!=='POST')return apiJson({error:'method_not_allowed'},405);
-    if(!sameOrigin(request)||request.headers.get('X-Olympus')!==PAGE_VERSION)return apiJson({error:'reload_page'},403);
-    const b=await readJson(request);
-    if(!b)throw new CalendarInput('Enter a valid calendar request.');
+    return apiJson({error:'method_not_allowed'},405);
+  }catch(err){if(err instanceof CalendarInput)return apiJson({error:'invalid_schedule',message:err.message},400);throw err;}
+}
+export async function writeRaidTeamCalendar316(env:Env,ctx:CommunityContext,team:string,b:Body):Promise<Response>{
+  try{
     switch(b.action){
       case 'schedule':return await schedule(env,ctx,team,b);
       case 'edit':case 'cancel':return await change(env,ctx,team,b);

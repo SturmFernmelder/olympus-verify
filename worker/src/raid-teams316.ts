@@ -2,11 +2,11 @@
 import type { Env } from './env';
 import { admitted, admittedRead, DB_NOW, FENCE_REFUSED, fenceSql, randomToken, refusal, type CommunityContext } from './community-context';
 import { weeklyWindows316, canonicalZone316, validClock316, clock316, localStartRanges316, overlapDetector316, type WeeklyWindow316 } from './raid-team-times316';
-import { apiJson, readJson, sameOrigin, PAGE_VERSION } from './site-core';
+import { apiJson } from './site-core';
 import { privacySubjectWritableSql } from './privacy-serving-authority';
 
 const BASE = '/api/community/raid-teams';
-const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
+export const RAID_TEAM_ID316 = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const ROLE = ['tank','healer','melee','ranged','flex'];
 const STATUS = ['forming','recruiting','full','reserves','inactive'];
 const OPEN = "('submitted','waitlisted','offered_primary','offered_reserve')";
@@ -74,6 +74,15 @@ function authority(team: string, actor: string, manager: boolean): string {
 }
 export function raidTeamManagerSql316(teamIdExpr: string, actorIdExpr: string): string { return authority(teamIdExpr,actorIdExpr,true); }
 export function raidTeamMemberSql316(teamIdExpr: string, actorIdExpr: string): string { return authority(teamIdExpr,actorIdExpr,false); }
+export const raidIncludesGroup316=(mask:string,group:string)=>`(${mask}=0 OR (${mask} & (1 << (${group}-1)))<>0)`;
+export function raidTeamInvitationSql316(event:string,team:string,actor:string):string {
+  return `EXISTS(SELECT 1 FROM raid_team_invites316 iv JOIN raid_team_seats316 sx ON sx.id=iv.seat_id JOIN raid_team_events316 ex ON ex.event_id=iv.event_id
+    WHERE iv.event_id=${event} AND ex.team_id=${team} AND sx.team_id=${team} AND sx.discord_id=${actor} AND sx.character_guid=iv.character_guid
+    AND ${raidIncludesGroup316('ex.group_mask','sx.group_number')} AND ${raidTeamMemberSql316('sx.team_id','sx.discord_id')})`;
+}
+export function raidTeamOccurrenceVisible316(event:string,team:string,actor:string):string {
+  return `(${raidTeamManagerSql316(team,actor)} OR ${raidTeamInvitationSql316(event,team,actor)})`;
+}
 function isLeader(team: string, actor: string): string {
   return `EXISTS(SELECT 1 FROM raid_teams316 ownerTeam WHERE ownerTeam.id=${team} AND ownerTeam.leader_id=${actor}
     AND ${current('ownerTeam.leader_id','ownerTeam.leader_birth','ownerTeam.leader_guid')})`;
@@ -197,7 +206,7 @@ function writePlan(env:Env, ctx:CommunityContext, teamId:string|null, b:Record<s
     }
     if (b.action!=='create') throw new FieldError('Choose a directory action.');
     const id=field(b.id,'team reference',36,true);
-    if (!UUID.test(id)) throw new FieldError('Refresh the team creation form.');
+    if (!RAID_TEAM_ID316.test(id)) throw new FieldError('Refresh the team creation form.');
     const team=param(id),guid=param(characterGuid(b.guid)),values=charter(b).map(param),role=choice(b.role,ROLE,'role');
     return result(`INSERT INTO raid_teams316(id,leader_id,leader_birth,leader_guid,name,philosophy,schedule,timezone,loot,expectations,needs,status,capacity,weekly_windows,role_needs)
       SELECT ${team},?1,${birth},${guid},${values.join(',')} WHERE ${guard} AND ${proven('?1',guid)}
@@ -318,16 +327,21 @@ export async function raidTeams316(request:Request,env:Env,ctx:CommunityContext,
   if (!ctx.features.has('events')) return apiJson({error:'feature_off'},404);
   if (!ctx.capabilities.confirmedGuildData || !ctx.subject) return refusal(env,request,'confirmedGuildData');
   const id=path===BASE?null:path.startsWith(BASE+'/')?path.slice(BASE.length+1):'';
-  if (id!==null && !UUID.test(id)) return apiJson({error:'not_found'},404);
+  if (id!==null && !RAID_TEAM_ID316.test(id)) return apiJson({error:'not_found'},404);
   try {
     if (request.method==='GET') return id ? await detail(request,env,ctx,id) : await listing(request,env,ctx);
-    if (request.method!=='POST') return apiJson({error:'method_not_allowed'},405,{Allow:'GET, POST'});
-    if (!sameOrigin(request) || request.headers.get('X-Olympus')!==PAGE_VERSION) return apiJson({error:'reload_page'},403);
-    const b=await readJson(request);
-    if (!b) throw new FieldError('Submit a JSON object with the requested fields.');
+    return apiJson({error:'method_not_allowed'},405,{Allow:'GET, POST'});
+  } catch (err) {
+    if (err instanceof FieldError) return apiJson({error:'invalid',message:err.message},400);
+    throw err;
+  }
+}
+
+export async function writeRaidTeam316(request:Request,env:Env,ctx:CommunityContext,id:string|null,b:Record<string,unknown>):Promise<Response> {
+  try {
     let checkedPrimaries:string|undefined;
     if(id && b.action==='respond' && b.state==='primary' && b.confirmOverlap!==true) {
-      const subject=ctx.subject,seat=field(b.seatId,'seat reference',64,true),revision=integer(b.revision,1,2147483646,'current revision');
+      const subject=ctx.subject!,seat=field(b.seatId,'seat reference',64,true),revision=integer(b.revision,1,2147483646,'current revision');
       const schedule=await admittedRead(env,ctx,'confirmedGuildData',[env.DB.prepare(`SELECT t.id,t.revision,t.timezone,t.weekly_windows
         FROM raid_team_seats316 s JOIN raid_teams316 t ON t.id=s.team_id
         WHERE s.discord_id=?1 AND s.account_birth=?2 AND ${seatCurrent('s')}

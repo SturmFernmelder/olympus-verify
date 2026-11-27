@@ -101,4 +101,50 @@ export async function checkTeamCalendar316(base,rawDB,ctx,check) {
   check('scoped team leader may record observed attendance only on an original current invite and revision',
     (await api(lm,team,{...save,seatId:'calendar-seat-leader'})).status===409&&(await api(lm,team,save)).status===200&&(await api(lm,team,save)).status===409&&
     (await db.prepare('SELECT state FROM community_event_attendance WHERE event_id=?1 AND discord_id=?2').bind(second,member).first())?.state==='present');
+  const ownHistory=async()=>(await api(mm,'/attendance/me')).data.entries;
+  const ordinary='O'.repeat(22);
+  await db.prepare(`INSERT INTO community_events(id,op_id,title,details,starts_at,duration_min,ends_at,created_by,nonce,created_at,updated_at,retain_until)
+      VALUES(?1,?1,'Open guild raid','',?2,60,?2+3600,?3,?1,?2,?2,?2+86400)`).bind(ordinary,at-120,leader).run();
+  await db.prepare(`INSERT INTO community_event_attendance(event_id,discord_id,state,source,recorded_by,recorded_at,revision,write_nonce)
+      VALUES(?1,?2,'present','officer',?3,?4,1,?1)`).bind(ordinary,member,leader,at).run();
+  const regularRow=(await ownHistory()).find(a=>a.event.id===ordinary);
+  check('ordinary guild attendance retains its existing event DTO and generic calendar route',
+    regularRow?.event.title==='Open guild raid'&&!Object.hasOwn(regularRow.event,'teamId')&&(await api(mm,'/event?id='+ordinary)).status===200);
+  const authorizedRow=(await ownHistory()).find(a=>a.event.id===second);
+  check('own attendance names an authorized team occurrence and opens its actual authorized route',
+    authorizedRow?.event.teamId===id&&authorizedRow.event.title===form.title&&authorizedRow.state==='present'&&
+    (await api(mm,team+'?eventId='+authorizedRow.event.id)).data.events[0]?.title===form.title);
+  check('leaving the team succeeds even with retained earlier attendance',
+    (await api(mm,'/raid-teams/'+id,{action:'leave',seatId:'calendar-seat-member',revision:1})).status===200);
+  const afterLeave=await ownHistory(), retained=afterLeave.find(a=>a.event.teamId===null&&a.state==='present'&&a.event.startsAt===authorizedRow?.event.startsAt);
+  check('after a team departure own attendance remains with a neutral label, without private title or route',
+    !!retained&&retained.event.id===null&&retained.event.title==='Private team raid (retained attendance)'&&
+    !JSON.stringify(afterLeave).includes(form.title)&&(await api(mm,team+'?eventId='+second)).status===404);
+
+  const boundaryTime=at-60, tie='z'.repeat(22);
+  const preceding=await db.prepare(`SELECT COUNT(*) n FROM community_event_attendance a JOIN community_events e ON e.id=a.event_id
+    WHERE a.discord_id=?1 AND (e.starts_at>?2 OR (e.starts_at=?2 AND e.id<?3))`).bind(member,boundaryTime,second).first();
+  const needed=99-preceding.n;
+  if(needed<0||tie<=second)throw Error('Attendance pagination fixture does not put the retained event on the boundary.');
+  const generate=`WITH RECURSIVE seq(n) AS (SELECT 1 WHERE ?1>0 UNION ALL SELECT n+1 FROM seq WHERE n<?1),
+    raids(id,start) AS (SELECT 'B'||printf('%021d',n),?2+10 FROM seq UNION ALL SELECT ?3,?2)`;
+  await db.batch([db.prepare(generate+` INSERT INTO community_events(id,op_id,title,details,starts_at,duration_min,ends_at,created_by,nonce,created_at,updated_at,retain_until)
+    SELECT id,id,'Attendance fixture','',start,60,start+3600,?4,id,start,start,start+86400 FROM raids`).bind(needed,boundaryTime,tie,leader),
+    db.prepare(generate+` INSERT INTO community_event_attendance(event_id,discord_id,state,source,recorded_by,recorded_at,revision,write_nonce)
+    SELECT id,?4,'present','officer',?5,start,1,id FROM raids`).bind(needed,boundaryTime,tie,member,leader)]);
+  const page=await api(mm,'/attendance/me'), token=page.data.nextCursor;
+  const decoded=JSON.parse(atob(token.replace(/-/g,'+').replace(/_/g,'/')));
+  const next=await api(mm,'/attendance/me?cursor='+encodeURIComponent(token));
+  check('an attendance page ending on a former-team raid emits an owned attendance key and preserves equal-start rows on the next page',
+    page.data.entries.length===100&&page.data.entries.at(-1).event.teamId===null&&decoded.length===4&&decoded[0]===2&&decoded[2]===boundaryTime&&
+    Number.isSafeInteger(decoded[3])&&decoded[3]>0&&!JSON.stringify(decoded).includes(second)&&next.status===200&&
+    next.data.entries.some(row=>row.event.id===tie)&&!next.data.entries.some(row=>row.event.teamId===null&&row.event.startsAt===retained.event.startsAt));
+  const legacy=btoa(JSON.stringify([1,'attendance-me',boundaryTime,second])).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  const oldNext=await api(mm,'/attendance/me?cursor='+encodeURIComponent(legacy));
+  check('a previously issued event-key cursor returns the same next page as the new attendance key',
+    oldNext.status===200&&JSON.stringify(oldNext.data.entries)===JSON.stringify(next.data.entries));
+  await db.prepare('DELETE FROM community_event_attendance WHERE event_id=?1 AND discord_id=?2').bind(second,member).run();
+  const stale=await api(mm,'/attendance/me?cursor='+encodeURIComponent(token));
+  check('a removed private attendance anchor requests a fresh first page',stale.status===409&&stale.data.error==='cursor_stale');
+
 }

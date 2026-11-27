@@ -37,6 +37,7 @@ import { attendanceUnlocked219, rsvpPreferenceSql219 } from './guild-calendar-me
  * answers and attendance and anonymizes them as creator or recorder.
  */
 import type { Env } from "./env";
+import { raidTeamOccurrenceVisible316 } from './raid-teams316';
 import { projectOwnEventCopy } from "./privacy-account-coverage";
 import { PrivacySiteRequestHeld } from "./privacy-serving-authority";
 import { audit, now } from "./db";
@@ -1002,25 +1003,46 @@ export async function myAttendance(request: Request, env: Env, ctx: CommunityCon
   try {
     const parts = cursorParts(new URL(request.url).searchParams.get("cursor"));
     if (parts === "invalid") throw new Bad("invalid_cursor");
-    let after: { startsAt: number; id: string } | null = null;
+    // Keep the old (start DESC, event ID ASC) ordering across page versions.
+    // A v2 cursor resolves its own attendance row on the server, including for a retained private raid.
+    let after: { startsAt: number; key: string | number; version: 1 | 2 } | null = null;
     if (parts) {
-      const [version, kind, startsAt, id] = parts;
-      if (parts.length !== 4 || version !== 1 || kind !== "attendance-me" || !safeInt(startsAt) || !text(id) || !ID.test(id)) throw new Bad("invalid_cursor");
-      after = { startsAt, id };
+      const [version, kind, startsAt, key] = parts;
+      if (parts.length !== 4 || kind !== "attendance-me" || !safeInt(startsAt)) throw new Bad("invalid_cursor");
+      if (version === 1 && text(key) && ID.test(key)) after = { startsAt, key, version };
+      else if (version === 2 && safeInt(key) && key > 0) after = { startsAt, key, version };
+      else throw new Bad("invalid_cursor");
     }
-    const out = await admittedCommunityRead(env, ctx, [
-      env.DB.prepare(
-        `SELECT e.id, e.title, e.starts_at, a.state, a.source, a.reason_code, a.recorded_at FROM community_event_attendance a JOIN community_events e ON e.id = a.event_id
-         WHERE a.discord_id = ?1 AND (?2 = 0 OR e.starts_at < ?3 OR (e.starts_at = ?3 AND e.id > ?4)) ORDER BY e.starts_at DESC, e.id LIMIT ?5`,
-      ).bind(ctx.subject!.discordId, after ? 1 : 0, after?.startsAt ?? 0, after?.id ?? "", EVENT_LIMITS.pageSize + 1),
-    ]);
-    if (out === FENCE_REFUSED) return communityReadRefusal(env, request); // .67
-    const rows = { results: out[0]!.results as { id: string; title: string; starts_at: number; state: string; source: string; reason_code: string | null; recorded_at: number }[] };
+    const subject=ctx.subject!;
+    const authorizedTeam=ctx.features.has('events') && ctx.capabilities.confirmedGuildData;
+    const lookup = `SELECT anchor.event_id FROM community_event_attendance anchor
+      JOIN community_events ae ON ae.id=anchor.event_id WHERE anchor.discord_id=?1 AND ae.starts_at=?3
+      AND ${after?.version===1?'anchor.event_id':'anchor.rowid'}=?4`;
+    const boundary = [subject.discordId,after ? 1 : 0,after?.startsAt ?? 0,after?.key ?? 0] as const;
+    const statements = [env.DB.prepare(
+        `SELECT e.id, a.rowid AS attendance_key, e.op_id LIKE 'team316:%' AS private_team, x.team_id, COALESCE(x.title,e.title) AS title,
+            e.starts_at, a.state, a.source, a.reason_code, a.recorded_at
+         FROM community_event_attendance a JOIN community_events e ON e.id=a.event_id
+         LEFT JOIN raid_team_events316 x ON x.event_id=e.id AND e.op_id='team316:'||e.id
+           AND ?6=1 AND e.retain_until>${DB_NOW} AND ${fenceSql('confirmedGuildData',1,7,8,subject.privacyGeneration,subject.accountIncarnation)}
+           AND ${raidTeamOccurrenceVisible316('e.id','x.team_id','?1')}
+         WHERE a.discord_id = ?1 AND (?2 = 0 OR e.starts_at < ?3 OR (e.starts_at = ?3 AND e.id > (${lookup})))
+         ORDER BY e.starts_at DESC, e.id LIMIT ?5`,
+      ).bind(...boundary,EVENT_LIMITS.pageSize+1,authorizedTeam?1:0,subject.sessionVersion,subject.expiresAt)];
+    if(after) statements.push(env.DB.prepare(`SELECT EXISTS(${lookup}) AS valid WHERE ?2=1`).bind(...boundary));
+    const out = await admittedCommunityRead(env,ctx,statements);
+    if (out === FENCE_REFUSED) return communityReadRefusal(env, request);
+    const anchor = out[1]?.results[0] as { valid: number } | undefined;
+    if (after && anchor?.valid !== 1) throw new Bad("cursor_stale", 409);
+    const rows = { results: out[0]!.results as { id: string; attendance_key: number; private_team: number; team_id: string|null; title: string; starts_at: number; state: string; source: string; reason_code: string | null; recorded_at: number }[] };
     const page = rows.results.slice(0, EVENT_LIMITS.pageSize);
     const last = page.at(-1);
     return apiJson({
-      entries: page.map((r) => ({ event: { id: r.id, title: r.title, startsAt: secondsToIso(r.starts_at) }, state: r.state, source: r.source, reasonCode: r.reason_code, recordedAt: secondsToIso(r.recorded_at) })),
-      nextCursor: rows.results.length > EVENT_LIMITS.pageSize && last ? encodeCursor([1, "attendance-me", last.starts_at, last.id]) : null,
+      entries: page.map((r) => ({ event: {
+        ...(r.private_team ? {id:r.team_id ? r.id : null, teamId:r.team_id} : {id:r.id}),
+        title:r.private_team && !r.team_id ? 'Private team raid (retained attendance)' : r.title, startsAt:secondsToIso(r.starts_at),
+      }, state: r.state, source: r.source, reasonCode: r.reason_code, recordedAt: secondsToIso(r.recorded_at) })),
+      nextCursor: rows.results.length > EVENT_LIMITS.pageSize && last ? encodeCursor([2, "attendance-me", last.starts_at, last.attendance_key]) : null,
     });
   } catch (e) {
     return bad(e) ?? Promise.reject(e);

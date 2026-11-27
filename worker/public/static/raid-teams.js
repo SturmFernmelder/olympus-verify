@@ -1,4 +1,7 @@
 const API = "/api/community/raid-teams";
+export function postRaidTeam316(api,target,payload,options) {
+  return api("POST",API,{...payload,...target},options);
+}
 const HOME = "#/community/raid-teams";
 const ROLES = { tank: "Tank", healer: "Healer", melee: "Melee damage", ranged: "Ranged damage", flex: "Flexible" };
 const STATUS = { forming: "Forming", recruiting: "Recruiting", full: "Full", reserves: "Recruiting reserves", inactive: "Inactive" };
@@ -9,6 +12,12 @@ const dateTime = (epoch, timezone) => new Intl.DateTimeFormat(undefined, {
   weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short", timeZone: timezone,
 }).format(new Date(epoch * 1000));
 const requestId = () => btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+
+export function personalTeamAttendanceLabel(h,event) {
+  if(!event.teamId||!event.id)return h("span",{text:event.title});
+  const href=HOME+"/"+encodeURIComponent(event.teamId)+"/calendar/"+encodeURIComponent(event.id);
+  return h("a",{href,text:event.title});
+}
 
 export async function renderRaidTeams(root, parts, { h, frame, api, live, explain, toast }) {
   root.classList.add("raid-teams");
@@ -55,13 +64,13 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
     return f;
   }
   let refresh;
-  async function write(path, payload, message, success, conflict) {
+  async function write(target, payload, message, success, conflict) {
     if (busy || !live()) return;
     busy = true;
     main.inert = true;
     report("Saving…");
     try {
-      const result = await api("POST", path, payload, { live });
+      const result = await postRaidTeam316(api,target,payload,{ live });
       if (!live()) return;
       if (success) await success(result);
       else await refresh();
@@ -182,59 +191,59 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
       field("Availability with time zone",input("availability",model.availability,{maxlength:240})),
       field("Raider introduction",area("notes",model.notes,{maxlength:400})),
       h("label",null,input("listed","yes",{type:"checkbox",checked:model.listed})," List my character, preferred role, specialization, availability and introduction in Find raiders.")],
-      data=>write(API,{...data,action:"profile",listed:data.listed==="yes",revision:model.revision || 0},"Raider profile saved."),"Save profile");
+      data=>write({area:"team"},{...data,action:"profile",listed:data.listed==="yes",revision:model.revision || 0},"Raider profile saved."),"Save profile");
     main.replaceChildren(frame("My raider profile",null,f));
   }
   function drawCreate(d) {
     if (!d.characters.length) {main.replaceChildren(frame("Create a raid team",null,verifyNotice())); return;}
     const id=crypto.randomUUID();
     const f=form("Create a raid team",[charSelect(d.characters),field("Your role",options("role",ROLES,"flex")),...charterFields({})],
-      data=>write(API,{...charterPayload(data),id,action:"create"},"Team created.",res=>{location.hash=goTeam(res.id||id);}),"Publish charter");
+      data=>write({area:"team"},{...charterPayload(data),id,action:"create"},"Team created.",res=>{location.hash=goTeam(res.id||id);}),"Publish charter");
     main.replaceChildren(frame("Create a raid team",link("Find a team",HOME),f));
   }
 
   function ownSeat(detail) {
-    const team=detail.team, mine=detail.mine, path=API+"/"+encodeURIComponent(team.id);
+    const team=detail.team, mine=detail.mine, target={area:"team",teamId:team.id};
     const chars=detail.characters || [];
     const apply=() => form("Apply to "+team.name,[charSelect(chars,mine?.guid),
       field("Raid role",options("role",ROLES,mine?.role || "flex")),
       field("Message to this team’s leadership",area("note","",{maxlength:500}),"Only you and this team’s managers can read your application message.")],
-      data=>write(path,{...data,action:"apply",revision:mine?.revision || 0},"Application submitted."),"Submit application");
+      data=>write(target,{...data,action:"apply",revision:mine?.revision || 0},"Application submitted."),"Submit application");
     if (!mine || ["declined","withdrawn"].includes(mine.state)) {
-      return section("My application",mine && row(p("Last application: "+SEATS[mine.state]),button("Forget closed application",()=>write(path,{action:"forget",seatId:mine.id,revision:mine.revision},"Closed application removed."))),
+      return section("My application",mine && row(p("Last application: "+SEATS[mine.state]),button("Forget closed application",()=>write(target,{action:"forget",seatId:mine.id,revision:mine.revision},"Closed application removed."))),
         ["full","inactive"].includes(team.status) ? p("This team is closed to applications.") : chars.length ? apply() : verifyNotice());
     }
     const seat={seatId:mine.id,revision:mine.revision};
     const controls=row();
     if (["offered_primary","offered_reserve"].includes(mine.state)) {
       const response={...seat,action:"respond",state:mine.state==="offered_primary"?"primary":"reserve"};
-      controls.append(button("Accept "+(response.state==="primary"?"primary":"reserve")+" place",()=>write(path,response,
+      controls.append(button("Accept "+(response.state==="primary"?"primary":"reserve")+" place",()=>write(target,response,
         "Roster place confirmed.",null,()=>{
-          const confirm=button("I checked both schedules · accept this place",()=>write(path,{...response,confirmOverlap:true},"Roster place confirmed."));
+          const confirm=button("I checked both schedules · accept this place",()=>write(target,{...response,confirmOverlap:true},"Roster place confirmed."));
           notice.append(" ",confirm);
         }),true));
     }
     const active=["primary","reserve"].includes(mine.state);
     if (!active || !detail.isLeader) {
-      controls.append(details(active?"Leave this raid team":"Withdraw application",button(active?"Confirm leave team":"Confirm withdrawal",()=>write(path,
+      controls.append(details(active?"Leave this raid team":"Withdraw application",button(active?"Confirm leave team":"Confirm withdrawal",()=>write(target,
         active?{action:"leave",...seat}:{action:"respond",...seat,state:"withdrawn"},active?"You left the raid team.":"Application withdrawn."))));
     }
     return section(active?"My roster place":"My application",facts([["Character",mine.character],["Status",SEATS[mine.state]||mine.state],
       ["Raid role",ROLES[mine.role]],["Application message",mine.note]]),controls);
   }
   function rosterPanel(detail) {
-    const team=detail.team, path=API+"/"+encodeURIComponent(team.id);
+    const team=detail.team, target={area:"team",teamId:team.id};
     const groups={"":"Unassigned",...Object.fromEntries(Array.from({length:8},(_,i)=>[i+1,"Group "+(i+1)]))};
     const members=detail.members.map(m=>{
       const assignment=detail.canManage && m.state==="primary" ? form("Assign "+m.character+" to a group",
         [field("Subgroup for "+m.character,options("groupNumber",groups,m.groupNumber || ""))],
-        data=>write(path,{action:"group",seatId:m.id,revision:m.revision,groupNumber:data.groupNumber?Number(data.groupNumber):null},"Subgroup updated."),
+        data=>write(target,{action:"group",seatId:m.id,revision:m.revision,groupNumber:data.groupNumber?Number(data.groupNumber):null},"Subgroup updated."),
         "Save group",false) : null;
       const delegate=detail.isLeader && m.id!==detail.mine?.id ? button(m.isOfficer?"Remove team officer access":"Appoint team officer",
-        ()=>write(path,{action:"officer",seatId:m.id,revision:m.revision,enabled:!m.isOfficer},"Team officer access updated.")) : null;
+        ()=>write(target,{action:"officer",seatId:m.id,revision:m.revision,enabled:!m.isOfficer},"Team officer access updated.")) : null;
       const removable=detail.canManage && m.id!==detail.mine?.id && m.character!==team.leader && (!m.isOfficer || detail.isLeader);
-      const remove=removable ? details("Remove from team",button("Confirm removal of "+m.character,()=>write(path,{action:"remove",seatId:m.id,revision:m.revision},"Team place removed."))) : null;
-      const transfer=detail.isLeader && m.id!==detail.mine?.id ? details("Transfer team leadership",button("Confirm transfer to "+m.character,()=>write(path,{action:"transfer",seatId:m.id,revision:m.revision},"Team leadership transferred."))) : null;
+      const remove=removable ? details("Remove from team",button("Confirm removal of "+m.character,()=>write(target,{action:"remove",seatId:m.id,revision:m.revision},"Team place removed."))) : null;
+      const transfer=detail.isLeader && m.id!==detail.mine?.id ? details("Transfer team leadership",button("Confirm transfer to "+m.character,()=>write(target,{action:"transfer",seatId:m.id,revision:m.revision},"Team leadership transferred."))) : null;
       return h("li",null,h("strong",{text:m.character})," · "+(ROLES[m.role] || m.role)+" · "+(SEATS[m.state] || m.state),
         m.groupNumber?" · Group "+m.groupNumber:"",m.isOfficer?" · Team officer":"",
         (assignment||delegate||remove||transfer) && details("Manage "+m.character,h("div",{class:"stack"},assignment,delegate,remove,transfer)));
@@ -244,20 +253,20 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
       members.length?h("ul",{class:"raid-member-list"},...members):p("There are no visible confirmed members yet."));
   }
   function reviewPanel(detail) {
-    const path=API+"/"+encodeURIComponent(detail.team.id), choices={offered_primary:"Offer primary place",offered_reserve:"Offer reserve place",waitlisted:"Waitlist",declined:"Decline"};
+    const target={area:"team",teamId:detail.team.id}, choices={offered_primary:"Offer primary place",offered_reserve:"Offer reserve place",waitlisted:"Waitlist",declined:"Decline"};
     const reviews=detail.applications.map(a=>section(a.character,
       facts([["Role",ROLES[a.role]],["Application",SEATS[a.state]||a.state],["Private message",a.note]]),
       form("Review "+a.character,[field("Decision for "+a.character,options("state",choices,a.state))],
-        data=>write(path,{action:"decide",seatId:a.id,revision:a.revision,state:data.state},"Application decision saved."),"Save decision",false)));
+        data=>write(target,{action:"decide",seatId:a.id,revision:a.revision,state:data.state},"Application decision saved."),"Save decision",false)));
     return section("Applications",reviews.length?reviews:p("No applications are awaiting review."));
   }
   function drawDetail(d) {
-    const t=d.team, path=API+"/"+encodeURIComponent(t.id);
+    const t=d.team, target={area:"team",teamId:t.id};
     const charter=frame(t.name,row(link("Find a team",HOME),link("Team calendar",goTeam(t.id)+"/calendar")),
       facts([["Raid leader",t.leader],["Recruitment",STATUS[t.status]],["Schedule",[timingLabel(t),t.schedule,t.timezone].filter(Boolean).join(" · ")],
         ["Roster",rosterCapacity(t)],["Roles and classes needed",t.needs],["Raiding style",t.philosophy],
         ["Loot rules and hard reserves",t.loot],["Expectations",t.expectations]]));
-    const edit=d.canManage?details("Edit team charter",form("Edit charter",charterFields(t),data=>write(path,
+    const edit=d.canManage?details("Edit team charter",form("Edit charter",charterFields(t),data=>write(target,
       {action:"edit",revision:t.revision,...charterPayload(data)},"Charter updated."),"Save charter")):null;
     charter.append(details("Who handles raid disputes?", h("div", {class:"stack"},
       p("For a loot, attendance or roster decision, contact your raid leader or a team officer privately. Identify the raid, the published rule and what happened."),
@@ -299,22 +308,22 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
   function eventBody(data) {
     return {...data,durationMin:Number(data.durationMin),assemblyMinutes:Number(data.assemblyMinutes)};
   }
-  function calendarEvent(e,t,path) {
+  function calendarEvent(e,t,target) {
     const href=goTeam(t.id)+"/calendar/"+encodeURIComponent(e.eventId);
     return section(e.title,facts([["Status",e.status==="cancelled"?"Cancelled":"Scheduled"],["When",dateTime(e.startsAt)],["Ends",dateTime(e.endsAt)],
       ["Assembly",dateTime(e.startsAt-e.assemblyMinutes*60)],["Roster",e.groupLabel || "Whole team"],["Your answer",ANSWERS[e.answer]],
       ["Preparation",e.preparation],["Published loot rules",e.loot],["Published expectations",e.expectations]]),
       e.canRespond && e.status!=="cancelled" ? form("RSVP for "+e.title,
         [field("Your response",options("answer",ANSWERS,e.answer))],
-        data=>write(path,{action:"rsvp",eventId:e.eventId,revision:e.revision,rsvpRevision:e.rsvpRevision||0,answer:data.answer},"Your response is saved."),"Save response", false):null,
+        data=>write(target,{action:"rsvp",eventId:e.eventId,revision:e.revision,rsvpRevision:e.rsvpRevision||0,answer:data.answer},"Your response is saved."),"Save response", false):null,
       !parts[2]?link(e.canManage?"Review attendance and responses":"View raid details",href):null,
       e.canManage && e.status!=="cancelled" && e.startsAt*1000>Date.now()?details("Edit this occurrence",form("Edit "+e.title,eventFields(e,t),
-        data=>write(path,{...eventBody(data),action:"edit",eventId:e.eventId,revision:e.revision},"Occurrence updated."),"Save changes")):null,
-      e.canManage && e.status!=="cancelled" && e.startsAt*1000>Date.now()?details("Cancel this occurrence",button("Confirm cancellation",()=>write(path,
+        data=>write(target,{...eventBody(data),action:"edit",eventId:e.eventId,revision:e.revision},"Occurrence updated."),"Save changes")):null,
+      e.canManage && e.status!=="cancelled" && e.startsAt*1000>Date.now()?details("Cancel this occurrence",button("Confirm cancellation",()=>write(target,
         {action:"cancel",eventId:e.eventId,revision:e.revision},"Occurrence cancelled."))):null);
   }
   function drawCalendar(d,calendar) {
-    const t=d.team, path=API+"/"+encodeURIComponent(t.id)+"/calendar", eventId=parts[2];
+    const t=d.team, target={area:"calendar",teamId:t.id}, eventId=parts[2];
     const byId=eventId?calendar.events.filter(e=>e.eventId===eventId):calendar.events;
     const opId=requestId();
     const create=d.canManage && !eventId ? details("Schedule a raid",form("Schedule a team raid",[...eventFields(null,t),
@@ -327,17 +336,17 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
         const groups=new FormData(f).getAll("groups").map(Number);
         if(data.audience==="selected" && !groups.length) return report("Choose at least one group to invite.",true);
         if(data.audience==="all" && groups.length) return report("Choose Selected groups to invite only the checked groups.",true);
-        write(path,{...eventBody(data),action:"schedule",opId,teamRevision:t.revision,capacity:Number(data.capacity),groups,occurrences:Number(data.occurrences)},"Raid schedule saved.");
+        write(target,{...eventBody(data),action:"schedule",opId,teamRevision:t.revision,capacity:Number(data.capacity),groups,occurrences:Number(data.occurrences)},"Raid schedule saved.");
       },"Schedule raid")):null;
     const attendance=eventId && byId[0]?.canManage && calendar.roster ? section("Responses and attendance",
       calendar.roster.length ? calendar.roster.map(a=>{
         const ev=byId[0];
         return section(a.name,facts([["Raid role",ROLES[a.role]],["Response",ANSWERS[a.answer]||"Awaiting response"],["Attendance",a.attendance]]),
           ev.status==="scheduled" && ev.startsAt*1000<=Date.now() && form("Record attendance for "+a.name,[field("Attendance",options("state",{present:"Present",absent:"Absent",excused:"Excused",unknown:"Unknown"},a.attendance||"unknown"))],
-          data=>write(path,{action:"attendance",eventId,revision:ev.revision,seatId:a.seatId,state:data.state,attendanceRevision:a.attendanceRevision || 0},"Attendance saved."),"Save attendance",false));
+          data=>write(target,{action:"attendance",eventId,revision:ev.revision,seatId:a.seatId,state:data.state,attendanceRevision:a.attendanceRevision || 0},"Attendance saved."),"Save attendance",false));
       }):p("Nobody is assigned to this occurrence.")):null;
     main.replaceChildren(frame(t.name+" · Calendar",row(link("Team charter",goTeam(t.id)),eventId&&link("All occurrences",goTeam(t.id)+"/calendar")),
-      create,byId.length?h("div",{class:"stack mt"},...byId.map(e=>calendarEvent(e,t,path))):p(eventId?"This occurrence is unavailable.":"No raids have been scheduled."),attendance,
+      create,byId.length?h("div",{class:"stack mt"},...byId.map(e=>calendarEvent(e,t,target))):p(eventId?"This occurrence is unavailable.":"No raids have been scheduled."),attendance,
       row(calendarAfter && button("First page",()=>{calendarAfter="";refresh();}),calendar.next && button("Next page",()=>{calendarAfter=calendar.next;refresh();}))));
   }
   refresh = async function() {
