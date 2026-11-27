@@ -119,7 +119,9 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
   if (!shared) { shared={attempts:new Map()}; unresolvedByOwner.set(owner,shared); }
   const attempts=shared.attempts,view={operationKey,live,showReply};
   shared.view=view;
+  let showingAccessWarning = false;
   function report(text, error = false) {
+    showingAccessWarning = false;
     notice.textContent = text;
     notice.className = error ? "raid-feedback err" : "raid-feedback";
     if (error) notice.focus();
@@ -144,6 +146,7 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
   async function refreshAccess(error) {
     main.replaceChildren();
     report(errors(error,"Your current access could not be confirmed."),true);
+    showingAccessWarning = true;
     await refreshCommunity({live});
   }
   function controlsFor(attempt,text,checked=false) {
@@ -452,9 +455,7 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
     if(edit) charter.append(edit);
     main.replaceChildren(charter,ownSeat(d),...(d.canViewRoster?[rosterPanel(d)]:[]),...(d.canManage?[reviewPanel(d)]:[]));
   }
-  async function drawMine(seq) {
-    const d=await read(API+"/my-next-raid"+(chosenGuid?"?guid="+encodeURIComponent(chosenGuid):""));
-    if(!live() || seq!==generation) return;
+  function drawMine(d) {
     const select=options("guid",Object.fromEntries(d.characters.map(c=>[c.guid,c.name])),d.selectedGuid);
     select.addEventListener("change",()=>{chosenGuid=select.value;refresh();});
     const cards=d.events.map(e=>section(e.title,facts([["Team",e.teamName],["Assembly",dateTime(e.startsAt-e.assemblyMinutes*60)],["Raid start",dateTime(e.startsAt)],
@@ -528,19 +529,26 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
     if(!live())return;
     main.setAttribute("aria-busy","true");
     try {
-      if(tab==="schedule"){await drawMine(seq);return;}
-      if(teamRoute) {
+      let data;
+      if(tab==="schedule") {
+        data=await read(API+"/my-next-raid"+(chosenGuid?"?guid="+encodeURIComponent(chosenGuid):""));
+        if(!live() || seq!==generation)return;
+        drawMine(data);
+      } else if(teamRoute) {
         const id=encodeURIComponent(tab),calendar=parts[1]==="calendar";
         const suffix=parts[2]?"?eventId="+encodeURIComponent(parts[2]):calendarAfter?"?after="+encodeURIComponent(calendarAfter):"";
         const [detail,eventData]=await Promise.all([read(API+"/"+id),calendar?read(API+"/"+id+"/calendar"+suffix):null]);
-        if(live() && seq===generation){if(calendar)drawCalendar(detail,eventData);else drawDetail(detail);return calendar?eventData:detail;}
+        if(!live() || seq!==generation)return;
+        if(calendar)drawCalendar(detail,eventData);else drawDetail(detail);
+        data=calendar?eventData:detail;
       } else {
-        const d=await read(directoryPath());
-        if(live() && seq===generation) {
-          if(tab==="new")drawCreate(d);else if(tab==="profile")drawProfile(d);else drawDirectory(d);
-          return d;
-        }
+        data=await read(directoryPath());
+        if(!live() || seq!==generation)return;
+        if(tab==="new")drawCreate(data);else if(tab==="profile")drawProfile(data);else drawDirectory(data);
       }
+      // A successful read resolves an access warning. A pending save still needs its own receipt.
+      if(showingAccessWarning)report("");
+      return data;
     } catch(e) {
       if(live() && seq===generation) {
         if(e?.status===403 || e?.status===503) await refreshAccess(e);

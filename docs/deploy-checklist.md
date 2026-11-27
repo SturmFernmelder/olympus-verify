@@ -8989,3 +8989,7 @@ The website sends every raid team write to the exact POST path `/api/community/r
 In the existing `#looking-for-group` forum, use Discord’s Add Tag control for any missing `Team recruiting` and `Looking for team` tags. Leave both tags available to members. As a configured administrator, run `/olympus-intros refresh` with that forum as its channel argument. Read back both tagged recruitment templates and compare the other forum tags to the pre-change list. The member website and `/raid hub` link to the directory. Avoid creating demonstration listings in production.
 
 A raider can open **My next raid**, choose their character, copy their schedule and paste into `/olv raid` in OlympusVerify 0.6.58. A fresh copy replaces cancelled or changed events. The local copy expires after a day. The display also exposes `OlympusVerifyRaidSchedule.Upcoming()` for an optional calendar provider in Daniel’s addon.
+
+## 27 November 2026 — .317 Raid charter access retry
+
+In a signed-in browser, have the charter directory read return a temporary access refusal for that tab. Restore normal reads and click **Check current access**. Verify that the charter form appears and the earlier warning clears in the same document. A repeated refusal must keep the retry available. Check pending-save recovery separately in the browser fixtures. For rollback, deploy the reviewed .316 commit `2df0ad94` on the existing schema.

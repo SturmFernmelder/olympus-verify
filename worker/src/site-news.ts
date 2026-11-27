@@ -79,6 +79,11 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".317", date: "2026-11-27", lines: [
+      "When Check current access opens your raid charter form, the earlier warning clears immediately.",
+    ],
+  },
+  {
     build: ".316", date: "2026-11-27", lines: [
       "Find a standing raid team, list your verified character for recruitment, and confirm a starter or reserve offer. Team leaders can schedule raids from the standing roster.",
     ],

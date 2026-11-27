@@ -270,6 +270,24 @@ async function browserScenario() {
   const accessRead=draw();await until(()=>refreshes===2 && releaseContext);
   assert('a 503 roster read clears private data and refreshes the community context',!by('button','Save decision') && !root.textContent.includes('Private healer application'));
   releaseContext();await accessRead;
+  waitForContext=false;
+  const detailView=tepoch;
+  location.hash=base+'/new';
+  await until(()=>location.hash.endsWith('/new') && tepoch>detailView && by('button','Check current access'));
+  const charterView=tepoch, beforeRetry=writes.length;
+  const warning='Review guild membership';
+  const charterStatus=()=>root.querySelector('[role="status"]')?.textContent;
+  assert('the refused charter read shows an access warning and hides the form',
+    charterStatus()===warning && !by('button','Publish charter'));
+  const firstRetry=by('button','Check current access');
+  firstRetry.click();
+  await until(()=>!firstRetry.isConnected && by('button','Check current access'));
+  assert('a repeated refusal keeps the warning and retry available',charterStatus()===warning && !by('button','Publish charter'));
+  refusal=null;
+  await click('button','Check current access',()=>by('button','Publish charter'));
+  assert('a successful charter retry clears the warning when the form appears on the same mounted page',
+    tepoch===charterView && !root.textContent.includes(warning) && !by('button','Check current access') &&
+    root.querySelector('form[aria-label="Create a raid team"]').elements.guid.value===character.guid && writes.length===beforeRetry);
   return {width:innerWidth,checks};
 }
 
