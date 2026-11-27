@@ -31,9 +31,9 @@ export async function raidTeamsReadback316(base,rawDB,ctx,check) {
       db.prepare("INSERT INTO characters(name_key,name,guid,discord_id,status,bound_at) VALUES(?1,?2,?3,?4,'member',unixepoch())").bind(a.name.toLowerCase(),a.name,a.guid,a.id),
     ]);
   }
-  const query=async(a,tail='',body)=>{
+  const query=async(a,tail='',body,pageVersion=PAGE_VERSION)=>{
     const response=await worker.fetch(new Request(site+'/api/community/raid-teams'+tail,{method:body?'POST':'GET',
-      headers:{...(a?{Cookie:a.cookie}:{}),Origin:site,'X-Olympus':PAGE_VERSION,'Content-Type':'application/json'},
+      headers:{...(a?{Cookie:a.cookie}:{}),Origin:site,...(pageVersion===null?{}:{'X-Olympus':pageVersion}),'Content-Type':'application/json'},
       body:body?JSON.stringify(body):undefined}),env,ctx);
     return {status:response.status,data:await response.json()};
   };
@@ -47,6 +47,9 @@ export async function raidTeamsReadback316(base,rawDB,ctx,check) {
   const charter={name:'Dawn Patrol',philosophy:'Learning',schedule:'Tuesday 20:00–22:00',timezone:'America/Chicago',loot:'One soft reserve',
     expectations:'Bring consumables',needs:'Healer or mage',status:'recruiting',capacity:2,weeklyWindows:[{day:2,start:'22:00',end:'02:00'}],roleNeeds:['healer']};
   const create={...charter,action:'create',id:team,guid:leader.guid,role:'tank'};
+  check('missing or stale page headers cannot mutate the directory',
+    (await query(leader,'',create,null)).status===403 && (await query(leader,'',create,'1')).data.error==='reload_page' &&
+    (await query(leader,'/'+team)).status===404);
   check('team founder must own their selected verified character',(await query(healer,'',create)).status===409);
   await ok(leader,'',create);
   check('team search combines recruiting role, style and the viewer’s converted day and start time before pagination',
@@ -91,6 +94,26 @@ export async function raidTeamsReadback316(base,rawDB,ctx,check) {
   check('delegation grants only that team management and no guild role',wp.canManage&&!wp.isLeader);
   await ok(winner,one,{action:'group',seatId:winnerSeat.id,revision:winnerSeat.revision,groupNumber:1});
   check('delegated officer can assign a primary member to a team group',(await ok(winner,one)).mine.groupNumber===1);
+  // The original fourth Discord viewer has now linked an eligible member character.
+  await db.batch([
+    db.prepare('INSERT INTO members(discord_id) VALUES(?1)').bind(guest.id),
+    db.prepare("INSERT INTO characters(name_key,name,guid,discord_id,status,bound_at) VALUES(?1,?2,?3,?4,'member',unixepoch())")
+      .bind(guest.name.toLowerCase(),guest.name,guest.guid,guest.id),
+  ]);
+  await ok(guest,one,{action:'apply',guid:guest.guid,role:'flex',revision:0});
+  const finalSeat=(await ok(guest,one)).mine;
+  await offer(finalSeat.id,finalSeat.revision);
+  await db.prepare("UPDATE characters SET status='left' WHERE discord_id=?1").bind(winner.id).run();
+  const heldTeam=await ok(leader,one);
+  check('a temporarily unverified primary member remains anonymous and keeps the last occupied place',
+    heldTeam.team.primaryCount===1 && heldTeam.team.primaryOccupied===2 && !heldTeam.members.some(m=>m.id===winnerSeat.id) &&
+    (await accept(guest,finalSeat.id,finalSeat.revision+1)).status===409 &&
+    (await query(leader,one,{...charter,action:'edit',revision:2,capacity:1})).status===409);
+  await db.prepare("UPDATE characters SET status='member' WHERE discord_id=?1").bind(winner.id).run();
+  const afterReturn=await ok(leader,one);
+  check('the returning member fits their original place without overbooking the other applicant',
+    afterReturn.team.primaryCount===2 && afterReturn.team.primaryOccupied===2 && afterReturn.team.capacity===2 &&
+    (await ok(guest,one)).mine.state==='offered_primary');
   await ok(leader,'',{...create,id:other,name:'Dusk Patrol',capacity:10});
   const otherPage='/'+other;
   check('a delegated officer on one team cannot change a separate charter',
@@ -101,6 +124,14 @@ export async function raidTeamsReadback316(base,rawDB,ctx,check) {
   const take={action:'respond',seatId:otherSeat.id,revision:2,state:'primary'};
   check('multiple teams may offer places and another primary commitment requires confirmation',(await query(winner,otherPage,take)).data.error==='other_primary_commitment');
   await ok(winner,otherPage,{...take,confirmOverlap:true});
+  await db.prepare(`WITH RECURSIVE n(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM n WHERE i<5)
+    INSERT INTO raid_team_seats316(id,team_id,discord_id,account_birth,character_guid,role,state,group_number,charter_revision)
+    SELECT 'held-group-'||i,?1,'79990000000000000'||i,printf('%032x',i),'Player-87-1000'||i,'flex','primary',5,1 FROM n`).bind(other).run();
+  const currentOther=(await ok(winner,otherPage)).mine;
+  check('the five-person subgroup keeps its held places anonymous and cannot take a sixth',
+    (await query(leader,otherPage,{action:'group',seatId:currentOther.id,revision:currentOther.revision,groupNumber:5})).status===409 &&
+    !(await ok(leader,otherPage)).members.some(m=>m.id.startsWith('held-group-')));
+  await db.prepare("DELETE FROM raid_team_seats316 WHERE team_id=?1 AND id LIKE 'held-group-%'").bind(other).run();
   check('a member may explicitly accept a second team without losing their first seat',(await ok(winner)).myTeams.filter(x=>x.state==='primary').length===2);
   const nonoverlap=crypto.randomUUID(),third='/'+nonoverlap;
   await ok(leader,'',{...create,id:nonoverlap,name:'Sunday Picnic',weeklyWindows:[{day:7,start:'12:00',end:'14:00'}]});

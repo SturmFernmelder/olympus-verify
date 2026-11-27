@@ -137,6 +137,12 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
       field("Attendance, bench and preparation expectations",area("expectations",t.expectations,{maxlength:1000})),
     ];
   }
+  function rosterCapacity(t) {
+    const primary = t.primaryOccupied ?? t.primaryCount;
+    const reserve = t.reserveOccupied ?? t.reserveCount;
+    const held = primary - t.primaryCount + reserve - t.reserveCount;
+    return primary+" / "+t.capacity+" primary places occupied · "+reserve+" reserve"+(held>0?" · "+held+" held pending verification":"");
+  }
   function drawDirectory(d) {
     const players = tab === "players";
     const rows = players ? d.players : d.teams;
@@ -157,7 +163,7 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
       ? section(t.character,facts([["Role",ROLES[t.role]],["Class",t.playerClass],["Specialization",t.spec],["Availability",t.availability],["About this raider",t.notes]]))
       : h("article",{class:"card raid-team-card"},h("div",{class:"card-head"},
         h("h3",null,h("a",{href:goTeam(t.id),text:t.name})),h("span",{class:"badge",text:STATUS[t.status]})),
-        facts([["Raid lead",t.leader],["Schedule",[timingLabel(t),t.schedule,t.timezone].filter(Boolean).join(" · ")],["Roster",t.primaryCount+" / "+t.capacity+" primary · "+t.reserveCount+" reserve"],
+        facts([["Raid lead",t.leader],["Schedule",[timingLabel(t),t.schedule,t.timezone].filter(Boolean).join(" · ")],["Roster",rosterCapacity(t)],
           ["Recruiting for",[...(t.roleNeeds||[]).map(r=>ROLES[r]),t.needs].filter(Boolean).join(", ")],["Raiding style",t.philosophy]]),
         h("a",{href:goTeam(t.id),text:"View charter and roster"})));
     const aside = players ? link("Edit my listing",HOME+"/profile") : link("Create a team",HOME+"/new");
@@ -233,7 +239,9 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
         m.groupNumber?" · Group "+m.groupNumber:"",m.isOfficer?" · Team officer":"",
         (assignment||delegate||remove||transfer) && details("Manage "+m.character,h("div",{class:"stack"},assignment,delegate,remove,transfer)));
     });
-    return section("Team roster",members.length?h("ul",{class:"raid-member-list"},...members):p("There are no confirmed places yet."));
+    const held=(team.primaryOccupied-team.primaryCount)+(team.reserveOccupied-team.reserveCount);
+    return section("Team roster", held>0&&p("A place stays reserved during a verification hold. When the member’s verification is current, their name and roster controls appear again."),
+      members.length?h("ul",{class:"raid-member-list"},...members):p("There are no visible confirmed members yet."));
   }
   function reviewPanel(detail) {
     const path=API+"/"+encodeURIComponent(detail.team.id), choices={offered_primary:"Offer primary place",offered_reserve:"Offer reserve place",waitlisted:"Waitlist",declined:"Decline"};
@@ -247,7 +255,7 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
     const t=d.team, path=API+"/"+encodeURIComponent(t.id);
     const charter=frame(t.name,row(link("Find a team",HOME),link("Team calendar",goTeam(t.id)+"/calendar")),
       facts([["Raid leader",t.leader],["Recruitment",STATUS[t.status]],["Schedule",[timingLabel(t),t.schedule,t.timezone].filter(Boolean).join(" · ")],
-        ["Roster",t.primaryCount+" / "+t.capacity+" primary · "+t.reserveCount+" reserve"],["Roles and classes needed",t.needs],["Raiding style",t.philosophy],
+        ["Roster",rosterCapacity(t)],["Roles and classes needed",t.needs],["Raiding style",t.philosophy],
         ["Loot rules and hard reserves",t.loot],["Expectations",t.expectations]]));
     const edit=d.canManage?details("Edit team charter",form("Edit charter",charterFields(t),data=>write(path,
       {action:"edit",revision:t.revision,...charterPayload(data)},"Charter updated."),"Save charter")):null;
@@ -263,14 +271,14 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
     if(!live() || seq!==generation) return;
     const select=options("guid",Object.fromEntries(d.characters.map(c=>[c.guid,c.name])),d.selectedGuid);
     select.addEventListener("change",()=>{chosenGuid=select.value;refresh();});
-    const cards=d.events.map(e=>section(e.title,facts([["Team",e.teamName],["When",dateTime(e.startsAt)],
+    const cards=d.events.map(e=>section(e.title,facts([["Team",e.teamName],["Assembly",dateTime(e.startsAt-e.assemblyMinutes*60)],["Raid start",dateTime(e.startsAt)],
       ["Group",e.groupLabel || "Whole team"],["My answer",ANSWERS[e.answer] || "Awaiting response"],["Preparation",e.preparation]])));
     const manual=area("import",d.addonImport,{readonly:true,rows:4});
     const copy=button("Copy addon schedule",async()=>{
       try { await navigator.clipboard.writeText(d.addonImport); if(live())report("Schedule copied. Open /olv raid in WoW and paste it into the import box."); }
       catch { manual.focus(); manual.select(); if(live())report("Select and copy the schedule text, then paste it into /olv raid."); }
     },true);
-    const exportPanel = d.addonImport ? section("In-game reminders",p("Copy this character’s schedule into the addon. Import it again after a cancellation or schedule change."),
+    const exportPanel = d.addonImport ? section("In-game reminders",p("Copy this character’s schedule into /olv raid. Reminders expire 24 hours after you copy the schedule. To keep them current, copy and import it daily and again after a change or cancellation."),
       row(copy),field("Schedule to paste in /olv raid",manual)) : null;
     main.replaceChildren(frame("My next raid",null,d.characters.length?field("Character",select):verifyNotice(),
       cards.length?h("div",{class:"stack"},...cards):p("No raids are scheduled for this character in the next seven days."),exportPanel));

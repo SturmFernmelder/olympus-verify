@@ -58,6 +58,10 @@ export async function checkTeamCalendar316(base,rawDB,ctx,check) {
   check('personal 7-day export contains one assigned occurrence with Unicode and delimiters encoded, no implicit response',
     selected.data.events.length===1&&selected.data.events[0].answer===null&&selected.data.events[0].groupLabel==='Groups 1, 3'&&selected.data.addonImport.startsWith('OLR1|'+memberGuid+'|')&&selected.data.addonImport.includes('%CE%A9%20%7C')&&selected.data.addonImport.includes('Bring%202%20flasks%20%2B%20food')
     &&excluded.data.events.length===0&&excluded.data.addonImport.endsWith('|0'),{selected,excluded});
+  const packed=selected.data.addonImport.split('\n')[1].split('|').map(decodeURIComponent);
+  const assembly=new Date((Date.parse(start+'Z')-15*60000)).toISOString().slice(0,16).replace('T',' ');
+  check('selected member receives the correct assembly instant without dropping subgroup or preparation',
+    packed.length===8&&packed[6]==='Groups 1, 3 · Assemble '+assembly+' UTC'&&packed[7]==='Bring 2 flasks + food');
   check('other verified character and stale team officer controls are refused', (await api(lm,my+'?guid='+memberGuid)).status===404&&
     (await api(mm,team,{action:'edit',eventId:first,revision:1,...Object.fromEntries(['title','localStart','timezone','durationMin','assemblyMinutes','preparation'].map(k=>[k,form[k]]))})).status===409);
   check('legacy event detail and personal RSVP route cannot expose or change a private occurrence',

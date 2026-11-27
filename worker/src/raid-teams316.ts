@@ -2,7 +2,7 @@
 import type { Env } from './env';
 import { admitted, admittedRead, DB_NOW, FENCE_REFUSED, fenceSql, randomToken, refusal, type CommunityContext } from './community-context';
 import { weeklyWindows316, canonicalZone316, validClock316, clock316, localStartRanges316, overlapDetector316, type WeeklyWindow316 } from './raid-team-times316';
-import { apiJson, readJson } from './site-core';
+import { apiJson, readJson, sameOrigin, PAGE_VERSION } from './site-core';
 import { privacySubjectWritableSql } from './privacy-serving-authority';
 
 const BASE = '/api/community/raid-teams';
@@ -78,12 +78,14 @@ function isLeader(team: string, actor: string): string {
   return `EXISTS(SELECT 1 FROM raid_teams316 ownerTeam WHERE ownerTeam.id=${team} AND ownerTeam.leader_id=${actor}
     AND ${current('ownerTeam.leader_id','ownerTeam.leader_birth','ownerTeam.leader_guid')})`;
 }
-function seatCount(team: string, state: 'primary'|'reserve'): string {
-  return `(SELECT count(*) FROM raid_team_seats316 filled WHERE filled.team_id=${team} AND filled.state='${state}' AND ${seatCurrent('filled')})`;
+function seatCount(team: string, state: 'primary'|'reserve', visibleOnly=false): string {
+  // Temporary loss of verification hides the person, but their accepted place remains reserved until departure or erasure.
+  return `(SELECT count(*) FROM raid_team_seats316 filled WHERE filled.team_id=${team} AND filled.state='${state}'${visibleOnly?' AND '+seatCurrent('filled'):''})`;
 }
 const teamProjection = () => `t.id,t.name,t.philosophy,t.schedule,t.timezone,t.loot,t.expectations,t.needs,t.status,t.capacity,t.revision,t.weekly_windows AS weeklyWindows,t.role_needs AS roleNeeds,
   (SELECT k.name FROM characters k WHERE k.guid=t.leader_guid AND k.discord_id=t.leader_id AND ${current('t.leader_id','t.leader_birth','t.leader_guid')}) AS leader,
-  ${seatCount('t.id','primary')} AS primaryCount, ${seatCount('t.id','reserve')} AS reserveCount`;
+  ${seatCount('t.id','primary',true)} AS primaryCount, ${seatCount('t.id','reserve',true)} AS reserveCount,
+  ${seatCount('t.id','primary')} AS primaryOccupied, ${seatCount('t.id','reserve')} AS reserveOccupied`;
 const seatProjection = `s.id,k.name AS character,s.role,s.state,s.is_officer AS isOfficer,s.group_number AS groupNumber,s.revision,s.charter_revision AS charterRevision`;
 const profileProjection = `k.name AS character,p.role,p.class_name AS playerClass,p.spec,p.availability,p.notes`;
 function teamDto(r:Record<string,unknown>) {
@@ -295,7 +297,7 @@ function writePlan(env:Env, ctx:CommunityContext, teamId:string|null, b:Record<s
     const group=param(b.groupNumber===null?null:integer(b.groupNumber,1,8,'five-player group'));
     return patch(`group_number=${group}`,`${canManage} AND s.state='primary' AND ${seatCurrent('s')}
       AND (${group} IS NULL OR (SELECT count(*) FROM raid_team_seats316 g WHERE g.team_id=s.team_id AND g.id<>s.id
-        AND g.group_number=${group} AND g.state='primary' AND ${seatCurrent('g')})<5)`);
+        AND g.group_number=${group} AND g.state='primary')<5)`);
   }
   if (b.action==='remove') {
     return endMembership(`${canManage} AND s.state IN ${ACTIVE} AND s.discord_id<>?1
@@ -320,6 +322,7 @@ export async function raidTeams316(request:Request,env:Env,ctx:CommunityContext,
   try {
     if (request.method==='GET') return id ? await detail(request,env,ctx,id) : await listing(request,env,ctx);
     if (request.method!=='POST') return apiJson({error:'method_not_allowed'},405,{Allow:'GET, POST'});
+    if (!sameOrigin(request) || request.headers.get('X-Olympus')!==PAGE_VERSION) return apiJson({error:'reload_page'},403);
     const b=await readJson(request);
     if (!b) throw new FieldError('Submit a JSON object with the requested fields.');
     let checkedPrimaries:string|undefined;

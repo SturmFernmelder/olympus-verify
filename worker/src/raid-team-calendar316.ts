@@ -146,8 +146,11 @@ function shortText(s:string,max:number) {
 }
 export function addonCalendarImport316(guid:string,at:number,events:readonly EventDTO[]) {
   if(!GUID.test(guid)||events.length>24) throw new CalendarInput('The personal schedule exceeds the addon limit.');
-  const lines=events.map(e=>[e.eventId,e.revision,e.startsAt,e.durationMin,shortText(e.teamName,120),shortText(e.title,200),
-    shortText(groupLabel(e.groupMask),80),shortText(e.preparation,500)].join('|'));
+  const lines=events.map(e=>{
+    const assembly=new Date((e.startsAt-e.assemblyMinutes*60)*1000).toISOString().slice(0,16).replace('T',' ');
+    const group=groupLabel(e.groupMask)+' · Assemble '+assembly+' UTC';
+    return [e.eventId,e.revision,e.startsAt,e.durationMin,shortText(e.teamName,120),shortText(e.title,200),shortText(group,80),shortText(e.preparation,500)].join('|');
+  });
   return [`OLR1|${guid}|${at}|${lines.length}`,...lines].join('\n');
 }
 async function mine(request:Request,env:Env,ctx:CommunityContext) {

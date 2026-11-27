@@ -53,7 +53,7 @@ function definitelyRefused(error:unknown):boolean {
     return [400,401,403,404].includes(error.status) && Number.isInteger(body?.code) && typeof body.message==='string';
   } catch { return false; }
 }
-export async function publishRaidForum316(env:Env,guild:string,actor:string):Promise<string> {
+export async function publishRaidForum316(env:Env,guild:string,actor:string) {
   if(guild!==GUILD||env.GUILD_ID!==GUILD||env.INTROS_GUILD_ID!==GUILD||!(env.SITE_ADMINS??'').split(',').map(v=>v.trim()).includes(actor))throw Error('A configured site administrator is required.');
   const bot=env.DISCORD_APP_ID;
   if(!snow(bot))throw Error('The bot identity is unavailable.');
@@ -68,6 +68,7 @@ export async function publishRaidForum316(env:Env,guild:string,actor:string):Pro
   const after=snapshot(await channel());
   if(before.some((t,i)=>JSON.stringify(after[i])!==JSON.stringify(t))||after.length!==before.length+missing.length)throw Error('Forum tag readback differs. Inspect the forum before retrying.');
   const links:string[]=[];
+  let posted=0,recovered=0;
   for(const spec of RAID_FORUM_TEMPLATES){
     const tag=after.find(t=>t.name.toLowerCase()===spec.tag.toLowerCase()&&!t.moderated);
     if(!tag?.id)throw Error('Missing recruitment tag on readback.');
@@ -86,12 +87,14 @@ export async function publishRaidForum316(env:Env,guild:string,actor:string):Pro
         if(definitelyRefused(e))await db.prepare("DELETE FROM intro_posts WHERE guild_id=?1 AND intro_key=?2 AND hash='pending' AND message_id=''").bind(guild,spec.key).run();
         throw e;
       }
+      posted++;
     }else{
       const active=await api<{threads:Thread[]}>('GET','/guilds/'+GUILD+'/threads/active');
       const archived=await api<{threads:Thread[]}>('GET','/channels/'+FORUM+'/threads/archived/public?limit=100');
       const matching=[...active.threads,...archived.threads].filter(t=>t.parent_id===FORUM&&t.owner_id===bot&&t.name===spec.title);
       if(matching.length!==1)throw Error('The earlier post has no unique Discord readback. No duplicate was sent.');
       thread=matching[0]!;
+      recovered++;
     }
     assertThread(thread,bot,spec.title);
     if(!thread.applied_tags?.includes(tag.id))throw Error('The original post has different tags.');
@@ -101,5 +104,5 @@ export async function publishRaidForum316(env:Env,guild:string,actor:string):Pro
       WHERE guild_id=?3 AND intro_key=?4 AND parent_id=?5 AND message_id='' AND hash='pending'`).bind(thread.id,at,guild,spec.key,FORUM).run();
     links.push('<#'+thread.id+'>');
   }
-  return links.join(' · ');
+  return {links:links.join(' · '),posted,recovered,tagsAdded:missing.length};
 }

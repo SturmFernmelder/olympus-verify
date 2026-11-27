@@ -22,4 +22,16 @@ assert(not r.Import(pack(now-800,{})));assert(r.Import(pack(now,{})));assert(#r.
 assert(r.Import(pack(now,{row(now+100000,"Escaped%7Cname")})));assert(r.Upcoming()[1].title=="Escaped||name")
 guid="Player-OTHER";assert(#r.Upcoming()==0);guid="Player-1234-ABCDEF"
 now=now+86401;assert(#r.Upcoming()==0);r.Tick();assert(#messages==2)
-print("PASS personal raid schedule, cancellation, scope, cache expiry and reload-safe reminders")
+local sounds=0
+SOUNDKIT={READY_CHECK=123}
+PlaySound=function(id) assert(id==123);sounds=sounds+1 end
+for _,mode in ipairs({{false,true},{true,false},{false,false},{true,true}}) do
+  now=now+1
+  assert(r.Import(pack(now,{row(now+180)})))
+  OlympusRaidScheduleDB.reminders,OlympusRaidScheduleDB.sound=mode[1],mode[2]
+  local oldMessages,oldSounds=#messages,sounds
+  r.Tick();r.Tick()
+  assert(#messages==oldMessages+(mode[1] and 1 or 0))
+  assert(sounds==oldSounds+(mode[2] and 1 or 0))
+end
+print("PASS personal raid schedule, cancellation, scope, cache expiry, independent chat/audio and reload-safe reminders")

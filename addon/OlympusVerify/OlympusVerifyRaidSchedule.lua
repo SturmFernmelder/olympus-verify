@@ -78,7 +78,7 @@ function Raid.Upcoming()
 end
 function Raid.Tick()
   local s = current()
-  if not s or s.reminders == false then return end
+  if not s or (s.reminders == false and not s.sound) then return end
   for _, row in ipairs(s.rows) do
     local remaining = row.at-clock()
     if remaining > 0 and remaining<=3600 then
@@ -86,7 +86,7 @@ function Raid.Tick()
       for _, lead in ipairs(leads) do if remaining<=lead then due=lead end end
       if due and (not row.lastLead or due<row.lastLead) then
         row.lastLead=due
-        announce(("%s · %s in %d min. %s"):format(row.team,row.title,math.ceil(remaining/60),row.group))
+        if s.reminders ~= false then announce(("%s · %s in %d min. %s"):format(row.team,row.title,math.ceil(remaining/60),row.group)) end
         if s.sound and PlaySound and SOUNDKIT and SOUNDKIT.READY_CHECK then PlaySound(SOUNDKIT.READY_CHECK) end
       end
     end
@@ -96,7 +96,7 @@ local frame, details, editor, reminders, sound
 local function refresh()
   local s, lines = current(), {}
   if s then
-    lines[1]="Copied "..date("%b %d, %H:%M",s.issued).." local time."
+    lines[1]="Copied "..date("%b %d, %H:%M",s.issued).." local time. Reminders expire "..date("%b %d, %H:%M",s.issued+DAY)..". Copy and import daily and after a change or cancellation."
     local rows=Raid.Upcoming()
     for _,r in ipairs(rows) do
       lines[#lines+1]=date("%a %b %d, %H:%M",r.at).."  "..r.title.." · "..r.zone
@@ -104,7 +104,7 @@ local function refresh()
     end
     if #rows==0 then lines[#lines+1]="No assigned raids in this schedule." end
   elseif db().issued then
-    lines[1]="Schedule expired. Copy a fresh schedule from Raid Teams."
+    lines[1]="Schedule expired. Open Raid Teams on the website, choose My next raid, and copy a fresh schedule to import here."
   else lines[1]="Choose your character on the website under Raid Teams, copy your schedule, then paste it below." end
   details:SetText(table.concat(lines,"\n"))
   reminders:SetChecked(db().reminders~=false)

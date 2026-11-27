@@ -647,8 +647,9 @@ export async function refreshIntros(env: Env, guild: string, actor: string, only
     // The ordinary bulk intro refresh never creates tags or recruitment posts.
     if (only === '1554265340286861352' && only === channels['looking-for-group'] &&
         (env.SITE_ADMINS ?? '').split(',').map(s => s.trim()).includes(actor)) {
-      const links = await publishRaidForum316(env, guild, actor);
-      outcomes.push({key:'raid-recruitment-templates',action:'current',channelId:only,note:links});
+      const templates = await publishRaidForum316(env, guild, actor);
+      outcomes.push({key:'raid-recruitment-templates',action:templates.posted?'posted':templates.tagsAdded?'edited':'current',channelId:only,
+        note:`${templates.posted} published, ${templates.recovered} earlier posts reconciled, ${templates.tagsAdded} tags added. ${templates.links}`});
     }
     for (const intro of list) {
       const parent = channels[intro.channel];

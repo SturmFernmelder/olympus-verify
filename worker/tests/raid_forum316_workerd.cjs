@@ -13,7 +13,7 @@ async function test() {
   let tags = [oldTag], posts = 0, edits = 0, loseReply = true;
   const threads = new Map();
   const bundle = buildSync({stdin:{contents:
-    "import './src/index'; import {publishRaidForum316} from './src/raid-forum316'; export default {async fetch(r,e){try{return new Response(await publishRaidForum316(e,e.GUILD_ID,new URL(r.url).searchParams.get('actor')))}catch(err){return new Response(err.message,{status:409})}}}",
+    "import './src/index'; import {publishRaidForum316} from './src/raid-forum316'; export default {async fetch(r,e){try{return Response.json(await publishRaidForum316(e,e.GUILD_ID,new URL(r.url).searchParams.get('actor')))}catch(err){return new Response(err.message,{status:409})}}}",
     resolveDir:worker},bundle:true,write:false,format:'esm',platform:'browser',external:['node:async_hooks']}).outputFiles[0].text;
   const mf=new Miniflare(convertV4MiniflareOptions({name:'raid-forum-test',script:bundle,modules:true,compatibilityDate:'2026-09-01',
     compatibilityFlags:['nodejs_compat'],d1Databases:['DB'],cf:false,host:'127.0.0.1',port:0,log:new Log(LogLevel.NONE),
@@ -54,8 +54,8 @@ async function test() {
     tags=[oldTag];
     r=await call(admin);assert.equal(r.status,409);assert.equal(posts,1);assert.equal(edits,1);
     assert.deepEqual(tags.map(t=>t.name),['Guild PUG','Team recruiting','Looking for team']);assert.deepEqual(tags[0],oldTag);
-    r=await call(admin);const links=await r.text();assert.equal(r.status,200,links);assert.equal(posts,2);assert.equal(edits,1);
-    const again=await call(admin);assert.equal(await again.text(),links);assert.equal(again.status,200);assert.equal(posts,2);assert.equal(edits,1);
+    r=await call(admin);const first=await r.json();assert.equal(r.status,200);assert.equal(first.posted,1);assert.equal(first.recovered,1);assert.equal(first.tagsAdded,0);assert.equal(posts,2);assert.equal(edits,1);
+    const again=await call(admin);assert.deepEqual(await again.json(),{links:first.links,posted:0,recovered:0,tagsAdded:0});assert.equal(again.status,200);assert.equal(posts,2);assert.equal(edits,1);
     assert.equal(await db.prepare("SELECT COUNT(*) n FROM intro_posts WHERE message_id<>'' AND hash='raid-template-v1'").first('n'),2);
     console.log('Forum publication passed in Workerd/D1 with simulated Discord. Both original messages and tags read back; uncertain delivery and repeat refresh produced zero duplicates.');
   } finally {await mf.dispose();}
