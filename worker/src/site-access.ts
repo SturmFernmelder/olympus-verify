@@ -6,6 +6,7 @@ import { privacyBoundSiteEnv, privacySiteFailure } from './privacy-serving-autho
 import { loginHeaders, policyShell } from './policy-render';
 import { errorRef, heldCause } from './log';
 import { siteEntryReturn, siteLoginLocation } from './site-return';
+import { charterAccessTrace, noteCharterError } from './charter-access-log';
 
 const AUTH_PATHS = new Set(['/auth/login', '/auth/callback']);
 // These existing privacy flows have their own Discord identity / one-use case credentials.
@@ -68,26 +69,33 @@ export async function memberSiteGate(request: Request, env: Env, path: string): 
   // the account rate before fresh membership/body work and rechecks standing;
   // its GET stays available for an authenticated denied/departed account.
   if(path==='/api/me/verification'&&(request.method==='GET'||request.method==='POST'))return null;
+  const trace = charterAccessTrace(request);
   let user;
   try { user = await currentUser(env, request); }
   catch (e) {
     // .177: identify the failed boundary without retaining request, account or error text.
     const label=privacySiteFailure(e)?.cause??heldCause(e);
+    noteCharterError(trace, e, label);
     try { console.error('site access unavailable', 'current_user', errorRef(e), label); } catch { /* the line never changes the answer */ }
     return new Response(JSON.stringify({ error: 'site_access_unavailable' }), { status: 503, headers: securityHeaders(new Headers({ 'Content-Type': 'application/json; charset=utf-8' })) });
   }
   // Preserve the existing signed-in own-record reads, including a departed or denied identity.
   if (user && request.method === 'GET' && (path === '/api/me' || path === '/api/application' || path === '/api/community/context')) return null;
+  if (trace && user) trace.stage = 'membership';
   if (user && user.in_server === 1 && !user.denied) {
     try {
       // Evergreen 12 Nov 2026 (CL2-073): when no Discord check is due nothing rewrites the row, so the page may reuse it.
       const unchanged = !membershipRecheckDue(user);
       const held = await stillMember(privacyBoundSiteEnv(env, originalUserSession(user)), user);
-      if (held) return request.method === 'HEAD' ? new Response(null, { status: held.status, headers: held.headers }) : held;
+      if (held) {
+        if (trace && held.status === 503) trace.detail = 'membership_unavailable';
+        return request.method === 'HEAD' ? new Response(null, { status: held.status, headers: held.headers }) : held;
+      }
       if (unchanged) rememberGateUser(request, user);
       return null;
     } catch (e) {
       const label=privacySiteFailure(e)?.cause??heldCause(e);
+      noteCharterError(trace, e, label);
       try { console.error('site access unavailable', 'membership', errorRef(e), label); } catch { /* the line never changes the answer */ }
       return new Response(JSON.stringify({ error: 'site_access_unavailable' }), { status: 503, headers: securityHeaders(new Headers({ 'Content-Type': 'application/json; charset=utf-8' })) });
     }

@@ -20,6 +20,7 @@ async function browserScenario() {
   let dropDecision=null,missingDecision=false,waitForContext=true;
   let charterRead={},profile=null,profileReply='lost',releaseProfile,offerReply='lost',ownerOnHold=false;
   let charterAccessFixture;
+  const charterHeader='X-Olympus-Charter-Check', unexpectedCharterLabels=[];
   const acceptedCharter={name:'Café Raiders',philosophy:'Learning',schedule:'Weeknight raids',timezone:'America/Chicago',
     loot:'Two soft reserves',expectations:'',needs:'',status:'recruiting',capacity:20,roleNeeds:[],
     weeklyWindows:[{day:2,start:'19:00',end:'21:00'},{day:2,start:'22:00',end:'01:00'},{day:5,start:'18:00',end:'20:00'}]};
@@ -103,14 +104,19 @@ async function browserScenario() {
   async function draw(){
     const n=++tepoch,parts=location.hash.replace(base,'').split('/').filter(Boolean);
     const access=parts[0]==='new' && charterAccessFixture;
-    async function charterApi(method,url,...args) {
-      access.calls.push({method,path:url.split('?')[0]});
+    async function observedApi(method,url,body,options) {
+      const path=url.split('?')[0],headers=new Headers(options?.headers);
+      if (!access || method!=='GET' || path!=='/api/community/raid-teams') {
+        if (headers.has(charterHeader)) unexpectedCharterLabels.push({method,path});
+        return api(method,url,body,options);
+      }
+      access.calls.push({method,path,phase:headers.get(charterHeader),headerCount:[...headers].length});
       const outcome=access.outcomes.shift()??200;
       if(outcome==='unreadable')throw Object.assign(Error('Unreadable response'),{status:200,data:{error:'unreadable_answer'}});
       if(outcome!==200)throw Object.assign(Error('Charter access check failed'),{status:outcome});
-      return api(method,url,...args);
+      return api(method,url,body,options);
     }
-    await renderRaidTeams(root,parts,{h,frame,api:access?charterApi:api,owner,live:()=>n===tepoch,explain:e=>e.message,
+    await renderRaidTeams(root,parts,{h,frame,api:observedApi,owner,live:()=>n===tepoch,explain:e=>e.message,
       refreshCommunity:async({live})=>{
         refreshes++;
         if(waitForContext)await new Promise(r=>{releaseContext=r;});
@@ -286,6 +292,8 @@ async function browserScenario() {
   }
   const onlyAccessReads=(fixture,count)=>fixture.calls.length===count &&
     fixture.calls.every(c=>c.method==='GET' && c.path==='/api/community/raid-teams');
+  const phases=(fixture,...expected)=>fixture.calls.length===expected.length &&
+    fixture.calls.every((c,i)=>c.headerCount===1 && c.phase===expected[i]);
   const publish=()=>by('button','Publish charter');
   const retry=()=>by('button','Check current access');
   const charterStatus=()=>root.querySelector('[role="status"]')?.textContent;
@@ -298,6 +306,10 @@ async function browserScenario() {
   assert('the first temporary charter refusal gives feedback while the form and manual retry are unavailable',!publish() && !retry());
   await until(loadedCharter);
   assert('the charter recovers automatically, clears its warning and keeps the same page',tepoch===charterView && onlyAccessReads(initial,2));
+  assert('the initial and automatic reads each send only their fixed diagnostic header',phases(initial,'initial','auto_retry'));
+  const healthy=trackCharter(200);
+  await draw();await until(loadedCharter);
+  assert('a healthy first read sends only the initial label',phases(healthy,'initial'));
   for(const fault of [0,524,'unreadable']) {
     const recovered=trackCharter(fault,200);
     await draw();await until(loadedCharter);
@@ -316,6 +328,8 @@ async function browserScenario() {
   await click('button','Check current access',loadedCharter);
   assert('successful manual recovery immediately clears the warning on the same mounted page',
     onlyAccessReads(persistent,4) && manualView===tepoch);
+  assert('each explicit retry is labeled manual, including a second manual click',
+    phases(persistent,'initial','auto_retry','manual_retry','manual_retry'));
 
   for(const status of [401,403,429]) {
     const denied=trackCharter(status);
@@ -331,6 +345,8 @@ async function browserScenario() {
   assert('leaving before the scheduled retry prevents the old request and preserves the directory',
     onlyAccessReads(leaving,1) && !!by('a','View charter and roster') && !retry());
   assert('automatic and manual access recovery sent no writes',writes.length===beforeRetry);
+  assert('directory reads, other raid views, write requests and receipt checks never send charter labels',
+    unexpectedCharterLabels.length===0);
   return {width:innerWidth,checks};
 }
 

@@ -79,6 +79,11 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".319", date: "2026-11-27", lines: [
+      "Raid charter diagnostics distinguish the first access check, the automatic retry and a retry you request. These diagnostics contain no member or session identifiers.",
+    ],
+  },
+  {
     build: ".318", date: "2026-11-27", lines: [
       "When a temporary connection or server problem interrupts opening a raid charter, the form checks access again automatically. If the second check fails, choose Check current access to try again.",
     ],

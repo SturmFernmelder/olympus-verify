@@ -8997,3 +8997,7 @@ In a signed-in browser, have the charter directory read return a temporary acces
 ## 27 November 2026 — .318 Automatic raid charter access check
 
 In a signed-in test tab, interrupt the initial charter access GET with a temporary 503. Let the next GET reach production and confirm the form opens without a click or page reload. In a second attempt, return 503 twice. Confirm that requests stop, **Check current access** appears and one click loads the form when service resumes. Neither path submits a charter. The unchanged schema also supports the previous .317 release at `adc6b0b9`.
+
+## 27 November 2026 — .319 Raid charter access diagnostics
+
+Open a charter normally and verify the first check in the production Worker log. Repeat the .318 browser checks with failures confined to the test tab. Confirm that the GETs reaching the Worker after those simulated failures carry the automatic and manual retry labels, respectively. Check a signed-out charter read for the corresponding refusal and ensure the ordinary directory read has no charter label. Use local Workerd and D1 for database faults. Inspect the application log fields for fixed labels and confirm the form still opens without a write. Rollback uses the reviewed .318 source at `6af2da13` on the same schema.

@@ -92,6 +92,7 @@ import {captureHandlerServingOrigin,registerHandlerInteractionNames,type Handler
 import {EPOCH2_SCHEDULE_QUALIFIED,CANONICAL_RANK_SCHEDULE_QUALIFIED,CANONICAL_RANK_CHILD_STATEMENTS,CANONICAL_RANK_SCHEDULE_HTTP,captureOriginalRosterSchedule,originalRosterScheduleFacts,roleSweepLane1112,type OriginalRosterSchedule,type RoleSweepLane1112} from './scheduled-budget';
 import {captureCanonicalRankConfig233} from './canonical-ranks233';
 import {RecoveryFloorHeld} from './privacy-recovery-floor';
+import { beginCharterAccess, finishCharterAccess, noteCharterError } from './charter-access-log';
 import {originalRecoveryClockMilliseconds} from './privacy-recovery-original-clock';
 import {recoveryScalarArrayJSON} from './privacy-recovery-data-json';
 import {captureGlobalServingEntry,dispatchGlobalServingEntry,deferOriginalServing,assertGlobalServingDispatch,globalServingMode,preflightOriginalServingRequest,originalGlobalScheduledPhysicalCostObservation} from './privacy-global-serving-origin';
@@ -232,10 +233,22 @@ export default {
     // Private files are delivered below inside the same original serving root and admitted membership read.
     // Capture the global original transport before narrow OAuth/Names/Me factories and before any await.
     if(globalServingMode(env)==='configured'&&request.method==='GET'&&path==='/health')return json({ok:true,build:BUILD,d1:'not_checked',...(await watcherAuthorized(env,request)?{verification:launchVerificationHealth(env)}:{})});
-    let globalEntry:ReturnType<typeof captureGlobalServingEntry>;try{globalEntry=captureGlobalServingEntry(env,ctx,'fetch',request);}catch{return json({error:'original_serving_held'},503); }env=globalEntry.env;request=globalEntry.request!;
+    let globalEntry:ReturnType<typeof captureGlobalServingEntry>;
+    try { globalEntry=captureGlobalServingEntry(env,ctx,'fetch',request); }
+    catch {
+      const trace = beginCharterAccess(request, host === 'site', url.pathname);
+      if (trace) trace.detail = 'serving_held';
+      return finishCharterAccess(trace, json({error:'original_serving_held'},503));
+    }
+    env=globalEntry.env;request=globalEntry.request!;
+    const charter = beginCharterAccess(request, host === 'site', url.pathname);
     // Capture native/host/version/method custody before any facade substitution or await.
     // Only this Names boundary is managed; missing bindings hold Names without a legacy fallback.
-    try{captureMembershipDecisionOrigin(request,env);}catch(e){if(e instanceof MembershipDecisionSignedOut)return apiJson({error:'signed_out',message:'Sign in with Discord before using staff decisions.'},401);return new Response(JSON.stringify({error:'original_membership_decision_held'}),{status:409,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});}
+    try{captureMembershipDecisionOrigin(request,env);}catch(e){
+      const response = e instanceof MembershipDecisionSignedOut ? apiJson({error:'signed_out',message:'Sign in with Discord before using staff decisions.'},401)
+        : new Response(JSON.stringify({error:'original_membership_decision_held'}),{status:409,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});
+      return finishCharterAccess(charter, response);
+    }
     let namesOrigin:HandlerServingOrigin|undefined;
     if(host==="bot"&&request.method==="POST"&&path==="/interactions"){try{namesOrigin=captureHandlerServingOrigin(request,env,ctx);}catch{}}
     let siteOAuthOrigin:SiteOAuthOrigin|undefined;
@@ -244,7 +257,7 @@ export default {
     const siteMeMode=siteMe?siteMeServingMode(env):'off';
     let siteMeOrigin:SiteMeOrigin|undefined;
     if(siteMeMode==='configured'){try{siteMeOrigin=captureServingSiteMeOrigin(request,env);}catch{}}
-    try{return await dispatchGlobalServingEntry(globalEntry,async()=>{
+    try{const response = await dispatchGlobalServingEntry(globalEntry,async()=>{
     try {
       if(siteMe&&siteMeMode!=='off')return await dispatchServingSiteMe(siteMeOrigin);
       env=writeAdmissionEnv(env);
@@ -276,9 +289,11 @@ export default {
       // after a failure. Until it has succeeded, the watcher's endpoints answer 503 (the watcher keeps its work and
       // retries) and commands say to try again: the code below reads columns the check adds, so running it without them
       // would fail halfway through a verification or a roster sync. The policy pages and /health work regardless.
+      if (charter) charter.stage = 'schema';
       const schemaReady = await ensureSchema(env).then(
         () => true,
         (e) => {
+          noteCharterError(charter, e);
           try { console.error("schema check failed", errorRef(e), heldCause(e)); } catch {} // 14 Nov 2026: the line never changes the hold
           if(isPrivacyWriteAdmissionDatabase(env.DB))throw new PrivacyWriteAdmissionHeld('current_schema_unconfirmed');
           return false;
@@ -287,6 +302,7 @@ export default {
       // The guild site has its own host. Anything it does not answer there is a 404, unless that host is also the bot's
       // public one (a site run on the workers.dev address), in which case the bot's routes below still apply.
       if (host === "site") {
+        if (charter && schemaReady) charter.stage = 'directory';
         const r = await handleSite(request, env, path, schemaReady, BUILD, (work) => deferOriginalServing(ctx,'site_callback',work),siteOAuthOrigin,roleDispatch);
         if (r) return memberApiTransport(path, r); // CL2-076: member JSON may be compressed by the edge
         if (siteHost(env) !== hostOf(env.PUBLIC_BASE_URL)) return new Response("not found", { status: 404 });
@@ -316,6 +332,7 @@ export default {
       return botResponse280(res);
     } catch (e) {
       if(caughtErrorIs(e,RecoveryFloorHeld))throw e;
+      if (charter) noteCharterError(charter, e, privacySiteFailure(e)?.cause);
       // 14 Nov 2026: one line of fixed labels per held request (log.ts); the line cannot change the answer.
       if(caughtErrorIs(e,PrivacyWriteAdmissionHeld)){try{console.error('request held','write_admission',errorRef(e),heldCause(e),routeClass(path));}catch{}return json({error:'write_admission_held',message:'The current source installation or transaction outcome is not confirmed.'},503);}
       if(caughtErrorIs(e,PrivacySiteRequestHeld)){
@@ -331,7 +348,15 @@ export default {
       try { console.error("unhandled", requestId, routeClass(path), errorRef(e), heldCause(e)); } catch {} // .51: class, never the message; 14 Nov 2026: route family, never a path segment, and the line never changes the answer
       return json({ error: "internal", requestId }, 500);
     }
-    });}catch(e){if(caughtErrorIs(e,RecoveryFloorHeld))return json({error:'original_serving_held'},503);throw e;}
+    });
+      return finishCharterAccess(charter, response);
+    }catch(e){
+      if(caughtErrorIs(e,RecoveryFloorHeld)){
+        if (charter && charter.detail === 'none') { charter.stage = 'admission'; charter.detail = 'serving_held'; }
+        return finishCharterAccess(charter, json({error:'original_serving_held'},503));
+      }
+      throw e;
+    }
   },
 
   async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
@@ -813,7 +838,7 @@ async function freshRegistrationRefused(env: Env, trigger: string): Promise<void
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-11-27.318 Automatic raid charter access check";
+const BUILD = "2026-11-27.319 Raid charter access diagnostics";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a
