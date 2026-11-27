@@ -18,6 +18,7 @@ import { readSession, sameOrigin, PAGE_VERSION, sign, verify, b64u, apiJson, isS
 import {inactiveBetaRetentionSatisfiedSql} from './privacy-retention-clocks';
 import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
 import {heldCause,elapsedClass,clockMs,type HeldCause,type HeldGroup} from './log';
+import { retainCharterDatabaseDetail } from './charter-access-log';
 
 export const PRIVACY_DB_NOW = "CAST(strftime('%s','now') AS INTEGER)";
 export const PRIVACY_YEAR = 365 * 86400;
@@ -113,6 +114,7 @@ const boundBatchHeld=(purpose:'site_session'|'subject_generation',e:unknown,bega
  }catch{label='other';group='unknown';}
  try{console.error('privacy request held',purpose,label,group,elapsedClass(clockMs()-began));}catch{}
  const held=new PrivacySiteRequestHeld();
+ if(label==='d1_other'||label==='other')retainCharterDatabaseDetail(held,e);
  privacySiteFailures.set(held,Object.freeze({cause:label,group}));boundBatchLogged.add(held);throw held;
 };
 function authorityData(object:object,key:string):unknown{const d=Object.getOwnPropertyDescriptor(object,key);if(!d||!Object.hasOwn(d,'value'))return authorityHeld();return d.value;}

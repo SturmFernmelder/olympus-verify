@@ -4,6 +4,7 @@
  * (members) and site-admin.ts (admins) all import from here and never from each other's internals.
  */
 import type { Env } from "./env";
+import { charterAccessTrace } from './charter-access-log';
 import {readOriginalSiteSession,assertOriginalSiteSessionRead,type OriginalSiteSession} from "./privacy-site-session-incarnation";
 import { now } from "./db";
 import { privacyGenerationLiteralFenceSql } from "./privacy-serving-authority";
@@ -142,12 +143,17 @@ export function originalUserSession(user:SiteUser):OriginalSiteSession{
 }
 /** The signed-in user, or null. A cookie from before the last sign-out (older version) no longer counts. */
 export async function currentUser(env: Env, request: Request): Promise<SiteUser | null> {
+  const trace = charterAccessTrace(request);
+  const previousStage = trace?.stage;
+  if (trace) trace.stage = 'session_proof';
   const s = await readSession(env, request);
   if (!s) return null;
   assertOriginalSiteSessionRead(s);
+  if (trace) trace.stage = 'session_row';
   const row = await env.DB.prepare(`SELECT * FROM site_users WHERE discord_id = ?1 AND account_incarnation = ?2 AND session_version = ?3 AND ?4>CAST(strftime('%s','now') AS INTEGER) AND ${privacyGenerationLiteralFenceSql("discord_id",s.g)}`).bind(s.u,s.n,s.v,s.e).first<SiteUser>();
   assertOriginalSiteSessionRead(s);
   if (!row || row.session_version !== s.v || row.account_incarnation !== s.n) return null;
+  if (trace && previousStage) trace.stage = previousStage;
   return {...row,privacyGeneration:s.g,privacyOriginalSession:s};
 }
 

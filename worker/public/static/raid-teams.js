@@ -144,6 +144,7 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
     return f;
   }
   let refresh;
+  const checkAccessButton = () => button("Check current access", () => refresh(true));
   async function refreshAccess(error) {
     main.replaceChildren();
     report(errors(error,"Your current access could not be confirmed."),true);
@@ -250,7 +251,7 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
       if(e?.status===403 || e?.status===503) {
         await refreshAccess(e);
         if(!live())return;
-        if(!attempts.has(operationKey)) {notice.append(" ",button("Check current access",()=>refresh()));return;}
+        if(!attempts.has(operationKey)) {notice.append(" ",checkAccessButton());return;}
       }
       if(attempts.has(operationKey)) {
         controlsFor(attempt,"The save result is unknown. The original request is held for an identical retry or a readback.");
@@ -280,9 +281,12 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
     if (filters.day || filters.from || filters.to) params.set("viewerZone",myZone());
     return API + "?" + params.toString();
   }
-  async function readInitialCharter(path, seq) {
+  function readCharterAccess(phase) {
+    return api("GET", directoryPath(), undefined, { live, headers: { "X-Olympus-Charter-Check": phase } });
+  }
+  async function readInitialCharter(seq) {
     try {
-      return await read(path);
+      return await readCharterAccess("initial");
     } catch (error) {
       const status = error?.status;
       const unreadable = status >= 200 && status < 300 && error.data?.error === "unreadable_answer";
@@ -293,7 +297,7 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
       await new Promise(resolve => setTimeout(resolve, CHARTER_RETRY_DELAY_MS));
       if (!live() || seq !== generation) return;
       try {
-        return await read(path);
+        return await readCharterAccess("auto_retry");
       } finally {
         if (live() && seq === generation) report("");
       }
@@ -544,7 +548,7 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
       create,byId.length?h("div",{class:"stack mt"},...byId.map(e=>calendarEvent(e,t,target,attendanceEnabled))):p(eventId?"This occurrence is unavailable.":"No raids have been scheduled."),attendance,
       row(calendarAfter && button("First page",()=>{calendarAfter="";refresh();}),calendar.next && button("Next page",()=>{calendarAfter=calendar.next;refresh();}))));
   }
-  refresh = async function() {
+  refresh = async function(manualAccessCheck = false) {
     const seq=++generation;
     if(!live())return;
     main.setAttribute("aria-busy","true");
@@ -562,9 +566,9 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
         if(calendar)drawCalendar(detail,eventData);else drawDetail(detail);
         data=calendar?eventData:detail;
       } else {
-        const path = directoryPath();
-        data = tab === "new" && seq === 1 && !attempts.has(operationKey)
-          ? await readInitialCharter(path, seq) : await read(path);
+        if (tab === "new" && seq === 1 && !attempts.has(operationKey)) data = await readInitialCharter(seq);
+        else if (tab === "new" && manualAccessCheck) data = await readCharterAccess("manual_retry");
+        else data = await read(directoryPath());
         if(!live() || seq!==generation)return;
         if(tab==="new")drawCreate(data);else if(tab==="profile")drawProfile(data);else drawDirectory(data);
       }
@@ -574,7 +578,7 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
     } catch(e) {
       if(live() && seq===generation) {
         if(e?.status===403 || e?.status===503) await refreshAccess(e);
-        if(live() && seq===generation) main.replaceChildren(frame("Raid teams",null,p(errors(e,"Raid teams could not be loaded.")),row(button("Check current access",refresh),link("Find a team",HOME))));
+        if(live() && seq===generation) main.replaceChildren(frame("Raid teams",null,p(errors(e,"Raid teams could not be loaded.")),row(checkAccessButton(),link("Find a team",HOME))));
       }
     } finally {if(live() && seq===generation)main.removeAttribute("aria-busy");}
   };

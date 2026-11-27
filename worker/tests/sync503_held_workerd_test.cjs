@@ -55,8 +55,8 @@ function auditTransport(v,route){
  if(v.fault){
   const affected=v.wires.filter(w=>w.injected!==null);assert.equal(affected.length,1,'one affected group');
   assert.equal(v.wires.filter(w=>w.kind===v.fault.target).length,v.fault.nth,'affected group was not repeated');
-  const committed=['rotate','mutate','witness','commit-reject','commit-invalid'].includes(v.fault.kind);
-  assert.equal(affected[0].nativeSends,committed?1:0,'real provider send count, distinct from an injected refusal');
+  const sent=['rotate','mutate','witness','commit-reject','commit-invalid','missing-table'].includes(v.fault.kind);
+  assert.equal(affected[0].nativeSends,sent?1:0,'real provider send count, distinct from an injected refusal');
  }else for(const w of v.wires)assert.equal(w.nativeSends,1,'normal groups reach actual D1 once');
  transportAudits.push({route,fault:v.fault??null,wires:v.wires});
 }
@@ -64,7 +64,12 @@ function affectedCount(v,count){const w=v.wires.filter(w=>w.injected!==null);ret
 const onlyGroup=(v,count)=>v.wires.length===1&&v.wires[0].statements===count&&v.wires[0].nativeSends===1;
 // Each console line must be one of the fixed formats with every position from its closed set.
 function closedLine(line){
- const a=line.args;if(!a.every(x=>typeof x==='string'))return false;
+ const a=line.args;
+ if(a[0]==='charter access check')return line.level===(a[2]>=500?'error':'info')&&(a[2]>=400?a.length===6&&REF.test(a[5]):a.length===5)
+  &&['initial','auto_retry','manual_retry'].includes(a[1])&&Number.isInteger(a[2])&&a[2]>=100&&a[2]<=599
+  &&['admission','session_proof','session_row','membership','schema','directory'].includes(a[3])
+  &&['none','sqlite_missing_table','d1_unclassified','sqlite_busy','membership_unavailable'].includes(a[4]);
+ if(!a.every(x=>typeof x==='string'))return false;
  switch(a[0]){
   case 'privacy request held':return line.level==='error'&&a.length===5&&['site_session','subject_generation'].includes(a[1])&&HELD.has(a[2])&&GROUPS.has(a[3])&&ELAPSED.has(a[4]);
   case 'request held':return line.level==='error'&&(a[1]==='site'?a.length===6&&GROUPS.has(a[4])&&ROUTES.has(a[5]):a[1]==='write_admission'&&a.length===5&&ROUTES.has(a[4]))&&REF.test(a[2])&&HELD.has(a[3]);
@@ -91,7 +96,10 @@ mf=new Miniflare(convertV4MiniflareOptions({rootPath:out,script:source.toString(
  if(request.method==='POST'&&(p==='/oauth2/token'||p==='/api/oauth2/token'))return Response.json({access_token:'tok-'+ID,token_type:'Bearer',scope:'identify guilds.members.read'});
  if(auth==='Bearer tok-'+ID&&p==='/users/@me')return Response.json({id:ID,username:'sync503_member',global_name:'Synthetic member',avatar:null});
  if(auth==='Bearer tok-'+ID&&p==='/users/@me/guilds/'+GUILD+'/member')return Response.json({user:{id:ID},roles:[],joined_at:'2020-01-01T00:00:00Z',pending:false,nick:null});
- if(auth==='Bot synthetic-native-bot'&&request.method==='GET'&&p==='/guilds/'+GUILD+'/members/'+ID)return memberMode==='404'?Response.json({message:'Unknown Member',code:10007},{status:404}):Response.json({user:{id:ID},roles:[],joined_at:'2020-01-01T00:00:00Z',pending:false,nick:null});
+ if(auth==='Bot synthetic-native-bot'&&request.method==='GET'&&p==='/guilds/'+GUILD+'/members/'+ID){
+  if(memberMode==='503')return Response.json({message:'private provider detail',code:0},{status:503});
+  return memberMode==='404'?Response.json({message:'Unknown Member',code:10007},{status:404}):Response.json({user:{id:ID},roles:[],joined_at:'2020-01-01T00:00:00Z',pending:false,nick:null});
+ }
  throw Error('unplanned synthetic provider request');
 }}));await mf.ready;
 let r=await mf.dispatchFetch('http://fixture.invalid/setup',{method:'POST'});const setup=await r.json();assert.equal(r.status,200);HELD=new Set(setup.heldCauses);ROUTES=new Set(setup.routeClasses);
@@ -270,6 +278,55 @@ console.log('\n== the sampled proof-cost line (design 2.5) ==');
  let last=null;for(let i=0;i<200;i++){last=await verification('GET',cookie);assert.equal(last.status,200,JSON.stringify(last));if(allLines.some(l=>l.args[0]==='proof cost'))break;}
  const proof=allLines.filter(l=>l.args[0]==='proof cost'),groups=last.readGroupsOk;
  check('one proof-cost line per 256 successful read groups of the isolate, in fixed classes',proof.length>=1&&proof.length===Math.floor(groups/256)&&proof.every(closedLine),{lines:proof.length,groups,proof});
+}
+
+console.log('\n== charter access diagnostics through the real Worker ==');
+{
+ const path='/api/community/raid-teams',header='X-Olympus-Charter-Check';
+ const charter=(attempt,options={})=>run({method:'GET',path,...options,
+  headers:{Cookie:cookie,...(attempt==null?{}:{[header]:attempt}),...options.headers}});
+ const charterLines=v=>v.logs.filter(l=>l.args[0]==='charter access check');
+ const reported=(v,attempt,stage,detail,ref)=>{
+  const lines=charterLines(v);
+  const args=['charter access check',attempt,v.status,stage,detail];
+  if(ref!==undefined)args.push(ref);
+  return lines.length===1&&lines[0].level===(v.status>=500?'error':'info')&&same(lines[0],args);
+ };
+ const signedOut=await charter('initial',{headers:{Cookie:''}});
+ check('attempt label preserves ordinary signed-out refusal with a bounded status reference',signedOut.status===401&&reported(signedOut,'initial','session_proof','none','thrown(401)'),charterLines(signedOut));
+ const setup=await post('seed-charter-member',{});
+ check('signed-in local member and event charter feature enabled',setup.ok===true);
+ const success=await charter('initial');
+ check('initial check loads the real charter directory with one closed diagnostic',success.status===200&&JSON.parse(success.body).characters.length===1&&reported(success,'initial','directory','none'),charterLines(success));
+ const failedChecks=[
+  ['initial','user','missing-table',undefined,'session_row','sqlite_missing_table'],
+  ['auto_retry','user','reply','private provider detail'+SECRET,'session_row','d1_unclassified'],
+  ['manual_retry','directory','reply','database is locked: SQLITE_BUSY','directory','sqlite_busy'],
+  ['manual_retry','directory','reply','no such table: fixture_private_charter_table: SQLITE_ERROR','directory','sqlite_missing_table'],
+  ['auto_retry','schema','reply','no such table: fixture_private_charter_table: SQLITE_ERROR','schema','sqlite_missing_table'],
+ ];
+ for(const [attempt,target,kind,message,stage,detail] of failedChecks){
+  const v=await charter(attempt,{fault:{target,nth:1,kind,message},throwingConsole:kind==='missing-table'});
+  check(attempt+' charter failure records '+stage+' and '+detail+' exactly once',v.status>=500&&v.fault.fired===1&&reported(v,attempt,stage,detail,target==='directory'?'error':'d1'),charterLines(v));
+  if(target==='user')check('current-user refusal preserves its original HTTP response',v.status===503&&v.body===SITE_ACCESS);
+ }
+ for(const [scope,attempt,options] of [['untagged',null,{}],['duplicate label','initial, manual_retry',{}],['unrecognized header','private_invalid_header',{}],
+  ['wrong method','initial',{method:'POST'}],['other route','initial',{path:'/api/community/context'}],['other host','initial',{botHost:true}]]){
+  const v=await charter(attempt,options);
+  check(scope+' request omits charter diagnostic',charterLines(v).length===0);
+  if(scope==='untagged')check('tagging a healthy charter adds no D1 requests and preserves the response',v.status===success.status&&v.body===success.body&&JSON.stringify(v.wires)===JSON.stringify(success.wires));
+ }
+ memberMode='503';await post('age',{seconds:-7200});
+ const unavailable=await charter('manual_retry');
+ check('Discord membership outage gets its own detail and stays held',unavailable.status===503&&JSON.parse(unavailable.body).error==='membership_unavailable'&&reported(unavailable,'manual_retry','membership','membership_unavailable','thrown(503)'),charterLines(unavailable));
+ memberMode='member';await post('age',{seconds:7200});
+ await post('mark-member-left',{});
+ const departed=await charter('initial');
+ check('signed-in departed member is denied at the membership stage with a bounded status reference',departed.status===403&&JSON.parse(departed.body).error==='not_member'&&reported(departed,'initial','membership','none','thrown(403)'),charterLines(departed));
+ const consoleText=JSON.stringify(allLines);
+ const cookieValues=cookie.split('; ').map(part=>part.slice(part.indexOf('=')+1)).filter(Boolean);
+ check('captured logs exclude synthetic session, member, SQL identifier, header and provider-private values',
+  ![...cookieValues,ID,'sync503_member','Fixture Private Raider','fixture_private_charter_table','private_invalid_header','private provider detail','abc.def.ghi','Tag#1234'].some(value=>consoleText.includes(value)));
 }
 
 check('every argument of every console call in these requests is from the closed sets ('+allLines.length+' lines)',allLines.length>0&&allLines.every(closedLine),allLines.filter(l=>!closedLine(l)));

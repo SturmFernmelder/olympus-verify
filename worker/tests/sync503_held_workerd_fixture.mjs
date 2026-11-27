@@ -38,6 +38,7 @@ const method=(o,k)=>{for(let p=o;p;p=Object.getPrototypeOf(p)){const d=Object.ge
 const statementsOf=body=>{try{const p=JSON.parse(body);return {array:Array.isArray(p),list:Array.isArray(p)?p:[p]};}catch{return {array:false,list:[]};}};
 function classify(body){
  const {array,list}=statementsOf(body),sqls=list.map(s=>typeof s?.sql==='string'?s.sql:'');
+ if(sqls.some(s=>s.includes('FROM raid_raider_profiles316 p JOIN characters')))return 'directory';
  if(sqls.some(s=>s.includes(SITE_GUARD)))return 'bound';
  if(sqls.some(s=>s.includes(SUBJECT_GUARD)))return 'subject';
  if(sqls.some(s=>s.includes(USER_READ)))return 'user';
@@ -65,9 +66,14 @@ async function setup(db){
  const tally=async(body,response)=>{try{const answer=JSON.parse(await response.clone().text()),r0=Array.isArray(answer)?answer[0]?.results:null,current=Array.isArray(r0)?r0[0]?.current:r0?.rows?.[0]?.[r0?.columns?.indexOf('current')];if(Array.isArray(answer)&&answer.length>1&&answer.every(r=>r&&r.success!==false&&!r.error)&&current===1&&statementsOf(body).list[0]?.sql?.includes(PROOF))counts.readGroupsOk++;}catch{}return response;};
  Object.defineProperty(fetcher,'fetch',{configurable:true,writable:false,value:async function(input,init){
   const body=typeof init?.body==='string'?init.body:'',kind=classify(body),w={kind,nested:body.includes(SITE_GUARD)&&body.includes(SUBJECT_GUARD),injected:null,transportAttempts:1,nativeSends:0,statements:statementsOf(body).list.length};wires.push(w);
-  const nativeSend=()=>{w.nativeSends++;return Reflect.apply(send,fetcher,[input,init]);};
+  const nativeSend=(options=init)=>{w.nativeSends++;return Reflect.apply(send,fetcher,[input,options]);};
   if(fault&&!bypass&&kind===fault.target&&++fault.seen===fault.nth){
    fault.fired++;w.injected=fault.kind;const {list}=statementsOf(body);
+   if(fault.kind==='missing-table'){
+    // Let the real local SQLite engine and D1 binding generate the exception. Only the synthetic table name is private.
+    const queries=list.map(q=>q.sql.includes(USER_READ)?{sql:'SELECT 1 FROM fixture_private_charter_table',params:[]}:q);
+    return nativeSend({...init,body:JSON.stringify(queries)});
+   }
    if(fault.kind==='reply')return reply(Array.isArray(JSON.parse(body))?[{success:false,error:fault.message}]:{success:false,error:fault.message},500);
    if(fault.kind==='reject')throw new Error(fault.message);
    if(fault.kind==='hostile')throw hostile(fault.variant);
@@ -114,7 +120,7 @@ async function setup(db){
 const CONSOLE=['error','warn','log','info','debug'];
 async function captured(work,throwing=false){
  const logs=[],before=CONSOLE.map(k=>console[k]);
- CONSOLE.forEach(k=>{console[k]=(...args)=>{logs.push({level:k,args:args.map(a=>typeof a==='string'?a:{nonString:typeof a})});if(throwing)throw Error('console unavailable');};});
+ CONSOLE.forEach(k=>{console[k]=(...args)=>{logs.push({level:k,args:args.map(a=>typeof a==='string'||typeof a==='number'?a:{nonString:typeof a})});if(throwing)throw Error('console unavailable');};});
  try{return {value:await work(),logs};}catch(error){return {error,logs};}
  finally{CONSOLE.forEach((k,i)=>{console[k]=before[i];});}
 }
@@ -125,7 +131,7 @@ export const sync503Fixture={async fetch(request,bindings){
  if(u.pathname==='/setup'){if(saved)return new Response(null,{status:409});saved=await setup(bindings.DB);return Response.json({actualLocalWorkerdD1:true,heldCauses:HELD_CAUSES,routeClasses:ROUTE_CLASSES});}
  if(!saved)return new Response(null,{status:409});const s=saved;
  if(u.pathname==='/run'){
-  const spec=await request.json(),headers=new Headers(spec.headers??{}),target=BASE+spec.path;
+  const spec=await request.json(),headers=new Headers(spec.headers??{}),target=(spec.botHost?'https://verify.example':BASE)+spec.path;
   const original=new Request(target,{method:spec.method,headers,redirect:'manual',...(spec.body!==undefined?{body:spec.body}:{})});
   armed(spec.fault);ageAfterGateRead=spec.expireMembershipAfterGateRead?{aged:false}:null;const wireStart=s.wires.length,jobs=[];
   const out=await captured(async()=>{try{const response=await app.fetch(original,s.env,{waitUntil(p){jobs.push(Promise.resolve(p).catch(()=>{}));},passThroughOnException(){}});for(const p of jobs)await p;return response;}finally{while(restoreAfter.length)restoreAfter.pop()();}},spec.throwingConsole===true);
@@ -174,6 +180,18 @@ export const sync503Fixture={async fetch(request,bindings){
  if(u.pathname==='/age'){
   // Move the member's last Discord check (an admitted write through the source writer), to make the gate's check due.
   const spec=await request.json();bypass=true;try{await s.writer.prepare('UPDATE site_users SET checked_at=checked_at+?1 WHERE discord_id=?2').bind(spec.seconds,ID).run();}finally{bypass=false;}
+  return Response.json({ok:true});
+ }
+ if(u.pathname==='/seed-charter-member'){
+  await s.writer.batch([
+   s.writer.prepare('INSERT INTO members(discord_id) VALUES(?1)').bind(ID),
+   s.writer.prepare("INSERT INTO characters(name_key,name,guid,discord_id,status,bound_at) VALUES(?1,?2,?3,?4,'member',unixepoch())").bind('fixture private raider','Fixture Private Raider','Player-87-00100003',ID),
+  ]);
+  s.env.COMMUNITY_FEATURES='events';
+  return Response.json({ok:true});
+ }
+ if(u.pathname==='/mark-member-left'){
+  await s.writer.prepare('UPDATE site_users SET in_server=0 WHERE discord_id=?1').bind(ID).run();
   return Response.json({ok:true});
  }
  return new Response(null,{status:404});
