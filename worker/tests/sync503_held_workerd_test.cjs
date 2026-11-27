@@ -65,7 +65,7 @@ const onlyGroup=(v,count)=>v.wires.length===1&&v.wires[0].statements===count&&v.
 // Each console line must be one of the fixed formats with every position from its closed set.
 function closedLine(line){
  const a=line.args;
- if(a[0]==='charter access check')return line.level===(a[2]>=500?'error':'info')&&a.length===5
+ if(a[0]==='charter access check')return line.level===(a[2]>=500?'error':'info')&&(a[2]>=400?a.length===6&&REF.test(a[5]):a.length===5)
   &&['initial','auto_retry','manual_retry'].includes(a[1])&&Number.isInteger(a[2])&&a[2]>=100&&a[2]<=599
   &&['admission','session_proof','session_row','membership','schema','directory'].includes(a[3])
   &&['none','sqlite_missing_table','d1_unclassified','sqlite_busy','membership_unavailable'].includes(a[4]);
@@ -286,12 +286,14 @@ console.log('\n== charter access diagnostics through the real Worker ==');
  const charter=(attempt,options={})=>run({method:'GET',path,...options,
   headers:{Cookie:cookie,...(attempt==null?{}:{[header]:attempt}),...options.headers}});
  const charterLines=v=>v.logs.filter(l=>l.args[0]==='charter access check');
- const reported=(v,attempt,stage,detail)=>{
+ const reported=(v,attempt,stage,detail,ref)=>{
   const lines=charterLines(v);
-  return lines.length===1&&lines[0].level===(v.status>=500?'error':'info')&&same(lines[0],['charter access check',attempt,v.status,stage,detail]);
+  const args=['charter access check',attempt,v.status,stage,detail];
+  if(ref!==undefined)args.push(ref);
+  return lines.length===1&&lines[0].level===(v.status>=500?'error':'info')&&same(lines[0],args);
  };
  const signedOut=await charter('initial',{headers:{Cookie:''}});
- check('attempt label preserves ordinary signed-out refusal',signedOut.status===401&&reported(signedOut,'initial','session_proof','none'),charterLines(signedOut));
+ check('attempt label preserves ordinary signed-out refusal with a bounded status reference',signedOut.status===401&&reported(signedOut,'initial','session_proof','none','thrown(401)'),charterLines(signedOut));
  const setup=await post('seed-charter-member',{});
  check('signed-in local member and event charter feature enabled',setup.ok===true);
  const success=await charter('initial');
@@ -305,7 +307,7 @@ console.log('\n== charter access diagnostics through the real Worker ==');
  ];
  for(const [attempt,target,kind,message,stage,detail] of failedChecks){
   const v=await charter(attempt,{fault:{target,nth:1,kind,message},throwingConsole:kind==='missing-table'});
-  check(attempt+' charter failure records '+stage+' and '+detail+' exactly once',v.status>=500&&v.fault.fired===1&&reported(v,attempt,stage,detail),charterLines(v));
+  check(attempt+' charter failure records '+stage+' and '+detail+' exactly once',v.status>=500&&v.fault.fired===1&&reported(v,attempt,stage,detail,target==='directory'?'error':'d1'),charterLines(v));
   if(target==='user')check('current-user refusal preserves its original HTTP response',v.status===503&&v.body===SITE_ACCESS);
  }
  for(const [scope,attempt,options] of [['untagged',null,{}],['duplicate label','initial, manual_retry',{}],['unrecognized header','private_invalid_header',{}],
@@ -316,11 +318,11 @@ console.log('\n== charter access diagnostics through the real Worker ==');
  }
  memberMode='503';await post('age',{seconds:-7200});
  const unavailable=await charter('manual_retry');
- check('Discord membership outage gets its own detail and stays held',unavailable.status===503&&JSON.parse(unavailable.body).error==='membership_unavailable'&&reported(unavailable,'manual_retry','membership','membership_unavailable'),charterLines(unavailable));
+ check('Discord membership outage gets its own detail and stays held',unavailable.status===503&&JSON.parse(unavailable.body).error==='membership_unavailable'&&reported(unavailable,'manual_retry','membership','membership_unavailable','thrown(503)'),charterLines(unavailable));
  memberMode='member';await post('age',{seconds:7200});
  await post('mark-member-left',{});
  const departed=await charter('initial');
- check('signed-in departed member is denied at the membership stage',departed.status===403&&JSON.parse(departed.body).error==='not_member'&&reported(departed,'initial','membership','none'),charterLines(departed));
+ check('signed-in departed member is denied at the membership stage with a bounded status reference',departed.status===403&&JSON.parse(departed.body).error==='not_member'&&reported(departed,'initial','membership','none','thrown(403)'),charterLines(departed));
  const consoleText=JSON.stringify(allLines);
  const cookieValues=cookie.split('; ').map(part=>part.slice(part.indexOf('=')+1)).filter(Boolean);
  check('captured logs exclude synthetic session, member, SQL identifier, header and provider-private values',

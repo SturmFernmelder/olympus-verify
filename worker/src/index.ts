@@ -235,9 +235,9 @@ export default {
     if(globalServingMode(env)==='configured'&&request.method==='GET'&&path==='/health')return json({ok:true,build:BUILD,d1:'not_checked',...(await watcherAuthorized(env,request)?{verification:launchVerificationHealth(env)}:{})});
     let globalEntry:ReturnType<typeof captureGlobalServingEntry>;
     try { globalEntry=captureGlobalServingEntry(env,ctx,'fetch',request); }
-    catch {
+    catch (e) {
       const trace = beginCharterAccess(request, host === 'site', url.pathname);
-      if (trace) trace.detail = 'serving_held';
+      if (trace) { trace.detail = 'serving_held'; trace.failureRef = errorRef(e); }
       return finishCharterAccess(trace, json({error:'original_serving_held'},503));
     }
     env=globalEntry.env;request=globalEntry.request!;
@@ -245,6 +245,7 @@ export default {
     // Capture native/host/version/method custody before any facade substitution or await.
     // Only this Names boundary is managed; missing bindings hold Names without a legacy fallback.
     try{captureMembershipDecisionOrigin(request,env);}catch(e){
+      if (charter) charter.failureRef = errorRef(e);
       const response = e instanceof MembershipDecisionSignedOut ? apiJson({error:'signed_out',message:'Sign in with Discord before using staff decisions.'},401)
         : new Response(JSON.stringify({error:'original_membership_decision_held'}),{status:409,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});
       return finishCharterAccess(charter, response);
@@ -353,6 +354,7 @@ export default {
     }catch(e){
       if(caughtErrorIs(e,RecoveryFloorHeld)){
         if (charter && charter.detail === 'none') { charter.stage = 'admission'; charter.detail = 'serving_held'; }
+        if (charter) charter.failureRef ??= errorRef(e);
         return finishCharterAccess(charter, json({error:'original_serving_held'},503));
       }
       throw e;

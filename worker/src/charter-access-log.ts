@@ -1,4 +1,4 @@
-import { heldCause, isHeldCause } from './log';
+import { errorRef, heldCause, isHeldCause } from './log';
 
 type Attempt = 'initial' | 'auto_retry' | 'manual_retry';
 type Stage = 'admission' | 'session_proof' | 'session_row' | 'membership' | 'schema' | 'directory';
@@ -6,6 +6,7 @@ export interface CharterAccessTrace {
   readonly attempt: Attempt;
   stage: Stage;
   detail: string;
+  failureRef?: string;
 }
 
 // The server uses this client hint only for diagnostics. Keep the trace on the exact
@@ -71,7 +72,9 @@ export function retainCharterDatabaseDetail(wrapper: Error, original: unknown): 
 }
 
 export function noteCharterError(trace: CharterAccessTrace | undefined, error: unknown, knownCause?: string): void {
-  if (!trace || trace.detail !== 'none') return;
+  if (!trace) return;
+  trace.failureRef ??= errorRef(error);
+  if (trace.detail !== 'none') return;
   try {
     const cause = isHeldCause(knownCause) ? knownCause : heldCause(error);
     if (cause !== 'd1_other' && cause !== 'other') { trace.detail = cause; return; }
@@ -83,8 +86,9 @@ export function noteCharterError(trace: CharterAccessTrace | undefined, error: u
 export function finishCharterAccess(trace: CharterAccessTrace | undefined, response: Response): Response {
   if (trace) {
     try {
-      if (response.status >= 500) console.error('charter access check', trace.attempt, response.status, trace.stage, trace.detail);
-      else console.info('charter access check', trace.attempt, response.status, trace.stage, trace.detail);
+      const failure = response.status >= 400 ? [trace.failureRef ?? errorRef(response)] : [];
+      if (response.status >= 500) console.error('charter access check', trace.attempt, response.status, trace.stage, trace.detail, ...failure);
+      else console.info('charter access check', trace.attempt, response.status, trace.stage, trace.detail, ...failure);
     } catch {}
   }
   return response;
