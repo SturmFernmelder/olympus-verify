@@ -16,7 +16,7 @@ import {captureCanonicalRankConfig233} from './canonical-ranks233';
  * hard-codes an id, and a channel missing from the config degrades to plain "#name" text instead of a broken mention.
  */
 import { errorRef } from "./log";
-import { publishRaidForum316 } from "./raid-forum316";
+import { publishRaidForum316, RAID_FORUM_MAX_CALLS316 } from "./raid-forum316";
 import type { Env } from "./env";
 import { activeRulesetSnapshot, rulesetDecidedText, rulesetLabel, type RulesetSnapshot } from "./ruleset-profile";
 import { audit, now } from "./db";
@@ -506,10 +506,13 @@ interface Run { env: Env; left: number; reason: string }
 type Msg = { id: string; pinned?: boolean };
 type Thread = { id: string; name?: string; flags?: number; thread_metadata?: { archived?: boolean } };
 
-async function call<T>(run: Run, method: string, path: string, body?: unknown): Promise<T> {
+async function call<T>(run: Run, method: string, path: string, body?: unknown, singleAttempt = false): Promise<T> {
   if (run.left <= 0) throw new OutOfBudget("budget spent");
-  run.left -= 1;
-  return rest<T>(run.env, method, path, body, 0, method === "GET" ? undefined : run.reason);
+  const attempts = {limit: run.left, attempts: 1, retries: 0};
+  run.left--;
+  try {
+    return await rest<T>(run.env, method, path, body, singleAttempt ? 1 : 0, method === "GET" ? undefined : run.reason, attempts);
+  } finally { run.left -= attempts.retries; }
 }
 
 const gone = (e: unknown) => e instanceof DiscordError && e.status === 404;
@@ -643,14 +646,6 @@ export async function refreshIntros(env: Env, guild: string, actor: string, only
   let stoppedEarly = false;
   try {
     const rows = await loadRows(env, guild);
-    // An administrator explicitly targeting LFG also installs its two recruitment templates.
-    // The ordinary bulk intro refresh never creates tags or recruitment posts.
-    if (only === '1554265340286861352' && only === channels['looking-for-group'] &&
-        (env.SITE_ADMINS ?? '').split(',').map(s => s.trim()).includes(actor)) {
-      const templates = await publishRaidForum316(env, guild, actor);
-      outcomes.push({key:'raid-recruitment-templates',action:templates.posted?'posted':templates.tagsAdded?'edited':'current',channelId:only,
-        note:`${templates.posted} published, ${templates.recovered} earlier posts reconciled, ${templates.tagsAdded} tags added. ${templates.links}`});
-    }
     for (const intro of list) {
       const parent = channels[intro.channel];
       if(managed.includes(intro.key)){outcomes.push({key:intro.key,action:'skipped',note:'Managed by the staff ruleset publication page; inspect or reconcile that operation.'});continue;}
@@ -699,6 +694,21 @@ export async function refreshIntros(env: Env, guild: string, actor: string, only
           continue;
         }
         outcomes.push({ key: intro.key, action: "failed", channelId: parent, note: explainDiscordError(e) });
+      }
+    }
+    // The existing forum intro always has first use of the shared request budget.
+    if (only === '1554265340286861352' && only === channels['looking-for-group'] &&
+        (env.SITE_ADMINS ?? '').split(',').map(s => s.trim()).includes(actor)) {
+      const key='raid-recruitment-templates',channelId=only;
+      if(run.left<RAID_FORUM_MAX_CALLS316){
+        stoppedEarly=true;
+        outcomes.push({key,channelId,action:'not-reached'});
+      }else{
+        try {
+          const result=await publishRaidForum316(env,guild,actor,(method,path,body)=>call(run,method,path,body,true));
+          const note=[result.posted+' published, '+result.recovered+' earlier posts reconciled.',result.links,...result.problems].filter(Boolean).join(' ');
+          outcomes.push({key,channelId,action:result.problems.length?'failed':result.posted?'posted':'current',note});
+        }catch(err){outcomes.push({key,channelId,action:'failed',note:explainDiscordError(err)});}
       }
     }
   } finally {

@@ -79,6 +79,18 @@ export async function raidTeamsReadback316(base,rawDB,ctx,check) {
     !(await ok(healer,'?day=2&viewerZone=UTC')).teams.some(t=>t.id===team));
   let leaderPage=await ok(leader,one);
   check('ordinary verified member can found a team with a single founder seat',leaderPage.isLeader&&leaderPage.canManage&&leaderPage.team.primaryCount===1&&leaderPage.mine.state==='primary');
+  await db.batch([
+    db.prepare("INSERT INTO characters(name_key,name,guid,discord_id,status,bound_at) VALUES('founder alternate','Founder Alternate','Player-87-00100100',?1,'member',unixepoch())").bind(leader.id),
+    db.prepare("UPDATE characters SET status='left' WHERE guid=?1").bind(leader.guid),
+  ]);
+  const heldFounder=await ok(leader,one);
+  check('a charter owner with another verified character cannot abandon the founding seat while its chosen character is on hold',
+    heldFounder.characters.length===1&&!heldFounder.canManage&&
+    (await query(leader,one,{action:'leave',seatId:leaderPage.mine.id,revision:leaderPage.mine.revision})).status===409);
+  await db.prepare("UPDATE characters SET status='member' WHERE guid=?1").bind(leader.guid).run();
+  const returnedFounder=await ok(leader,one);
+  check('restoring the founding character restores original leadership and management on its same active seat',
+    returnedFounder.isLeader&&returnedFounder.canManage&&returnedFounder.mine.id===leaderPage.mine.id&&returnedFounder.mine.state==='primary');
   check('standings are public to guild members and team assignments are scoped',(await ok(healer,one)).members.length===0 && !JSON.stringify(leaderPage.members).includes(leader.id));
   const profile={action:'profile',guid:healer.guid,role:'healer',playerClass:'Priest',spec:'Holy',availability:'Tuesdays',notes:'Learning runs welcome',listed:false,revision:0};
   await ok(healer,'',profile);

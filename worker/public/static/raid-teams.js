@@ -2,12 +2,59 @@ const API = "/api/community/raid-teams";
 export function postRaidTeam316(api,target,payload,options) {
   return api("POST",API,{...payload,...target},options);
 }
+const unresolvedByOwner = new WeakMap();
+function receiptMatches(body,result) {
+  if (!result || typeof result!=="object" || Array.isArray(result)) return false;
+  if (body.area!=="calendar") return result.ok===true && (body.action!=="create" || result.id===body.id);
+  if (body.action==="schedule") return Array.isArray(result.eventIds) && result.eventIds.length===body.occurrences &&
+    new Set(result.eventIds).size===result.eventIds.length && result.eventIds.every(id=>typeof id==="string" && /^[A-Za-z0-9_-]{22}$/.test(id));
+  if (result.eventId!==body.eventId) return false;
+  if (body.action==="attendance") return result.state===body.state && result.attendanceRevision===body.attendanceRevision+1;
+  if (body.action==="rsvp") return result.answer===body.answer;
+  return result.revision===body.revision+1;
+}
+function readShowsChange(b,d) {
+  if (!d) return false;
+  if (b.area==="calendar") {
+    const event=d.events?.find(e=>e.eventId===b.eventId);
+    if (!event) return false;
+    if (b.action==="cancel") return event.status==="cancelled" && event.revision>b.revision;
+    if (b.action==="rsvp") return event.answer===b.answer && event.rsvpRevision>b.rsvpRevision;
+    if (b.action==="attendance") return d.roster?.some(s=>s.seatId===b.seatId && s.attendance===b.state && s.attendanceRevision>b.attendanceRevision);
+    if (b.action==="edit") {
+      return event.revision>b.revision && event.title===b.title && event.timezone===b.timezone &&
+        wallTime(event.startsAt,event.timezone)===b.localStart &&
+        event.durationMin===b.durationMin && event.assemblyMinutes===b.assemblyMinutes && event.preparation===b.preparation;
+    }
+    return false;
+  }
+  if (b.action==="create") return d.isLeader && d.team?.id===b.id;
+  if (b.action==="edit") return d.team?.revision>b.revision &&
+    ["name","philosophy","schedule","timezone","loot","expectations","needs","status","capacity","weeklyWindows","roleNeeds"]
+      .every(key=>JSON.stringify(d.team[key])===JSON.stringify(b[key]));
+  if (b.action==="profile") return d.profile?.revision>b.revision && d.profile.guid===b.guid && !!d.profile.listed===b.listed &&
+    ["role","playerClass","spec","availability","notes"].every(key=>d.profile[key]===b[key]);
+  if (b.action==="forget") return d.mine?.id!==b.seatId;
+  if (b.action==="apply") return d.mine?.revision>b.revision && d.mine.state==="submitted" && d.mine.role===b.role &&
+    d.mine.note===(b.note||"").trim() && d.characters?.some(c=>c.guid===b.guid && c.name===d.mine.character);
+  const seat=[d.mine,...(d.applications||[]),...(d.members||[])].find(s=>s && s.id===b.seatId && s.revision>b.revision);
+  if (!seat) return false;
+  if (b.action==="respond" || b.action==="decide") return seat.state===b.state;
+  if (b.action==="leave") return seat.state==="withdrawn";
+  if (b.action==="officer") return !!seat.isOfficer===b.enabled;
+  if (b.action==="group") return seat.groupNumber===b.groupNumber;
+  return false;
+}
 const HOME = "#/community/raid-teams";
 const ROLES = { tank: "Tank", healer: "Healer", melee: "Melee damage", ranged: "Ranged damage", flex: "Flexible" };
 const STATUS = { forming: "Forming", recruiting: "Recruiting", full: "Full", reserves: "Recruiting reserves", inactive: "Inactive" };
 const SEATS = { applied: "Application submitted", submitted: "Application submitted", offered_primary: "Primary place offered",
   offered_reserve: "Reserve place offered", primary: "Primary raider", reserve: "Reserve raider", waitlisted: "Waitlisted", declined: "Declined", withdrawn: "Withdrawn" };
 const myZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+function wallTime(epoch,timezone) {
+  const parts=Object.fromEntries(new Intl.DateTimeFormat("en-GB",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23",timeZone:timezone}).formatToParts(new Date(epoch*1000)).map(p=>[p.type,p.value]));
+  return parts.year+"-"+parts.month+"-"+parts.day+"T"+parts.hour+":"+parts.minute;
+}
 const dateTime = (epoch, timezone) => new Intl.DateTimeFormat(undefined, {
   weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short", timeZone: timezone,
 }).format(new Date(epoch * 1000));
@@ -19,7 +66,7 @@ export function personalTeamAttendanceLabel(h,event) {
   return h("a",{href,text:event.title});
 }
 
-export async function renderRaidTeams(root, parts, { h, frame, api, live, explain, toast }) {
+export async function renderRaidTeams(root, parts, { h, frame, api, live, explain, refreshCommunity, owner }) {
   root.classList.add("raid-teams");
   const link = (title, href) => h("a", { class: "btn small", href, text: title });
   const button = (title, onclick, primary = false) => h("button", { class: "btn" + (primary ? " primary" : " small"), type: "button", text: title, onclick });
@@ -42,6 +89,9 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
   const read = (path) => api("GET", path, undefined, { live });
   if (!live()) return;
   let busy = false, generation = 0;
+  const operationKey=parts.join("/");
+  let attempts=unresolvedByOwner.get(owner);
+  if (!attempts) { attempts=new Map(); unresolvedByOwner.set(owner,attempts); }
   function report(text, error = false) {
     notice.textContent = text;
     notice.className = error ? "raid-feedback err" : "raid-feedback";
@@ -60,27 +110,81 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
   function form(label, fields, save, title, primary = true) {
     const submit = h("button", { type:"submit", class: "btn" + (primary ? " primary" : " small"), text: title });
     const f = h("form", { class: "stack", "aria-label": label }, ...fields, row(submit));
-    f.addEventListener("submit", (e) => { e.preventDefault(); if (!busy) save(Object.fromEntries(new FormData(f)), f); });
+    f.addEventListener("submit", (e) => { e.preventDefault(); if (!busy && !attempts.has(operationKey)) save(Object.fromEntries(new FormData(f)), f); });
     return f;
   }
   let refresh;
-  async function write(target, payload, message, success, conflict) {
-    if (busy || !live()) return;
+  async function refreshAccess(error) {
+    main.replaceChildren();
+    report(errors(error,"Your current access could not be confirmed."),true);
+    await refreshCommunity({live});
+  }
+  function controlsFor(attempt,text) {
+    report(text,true);
+    notice.append(" ",button("Retry the same request",()=>submit(attempt,true)), " ",
+      button("Check the current record",()=>checkOriginal(attempt)));
+  }
+  async function checkOriginal(attempt) {
+    if (!live() || busy || attempts.get(operationKey)!==attempt) return;
+    busy=true;
+    const b=JSON.parse(attempt.bytes);
+    try {
+      let d;
+      if (b.action==="create") d=await read(API+"/"+encodeURIComponent(b.id));
+      else if (b.area==="calendar" && b.eventId) d=await read(API+"/"+encodeURIComponent(b.teamId)+"/calendar?eventId="+encodeURIComponent(b.eventId));
+      else d=await refresh();
+      if (!live() || attempts.get(operationKey)!==attempt) return;
+      if (readShowsChange(b,d)) {
+        attempts.delete(operationKey);
+        if (b.action==="create") { location.hash=goTeam(b.id); return; }
+        if (await refresh()) report("The current record confirms the requested change.");
+      } else {
+        if(d && b.area==="calendar" && b.eventId) await refresh();
+        if(live() && attempts.get(operationKey)===attempt) controlsFor(attempt,"The current record does not confirm the original request. Retry the same request to check its result.");
+      }
+    } catch(e) {
+      if(!live())return;
+      if(e?.status===403 || e?.status===503) await refreshAccess(e);
+      if(live())controlsFor(attempt,"The check could not confirm the original request.");
+    } finally {busy=false;main.inert=attempts.has(operationKey);}
+  }
+  function write(target, payload, message, success, conflict) {
+    if (busy || !live() || attempts.has(operationKey)) return;
+    return submit({bytes:JSON.stringify({...payload,...target}),message},false,success,conflict);
+  }
+  async function submit(attempt,retry,success,conflict) {
+    if (busy || !live() || (retry && attempts.get(operationKey)!==attempt)) return;
     busy = true;
     main.inert = true;
-    report("Saving…");
+    report(retry?"Checking the original request…":"Saving…");
+    const b=JSON.parse(attempt.bytes);
+    attempts.set(operationKey,attempt);
     try {
-      const result = await postRaidTeam316(api,target,payload,{ live });
+      const result = await postRaidTeam316(api,{},b,{ live });
+      if (!receiptMatches(b,result)) throw Object.assign(new Error("Unreadable receipt."),{status:200,data:{error:"unreadable_answer"}});
+      attempts.delete(operationKey);
       if (!live()) return;
       if (success) await success(result);
-      else await refresh();
-      if (live()) report(message);
+      else if (b.action==="create") location.hash=goTeam(b.id);
+      else if (!await refresh()) return;
+      if (live()) report(attempt.message);
     } catch (e) {
-      if (!live()) return;
+      const uncertain=!e?.status || e.status>=500 || e.data?.error==="unreadable_answer";
+      if(!uncertain && !retry) attempts.delete(operationKey);
+      if(!live())return;
+      if(e?.status===403 || e?.status===503) {
+        await refreshAccess(e);
+        if(!live())return;
+        if(!attempts.has(operationKey)) {notice.append(" ",button("Check current access",()=>refresh()));return;}
+      }
+      if(attempts.has(operationKey)) {
+        controlsFor(attempt,retry && !uncertain?"The original result is still unconfirmed. Check the current record.":"The save result is unknown. The original request is held for an identical retry or a readback.");
+        return;
+      }
       report(errors(e, "The change could not be saved. Check the latest record before trying again."), true);
       if (e?.data?.error === "other_primary_commitment" && conflict) conflict();
       else if (e?.status === 409 || !e?.status) notice.append(" ", button("Refresh current record", () => refresh()));
-    } finally { busy = false; main.inert = false; }
+    } finally { busy = false; main.inert = attempts.has(operationKey); }
   }
   function details(label, content) {
     return h("details", {class:"raid-details"}, h("summary", {text:label}), content);
@@ -293,10 +397,6 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
       cards.length?h("div",{class:"stack"},...cards):p("No raids are scheduled for this character in the next seven days."),exportPanel));
   }
   const ANSWERS={confirmed:"Confirmed",tentative:"Tentative",unavailable:"Unavailable",late:"Running late",substitute:"Available as substitute"};
-  function wallTime(epoch,timezone) {
-    const parts=Object.fromEntries(new Intl.DateTimeFormat("en-GB",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23",timeZone:timezone}).formatToParts(new Date(epoch*1000)).map(p=>[p.type,p.value]));
-    return parts.year+"-"+parts.month+"-"+parts.day+"T"+parts.hour+":"+parts.minute;
-  }
   function eventFields(e,t) {
     return [field("Raid name",input("title",e?.title,{maxlength:200,required:true})),h("div",{class:"grid two"},
       field("Starts on", input("localStart",e?wallTime(e.startsAt,e.timezone):"",{type:"datetime-local",required:true})),
@@ -308,7 +408,7 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
   function eventBody(data) {
     return {...data,durationMin:Number(data.durationMin),assemblyMinutes:Number(data.assemblyMinutes)};
   }
-  function calendarEvent(e,t,target) {
+  function calendarEvent(e,t,target,attendanceEnabled) {
     const href=goTeam(t.id)+"/calendar/"+encodeURIComponent(e.eventId);
     return section(e.title,facts([["Status",e.status==="cancelled"?"Cancelled":"Scheduled"],["When",dateTime(e.startsAt)],["Ends",dateTime(e.endsAt)],
       ["Assembly",dateTime(e.startsAt-e.assemblyMinutes*60)],["Roster",e.groupLabel || "Whole team"],["Your answer",ANSWERS[e.answer]],
@@ -316,7 +416,7 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
       e.canRespond && e.status!=="cancelled" ? form("RSVP for "+e.title,
         [field("Your response",options("answer",ANSWERS,e.answer))],
         data=>write(target,{action:"rsvp",eventId:e.eventId,revision:e.revision,rsvpRevision:e.rsvpRevision||0,answer:data.answer},"Your response is saved."),"Save response", false):null,
-      !parts[2]?link(e.canManage?"Review attendance and responses":"View raid details",href):null,
+      !parts[2]?link(e.canManage?(attendanceEnabled?"Review attendance and responses":"Review responses"):"View raid details",href):null,
       e.canManage && e.status!=="cancelled" && e.startsAt*1000>Date.now()?details("Edit this occurrence",form("Edit "+e.title,eventFields(e,t),
         data=>write(target,{...eventBody(data),action:"edit",eventId:e.eventId,revision:e.revision},"Occurrence updated."),"Save changes")):null,
       e.canManage && e.status!=="cancelled" && e.startsAt*1000>Date.now()?details("Cancel this occurrence",button("Confirm cancellation",()=>write(target,
@@ -338,15 +438,16 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
         if(data.audience==="all" && groups.length) return report("Choose Selected groups to invite only the checked groups.",true);
         write(target,{...eventBody(data),action:"schedule",opId,teamRevision:t.revision,capacity:Number(data.capacity),groups,occurrences:Number(data.occurrences)},"Raid schedule saved.");
       },"Schedule raid")):null;
-    const attendance=eventId && byId[0]?.canManage && calendar.roster ? section("Responses and attendance",
+    const attendanceEnabled=calendar.attendanceEnabled===true;
+    const attendance=eventId && byId[0]?.canManage && calendar.roster ? section(attendanceEnabled?"Responses and attendance":"Responses",
       calendar.roster.length ? calendar.roster.map(a=>{
         const ev=byId[0];
-        return section(a.name,facts([["Raid role",ROLES[a.role]],["Response",ANSWERS[a.answer]||"Awaiting response"],["Attendance",a.attendance]]),
-          ev.status==="scheduled" && ev.startsAt*1000<=Date.now() && form("Record attendance for "+a.name,[field("Attendance",options("state",{present:"Present",absent:"Absent",excused:"Excused",unknown:"Unknown"},a.attendance||"unknown"))],
+        return section(a.name,facts([["Raid role",ROLES[a.role]],["Response",ANSWERS[a.answer]||"Awaiting response"],["Attendance",attendanceEnabled && a.attendance]]),
+          attendanceEnabled && ev.status==="scheduled" && ev.startsAt*1000<=Date.now() && form("Record attendance for "+a.name,[field("Attendance",options("state",{present:"Present",absent:"Absent",excused:"Excused",unknown:"Unknown"},a.attendance||"unknown"))],
           data=>write(target,{action:"attendance",eventId,revision:ev.revision,seatId:a.seatId,state:data.state,attendanceRevision:a.attendanceRevision || 0},"Attendance saved."),"Save attendance",false));
       }):p("Nobody is assigned to this occurrence.")):null;
     main.replaceChildren(frame(t.name+" · Calendar",row(link("Team charter",goTeam(t.id)),eventId&&link("All occurrences",goTeam(t.id)+"/calendar")),
-      create,byId.length?h("div",{class:"stack mt"},...byId.map(e=>calendarEvent(e,t,target))):p(eventId?"This occurrence is unavailable.":"No raids have been scheduled."),attendance,
+      create,byId.length?h("div",{class:"stack mt"},...byId.map(e=>calendarEvent(e,t,target,attendanceEnabled))):p(eventId?"This occurrence is unavailable.":"No raids have been scheduled."),attendance,
       row(calendarAfter && button("First page",()=>{calendarAfter="";refresh();}),calendar.next && button("Next page",()=>{calendarAfter=calendar.next;refresh();}))));
   }
   refresh = async function() {
@@ -359,16 +460,24 @@ export async function renderRaidTeams(root, parts, { h, frame, api, live, explai
         const id=encodeURIComponent(tab),calendar=parts[1]==="calendar";
         const suffix=parts[2]?"?eventId="+encodeURIComponent(parts[2]):calendarAfter?"?after="+encodeURIComponent(calendarAfter):"";
         const [detail,eventData]=await Promise.all([read(API+"/"+id),calendar?read(API+"/"+id+"/calendar"+suffix):null]);
-        if(live() && seq===generation){if(calendar)drawCalendar(detail,eventData);else drawDetail(detail);}
+        if(live() && seq===generation){if(calendar)drawCalendar(detail,eventData);else drawDetail(detail);return calendar?eventData:detail;}
       } else {
         const d=await read(directoryPath());
         if(live() && seq===generation) {
           if(tab==="new")drawCreate(d);else if(tab==="profile")drawProfile(d);else drawDirectory(d);
+          return d;
         }
       }
     } catch(e) {
-      if(live() && seq===generation) main.replaceChildren(frame("Raid teams",null,p(errors(e,"Raid teams could not be loaded.")),row(button("Try again",refresh),link("Find a team",HOME))));
+      if(live() && seq===generation) {
+        if(e?.status===403 || e?.status===503) await refreshAccess(e);
+        if(live() && seq===generation) main.replaceChildren(frame("Raid teams",null,p(errors(e,"Raid teams could not be loaded.")),row(button("Check current access",refresh),link("Find a team",HOME))));
+      }
     } finally {if(live() && seq===generation)main.removeAttribute("aria-busy");}
   };
   await refresh();
+  if(live() && attempts.has(operationKey)) {
+    main.inert=true;
+    controlsFor(attempts.get(operationKey),"The original save result is unconfirmed. Check the current record or retry the same request.");
+  }
 }

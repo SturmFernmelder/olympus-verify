@@ -1203,3 +1203,4 @@ CREATE TABLE IF NOT EXISTS raid_team_invites316 (
   PRIMARY KEY(event_id,seat_id)
 );
 CREATE INDEX IF NOT EXISTS raid_team_invites316_seat ON raid_team_invites316(seat_id,event_id);
+-- End of generated raid team schema.

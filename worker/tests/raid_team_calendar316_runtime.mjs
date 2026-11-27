@@ -37,9 +37,9 @@ export async function checkTeamCalendar316(base,rawDB,ctx,check) {
     await db.prepare(`INSERT INTO raid_team_seats316(id,team_id,discord_id,account_birth,character_guid,role,state,group_number,charter_revision)
       SELECT ?1,?2,discord_id,account_incarnation,?4,'tank','primary',?5,1 FROM site_users WHERE discord_id=?3`).bind(seat,id,subject,guid,g).run();
   }
-  const api=async(cookie,path,body,method)=>{
+  const api=async(cookie,path,body,method,local=env)=>{
     const res=await worker.fetch(new Request(site+'/api/community'+path,{method:method??(body?'POST':'GET'),
-      headers:{Cookie:cookie,Origin:site,'X-Olympus':'2','Content-Type':'application/json'},body:body?JSON.stringify(body):undefined}),env,ctx);
+      headers:{Cookie:cookie,Origin:site,'X-Olympus':'2','Content-Type':'application/json'},body:body?JSON.stringify(body):undefined}),local,ctx);
     return {status:res.status,data:await res.json()};
   };
   const start=new Date((at+2*86400)*1000).toISOString().slice(0,16);
@@ -77,10 +77,20 @@ export async function checkTeamCalendar316(base,rawDB,ctx,check) {
   check('current invite accepts an explicit running-late response in shared RSVP, excluding the unassigned team leader',
     (await api(lm,team,RSVP)).status===409&&(await api(mm,team,RSVP)).status===200&&
     (await db.prepare('SELECT status FROM community_event_signups WHERE event_id=?1 AND discord_id=?2').bind(first,member).first())?.status==='yes');
-  const single={...form,opId:'U'.repeat(22),groups:[],occurrences:1,capacity:1};
+  const single={...form,opId:'U'.repeat(22),groups:[1,2],occurrences:1,capacity:1};
   const one=(await api(lm,team,single)).data.eventIds[0];
   const confirm={action:'rsvp',eventId:one,revision:1,answer:'confirmed'};
   check('the current response holds the single place and a second current player waits', (await api(mm,team,confirm)).status===200&&(await api(lm,team,confirm)).status===409);
+  await db.prepare('UPDATE raid_team_seats316 SET group_number=4 WHERE id=?1').bind('calendar-seat-member').run();
+  check('a temporarily excluded subgroup member keeps the confirmed place without revealing the raid to them',
+    (await api(mm,team+'?eventId='+one)).status===404&&(await api(lm,team,confirm)).status===409);
+  await db.prepare('UPDATE raid_team_seats316 SET group_number=1 WHERE id=?1').bind('calendar-seat-member').run();
+  await db.prepare("UPDATE characters SET status='left' WHERE guid=?1").bind(memberGuid).run();
+  check('a temporarily unverified raider with a current yes also retains the same single place',(await api(lm,team,confirm)).status===409);
+  await db.prepare("UPDATE characters SET status='member' WHERE guid=?1").bind(memberGuid).run();
+  const restored=await api(lm,team+'?eventId='+one);
+  check('restoring verification and the original subgroup reveals exactly one confirmation for the one-place raid',
+    restored.data.roster.filter(r=>r.answer==='confirmed').length===1&&restored.data.roster.find(r=>r.seatId==='calendar-seat-member').answer==='confirmed');
   const later=new Date((at+3*86400)*1000).toISOString().slice(0,16);
   check('rescheduled team raiders reconfirm the new time and a stale yes cannot hold the only place',
     (await api(lm,team,{...single,action:'edit',eventId:one,revision:1,localStart:later})).status===200&&
@@ -95,12 +105,27 @@ export async function checkTeamCalendar316(base,rawDB,ctx,check) {
   check('inactive team retains its earlier calendar without an enabled reply or a personal invitation',
     !(await api(mm,team+'?eventId='+second)).data.events[0].canRespond&&!(await api(mm,my+'?guid='+memberGuid)).data.events.length);
   await db.prepare("UPDATE raid_teams316 SET status='forming' WHERE id=?1").bind(id).run();
+  // A date still inside today's scheduling window can fall outside the horizon frozen on creation.
+  await db.prepare('UPDATE community_events SET created_at=?1 WHERE id=?2').bind(at-7*86400,second).run();
+  const original=await db.prepare('SELECT revision,starts_at,retain_until FROM community_events WHERE id=?1').bind(second).first();
+  const distant=new Date((at+365*86400)*1000).toISOString().slice(0,16);
+  const pushed=await api(lm,team,{...form,action:'edit',eventId:second,revision:1,localStart:distant});
+  const unchanged=await db.prepare('SELECT revision,starts_at,retain_until FROM community_events WHERE id=?1').bind(second).first();
+  check('a reschedule within one year of today but beyond the original creation horizon preserves the original retention and start',
+    pushed.status===409&&JSON.stringify(original)===JSON.stringify(unchanged));
   const save={action:'attendance',eventId:second,revision:1,seatId:'calendar-seat-member',state:'present',attendanceRevision:0};
   check('team leader cannot record attendance before the occurrence starts',(await api(lm,team,save)).status===409);
   await db.prepare('UPDATE community_events SET starts_at=?1,ends_at=?1+duration_min*60 WHERE id=?2').bind(at-60,second).run();
   check('scoped team leader may record observed attendance only on an original current invite and revision',
     (await api(lm,team,{...save,seatId:'calendar-seat-leader'})).status===409&&(await api(lm,team,save)).status===200&&(await api(lm,team,save)).status===409&&
     (await db.prepare('SELECT state FROM community_event_attendance WHERE event_id=?1 AND discord_id=?2').bind(second,member).first())?.state==='present');
+  const eventsOnly={...env,COMMUNITY_FEATURES:'events'};
+  const readNoAttendance=await Promise.all([lm,mm].map(cookie=>api(cookie,team+'?eventId='+second,null,'GET',eventsOnly)));
+  check('private occurrence reads keep roster responses with attendance off and expose no attendance state or revision to managers or members',
+    readNoAttendance.every(r=>r.status===200&&r.data.attendanceEnabled===false&&r.data.roster.length>0&&
+      r.data.roster.every(row=>Object.hasOwn(row,'answer')&&!Object.hasOwn(row,'attendance')&&!Object.hasOwn(row,'attendanceRevision')))&&
+    (await api(lm,team,save,'POST',eventsOnly)).status===404&&
+    (await api(lm,team+'?eventId='+second)).data.roster.find(row=>row.seatId==='calendar-seat-member').attendance==='present');
   const ownHistory=async()=>(await api(mm,'/attendance/me')).data.entries;
   const ordinary='O'.repeat(22);
   await db.prepare(`INSERT INTO community_events(id,op_id,title,details,starts_at,duration_min,ends_at,created_by,nonce,created_at,updated_at,retain_until)

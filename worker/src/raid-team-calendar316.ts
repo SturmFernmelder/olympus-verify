@@ -4,7 +4,7 @@ import type { Env } from './env';
 import { now } from './db';
 import { admitted, admittedRead, DB_NOW, fenceSql, FENCE_REFUSED, randomToken, refusal, type CommunityContext } from './community-context';
 import { apiJson } from './site-core';
-import { calendarRoom, EVENT_RETENTION_S, rsvpStatements, type RsvpStatus } from './community-events';
+import { calendarRoom, EVENT_LIMITS, EVENT_RETENTION_S, rsvpStatements, type RsvpStatus } from './community-events';
 import { scanLimit } from './community-directory';
 import { attendanceUnlocked219 } from './guild-calendar-metadata219';
 import { raidIncludesGroup316 as includesGroup, raidTeamInvitationSql316 as linkedInvitation, raidTeamManagerSql316, raidTeamMemberSql316, raidTeamOccurrenceVisible316 } from './raid-teams316';
@@ -62,7 +62,7 @@ function common(b:Body) {
 }
 function dates(b:Body,zone:string,count:number) {
   const values=weeklyRaidStarts316(b.localStart,zone,count),at=now();
-  if(values[0]!<=at||values[values.length-1]!>at+366*DAY) throw new CalendarInput('Schedule a future raid within one year.');
+  if(values[0]!<=at||values[values.length-1]!>at+EVENT_LIMITS.horizonDays*DAY) throw new CalendarInput('Schedule a future raid within one year.');
   return values;
 }
 function writeGate(ctx:CommunityContext) {
@@ -188,11 +188,13 @@ async function list(request:Request,env:Env,ctx:CommunityContext,team:string){
     WHERE x.team_id=?1 AND e.retain_until>${DB_NOW} AND (?3 IS NULL OR e.id=?3)
     AND ${raidTeamOccurrenceVisible316('e.id','x.team_id','?2')}
     AND (?4=0 OR (e.starts_at,e.id)>(?4,?5)) ORDER BY e.starts_at,e.id LIMIT 51`).bind(team,me,selected,cursor?Number(cursor[1]):0,cursor?.[2]??'')];
-  if(selected)sql.push(db.prepare(`SELECT s.id seatId,k.name,s.role,i.group_number groupNumber,${answerColumns},
-    a.state attendance,COALESCE(a.revision,0) attendanceRevision FROM raid_team_events316 x ${personalJoin}
+  const attendanceEnabled=ctx.features.has('attendance');
+  const attendanceFields=attendanceEnabled?', a.state attendance, COALESCE(a.revision,0) attendanceRevision':'';
+  const attendanceJoin=attendanceEnabled?'LEFT JOIN community_event_attendance a ON a.event_id=e.id AND a.discord_id=s.discord_id':'';
+  if(selected)sql.push(db.prepare(`SELECT s.id seatId,k.name,s.role,i.group_number groupNumber,${answerColumns}${attendanceFields} FROM raid_team_events316 x ${personalJoin}
     JOIN community_events e ON e.id=x.event_id JOIN characters k ON k.guid=s.character_guid AND k.discord_id=s.discord_id AND k.status='member'
     LEFT JOIN community_event_signups r ON r.event_id=e.id AND r.discord_id=s.discord_id
-    LEFT JOIN community_event_attendance a ON a.event_id=e.id AND a.discord_id=s.discord_id
+    ${attendanceJoin}
     WHERE x.team_id=?1 AND x.event_id=?3 AND e.retain_until>${DB_NOW} AND ${member('s.team_id','s.discord_id')}
     AND (${allow} OR s.discord_id=?2) ORDER BY i.group_number,k.name_key LIMIT 201`).bind(team,me,selected));
   const out=await admittedRead(env,ctx,'confirmedGuildData',sql);
@@ -201,14 +203,15 @@ async function list(request:Request,env:Env,ctx:CommunityContext,team:string){
   if(selected&&!events.length)return missing();
   if((out[1]?.results.length??0)>200)return apiJson({error:'roster_too_large'},409);
   const page=events.slice(0,50),last=page[page.length-1];
-  return apiJson({events:page,roster:out[1]?.results??[],next:events.length>50&&last?last.startsAt+'.'+last.eventId:null});
+  return apiJson({events:page,roster:out[1]?.results??[],attendanceEnabled,next:events.length>50&&last?last.startsAt+'.'+last.eventId:null});
 }
 async function change(env:Env,ctx:CommunityContext,team:string,b:Body){
   const id=eventId(b.eventId),rev=integer(b.revision,1,2147483647,'the event revision'),g=writeGate(ctx),nonce=randomToken();
   const v=b.action==='edit'?common(b):null,start=v?dates(b,v.timezone,1)[0]!:0,end=start+(v?.duration??0)*60;
   const set=v?'starts_at=?8,duration_min=?9,ends_at=?10,retain_until=?11':"status='cancelled',retain_until=MIN(retain_until,"+DB_NOW+"+2592000)";
+  const horizon=v?` AND ?8>${DB_NOW} AND ?8<=created_at+${EVENT_LIMITS.horizonDays*DAY}`:'';
   const first=env.DB.prepare(`UPDATE community_events SET ${set},revision=revision+1,updated_at=${DB_NOW},nonce=?7
-    WHERE id=?5 AND revision=?6 AND starts_at>${DB_NOW} AND status='scheduled' AND ${g.sql}
+    WHERE id=?5 AND revision=?6 AND starts_at>${DB_NOW} AND retain_until>${DB_NOW} AND status='scheduled' ${horizon} AND ${g.sql}
     AND EXISTS(SELECT 1 FROM raid_team_events316 x WHERE x.event_id=?5 AND x.team_id=?4 AND ${manager('x.team_id','?1')})`);
   const rest=v?[env.DB.prepare(`UPDATE raid_team_events316 SET title=?2,timezone=?3,assembly_minutes=?4,preparation=?5
     WHERE event_id=?1 AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND nonce=?6)`).bind(id,v.title,v.timezone,v.assembly,v.preparation,nonce)]:[];
@@ -223,7 +226,7 @@ async function rsvp(env:Env,ctx:CommunityContext,team:string,b:Body){
   const writes=rsvpStatements(env,{eventId:id,me:s.discordId,status:RESPONSES[b.answer]!,character:null,raidRole:null,
     keepChar:true,keepRole:true,revision:integer(b.rsvpRevision??0,0,2147483647,'the current RSVP revision'),anyRevision:false,eventRevision:revision,nonce,newRef:randomToken(),at:now(),limit:scanLimit(env),
     fence:`${standing} AND ${linkedInvitation('e.id','?18','?2')} AND EXISTS(SELECT 1 FROM raid_teams316 WHERE id=?18 AND status<>'inactive')`,
-    teamScope:{id:team,currentInvite:linkedInvitation('e.id','?18','o.discord_id')},sessionVersion:s.sessionVersion,expiresAt:s.expiresAt,remindMention:null});
+    teamScope:team,sessionVersion:s.sessionVersion,expiresAt:s.expiresAt,remindMention:null});
   writes.push(env.DB.prepare(`UPDATE raid_team_invites316 SET answer=?3,answer_nonce=?4 WHERE event_id=?1 AND seat_id IN
     (SELECT id FROM raid_team_seats316 WHERE team_id=?5 AND discord_id=?2)
     AND EXISTS(SELECT 1 FROM community_event_signups r WHERE r.event_id=?1 AND r.discord_id=?2 AND r.write_nonce=?4)`)

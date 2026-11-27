@@ -4769,7 +4769,7 @@
       ["Applications & Roster", [["", "Overview"], ["applications", "Applications"], ["votes", "Votes"], ["names", "Reserved names"], ["friends", "Friends"], ["lookup", "Lookup"], ["renames", "Renames"], ["directory-visibility", "Discord member list preferences"]]],
       ["Governance, Ranks & Appointments", [["appointments", "Appointed roles"], ["ranks", "Rank planner"], ["role-audit", "Discord role audit"], ["verification-recovery", "Stored verification"], ["approved-guilds", "Signed guild list"]]],
       ["Imperial Treasury & Stockades", [["treasury", "Treasury"], ["donation-ledger", "Donation ledger"]]],
-      ["News, Calendar & Operations", [["news", "News"], ...(feat("events") ? [["#/community/calendar", "Calendar"], ["#/community/raid-teams", "Raid teams"]] : []), ["launch-operations", "Launch operations & MOTD"], ...(anyCommunity() ? [["community", "Community"]] : [])]],
+      ["News, Calendar & Operations", [["news", "News"], ...(feat("events") ? [["#/community/calendar", "Calendar"], ...(can("confirmedGuildData") ? [["#/community/raid-teams", "Raid teams"]] : [])] : []), ["launch-operations", "Launch operations & MOTD"], ...(anyCommunity() ? [["community", "Community"]] : [])]],
       ["System Settings & Compliance", [["settings", "Settings"], ["audit", "Audit log"], ["ruleset-publication", "Ruleset publication"]]]
     ];
   }
@@ -7148,7 +7148,7 @@
       description: "Current holders of an Olympus membership or rank role in Discord. Shows names, portraits and permitted public roles, plus verified characters for eligible website accounts." },
     { key: "workshop", label: "Crafters & Artisans", href: "#/community/workshop", visible: () => feat("crafting") && communityReader(), icon: "pos-professions",
       description: "Search members' rare-recipe and profession offers, and list your own crafts through My profile." },
-    { key: "raid-teams", label: "Raid teams", href: "#/community/raid-teams", visible: () => feat("events") && communityReader(), icon: "icon-friends",
+    { key: "raid-teams", label: "Raid teams", href: "#/community/raid-teams", visible: () => feat("events") && can("confirmedGuildData"), icon: "icon-friends",
       description: "Find a standing raid team, recruit raiders and manage your team's roster and schedule." },
     { key: "calendar", label: "Calendar", href: "#/community/calendar", visible: () => feat("events") && communityReader(), icon: "icon-clock",
       description: () => `Guild events, your answers${feat("attendance") ? " and what the organizers recorded afterwards" : ""}. For guild members and site administrators.` },
@@ -7322,11 +7322,12 @@
     }
     if (sub === "profile" && feat("directory")) { if (!can("confirmedGuildData")) { add(body, memberActionNotice()); return; } return communityProfile(body); }
     if (sub === "raid-teams" && feat("events")) {
+      if (!can("confirmedGuildData")) { add(body, memberActionNotice()); return; }
       const user = S.user, route = currentRoute();
       const live = () => S.signedIn && S.user === user && currentRoute() === route && body.isConnected;
       try {
         const { renderRaidTeams } = await import("/static/raid-teams.js");
-        if (live()) return renderRaidTeams(body, parts.slice(1), { h, frame, api, live, explain, toast });
+        if (live()) return renderRaidTeams(body, parts.slice(1), { h, frame, api, live, explain, refreshCommunity, owner:user });
       } catch (err) {
         if (live()) add(body, readFailureBox(err, "Raid teams could not be opened.", () => render()));
       }
@@ -8153,7 +8154,7 @@
     more.addEventListener("click", () => load(false));
     const shift = (d) => { from += d; to += d; load(true); };
     const showWindow = (past) => { const at = nowSec(); from = past ? at - 31 * DAY : at; to = past ? at : at + 31 * DAY; load(true); };
-    add(body, frame("Calendar", h("div", { class: "btn-row" }, h("a", { class: "btn small", href: "#/community/raid-teams", text: "Raid teams" }), h("button", { class: "btn small", type: "button", text: "Upcoming events", onclick: () => showWindow(false) }), h("button", { class: "btn small", type: "button", text: "Recent history", onclick: () => showWindow(true) }), h("button", { class: "btn small", type: "button", text: "Earlier", onclick: () => shift(-31 * DAY) }), range, h("button", { class: "btn small", type: "button", text: "Later", onclick: () => shift(31 * DAY) }), scheduleLink),
+    add(body, frame("Calendar", h("div", { class: "btn-row" }, can("confirmedGuildData") && h("a", { class: "btn small", href: "#/community/raid-teams", text: "Raid teams" }), h("button", { class: "btn small", type: "button", text: "Upcoming events", onclick: () => showWindow(false) }), h("button", { class: "btn small", type: "button", text: "Recent history", onclick: () => showWindow(true) }), h("button", { class: "btn small", type: "button", text: "Earlier", onclick: () => shift(-31 * DAY) }), range, h("button", { class: "btn small", type: "button", text: "Later", onclick: () => shift(31 * DAY) }), scheduleLink),
       h("p", { class: "muted small", text: "Guild events as the organizers scheduled them, with the answers of confirmed members. Open an event to answer. Times are shown in your own time zone." }),
       status, list, h("div", { class: "btn-row" }, more)));
     if (feat("attendance")) add(body, myAttendancePanel());

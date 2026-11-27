@@ -15,6 +15,8 @@ async function browserScenario() {
   const team={id:teamId,name:'Tuesday Learners',leader:leader.name,philosophy:'Learning',schedule:'Tuesday evenings',timezone:'America/Chicago',
     loot:'Two soft reserves',expectations:'Bring water',status:'recruiting',capacity:20,needs:'Restoration healer',primaryCount:1,reserveCount:0,revision:1};
   let seat,persona='member',answer=null,offerAccepted=0,tepoch=0,scheduled=false;
+  const owner={},writes=[];
+  let attendanceEnabled=true,refusal=null,refreshes=0,releaseContext,garbleSchedule=true,loseApplication=true;
   const checks=[],assert=(name,v)=>{if(!v)throw Error(name);checks.push(name);},root=document.querySelector('main');
   function h(tag,attrs,...children) {
     const node=document.createElement(tag);
@@ -35,13 +37,15 @@ async function browserScenario() {
   const mine=()=>({...raid,answer,canRespond:true,canManage:persona==='leader',rsvpRevision:answer?1:0});
   async function api(method,url,body) {
     const path=url.split('?')[0],manager=persona==='leader';
+    if(refusal?.method===method)throw Object.assign(Error('Review guild membership'),{status:refusal.status,data:{error:'standing_held'}});
     if(method==='GET') {
       if(path.endsWith('/my-next-raid')) return {characters:[character],selectedGuid:character.guid,events:scheduled&&seat?.state==='primary'?[mine()]:[],raid:mine(),addonImport:'OLR1|'+character.guid+'|123|1'};
-      if(path.endsWith('/calendar'))return {events:scheduled&&seat?.state==='primary'?[mine()]:[],roster:seat?.state==='primary'?[{seatId:seat.id,name:character.name,role:'healer',answer,attendance:null}]:[]};
+      if(path.endsWith('/calendar'))return {events:scheduled&&seat?.state==='primary'?[mine()]:[],attendanceEnabled,roster:seat?.state==='primary'?[{seatId:seat.id,name:character.name,role:'healer',answer,...(attendanceEnabled?{attendance:null}:{})}]:[]};
       if(path.endsWith(teamId))return {team,characters:[manager?leader:character],members:seat?.state==='primary'?[seat]:[],
         applications:manager&&seat?.state==='submitted'?[seat]:[],canManage:manager,isLeader:manager,mine:manager?{id:'s1',role:'tank',state:'primary'}:seat};
       return {teams:[team],players:[],characters:[character],profile:null};
     }
+    writes.push(JSON.stringify(body));
     switch(body.action) {
       case 'apply':if(manager||body.guid!==character.guid||body.role!=='healer')throw Error('wrong applicant');seat={id:'s2',character:character.name,guid:character.guid,role:body.role,note:body.note,revision:1,state:'submitted'};break;
       case 'decide':if(!manager||body.state!=='offered_primary')throw Error('wrong team office');seat.state=body.state;seat.revision++;break;
@@ -50,11 +54,22 @@ async function browserScenario() {
       case 'rsvp':if(manager||seat.state!=='primary'||body.answer!=='late')throw Error('wrong RSVP');answer=body.answer;break;
       default:throw Error('unexpected write '+body.action);
     }
-    return {};
+    if(body.action==='apply' && loseApplication) {loseApplication=false;throw Object.assign(Error('Network connection closed'),{status:0});}
+    if(body.action==='schedule') {
+      if(garbleSchedule) {garbleSchedule=false;throw Object.assign(Error('Unreadable response'),{status:201,data:{error:'unreadable_answer'}});}
+      return {eventIds:[eventId]};
+    }
+    if(body.action==='rsvp')return {eventId,answer};
+    return {ok:true};
   }
   async function draw(){
     const n=++tepoch,parts=location.hash.replace(base,'').split('/').filter(Boolean);
-    await renderRaidTeams(root,parts,{h,frame,api,live:()=>n===tepoch,explain:e=>e.message,toast:()=>{}});
+    await renderRaidTeams(root,parts,{h,frame,api,owner,live:()=>n===tepoch,explain:e=>e.message,
+      refreshCommunity:async({live})=>{
+        refreshes++;
+        await new Promise(r=>{releaseContext=r;});
+        if(live() && refusal?.status===403) {tepoch++;root.replaceChildren(h('p',{text:'Verify your guild character.'}));}
+      }});
   }
   window.addEventListener('hashchange',draw);
   const by=(tag,text)=>[...root.querySelectorAll(tag)].find(el=>el.textContent.trim()===text);
@@ -70,7 +85,9 @@ async function browserScenario() {
   await click('a','View charter and roster',()=>by('button','Submit application'));
   const apply=root.querySelector('form[aria-label="Apply to Tuesday Learners"]');
   apply.elements.role.value='healer';apply.elements.note.value='Private healer application';
-  apply.requestSubmit();await until(()=>root.textContent.includes('Application submitted.'));
+  apply.requestSubmit();await until(()=>by('button','Check the current record'));
+  await click('button','Check the current record',()=>root.textContent.includes('The current record confirms'));
+  assert('a lost application reply is proved by a fresh read without resubmitting',writes.filter(s=>JSON.parse(s).action==='apply').length===1);
   assert('application does not create roster place',seat.state==='submitted'&&offerAccepted===0);
   persona='leader';await draw();
   const decision=root.querySelector('form[aria-label="Review Fixture Healer"]');
@@ -89,7 +106,15 @@ async function browserScenario() {
   await until(()=>root.textContent.includes('Choose at least one group to invite.'));
   assert('empty subgroup selection cannot invite whole team',!scheduled);
   for(const box of schedule.querySelectorAll('input[name=groups]'))box.checked=['1','2'].includes(box.value);
-  schedule.requestSubmit();await until(()=>scheduled&&!!by('a','Review attendance and responses'));
+  schedule.requestSubmit();await until(()=>scheduled && !!by('button','Retry the same request'));
+  assert('an unreadable HTTP 201 freezes the original schedule and keeps its status unknown',!!schedule.closest('[inert]') && root.textContent.includes('save result is unknown'));
+  schedule.elements.title.value='Changed after the lost answer'; schedule.requestSubmit();
+  assert('frozen form cannot submit a replacement operation',writes.filter(s=>JSON.parse(s).action==='schedule').length===1);
+  await click('button','Check the current record',()=>root.textContent.includes('does not confirm the original request'));
+  assert('an existing similar-looking event does not confirm the original scheduling request',!!by('button','Retry the same request'));
+  await click('button','Retry the same request',()=>root.textContent.includes('Raid schedule saved.'));
+  const operations=writes.filter(s=>JSON.parse(s).action==='schedule');
+  assert('intentional replay preserves exact schedule bytes and the original operation ID',operations.length===2 && operations[0]===operations[1]);
   assert('leader schedules ten-player evening for two specific parties',root.textContent.includes('Groups 1, 2'));
   persona='member';await draw();await until(()=>by('a','View raid details'));
   assert('ordinary member sees one assigned occurrence and no organizer actions',root.textContent.includes(raid.title)&&!by('summary','Schedule a raid')&&fits());
@@ -109,6 +134,22 @@ async function browserScenario() {
   root.appendChild(namedRow);namedRow.click();
   await until(()=>location.hash===base+'/'+teamId+'/calendar/'+eventId&&by('a','All occurrences'));
   assert('a current member opens the matching private occurrence from their named attendance entry',root.textContent.includes(raid.title)&&!!by('button','Save response'));
+  persona='leader';raid.startsAt=Math.floor(Date.now()/1000)-100;attendanceEnabled=false;await draw();
+  assert('disabled attendance omits states and recording controls but retains member responses',
+    !!by('h3','Responses') && !by('dt','Attendance') && !by('button','Save attendance') && root.textContent.includes('Running late'));
+  attendanceEnabled=true;await draw();
+  assert('enabled attendance allows team managers to record participation after the start',!!by('button','Save attendance'));
+  seat.state='submitted';location.hash=base+'/'+teamId;await until(()=>by('button','Save decision'));
+  refusal={method:'POST',status:403};
+  root.querySelector('form[aria-label="Review Fixture Healer"]').requestSubmit();
+  await until(()=>refreshes===1 && releaseContext);
+  assert('403 clears private application notes and management controls before access refresh completes',
+    !root.textContent.includes('Private healer application') && !by('button','Save decision'));
+  releaseContext();await until(()=>root.textContent.includes('Verify your guild character.'));
+  refusal={method:'GET',status:503}; releaseContext=undefined;
+  const accessRead=draw();await until(()=>refreshes===2 && releaseContext);
+  assert('a 503 roster read clears private data and refreshes the community context',!by('button','Save decision') && !root.textContent.includes('Private healer application'));
+  releaseContext();await accessRead;
   return {width:innerWidth,checks};
 }
 

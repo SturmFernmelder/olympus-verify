@@ -24,7 +24,13 @@ const extension={tables,indexes,triggers,objects};
 const comment='// Generated from the two raid-team migrations by scripts/build-raid-team-schema.cjs.\n';
 const freeze='function freeze<T extends object>(value:T):T {\n  for(const child of Object.values(value)) if(child && typeof child===\'object\') freeze(child);\n  return Object.freeze(value);\n}\n';
 const marker='-- Raid team schema, generated from the two 2026-11-27 migrations.\n';
-const schema=fs.readFileSync(path.join(dir,'schema.sql'),'utf8').split(marker)[0].trimEnd()+'\n\n'+marker+source;
+const endMarker='-- End of generated raid team schema.\n';
+const currentSchema=fs.readFileSync(path.join(dir,'schema.sql'),'utf8');
+const start=currentSchema.indexOf(marker), end=currentSchema.indexOf(endMarker);
+if(start<0 || end<start+marker.length || start!==currentSchema.lastIndexOf(marker) || end!==currentSchema.lastIndexOf(endMarker)){
+  throw Error('Expected one delimited raid team block in schema.sql');
+}
+const schema=currentSchema.slice(0,start+marker.length)+source+currentSchema.slice(end);
 const outputs = {
   'schema.sql':schema,
   'src/raid-schema-data316.ts':comment+freeze+'export const RAID_SCHEMA_DATA316=freeze('+JSON.stringify(extension,null,2)+');\n',

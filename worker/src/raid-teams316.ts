@@ -291,9 +291,11 @@ function writePlan(env:Env, ctx:CommunityContext, teamId:string|null, b:Record<s
         AND (${next}<>'reserve' OR ${seatCount('t.id','reserve')}<100))
       ${sameOthers}`,state==='primary'?[unlist()]:[]);
   }
-  if (b.action==='leave') return endMembership(`${self} AND s.state IN ${ACTIVE} AND NOT ${leader}`);
+  // The current founder must transfer ownership before leaving, even while the chosen character is unverified.
+  const ownsCharter = `EXISTS(SELECT 1 FROM raid_teams316 t WHERE t.id=s.team_id AND t.leader_id=s.discord_id AND t.leader_birth=s.account_birth)`;
+  if (b.action==='leave') return endMembership(`${self} AND s.state IN ${ACTIVE} AND NOT ${ownsCharter}`);
   if (b.action==='respond' && b.state==='withdrawn') {
-    return patch("state='withdrawn',note='',group_number=NULL,is_officer=0",`${self} AND s.state IN ${OPEN} AND NOT ${leader}`);
+    return patch("state='withdrawn',note='',group_number=NULL,is_officer=0",`${self} AND s.state IN ${OPEN} AND NOT ${ownsCharter}`);
   }
   if (b.action==='forget') {
     return result(`DELETE FROM raid_team_seats316 AS s WHERE ${common} AND ${self} AND s.state IN ('withdrawn','declined')`);
