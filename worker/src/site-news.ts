@@ -79,6 +79,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".314", date: "2026-11-27", lines: [
+      "The officer desk has shortcuts for ready Initiates and Initiates offline at least seven days. Inactive rows show the applicable threshold. Tools and View open above the roster.",
+      "Officers can check all current Members for Veteran in one Sync. Each promotion still requires an officer click. The single-character button also fits inside the Guild window.",
+    ],
+  },
+  {
     build: ".313", date: "2026-11-26", lines: [
       "Officers can filter and sort the roster from its column headings. The same desk shows members, promotion candidates and inactive members, with guild activity and operations under Tools.",
       "Officers can review names together and press the action button once per character. The desk tracks outstanding requests and explains the next step for held promotions and Sync.",

@@ -427,7 +427,9 @@ local function guildFixture(secure)
   list.ScrollBox = { ForEachFrame = function(_, fn) for _, r in ipairs(f.nativeRows) do fn(r) end end }
   function f.tick() f.guildFrame:GetScript("OnUpdate")(f.guildFrame, 0.3) end
   e.MockFireEvent("ADDON_LOADED", "Blizzard_Communities"); f.tick()
-  function f.column() for _, v in ipairs(e.FRAMES) do if v._parent == e.UIParent and v._w == 436 then return v end end end
+  local column
+  for _, v in ipairs(e.FRAMES) do if v.nativeHost == host and v.promote then column = v._parent; break end end
+  function f.column() return column end
   function f.rowButtons() local out = {}; for _, v in ipairs(e.FRAMES) do if v.nativeRow and v.promote then out[#out + 1] = v end end; return out end
   function f.shownRows() local n = 0; for _, b in ipairs(f.rowButtons()) do if b:IsShown() then n = n + 1 end end; return n end
   function f.watchLayout()

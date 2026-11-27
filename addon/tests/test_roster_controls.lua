@@ -588,6 +588,34 @@ do
   check("Verification edits replace the combined verified-Initiate shortcut while preserving native rank",
     w.view.initiates and w.view.action~=4 and #w.Visible()>0 and w.Visible()[1].status=="unverified")
   w.clearButton:Click();f.selectInitiates();w.Refresh()
+  choose(values(3),"DRUID")
+  w.search:SetText("no matching name");w.search:GetScript("OnTextChanged")(w.search)
+  local heldPreferences=e.OlympusVerifyDB.deskFilters313.roster
+  check("the default roster exposes both Initiate shortcuts and a separate Veteran check",w.readyInitiatesButton:IsVisible()
+    and w.inactiveInitiatesButton:IsVisible() and w.checkAllVeteransButton:IsShown())
+  local bulkChecks=0
+  e.OlympusLaunch229.CheckAllVeterans=function(...) assert(select("#",...)==0);bulkChecks=bulkChecks+1;return true,"Check requested." end
+  w.checkAllVeteransButton:Click()
+  check("one Veteran check covers the full roster without promoting or selecting filtered rows",bulkChecks==1
+    and w.view.text=="no matching name" and not w.reviewSelection:IsEnabled() and f.attempts==0 and f.reloads==0)
+  w.readyInitiatesButton:Click()
+  local readyNames={}
+  for _,m in ipairs(w.Visible()) do readyNames[m.name]=true end
+  check("Ready Initiates clears conflicts and only includes the two current signed verified targets",#w.Visible()==2
+    and readyNames.Alpha and readyNames.Zulu and not w.reviewSelection:IsEnabled() and w.pageTitle:GetText():find("ready to promote",1,true))
+  choose(values(3),"MAGE");w.selectEligible:Click();w.readyInitiatesButton:Click()
+  check("reopening Ready Initiates resets its search, columns and selection",#w.Visible()==2
+    and not next(w.view.columns) and not w.reviewSelection:IsEnabled())
+  w.ShowRoster()
+  check("returning to Members restores its filters and keeps character searches session-only",
+    w.view.text=="no matching name" and w.view.columns.class.DRUID and heldPreferences==e.OlympusVerifyDB.deskFilters313.roster
+    and not heldPreferences.text)
+  w.clearButton:Click()
+  if not w.showSources then w.sourceButton:Click() end
+  check("Source details displays the queue explanation and hover target on the shared table",w.actionInfo:IsShown()
+    and w.sourceTip:IsShown() and plain(w.actionInfo:GetText())~="")
+  w.sourceButton:Click()
+  check("closing Source details hides its queue explanation and hover target",not w.actionInfo:IsShown() and not w.sourceTip:IsShown())
   s.viewButton:Click()
   check("preset menu and tool menu are separate from the table",s.navigation:IsShown() and s.tabs.promotions:IsShown() and not s.tabs.operations:IsShown())
   s.tabs.promotions:Click();w.selectEligible:Click()
@@ -643,7 +671,7 @@ do
   f.w.Hide();e.OlympusVerifyRoster=nil
   e.GetGuildInfo=function() return "OLYMPUS PRIME","Guild Master",0 end
   e.GetRealmName=function() return "" end
-  e.ROSTER[1].rankIndex=0;e.ROSTER[4].away=15
+  e.ROSTER[1].rankIndex=0;e.ROSTER[4].away=15;e.ROSTER[2].away=6;e.ROSTER[6].away=7
   local hash=e.OlympusHmac.sha256hex
   e.OlympusHmac.sha256hex=function(value)
     if value=="prime-guild-master|1|"..f.actor then return "d0988804294170b3414fcaf60ea77658d3b511bbd0c1ccf4286b04e47d935a16" end
@@ -656,6 +684,19 @@ do
     setfenv(assert(loadfile("../OlympusVerify/"..module..".lua")),e)("OlympusVerify")
   end
   local w=e.OlympusVerifyRoster
+  w.ShowRoster();w.search:SetText("nobody");w.search:GetScript("OnTextChanged")(w.search)
+  w.inactiveInitiatesButton:Click()
+  local byName={}
+  for _,row in ipairs(w.rows) do if row.member then byName[row.member.name]=plain(row.cells.action:GetText()) end end
+  check("Inactive Initiates uses the real native seven-day rule and reports each officer-review threshold",
+    #w.Visible()==2 and byName.NameOnly=="15d offline / 7d required" and byName.Unlinked=="7d offline / 7d required"
+    and not byName.Zulu and not w.reviewSelection:IsEnabled() and not e.OlympusVerifyDB.roster and not w.checkAllVeteransButton:IsShown())
+  w.sourceButton:Click()
+  check("Inactive shows its own source explanation",w.sourceTip:IsShown() and w.actionInfo:IsShown()
+    and plain(w.actionInfo:GetText()):find("native roster",1,true))
+  w.sourceButton:Click()
+  w.ShowRoster()
+  check("the seven-day shortcut preserves the Members search and takes no guild action",w.view.text=="nobody" and f.removals==0 and f.reloads==0)
   w.ShowInactive()
   local function pick()
     for _,row in ipairs(w.rows) do if row.member and row.member.guid==e.ROSTER[4].guid then

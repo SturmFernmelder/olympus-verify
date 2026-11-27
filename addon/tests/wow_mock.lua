@@ -74,6 +74,10 @@ function FrameMT.SetUserPlaced(self, v) self._userPlaced = v end
 function FrameMT.SetScale(self, v) self._scale = v end
 function FrameMT.GetScale(self) return self._scale or 1 end
 function FrameMT.GetEffectiveScale(self) return self:GetScale() end
+function FrameMT.SetFrameStrata(self, strata) self._strata = strata end
+function FrameMT.GetFrameStrata(self) return self._strata or (self._parent and self._parent:GetFrameStrata()) or "MEDIUM" end
+function FrameMT.SetFrameLevel(self, level) self._level = level end
+function FrameMT.GetFrameLevel(self) return self._level or (self._parent and self._parent:GetFrameLevel() + 1) or 0 end
 function FrameMT.SetWordWrap(self, v) self._wrap = v end
 function FrameMT.SetJustifyH(self, v) self._justifyH = v end
 function FrameMT.SetJustifyV(self, v) self._justifyV = v end

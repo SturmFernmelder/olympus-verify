@@ -13,7 +13,7 @@ from custody_recovery import reviewed_path
 from savedvars_source280 import MAX_BYTES, _parents, _regular
 
 NAMES = {"OlympusQueue.lua", "OlympusVerifyLists.lua", "OlympusLaunchQueue.lua", "OlympusLaunchSelected.lua",
-         "OlympusInitiateChecks.lua"}
+         "OlympusInitiateChecks.lua", "OlympusMemberChecks.lua"}
 
 
 class ProjectionUnavailable(ValueError):

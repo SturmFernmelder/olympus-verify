@@ -310,3 +310,9 @@ dated labels require a newer valid source. Generic account review needs diagnosi
 of the underlying link, native GUID, standing and privacy checks. None is cleared
 by refreshing, copying timestamps or marking a record verified. Diagnose first,
 then use the supported verification/review workflow for the actual cause.
+
+### Finding members in the officer desk
+
+Open `/olv` and choose **Ready Initiates** to see verified native Initiates with a current promotion available. **Inactive Initiates (7d+)** opens the seven-day removal review across classes and shows the observed and required days. Both shortcuts clear filters for that view and start with no names selected. To see where a result came from, enable **Source details**.
+
+**Check all for Veteran** checks the full native membership even with a search or column filter active. Open the WoW guild roster with offline members visible first. One Sync sends the request. The Watcher checks current Members and valid continuing steps against their linked accounts and Discord standing. The next login or reload loads the returned pages. Select a ready character and press Promote for each rank step. A pending or expired read gives no permission to change rank.

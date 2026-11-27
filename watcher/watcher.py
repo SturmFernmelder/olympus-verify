@@ -114,7 +114,7 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.49"
+WATCHER_VERSION = "0.6.50"
 STRICT_DISPLAY_PROTOCOL = "launch-roster-display-v2"
 STRICT_DISPLAY_PATH = "/queue/unverified?keyVersion=" + STRICT_DISPLAY_PROTOCOL
 STRICT_DISPLAY_MAX_BYTES = 512 * 1024
@@ -663,6 +663,7 @@ class Watcher:
         self.launch_operations_file = self.queue_file.with_name("OlympusLaunchQueue.lua")
         self.launch_selected_file = self.queue_file.with_name("OlympusLaunchSelected.lua")
         self.initiate_checks_file = self.queue_file.with_name("OlympusInitiateChecks.lua")
+        self.member_checks_file = self.queue_file.with_name("OlympusMemberChecks.lua")
         self.worker = Worker(cfg["worker_url"], cfg["watcher_token"])
         self.secret = cfg["verify_secret"]
         self.officer = cfg.get("officer_character", "")
@@ -715,6 +716,13 @@ class Watcher:
         self.launch_scan = launch_operations229.Scan(lambda: time.time(), discovery235=True)
         self.launch_selected = launch_operations229.SelectedRead(lambda: time.time())
         self.initiate_checks: list[launch_operations229.SelectedRead] = []
+        self.member_checks: list[launch_operations229.SelectedRead] = []
+        self._member_checks_mac = None
+        self._member_checks_witness = None
+        self._member_waiting = None
+        self._member_publish_retry = None
+        self._member_projection_checked = False
+        self._member_display_present = False
         self._sweep_witness = None
         self._sweep_mac = None
         self._sweep_native_digest = None
@@ -1980,6 +1988,8 @@ class Watcher:
         if mtime <= self.state.d["sv_mtime"]:
             if getattr(self, "_launch_consumed_sv_witness", None) != witness:
                 self._launch_consumed_sv_witness = None
+            if witness and getattr(self, '_member_projection_checked', True) is False:
+                self.restore_member_display(snapshot.data.get('OlympusVerifyDB'), witness)
             intake242.drain(self, collect_inputs=False)
             return
         self._launch_consumed_sv_witness = None
@@ -2004,6 +2014,8 @@ class Watcher:
                     and not self.state.was_seen("launch-control:" + control['guid'] + ":" + control['id']))
         sweep = self.valid_initiate_checks(db)
         new_sweep = sweep is not None and not self.state.was_seen('initiate-sweep:' + sweep['mac'])
+        members = self.valid_initiate_checks(db, member_checks=True) if 'memberPromotionChecks' in db else None
+        new_member_reads = members is not None and members['mac'] != self._member_checks_mac
         slot = db.get('launchControl')
         consumed = getattr(self, '_launch_selected_control', None)
         preserve_discovery = (control is not None and control.get('version') in (2, 3, 4, 5, 6) or consumed is not None
@@ -2012,7 +2024,7 @@ class Watcher:
         # Recognizing the already consumed slot after 60s preserves history only;
         # it never validates a new request, receipt, clock or role observation.
         roster_options = {}
-        if new_scan or new_sweep and self.launch_scan.phase == 'idle':
+        if new_scan or (new_sweep or new_member_reads) and self.launch_scan.phase == 'idle':
             roster_options['begin_launch_scan'] = True
         if preserve_discovery:
             roster_options['preserve_discovery'] = True
@@ -2034,6 +2046,9 @@ class Watcher:
                 return  # keep the original SavedVariables cursor until roster admission is known
         self.read_launch_control(db)
         self.read_initiate_checks(db, sweep, witness)
+        if members or getattr(self, 'member_checks', None) or getattr(self, '_member_display_present', False) or (
+                getattr(self, '_member_projection_checked', True) is False and self.member_checks_file.is_file()):
+            self.read_member_checks(db, members, witness)
         self.state.d["sv_mtime"] = mtime
         self._save_state280()
         self._source_diagnoses280["source"] = "readable"
@@ -2492,8 +2507,8 @@ class Watcher:
         else:
             self._control_diagnosis280(control, "scan request refused; use a new explicit control")
 
-    def valid_initiate_checks(self, db: dict[str, Any]) -> dict | None:
-        envelope = db.get('primeInitiateChecks')
+    def valid_initiate_checks(self, db: dict[str, Any], *, member_checks: bool = False) -> dict | None:
+        envelope = db.get('memberPromotionChecks' if member_checks else 'primeInitiateChecks')
         if not self.membership_only or self._custody_halted or not isinstance(envelope, dict):
             return None
         roster = db.get('roster')
@@ -2509,9 +2524,117 @@ class Watcher:
             if verification_roster_source(roster) is None or roster['nativeScopeBinding']['observerGuid'] != guid:
                 return None
             realm = PRIME_REALM_LABEL
-        if launch_operations229.valid_sweep(self.secret, envelope, int(time.time()), guid, roster.get('nativeGuild'), realm, bound):
+        if launch_operations229.valid_sweep(self.secret, envelope, int(time.time()), guid, roster.get('nativeGuild'), realm,
+                                            bound, member_checks=member_checks):
             return envelope
         return None
+
+    def read_member_checks(self, db: dict, envelope: dict | None, witness: tuple | None) -> None:
+        """Admit an officer's exact selection against one trusted roster receipt."""
+        if not witness:
+            return
+        self._member_projection_checked = True
+        if not envelope:
+            self._member_waiting = None
+            supplied = db.get('memberPromotionChecks')
+            prior = self.member_checks[0] if self.member_checks else None
+            roster = db.get('roster')
+            same_original = (prior and prior.native_digest and type(roster) is dict and
+                             db.get('lastCharacterGuid') == prior.record['actorGuid'] and
+                             roster.get('exportedAt') == prior.record['snapshotAt'] and
+                             launch_operations229.roster_content_digest(roster) == prior.native_digest)
+            if same_original and type(supplied) is dict and supplied.get('mac') == self._member_checks_mac:
+                for read in self.member_checks:
+                    read.hold('native-roster-changed-or-expired')
+            else:
+                self.member_checks = []
+                self._member_checks_mac = self._member_checks_witness = None
+            self.write_member_checks()
+            return
+        roster = db['roster']
+        bound = 'nativeScopeBinding' in roster
+        accepted = self._verification_roster if bound else self._launch_accepted_roster
+        if accepted and (accepted['exportedAt'] != self.state.d['roster_sent']
+                         or bound and not self._verification_source_current280(accepted)):
+            accepted = None
+        digest = (launch_operations229.roster_content_digest(roster) if bound
+                  else launch_operations229.complete_roster_digest(roster))
+        continuing = envelope['mac'] == self._member_checks_mac
+        if continuing:
+            if witness == self._member_checks_witness and not (accepted and self._member_waiting):
+                return
+        else:
+            self.member_checks = [launch_operations229.SelectedRead(lambda: time.time(), member_checks=True)
+                                  for _ in envelope['controls']]
+        for read, control in zip(self.member_checks, envelope['controls']):
+            waiting_for_ack = (read.record is not None and read.record['stoppedReason'] == 'native-roster-receipt-required'
+                               and read.record['attempts'] == 0)
+            if continuing and read.record and not waiting_for_ack:
+                if read.running and (not accepted or read.native_digest != digest
+                        or (read.record['snapshotId'], read.record['snapshotAt']) != (accepted['snapshot'], accepted['exportedAt'])):
+                    read.hold('native-roster-changed-or-expired')
+                continue
+            read.request(control, accepted, roster, time.time(), sweep_source=(digest, set()))
+            read.custody_key = 'member-promotion-check:' + control['mac']
+            if self.state.was_seen(read.custody_key):
+                read.hold('source-unknown')  # A restarted process cannot reconstruct the earlier ACK/cursor.
+        self._member_checks_mac, self._member_checks_witness = envelope['mac'], witness
+        self._member_waiting = ((roster, envelope, witness) if not accepted and
+                                any(read.record['stoppedReason'] == 'native-roster-receipt-required' for read in self.member_checks)
+                                else None)
+        self.write_member_checks()
+
+    def write_member_checks(self) -> None:
+        records = [read.record for read in self.member_checks]
+        body = (launch_operations229.render_sweep(records, int(time.time()), member_checks=True) if records else
+                'OlympusMemberChecks=nil\n')
+        if body is not None:
+            result = self._write_projection280(self.member_checks_file, body, records)
+            self._member_publish_retry = time.time()+5 if result is None else None
+            if result is not None:
+                self.remember_member_display(body, self._member_checks_mac, self._member_checks_witness)
+
+    def _member_display_tag(self, envelope_mac, witness, digest):
+        content = f'member-display|1|{envelope_mac}|{witness[-1]}|{digest}'
+        return hmac.new(self.secret.encode(), content.encode(), hashlib.sha256).hexdigest()
+
+    def remember_member_display(self, body: str, envelope_mac, witness) -> None:
+        # An original display receipt holds no names, GUIDs or capabilities.
+        tag = (self._member_display_tag(envelope_mac, witness, hashlib.sha256(body.encode('utf-8')).hexdigest())
+               if envelope_mac and witness else None)
+        self._member_display_present = tag is not None
+        if tag != self.state.d.get('member_display_receipt314'):
+            self.state.d['member_display_receipt314'] = tag
+            self._save_state280()
+
+    def restore_member_display(self, db, witness) -> None:
+        """Keep exact terminal observations after restart. Lost in-flight reads need a fresh Sync."""
+        self._member_projection_checked = True
+        if not isinstance(db, dict) or not self.member_checks_file.is_file() and 'memberPromotionChecks' not in db:
+            return
+        envelope = self.valid_initiate_checks(db, member_checks=True)
+        if envelope:
+            try:
+                disk = savedvars_source280.read(self.member_checks_file)
+            except savedvars_source280.SourceUnavailable:
+                disk = None
+            receipt = self.state.d.get('member_display_receipt314')
+            if disk and type(receipt) is str and hmac.compare_digest(
+                    self._member_display_tag(envelope['mac'], witness, disk.digest), receipt):
+                records = disk.data['OlympusMemberChecks']['records']
+                for row, control in zip(records, envelope['controls'], strict=True):
+                    if row['running']:
+                        reason = ('source-unknown' if self.state.was_seen('member-promotion-check:' + control['mac'])
+                                  else 'native-roster-receipt-required')
+                        row.update(running=False, completed=False, page=None, coveredGuids=[], stoppedReason=reason)
+                body = launch_operations229.member_projection_text(envelope['id'], records)
+                if self._write_projection280(self.member_checks_file, body, records) is None:
+                    self._member_projection_checked = False
+                else:
+                    # Display only: no positive native receipt, cursor or usable read is reconstructed.
+                    self.remember_member_display(body, envelope['mac'], witness)
+                return
+        self.read_member_checks(db, envelope, witness)
 
     def read_initiate_checks(self, db: dict, sweep: dict | None, witness: tuple | None) -> None:
         if not witness:
@@ -2709,16 +2832,22 @@ class Watcher:
         else:
             selected.hold('source-refused')
         if json.dumps(selected.record, sort_keys=True) != before:
-            (self.write_initiate_checks if selected.automatic_initiates else self.write_launch_selected)()
+            self._selected_writer(selected)()
+
+    def _selected_writer(self, selected):
+        if selected.member_checks:
+            return self.write_member_checks
+        return self.write_initiate_checks if selected.automatic_initiates else self.write_launch_selected
 
     def _pull_launch_selected(self, selected=None) -> None:
         selected = self.launch_selected if selected is None else selected
-        automatic = selected.automatic_initiates
-        write = self.write_initiate_checks if automatic else self.write_launch_selected
+        automatic = selected.automatic_initiates or selected.member_checks
+        write = self._selected_writer(selected)
+        sweep = self.member_checks if selected.member_checks else self.initiate_checks if selected.automatic_initiates else ()
         at = time.time()
         if selected.expire_admission(at):
             if automatic:
-                for page in self.initiate_checks:
+                for page in sweep:
                     page.expire(at)
             write()
             return
@@ -2731,8 +2860,8 @@ class Watcher:
         witness = self._launch_savedvars_witness()
         if witness is None or witness != getattr(self, '_launch_consumed_sv_witness', None):
             return
-        if automatic and witness != self._sweep_witness:
-            for page in self.initiate_checks:
+        if automatic and witness != (self._member_checks_witness if selected.member_checks else self._sweep_witness):
+            for page in sweep:
                 page.hold('native-roster-changed-or-expired')
             write()
             return
@@ -2773,6 +2902,19 @@ class Watcher:
             write()
             return
         attempts = selected.record['attempts']
+        if selected.member_checks and not attempts and time.time() >= selected.next_at:
+            # Own this exact original before transport. Known 429 retries stay in-process
+            # on that same read. An uncertain request is never dispatched after restart.
+            if self.state.was_seen(selected.custody_key):
+                selected.hold('source-unknown')
+                write()
+                return
+            try:
+                self.state.seen(selected.custody_key)
+                self._save_state280()
+            except Exception:
+                self._custody_halted = True
+                raise CustodyStopped("Member checks stopped before dispatch") from None
         changed = selected.step(self.worker.call, time.time(), current_source)
         if selected.record['attempts'] > attempts:
             self._next_launch_read_at = max(getattr(self, '_next_launch_read_at', 0), selected.next_at)
@@ -2784,10 +2926,27 @@ class Watcher:
             return
         if getattr(self, '_initiate_notice', None) is not None:
             self.check_initiate_notice()
+        members = getattr(self, 'member_checks', ())
+        if members and time.time() >= members[0].record['observedAt'] + 600:
+            expired = [page for page in members if page.expire(time.time())]
+            if expired:
+                self.write_member_checks()
         if getattr(self, 'launch_selected', None) is not None and self.launch_selected.running:
             self._pull_launch_selected()
             return
         at = time.time()
+        waiting = getattr(self, '_member_waiting', None)
+        if waiting:
+            roster, envelope, witness = waiting
+            accepted = self._verification_roster if 'nativeScopeBinding' in roster else self._launch_accepted_roster
+            deadline = min(roster['exportedAt'], envelope['controls'][0]['observedAt']) + 600
+            if at >= deadline:
+                self._member_waiting = None
+            elif accepted and accepted['exportedAt'] == roster['exportedAt']:
+                if witness == self._launch_consumed_sv_witness == self._launch_savedvars_witness():
+                    self.read_member_checks({'roster': roster}, envelope, witness)
+        if getattr(self, '_member_publish_retry', None) is not None and at >= self._member_publish_retry:
+            self.write_member_checks()
         if self.launch_scan.expire(at):
             self.write_launch_operations()
             return
@@ -2807,8 +2966,19 @@ class Watcher:
                 return 0
             selected = max((page for page in getattr(self, 'initiate_checks', ()) if page.running),
                            key=read_order, default=None)
-            if selected is not None:
+            # A manually requested batch gets a turn immediately, then alternates
+            # with routine Initiate pages on the existing shared source cooldown.
+            due_member = next((page for page in members if page.running and
+                               (at >= page.next_at or at >= page.record['expiresAt'])), None)
+            if due_member and (selected is None or not getattr(self, '_last_batch_member', False)
+                               or at < selected.next_at):
+                self._pull_launch_selected(due_member)
+                if not due_member.running or due_member.next_at > at:
+                    self._last_batch_member = True
+            elif selected is not None:
                 self._pull_launch_selected(selected)
+                if not selected.running or selected.next_at > at:
+                    self._last_batch_member = False
             return
         paused = self.worker.paused()
         if paused:

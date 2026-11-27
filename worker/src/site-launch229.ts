@@ -30,7 +30,7 @@ export type PromotionSelections276 = Readonly<{selectionId:string;targetGuids:re
 type BatchSelection276 = PromotionSelections276 & Readonly<{targetsDigest:string}>;
 type ReadSelection276 = PromotionSelection273 | BatchSelection276;
 type DirectiveConfirmation = Readonly<{guid:string;token:string;from:number;to:number;observedAt:number}>;
-type DirectiveSelection = Readonly<{actorGuid:string;confirmations:readonly DirectiveConfirmation[];secret:string;primeInitiates:boolean;primeMember:boolean;autoInitiates:boolean}>;
+type DirectiveSelection = Readonly<{actorGuid:string;confirmations:readonly DirectiveConfirmation[];secret:string;primeInitiates:boolean;primeMember:boolean;autoInitiates:boolean;memberChecks:boolean}>;
 type SelectionCursor273 = Omit<Cursor229,'version'|'roleReads'|'roleScope'> & PromotionSelection273 & {version:4;roleScope:string;roleReads:RoleRead229[]};
 const SELECTION_PROTOCOL274='promotion-selection-v274';
 type SelectionCursor276 = Omit<Cursor229,'version'|'roleReads'|'roleScope'> & {version:5;selectionId:string;targetsDigest:string;roleScope:string;roleReads:RoleRead229[]};
@@ -243,10 +243,14 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
     ||requested.includes(directive.actorGuid)))return held229(at,'promotion-actor-unconfirmed');
   const matches=requested.map(guid=>rows.flatMap((row,index)=>row.guid===guid?[index]:[]));
   if(selection&&matches.some(indices=>indices.length!==1))return held229(at,'selected-target-unavailable');
-  if(primeMember){
-    const row=rows[matches[0]![0]!]!,step=directive!.confirmations[0];
-    if(scheme.member!==8||scheme.veteran!==6||row.rank!==scheme.names[row.currentSlot!]||
-      (step ? row.currentSlot!==step.to||![7,8].includes(step.to) : row.currentSlot!==8||row.rank!=='Member'))
+  if(primeMember||directive?.memberChecks){
+    const step=directive!.confirmations[0];
+    if(primeMember&&(scheme.member!==8||scheme.veteran!==6)||matches.some(([index])=>{
+      const row=rows[index!]!;
+      return row.rank!==scheme.names[row.currentSlot!] || (step
+        ? row.guid!==step.guid||row.currentSlot!==step.to||step.to<=scheme.veteran||step.to>=scheme.initiate
+        : row.currentSlot!==scheme.member||row.rank!=='Member');
+    }))
       return held229(at,'selected-target-unavailable');
   }
   if(originalMemberSelection&&!initiatesOnly&&matches.some(indices=>{
@@ -406,7 +410,8 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
           finalSlot:recommendation.targetSlot,reason:recommendation.reason,issuedAt:created,expiresAt:Math.min(expiresAt,created+600),
           acknowledgedSteps:0,lastSnapshotId:first.snapshotId,lastObservedAt:first.snapshotAt});
       }
-      if(recommendation && intent){
+      if(recommendation && intent && (!directive.memberChecks||
+        intent.reason==='knight-veteran'&&intent.finalSlot===scheme.veteran)){
         intended.push({...recommendation,intent,intentToken:await sealPromotionIntent(intent,directive.secret,now())});
         dto.expiresAt=Math.min(dto.expiresAt,intent.expiresAt);
       }else if(confirmation){
@@ -453,15 +458,22 @@ async function directiveCursor(raw:string,secret:string,requestDigest:string,at:
     return value.inner;
   }catch{throw new LaunchCursor229('invalid_selection_cursor');}
 }
-export async function readDirectivePromotions(env:Env,input:{selectionId:unknown;targetGuids:unknown;snapshotId:unknown;snapshotAt:unknown;actorGuid:unknown;confirmations:unknown;primeBinding?:unknown;autoInitiates?:boolean},cursor:string|null=null){
+export async function readDirectivePromotions(env:Env,input:{selectionId:unknown;targetGuids:unknown;snapshotId:unknown;snapshotAt:unknown;actorGuid:unknown;confirmations:unknown;primeBinding?:unknown;autoInitiates?:boolean;memberChecks?:boolean},cursor:string|null=null){
   const autoInitiates=input.autoInitiates===true;
+  const memberChecks=input.memberChecks===true;
+  if(input.memberChecks!==undefined&&(!memberChecks||autoInitiates))throw new LaunchCursor229('invalid_selection_request');
   if(input.autoInitiates!==undefined&&(!autoInitiates||!Array.isArray(input.confirmations)||input.confirmations.length!==0))
     throw new LaunchCursor229('invalid_selection_request');
-  const at=now(),policy=captureCanonicalRankConfig233(env),selected=selections276({selectionId:input.selectionId,targetGuids:input.targetGuids,snapshotId:input.snapshotId,snapshotAt:input.snapshotAt},cursor,at,autoInitiates);
+  const at=now(),policy=captureCanonicalRankConfig233(env),selected=selections276({selectionId:input.selectionId,targetGuids:input.targetGuids,snapshotId:input.snapshotId,snapshotAt:input.snapshotAt},cursor,at,autoInitiates||memberChecks);
   const primeInitiates=input.primeBinding==='prime-guild-master';
-  const primeMember=input.primeBinding==='prime-guild-master-member';
-  if(input.primeBinding!==undefined&&(!primeInitiates&&!primeMember||primeInitiates&&(!Array.isArray(input.confirmations)||input.confirmations.length!==0)
-    ||primeMember&&(autoInitiates||selected.targetGuids.length!==1)))throw new LaunchCursor229('invalid_selection_request');
+  const memberGroup=input.primeBinding==='prime-guild-master-members';
+  const singleMember=input.primeBinding==='prime-guild-master-member';
+  const primeMember=singleMember||memberGroup;
+  if(input.primeBinding!==undefined&&(!primeInitiates&&!primeMember ||
+    primeInitiates&&(memberChecks||!Array.isArray(input.confirmations)||input.confirmations.length!==0) ||
+    memberGroup&&(!memberChecks||!Array.isArray(input.confirmations)||input.confirmations.length!==0) ||
+    singleMember&&(autoInitiates||selected.targetGuids.length!==1||
+      memberChecks&&(!Array.isArray(input.confirmations)||input.confirmations.length!==1))))throw new LaunchCursor229('invalid_selection_request');
   if(typeof input.actorGuid!=='string'||!GUID273.test(input.actorGuid)||selected.targetGuids.includes(input.actorGuid)||!Array.isArray(input.confirmations)||input.confirmations.length>1||input.confirmations.length>0&&selected.targetGuids.length!==1)throw new LaunchCursor229('invalid_selection_request');
   const confirmations:DirectiveConfirmation[]=[];
   for(const value of input.confirmations){
@@ -479,25 +491,27 @@ export async function readDirectivePromotions(env:Env,input:{selectionId:unknown
   const requestContext:unknown[]=[selected,input.actorGuid,confirmations];
   if(primeInitiates||primeMember)requestContext.push(input.primeBinding);
   if(autoInitiates)requestContext.push('automatic-initiate-check');
+  if(memberChecks)requestContext.push('officer-veteran-check');
   const requestDigest=await digest229(JSON.stringify(requestContext));
   const inner=cursor?await directiveCursor(cursor,serverSecret,requestDigest,at):null;
   const targetsDigest=await digest229(JSON.stringify(selected.targetGuids)),selection:BatchSelection276=Object.freeze({...selected,targetsDigest});let coveredGuids:string[]=[];
-  const page=await readLaunchPage229(env,inner,selection,guids=>{coveredGuids=guids;},{actorGuid:input.actorGuid,confirmations,secret:serverSecret,primeInitiates,primeMember,autoInitiates});
+  const page=await readLaunchPage229(env,inner,selection,guids=>{coveredGuids=guids;},{actorGuid:input.actorGuid,confirmations,secret:serverSecret,primeInitiates,primeMember,autoInitiates,memberChecks});
   if(page.pageCursor){const body=encoded229(JSON.stringify({version:6,requestDigest,expiresAt:page.scan.expiresAt,inner:page.pageCursor}));page.pageCursor=body+'.'+hex(await crypto.subtle.sign('HMAC',await cursorKey229(serverSecret),new TextEncoder().encode('promotion-selection-cursor|directive1|'+body)));}
   if(!configuration.current()||secret229(env)!==secret||!policy.current())return {version:2,protocol:'promotion-selection-directive-v1',coverageKind:'selected-guids',actorGuid:input.actorGuid,controlId:selected.selectionId,targetGuids:selected.targetGuids,targetsDigest,coveredGuids:[],page:held229(now(),'promotion-seal-source-changed')};
   return {version:2,protocol:'promotion-selection-directive-v1',coverageKind:'selected-guids',actorGuid:input.actorGuid,controlId:selected.selectionId,targetGuids:selected.targetGuids,targetsDigest,coveredGuids,page};
 }
 export async function handleLaunchOperations229(request: Request, env: Env, watcher = false): Promise<Response> {
   if(!watcher)return handleDiscoveryOperations235(request,env,false);
-  const q=new URL(request.url).searchParams,selected=['selectionId','targetGuids','snapshotId','snapshotAt','actorGuid','confirmations'],hasSelection=selected.some(key=>q.has(key)),allowed=watcher?['keyVersion','cursor','primeBinding','autoInitiates',...selected]:['cursor'];
+  const q=new URL(request.url).searchParams,selected=['selectionId','targetGuids','snapshotId','snapshotAt','actorGuid','confirmations'],hasSelection=selected.some(key=>q.has(key)),allowed=watcher?['keyVersion','cursor','primeBinding','autoInitiates','memberChecks',...selected]:['cursor'];
   if(request.method!=='GET'||[...q.keys()].some(k=>!allowed.includes(k))||[...new Set(q.keys())].some(k=>q.getAll(k).length!==1)
     ||q.has('autoInitiates')&&(!hasSelection||q.get('autoInitiates')!=='1')
-    ||q.has('primeBinding')&&(!hasSelection||!['prime-guild-master','prime-guild-master-member'].includes(q.get('primeBinding')!))
+    ||q.has('memberChecks')&&(!hasSelection||q.get('memberChecks')!=='1')
+    ||q.has('primeBinding')&&(!hasSelection||!['prime-guild-master','prime-guild-master-member','prime-guild-master-members'].includes(q.get('primeBinding')!))
     ||watcher&&q.get('keyVersion')!==LAUNCH_OPERATIONS_PROTOCOL229||q.has('cursor')&&!q.get('cursor')
     ||hasSelection&&(!watcher||selected.some(key=>!q.get(key))||!/^\d{1,16}$/.test(q.get('snapshotId')!)||!/^\d{1,16}$/.test(q.get('snapshotAt')!)))return apiJson({error:'invalid_launch_query'},400);
   try{
     if((q.get('targetGuids')?.length??0)>1024||(q.get('confirmations')?.length??0)>65536)return apiJson({error:'invalid_launch_query'},400);
-    const result=hasSelection?await readDirectivePromotions(env,{selectionId:q.get('selectionId'),targetGuids:JSON.parse(q.get('targetGuids')!),snapshotId:Number(q.get('snapshotId')),snapshotAt:Number(q.get('snapshotAt')),actorGuid:q.get('actorGuid'),confirmations:JSON.parse(q.get('confirmations')!),primeBinding:q.get('primeBinding')??undefined,autoInitiates:q.has('autoInitiates')?true:undefined},q.get('cursor')):await readLaunchOperations229(env,q.get('cursor'));
+    const result=hasSelection?await readDirectivePromotions(env,{selectionId:q.get('selectionId'),targetGuids:JSON.parse(q.get('targetGuids')!),snapshotId:Number(q.get('snapshotId')),snapshotAt:Number(q.get('snapshotAt')),actorGuid:q.get('actorGuid'),confirmations:JSON.parse(q.get('confirmations')!),primeBinding:q.get('primeBinding')??undefined,autoInitiates:q.has('autoInitiates')?true:undefined,memberChecks:q.has('memberChecks')?true:undefined},q.get('cursor')):await readLaunchOperations229(env,q.get('cursor'));
     return apiJson(result,200,{'Cache-Control':'private, no-store, no-transform'});
   }catch(error){if(error instanceof LaunchCursor229)return apiJson({error:error.code},error.status);if(error instanceof SyntaxError)return apiJson({error:'invalid_launch_query'},400);throw error;}
 }

@@ -20,12 +20,13 @@ const expected = ['Bindings.xml','Config.example.lua','Libs/OlympusHmac.lua','Li
   'OlympusVerifyNativeRankConstants.lua','OlympusVerifyNativeRanks.lua',
   'OlympusVerifyLocalPrivacy280.lua',
   'OlympusVerifyAutoSync.lua','OlympusVerifyBrowser.lua','OlympusVerifyCensus.lua','OlympusVerifyGuild.lua','OlympusVerifyLaunch229.lua','OlympusVerifyLive242.lua',
-  'OlympusVerifyOfficerInvites233.lua','OlympusVerifyPreview.lua','OlympusVerifyRanks.lua','OlympusVerifyRoster.lua','OlympusVerifyRosterModel.lua','OlympusVerifyTreasury.lua','OlympusVerifyUI.lua'];
-check('archive allowlist is exactly the 22 permitted public files', () => {
+  'OlympusVerifyOfficerInvites233.lua','OlympusVerifyGuildJournal.lua','OlympusVerifyInactiveDesk.lua','OlympusVerifyWorkspace.lua',
+  'OlympusVerifyPreview.lua','OlympusVerifyRanks.lua','OlympusVerifyRoster.lua','OlympusVerifyRosterModel.lua','OlympusVerifyTreasury.lua','OlympusVerifyUI.lua'];
+check('archive allowlist contains exactly the permitted public files', () => {
   assert.deepEqual(pack.FILES, expected); assert.deepEqual(manifest.files.map(row => row.path), expected.map(file => 'OlympusVerify/' + file));
 });
 check('every public TOC dependency is shipped', () => {
-  const localOnly = new Set(['Config.lua','OlympusQueue.lua','OlympusVerifyLists.lua','OlympusLaunchQueue.lua','OlympusLaunchSelected.lua','OlympusInitiateChecks.lua']);
+  const localOnly = new Set(['Config.lua','OlympusQueue.lua','OlympusVerifyLists.lua','OlympusLaunchQueue.lua','OlympusLaunchSelected.lua','OlympusInitiateChecks.lua','OlympusMemberChecks.lua']);
   const declarations = get(pack.SOURCE + 'OlympusVerify.toc').toString('utf8').split(/\r?\n/)
     .map(line => line.trim().replace(/\\/g, '/')).filter(line => line && !line.startsWith('#'));
   for (const file of declarations) assert(localOnly.has(file) || expected.includes(file), 'Missing public TOC dependency: ' + file);
@@ -33,8 +34,8 @@ check('every public TOC dependency is shipped', () => {
 // Independently walk both ZIP record tables and use Node's native zlib CRC, rather than the generator's CRC routine.
 const zip = result.zip, end = zip.length - 22;
 check('ZIP has exactly one fixed end record with no comment/trailer', () => {
-  assert.equal(zip.readUInt32LE(end), 0x06054b50); assert.equal(zip.readUInt16LE(end + 8), 22);
-  assert.equal(zip.readUInt16LE(end + 10), 22); assert.equal(zip.readUInt16LE(end + 20), 0);
+  assert.equal(zip.readUInt32LE(end), 0x06054b50); assert.equal(zip.readUInt16LE(end + 8), expected.length);
+  assert.equal(zip.readUInt16LE(end + 10), expected.length); assert.equal(zip.readUInt16LE(end + 20), 0);
 });
 let central = zip.readUInt32LE(end + 16), local = 0;
 for (let i = 0; i < expected.length; i++) check('ZIP entry/source/manifest parity: ' + expected[i], () => {
@@ -59,7 +60,10 @@ check('packager never requests configuration, SavedVariables or exchange inputs'
   const seen = []; pack.prepare(file => { seen.push(file); return get(file); });
   assert.deepEqual(seen, [...expected.map(file => pack.SOURCE + file), 'scripts/build-verify-addon.cjs']);
   assert(!manifest.files.some(row => /(?:^|\/)(?:Config\.lua|OlympusQueue\.lua|OlympusLaunchQueue\.lua|OlympusLaunchSelected\.lua|OlympusVerifyLists\.lua|SavedVariables)$/.test(row.path)));
-  assert(manifest.localFilesExcluded.includes('OlympusLaunchSelected.lua'));
+  for (const file of ['OlympusLaunchSelected.lua','OlympusInitiateChecks.lua','OlympusMemberChecks.lua']) {
+    assert(manifest.localFilesExcluded.includes(file));
+    assert(!manifest.files.some(row => row.path === 'OlympusVerify/' + file));
+  }
 });
 check('changed public bytes update the actual archive and manifest digest', () => {
   const file = pack.SOURCE + 'Bindings.xml', changed = Buffer.concat([get(file), Buffer.from('\n')]);

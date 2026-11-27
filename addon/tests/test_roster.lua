@@ -96,6 +96,36 @@ print("\n== explicit officer panel aliases ==")
 OlympusVerifyUI.Hide()
 SlashCmdList.OLYMPUSVERIFY("ui")
 check("/olv ui opens the Members page of the desk", OlympusVerifyWorkspace.IsShown() and OlympusVerifyWorkspace.section=="roster", true)
+do
+  local desk, roster = OlympusVerifyWorkspace, OlympusVerifyRoster
+  local strata = { BACKGROUND=1, LOW=2, MEDIUM=3, HIGH=4, DIALOG=5, FULLSCREEN=6, FULLSCREEN_DIALOG=7, TOOLTIP=8 }
+  local function abovePage(item, page)
+    return item:IsVisible() and strata[item:GetFrameStrata()] > strata[page:GetFrameStrata()]
+      and strata[item:GetFrameStrata()] < strata.FULLSCREEN_DIALOG
+  end
+  local members = desk.pages.roster
+  members:SetFrameLevel(1000)
+  roster.headers[1].filter:Click()
+  desk.viewButton:Click()
+  check("View items stay above a raised Members page and dismiss the column picker",
+    abovePage(desk.tabs.promotions, members) and not roster.grid.columnMenu:IsShown(), true)
+  desk.toolsButton:Click()
+  check("Tools switches owners, lands below the Tools button and leaves its items in front",
+    desk.navigation.owner == desk.toolsButton and select(2, desk.navigation:GetPoint()) == desk.toolsButton
+    and abovePage(desk.tabs.operations, members) and not desk.tabs.promotions:IsShown(), true)
+  desk.tabs.operations:Click()
+  local operations = desk.pages.operations
+  operations:SetFrameLevel(1500)
+  check("choosing Operations opens that page and closes Tools", operations:IsShown() and not desk.navigation:IsShown(), true)
+  desk.viewButton:Click()
+  check("View also stays above the raised Operations page", abovePage(desk.tabs.roster, operations), true)
+  desk.tabs.roster:Click()
+  desk.viewButton:Click()
+  roster.headers[1].filter:Click()
+  check("opening the column picker dismisses the header and preserves the active Members view",
+    roster.grid.columnMenu:IsShown() and not desk.navigation:IsShown() and desk.section == "roster", true)
+  roster.headers[1].filter:Click()
+end
 SlashCmdList.OLYMPUSVERIFY("ui")
 check("/olv ui toggles the same desk closed", OlympusVerifyWorkspace.IsShown(), false)
 SlashCmdList.OLYMPUSVERIFY("panel")

@@ -9,7 +9,7 @@ import re
 import time
 import urllib.parse
 from typing import Any, Callable
-from native_rank_schemes import NATIVE_PROFILE, SCHEME_DIGEST as RANK_DIGEST, NAMES as RANK_NAMES, rank_scheme
+from native_rank_schemes import NATIVE_PROFILE, SCHEME_DIGEST as RANK_DIGEST, NAMES as RANK_NAMES, PROFILES, rank_scheme
 
 PATH = "/queue/launch-operations?keyVersion=officer-operations-v234"
 PROTOCOL = "officer-operations-v234"
@@ -27,6 +27,7 @@ DIRECTIVE_PROTOCOL = "promotion-selection-directive-v1"
 PRIME_REALM_LABEL = "CAMWOW US2 Realm 3 PvE"
 PRIME_INITIATE_ACTION = "select-prime-initiates"
 PRIME_MEMBER_ACTION = "select-prime-member"
+PRIME_MEMBERS_ACTION = "select-prime-members"
 _DIRECTIVE_CONTROL_KEYS = {"version", "action", "id", "observedAt", "scopeHash", "guid", "targetGuids", "confirmations", "mac"}
 _SELECTED_CONTROL_KEYS = {"version", "action", "id", "observedAt", "scopeHash", "guid", "targetGuid", "mac"}
 _SELECTED_BATCH_CONTROL_KEYS = (_SELECTED_CONTROL_KEYS - {'targetGuid'}) | {'targetGuids'}
@@ -476,9 +477,9 @@ def targets_digest276(value: list[str]) -> str:
 
 
 def selected_control_mac(secret: str, value: dict[str, Any]) -> str:
-    if value.get('version') in (4, 5, 6):
+    if value.get('version') in (4, 5, 6, 7):
         version = value['version']
-        action = {4: 'select-directive', 5: PRIME_INITIATE_ACTION, 6: PRIME_MEMBER_ACTION}[version]
+        action = {4: 'select-directive', 5: PRIME_INITIATE_ACTION, 6: PRIME_MEMBER_ACTION, 7: PRIME_MEMBERS_ACTION}[version]
         message = '|'.join(['launch-selected-read', str(version), action, value['id'], str(value['observedAt']),
                             value['scopeHash'], value['guid'], ','.join(value['targetGuids']), value['confirmations']])
         return hmac.new(secret.encode(), message.encode(), hashlib.sha256).hexdigest()[:32]
@@ -489,21 +490,25 @@ def selected_control_mac(secret: str, value: dict[str, Any]) -> str:
 
 
 def validate_selected_control(secret: str, value: Any, at: int, guid: Any, guild: Any, realm: Any, *,
-                              prime_binding: bool = False, automatic_initiates: bool = False) -> bool:
-    if not isinstance(value, dict):
+                              prime_binding: bool = False, automatic_initiates: bool = False, member_checks: bool = False) -> bool:
+    if not isinstance(value, dict) or automatic_initiates and member_checks:
         return False
     # Old controls remain historical originals; never upgrade them to the new ladder.
     member_read = prime_binding and not automatic_initiates and value.get('version') == 6
     expected = (4, 'select-directive')
     if prime_binding:
         expected = (6, PRIME_MEMBER_ACTION) if member_read else (5, PRIME_INITIATE_ACTION)
+        if member_checks and not member_read:
+            expected = (7, PRIME_MEMBERS_ACTION)
     if (set(value) != _DIRECTIVE_CONTROL_KEYS or type(value.get('version')) is not int or (value['version'], value['action']) != expected
             or prime_binding and not member_read and value['confirmations'] != '[]' or not _selected_targets276(value['targetGuids'])
             or member_read and len(value['targetGuids']) != 1
+            or member_checks and value['confirmations'] != '[]' and len(value['targetGuids']) != 1
+            or member_checks and member_read and value['confirmations'] == '[]'
             or not _text(value['confirmations'],8192) or not value['confirmations'].isascii()
             or not isinstance(value['id'], str) or re.fullmatch(r'[0-9]{9,11}:[0-9]{1,10}', value['id']) is None
             or not _integer(value['observedAt'], 1) or value['id'].split(':')[0] != str(value['observedAt'])
-            or not at-(599 if automatic_initiates else 60) <= value['observedAt'] <= at+5 or value['guid'] != guid
+            or not at-(599 if automatic_initiates or member_checks else 60) <= value['observedAt'] <= at+5 or value['guid'] != guid
             or not isinstance(guid, str) or _GUID.fullmatch(guid) is None or guid in value['targetGuids']
             or not _text(guild) or canonical_guild(guild) != 'OLYMPUS PRIME' or guild != guild.strip() or not _text(realm) or not realm
             or value['scopeHash'] != hashlib.sha256(f'native-scope|1|{guild}|{realm}'.encode()).hexdigest()[:16]
@@ -512,7 +517,10 @@ def validate_selected_control(secret: str, value: Any, at: int, guid: Any, guild
     # Confirm the small scalar envelope before parsing any untrusted nested JSON.
     if not hmac.compare_digest(value['mac'], selected_control_mac(secret, value)):
         return False
-    return _confirmations(value['confirmations'],value['targetGuids']) is not None
+    confirmed = _confirmations(value['confirmations'], value['targetGuids'])
+    if member_checks and value['confirmations'] != '[]' and not confirmed:
+        return False
+    return confirmed is not None
 
 
 def validate_legacy_selected_control(secret: str, value: Any, at: int, guid: Any, guild: Any, realm: Any) -> bool:
@@ -536,31 +544,32 @@ def validate_legacy_selected_control(secret: str, value: Any, at: int, guid: Any
     return hmac.compare_digest(value['mac'], selected_control_mac(secret, value))
 
 
-def sweep_mac(secret: str, sweep_id: str, controls: list[dict]) -> str:
+def sweep_mac(secret: str, sweep_id: str, controls: list[dict], *, member_checks: bool = False) -> str:
     signed_pages = ','.join(control['mac'] for control in controls)
-    message = f'prime-initiate-sweep|1|{sweep_id}|{signed_pages}'
+    domain = 'member-promotion-checks' if member_checks else 'prime-initiate-sweep'
+    message = f'{domain}|1|{sweep_id}|{signed_pages}'
     return hmac.new(secret.encode(), message.encode(), hashlib.sha256).hexdigest()[:32]
 
 
-def valid_sweep(secret: str, envelope: Any, at: int, guid: Any, guild: Any, realm: Any, prime_binding: bool) -> bool:
+def valid_sweep(secret: str, envelope: Any, at: int, guid: Any, guild: Any, realm: Any, prime_binding: bool, *, member_checks: bool = False) -> bool:
     if (type(envelope) is not dict or set(envelope) != {'version', 'id', 'controls', 'mac'}
             or type(envelope['version']) is not int or envelope['version'] != 1
             or not isinstance(envelope['mac'], str) or re.fullmatch('[0-9a-f]{32}', envelope['mac']) is None):
         return False
     controls = envelope['controls']
-    if type(controls) is not list or not 1 <= len(controls) <= MAX_PAGES:
+    if type(controls) is not list or not 1 <= len(controls) <= (1000 if member_checks else MAX_PAGES):
         return False
     ids, guids = set(), set()
     for c in controls:
         if (not validate_selected_control(secret, c, at, guid, guild, realm,
-                                          prime_binding=prime_binding, automatic_initiates=True)
-                or c['confirmations'] != '[]' or c['observedAt'] != controls[0]['observedAt']
-                or c['id'] in ids or not guids.isdisjoint(c['targetGuids'])):
+                                          prime_binding=prime_binding, automatic_initiates=not member_checks, member_checks=member_checks)
+                or not member_checks and c['confirmations'] != '[]' or c['observedAt'] != controls[0]['observedAt']
+                or c['id'] in ids or not guids.isdisjoint(c['targetGuids']) or len(guids)+len(c['targetGuids']) > 1000):
             return False
         ids.add(c['id'])
         guids.update(c['targetGuids'])
     return (envelope['id'] == controls[0]['id']
-            and hmac.compare_digest(envelope['mac'], sweep_mac(secret, envelope['id'], controls)))
+            and hmac.compare_digest(envelope['mac'], sweep_mac(secret, envelope['id'], controls, member_checks=member_checks)))
 
 
 def _selected_page(page: Any, record: dict[str, Any], covered: Any, at: int, allow_stale: bool = False) -> bool:
@@ -595,9 +604,10 @@ def _selected_page(page: Any, record: dict[str, Any], covered: Any, at: int, all
 
 class SelectedRead:
     """One explicit new-source read. Never resets or resumes the discovery Scan."""
-    def __init__(self, clock: Callable[[], float] = time.time, *, automatic_initiates: bool = False):
+    def __init__(self, clock: Callable[[], float] = time.time, *, automatic_initiates: bool = False, member_checks: bool = False):
         self.clock = clock
         self.automatic_initiates = automatic_initiates
+        self.member_checks = member_checks
         self.record: dict[str, Any] | None = None
         self.cursor: str | None = None
         self.next_at = 0.0
@@ -612,8 +622,9 @@ class SelectedRead:
 
     def request(self, control: dict[str, Any], accepted: Any, roster: Any, at: float,
                 *, sweep_source: tuple[str | None, set[str]] | None = None) -> None:
-        self.prime_binding = control.get('version') in (5, 6)
-        self.member_read = control.get('version') == 6
+        self.prime_binding = control.get('version') in (5, 6, 7)
+        self.member_read = self.member_checks or control.get('version') == 6
+        self.member_start_batch = control.get('version') == 7
         batch = self.prime_binding or control.get('version') == 4
         self.record = dict(version=2, protocol=DIRECTIVE_PROTOCOL, controlId=control['id'], actorGuid=control['guid'],
                            confirmations=control.get('confirmations'),
@@ -642,9 +653,19 @@ class SelectedRead:
                  expiresAt=min(control['observedAt']+600, accepted['exportedAt']+600))
         if self.member_read:
             confirmed = _confirmations(control['confirmations'], targets)
+            self.member_step = confirmed[0] if confirmed else None
+            table = roster.get('nativeRankTable')
+            rank_names = table.get('names') if isinstance(table, dict) else None
+            scheme = next((p for p in PROFILES if list(p['names']) == rank_names), None)
+            if not scheme or self.prime_binding and (scheme['member'], scheme['veteran']) != (8, 6):
+                r['stoppedReason'] = 'native-rank-scheme-unconfirmed'
+                return
+            self.member_scheme = scheme
             self.native_guids = {row['guid'] for row in roster['members']
-                                 if row.get('rankIndex') == 8 and row.get('rank') == 'Member'
-                                 or confirmed and row.get('rankIndex') == 7 and row['guid'] == confirmed[0]['guid'] and confirmed[0]['to'] == 7}
+                                 if not confirmed and row.get('rankIndex') == scheme['member'] and row.get('rank') == 'Member'
+                                 or confirmed and row.get('rankIndex') == confirmed[0]['to'] and row['guid'] == confirmed[0]['guid']
+                                 and scheme['veteran'] < confirmed[0]['to'] < scheme['initiate']
+                                 and row.get('rank') == scheme['names'][confirmed[0]['to']]}
         else:
             self.native_guids = (sweep_source[1] if sweep_source is not None else
                                  {row['guid'] for row in roster['members']
@@ -672,7 +693,7 @@ class SelectedRead:
     def expire_admission(self, at: float) -> bool:
         if self.expire(at):
             return True
-        if self.running and not self.automatic_initiates and not self.cursor and at >= self.record['observedAt']+60:
+        if self.running and not (self.automatic_initiates or self.member_checks) and not self.cursor and at >= self.record['observedAt']+60:
             return self.hold('selection-admission-expired')
         return False
 
@@ -691,7 +712,7 @@ class SelectedRead:
         if not _integer(delay, 1, 86400):
             return self.hold('source-refused')
         self.next_at = max(self.next_at, self.clock()+max(5, delay))
-        limit = (self.record['expiresAt'] if self.cursor or self.automatic_initiates
+        limit = (self.record['expiresAt'] if self.cursor or self.automatic_initiates or self.member_checks
                  else min(self.record['expiresAt'], self.record['observedAt']+60))
         if self.next_at >= limit:
             return self.hold('rate-limit-exceeds-scan')
@@ -712,8 +733,11 @@ class SelectedRead:
         query = dict(selectionId=r['controlId'], snapshotId=r['snapshotId'], snapshotAt=r['snapshotAt'], actorGuid=r['actorGuid'], confirmations=r['confirmations'])
         if self.automatic_initiates:
             query['autoInitiates'] = '1'
+        if self.member_checks:
+            query['memberChecks'] = '1'
         if self.prime_binding:
-            query['primeBinding'] = 'prime-guild-master-member' if self.member_read else 'prime-guild-master'
+            query['primeBinding'] = ('prime-guild-master-members' if self.member_start_batch else
+                                     'prime-guild-master-member' if self.member_read else 'prime-guild-master')
         query.update(targetGuids=json.dumps(r['targetGuids'], separators=(',', ':'))) if batch else query.update(targetGuid=r['targetGuid'])
         if self.cursor:
             query['cursor'] = self.cursor
@@ -756,13 +780,17 @@ class SelectedRead:
                     return self.hold(reason)
             return self.hold('source-held')
         observation = {**r, 'protocol': reply['protocol']}
+        scheme = rank_scheme(page.get('rankProfile'), page.get('rankSchemeDigest')) if isinstance(page, dict) else None
         if (not _selected_page(page, observation, covered, int(self.clock())) or not set(covered) <= self.native_guids
                 or (self.prime_binding and not self.member_read or self.automatic_initiates) and any(row['currentSlot'] != 9
                     or row['intent']['startSlot'] != 9 or row['intent']['acknowledgedSteps'] != 0 for row in page['promotions'])
-                or self.member_read and any(row['reason'] != 'knight-veteran' or row['targetSlot'] != 6
-                    or row['intent']['startSlot'] not in (8, 9) or row['currentSlot'] not in (7, 8)
-                    or (r['confirmations'] == '[]') != (row['intent']['acknowledgedSteps'] == 0)
-                    or r['confirmations'] == '[]' and row['currentSlot'] != 8 for row in page['promotions'])
+                or self.member_read and (not scheme or scheme != self.member_scheme)
+                or self.member_read and any(row['reason'] != 'knight-veteran' or row['targetSlot'] != scheme['veteran']
+                    or row['intent']['startSlot'] not in (scheme['member'], scheme['initiate'])
+                    or not scheme['veteran'] < row['currentSlot'] < scheme['initiate']
+                    or self.member_step and row['currentSlot'] != self.member_step['to']
+                    or (self.member_step is None) != (row['intent']['acknowledgedSteps'] == 0)
+                    or not self.member_step and row['currentSlot'] != scheme['member'] for row in page['promotions'])
                 or r['page'] is not None and page['scan']['id'] != r['page']['scan']['id']):
             return self.hold('invalid-selected-page')
         r['page'] = json.loads(json.dumps(page))
@@ -825,17 +853,24 @@ def render_selected(record: Any, at: int) -> str | None:
         return None
     return "-- Independent dated promotion observation; never renews discovery or native authority.\nOlympusLaunchSelected=" + _lua(safe) + "\n"
 
+def member_projection_text(control_id: str, sanitized_records: list[dict]) -> str:
+    return 'OlympusMemberChecks=' + _lua(dict(version=1, id=control_id, records=sanitized_records)) + '\n'
 
-def render_sweep(records: list[dict], at: int, empty_receipt: dict | None = None) -> str | None:
+
+def render_sweep(records: list[dict], at: int, empty_receipt: dict | None = None, *, member_checks: bool = False) -> str | None:
     if not records:
+        if member_checks:
+            return None
         if (not isinstance(empty_receipt, dict) or set(empty_receipt) != {'scopeHash', 'snapshotId', 'snapshotAt'}
                 or not _integer(empty_receipt['snapshotId'], 1) or not _integer(empty_receipt['snapshotAt'], 1)
                 or not isinstance(empty_receipt['scopeHash'], str) or not re.fullmatch('[0-9a-f]{16}', empty_receipt['scopeHash'])):
             return None
         return 'OlympusInitiateChecks=' + _lua(dict(version=1, kind='no-native-initiates', records=[], **empty_receipt)) + '\n'
-    if len(records) > MAX_PAGES:
+    if len(records) > (1000 if member_checks else MAX_PAGES):
         return None
     pages = [selected_projection(record, at) for record in records]
     if any(page is None for page in pages):
         return None
+    if member_checks:
+        return member_projection_text(records[0]['controlId'], pages)
     return 'OlympusInitiateChecks=' + _lua(dict(version=1, id=records[0]['controlId'], records=pages)) + '\n'

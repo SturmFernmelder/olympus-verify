@@ -10,7 +10,7 @@ import {CANONICAL_GUILD233,CANONICAL_PROFILE233,CANONICAL_RANKS233} from '../src
 import {REFRESH_ROSTER_SNAPSHOT,START_ROSTER_SNAPSHOT,COMPLETE_ROSTER_SNAPSHOT} from '../src/roster.ts';
 
 const EPOCH='a'.repeat(32), token='synthetic-roster-only-bearer-for-this-fixture';
-const names=['Fixture Master','Ñò Example','Other Member','Fourth Member','Fifth Member','Sixth Member'];
+const names=['Fixture Master','Ñò Example','Other Member','Fourth Member','Fifth Member','Sixth Member','Ordinary Member','Unlinked Member'];
 const members=names.map((name,i)=>({name,guid:'Player-9999-'+String(i+1).padStart(8,'0'),
   rankIndex:i>=2&&i<=4?9:i?8:0,rank:i>=2&&i<=4?'Initiate':i?'Member':'Guild Master'}));
 const rankTable={version:1,names:STEWARD_RANK_NAMES};
@@ -22,10 +22,10 @@ async function checkSelected(check,env,writer,snapshot,ctx,refreshNamed) {
   const selectedEnv={...env,SITE_GUILD_ID:CANONICAL_GUILD233,DISCORD_BOT_TOKEN:'synthetic-blank-selected',
     CANONICAL_RANKS233:JSON.stringify({version:1,enabled:true,profile:CANONICAL_PROFILE233,guildId:CANONICAL_GUILD233,
       ranks:CANONICAL_RANKS233.map(row=>({...row,permissions:'0'}))})};
-  const targets=members.slice(2),at=Math.floor(Date.now()/1000);
+  const targets=members.slice(2,6),at=Math.floor(Date.now()/1000);
   // Two verified Initiates (a Knight and non-Knight), an unverified Initiate,
   // and a verified Member whose selection became stale. Only the first two qualify.
-  for(const [index,id] of [[2,'800000000000000012'],[3,'800000000000000013'],[5,'800000000000000015']]){
+  for(const [index,id] of [[2,'800000000000000012'],[3,'800000000000000013'],[5,'800000000000000015'],[6,'800000000000000016']]){
     const row=members[index];
     await writer.DB.batch([writer.DB.prepare('INSERT INTO members(discord_id) VALUES(?1)').bind(id),
       writer.DB.prepare(`INSERT INTO characters(name_key,name,discord_id,status,bound_at,verified_at,source,guid)
@@ -93,6 +93,46 @@ async function checkSelected(check,env,writer,snapshot,ctx,refreshNamed) {
   check('Member without live Knight standing receives no recommendation',ordinaryMember.body.coveredGuids.join()===members[5].guid&&
     !ordinaryMember.body.page.promotions.length,ordinaryMember);
   selectedEnv.DISCORD_BOT_TOKEN='synthetic-blank-selected';
+  const veteranTargets=members.slice(5).map(row=>row.guid);
+  const group={memberChecks:'1',primeBinding:'prime-guild-master-members',targetGuids:JSON.stringify(veteranTargets)};
+  function checkVeteranGroup(label,result,clock) {
+    const data=result.body.page,row=data?.promotions[0];
+    check(label,result.status===200&&result.body.coveredGuids?.join()===veteranTargets.join()&&data.promotions.length===1&&
+      row.guid===members[5].guid&&row.currentSlot===8&&row.targetSlot===6&&row.reason==='knight-veteran'&&
+      row.intent.originSnapshotId===snapshot.id&&row.intent.originSnapshotAt===clock&&row.intent.actorGuid===members[0].guid&&
+      row.intent.acknowledgedSteps===0&&row.intentToken&&data.expiresAt<=clock+600&&data.actions.requiresNativeRecheck&&
+      !data.actions.automatic&&!data.actions.roleGrants&&!data.actions.removals&&!data.invites.length&&!data.riskBuffer.length,result);
+  }
+  const checkedGroup=await read(group);
+  checkVeteranGroup('One enrolled blank-realm Veteran check handles a Knight, non-Knight and unlinked Member independently',
+    checkedGroup,snapshot.exported_at);
+  const memberStep={guid:memberPromotion.guid,token:memberPromotion.intentToken,from:8,to:7,observedAt:at};
+  const confirmUnderGroup=await read({...group,targetGuids:onlyMember.targetGuids,confirmations:JSON.stringify([memberStep])});
+  check('A plural Member check cannot consume even one signed previous step',confirmUnderGroup.status===400,confirmUnderGroup);
+  for(const [label,variation] of [
+    ['an invalid toggle',{memberChecks:'yes'}],['a missing Veteran toggle',{memberChecks:null}],
+    ['Initiate background mode',{autoInitiates:'1'}],['an Initiate marker',{primeBinding:marker.kind}],
+    ['a single-Member marker on a batch',{primeBinding:'prime-guild-master-member'}],
+      ['a queued single-Member continuation with no observed step',{...onlyMember,memberChecks:'1'}],
+    ['a previous unrelated cursor',{cursor:page.pageCursor}],
+    ['an expired original request',{selectionId:(at-600)+':20'}],
+    ['an expired original observation',{snapshotAt:String(at-600)}],
+  ]){
+    const rejected=await read({...group,...variation});
+    check('Veteran batch refuses '+label,rejected.status===400,rejected);
+  }
+  for(const [label,variation] of [
+    ['an unenrolled officer',{actorGuid:members[1].guid}],['a stripped blank-realm binding',{primeBinding:null}],
+    ['a now-Initiate target',{targetGuids:JSON.stringify([members[2].guid,...veteranTargets])}],
+    ['a missing target',{targetGuids:JSON.stringify([...veteranTargets,'Player-9999-FFFFFFFF'])}],
+  ]){
+    const rejected=await read({...group,...variation});
+    check('Veteran batch holds '+label,rejected.body.page?.status==='held'&&!rejected.body.page.promotions.length,rejected);
+  }
+  const wrongAuth=await read(group,'wrong-fixture-token');
+  check('Bulk Veteran check requires the Watcher credential',wrongAuth.status===401,wrongAuth);
+  const earlierRead=await read({...group,snapshotAt:String(snapshot.exported_at-1)});
+  check('Bulk Veteran check refuses a changed ACK clock',earlierRead.status===409,earlierRead);
   const discovery=await read({keyVersion:DISCOVERY_OPERATIONS_PROTOCOL235});
   check('The marker grants no discovery read',discovery.status===400,discovery);
   const beforeNamed=await writer.DB.prepare('UPDATE roster_snapshots SET exported_at=exported_at+1 WHERE id=?1').bind(snapshot.id).run();
@@ -161,6 +201,9 @@ async function checkSelected(check,env,writer,snapshot,ctx,refreshNamed) {
   check('A genuine named upload refreshes its original snapshot with a distinct clock',named.id===snapshot.id&&named.exported_at>snapshot.exported_at,named);
   const namedQuery={...automatic,primeBinding:null,snapshotAt:String(named.exported_at)};
   assertAutoPage('Named-realm background read enforces the same per-Initiate eligibility and click restrictions',await read(namedQuery));
+  const namedGroup={...group,primeBinding:null,snapshotAt:String(named.exported_at)};
+  checkVeteranGroup('One named-realm Veteran batch serves only the Knight and requires the same separate officer click',
+    await read(namedGroup),named.exported_at);
   for(const [label,params] of [['named',namedQuery],['blank',automatic]]){
     const confirmed=await read({...params,...confirmInput});
     check('Automatic '+label+' selections refuse even a valid prior step confirmation',
@@ -184,6 +227,10 @@ async function checkSelected(check,env,writer,snapshot,ctx,refreshNamed) {
     check('Only the signed original Knight step continues after the newer native Alt observation',row?.currentSlot===7&&
       row.targetSlot===6&&row.intent.id===memberPromotion.intent.id&&row.intent.acknowledgedSteps===1&&
       row.intent.expiresAt===memberPromotion.intent.expiresAt&&row.intent.lastSnapshotId===next.id,nextStep);
+    const attended=await read({...params,memberChecks:'1',confirmations:JSON.stringify([prior])}),continued=attended.body.page?.promotions[0];
+    check('A single owned Veteran continuation in memberChecks mode retains its original seal lineage and expiry',
+      continued?.guid===members[5].guid&&continued.intent.id===memberPromotion.intent.id&&continued.intent.acknowledgedSteps===1&&
+      continued.intent.expiresAt===memberPromotion.intent.expiresAt&&!attended.body.page.actions.automatic,attended);
   };
 }
 
@@ -252,7 +299,7 @@ export default {async fetch(request,bindings,ctx) {
       absent:{nativeScopeBinding:undefined},extra:{nativeScopeBinding:{...marker,extra:true}},malformed:{nativeScopeBinding:null},
       version:{nativeScopeBinding:{...marker,version:'1'}},kind:{nativeScopeBinding:{...marker,kind:'officer'}},
       guessed:{nativeScopeBinding:{...marker,observerGuid:members[1].guid}},
-      missingRealm:{nativeRealm:undefined},missingTotal:{nativeRosterTotal:undefined},incomplete:{nativeRosterTotal:7},
+      missingRealm:{nativeRealm:undefined},missingTotal:{nativeRosterTotal:undefined},incomplete:{nativeRosterTotal:members.length+1},
       future:{exportedAt:t+100},expired:{exportedAt:t-601},notObserved:{nativeRankTable:false},
       duplicateGuid:{members:members.map((m,i)=>i===3?{...m,guid:members[1].guid}:m)},
       noGM:{members:members.map(m=>({...m,rank:'Member',rankIndex:8}))},
@@ -308,7 +355,7 @@ export default {async fetch(request,bindings,ctx) {
       return latest();
     });
     await reject('Smaller previously trusted guild snapshot cannot be truncated',{...again,exportedAt:t-40,
-      members:changed.slice(0,-1),nativeRosterTotal:5},{},422);
+      members:changed.slice(0,-1),nativeRosterTotal:changed.length-1},{},422);
     const priorAdmission=await admitPrimeRoster(writer,mode.scope,{...again,exportedAt:t-25});
     check('Genuine D1 preflight observes existing trusted predecessor',!!priorAdmission);
     const alternate=await call({...named,exportedAt:t-30,members:members.map((m,i)=>i===0?{...m,guid:'Player-1111-FFFFFFFF'}:m)});
