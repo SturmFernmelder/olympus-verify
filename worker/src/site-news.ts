@@ -79,6 +79,11 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".315", date: "2026-11-27", lines: [
+      "After signing in, members can read the voluntary guild bank contribution instructions directly on the home page.",
+    ],
+  },
+  {
     build: ".314", date: "2026-11-27", lines: [
       "The officer desk has shortcuts for ready Initiates and Initiates offline at least seven days. Inactive rows show the applicable threshold. Tools and View open above the roster.",
       "Officers can check all current Members for Veteran in one Sync. Each promotion still requires an officer click. The single-character button also fits inside the Guild window.",

@@ -355,6 +355,33 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
 
   console.log("\n== the shell: signed out ==");
   const anonymous = await openPage(null);
+  {
+    const title = "Contribute to the guild bank";
+    const receipts = 'a[href="#/community/dues"]';
+    check("the Discord sign-in gate omits the contribution prompt and receipts",
+      !anonymous.html.includes(title) && !/mail[^<]*gold[^<]*Fern Melder/i.test(anonymous.html)
+        && !anonymous.html.includes("#/community/dues"));
+    const signedOut = await openPage(MEMBER, {}, { bootTransform: boot => { boot.signedIn = false; } });
+    const fallback = signedOut.app.querySelector("main");
+    check("the signed-out JavaScript home omits the contribution prompt and receipts",
+      fallback.textContent.includes("Sign in with Discord") && !fallback.textContent.includes(title) && !fallback.querySelector(receipts));
+
+    const headings = page => page.app.querySelector("main").querySelectorAll("h1,h2,h3,h4").filter(node => node.textContent === title);
+    const memberHeadings = headings(await openPage(MEMBER));
+    const card = memberHeadings[0]?.parentElement;
+    const mail = card?.querySelector("p");
+    check("the signed-in home displays one heading and voluntary mail instructions without a disclosure control",
+      memberHeadings.length === 1 && mail?.textContent.includes("voluntary") && mail.textContent.includes("Fern Melder")
+        && !mail.closest("details,summary,[hidden]") && !card.querySelector("summary,[aria-expanded]"));
+    check("an eligible signed-in member can open contribution receipts", card?.querySelector(receipts)?.textContent.includes("receipts"));
+    for (const [group, flag] of [["features", "contributions"], ["capabilities", "applicantWrite"]]) {
+      const page = await openPage(MEMBER, {}, { bootTransform: boot => { boot.community[group][flag] = false; } });
+      const items = headings(page);
+      const item = items[0]?.parentElement;
+      check("mail instructions remain visible without a receipts link when "+flag+" is off",
+        items.length === 1 && item.textContent.includes("Fern Melder") && !item.querySelector(receipts));
+    }
+  }
   check(".154 anonymous root is the actual script-free sign-in gate with no app boot or source", anonymous.response.status === 200 && anonymous.boot === null && anonymous.app === null && anonymous.html.includes('href="/auth/login"') && /script-src 'none'/.test(anonymous.response.headers.get("Content-Security-Policy") || "") && !/<script\b|\/static\/app\.(?:js|css)|id="boot"/i.test(anonymous.html));
   check(".167 anonymous entry omits policy navigation, without guild navigation or payload", !anonymous.html.includes('href="/privacy"') && !anonymous.html.includes('href="/terms"') && !anonymous.html.includes('href="/legal/privacy"') && !anonymous.html.includes('href="/legal/terms"') && !/#\/(?:roles|governance|organization|community)|"appointed"|"community"|"settings"/.test(anonymous.html));
   const publicPrivacy = await policyHTML("/legal/privacy"), publicTerms = await policyHTML("/legal/terms");

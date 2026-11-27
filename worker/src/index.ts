@@ -813,7 +813,7 @@ async function freshRegistrationRefused(env: Env, trigger: string): Promise<void
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-11-27.314 Officer desk shortcuts and Veteran checks";
+const BUILD = "2026-11-27.315 Guild bank contributions on the member home page";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a

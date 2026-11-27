@@ -3118,8 +3118,8 @@
   };
 
   function contributionCard() {
-    return h("details", { class: "card" },
-      h("summary", null, h("strong", { text: "Contribute to the guild bank" })),
+    return h("section", { class: "card" },
+      h("h2", { text: "Contribute to the guild bank" }),
       h("p", { text: "Gold for the guild bank is a voluntary gift. Choose any amount and send it by in-game mail to Fern Melder. Membership, promotions and raid places are independent of donations." }),
       S.signedIn && feat("contributions") && can("applicantWrite") ? h("a", {class:"btn small",href:"#/community/dues",text:"View my contribution reference and receipts"}) : null);
   }
@@ -3138,7 +3138,7 @@
               h("p", { class: "lead", text: "Explore Olympus membership, raiding and artisan roles, and list the friends you are bringing. Leader, High Council and Officer Corps seats are reserved appointments." }),
               signInButton(true),
               h("p", { class: "muted small", text: "For members of Asmongold's Discord server. The site checks that one membership and nothing else: it never sees your password, email, other servers or messages." })))),
-        flash, contributionCard(),
+        flash,
         h("section", { class: "grid three" },
           h("div", { class: "card" }, h("div", { class: "card-head" }, icon("icon-apply"), h("h3", { text: "Apply" })), h("p", { class: "muted", text: "Browse illustrated, collapsible guides for every rank, title and office. Eligible membership, Raider and Artisan roles have application choices; reserved leadership seats have detailed duties and expectations without application buttons." }), h("p", { class: "small" }, h("a", { href: "#/roles", text: "What each role involves" }))),
           h("div", { class: "card" }, h("div", { class: "card-head" }, icon("icon-vote"), h("h3", { text: "Vote" })), h("p", { class: "muted", text: "Historical applications and nominations remain on record. A nomination is a recommendation for leadership review; it does not open a reserved seat to applications. Only the guild's leadership sees vote counts." })),
